@@ -280,7 +280,7 @@
 
         .sheet-grid {
             display: grid;
-            grid-template-columns: 56px repeat(9, minmax(56px, 1fr));
+            grid-template-columns: 56px repeat(12, minmax(56px, 1fr));
             gap: 6px;
             overflow-x: auto;
         }
@@ -548,8 +548,9 @@
                         <textarea id="nikkanBoardInput" class="nl-input" placeholder="日刊スポーツの打者成績表を複数行まとめて貼り付け"></textarea>
                         <div class="nl-actions">
                             <button onclick="importNikkanSportsBoard()">選択打順から一括取り込み</button>
+                            <button onclick="importNikkanSportsBoard(true)">1番から自動配置</button>
                         </div>
-                        <div id="nikkanBoardPreview" class="nl-preview">選択中の打順を先頭にして、複数行を 1番ずつ下へ流し込みます。</div>
+                        <div id="nikkanBoardPreview" class="nl-preview">選択中の打順を先頭にして、複数行を 1番ずつ下へ流し込みます。延長は12回まで対応します。</div>
                         <div class="import-help">低確度のセルはシート上でグレーハッチ表示にします。あとでタップして修正できます。</div>
                     </div>
                 </section>
@@ -907,6 +908,7 @@
 
         const NATURAL_LANGUAGE_STORAGE_KEY = "scorebook_nl_mappings_v1";
         const BUILTIN_NATURAL_LANGUAGE_RULES = createBuiltInNaturalLanguageRules();
+        const MAX_INNINGS = 12;
         const SHORT_FIELDER_MAP = {
             "投": "1",
             "捕": "2",
@@ -995,7 +997,7 @@
         }
 
         function createEmptyScoreSheet() {
-            return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => null));
+            return Array.from({ length: 9 }, () => Array.from({ length: MAX_INNINGS }, () => null));
         }
 
         function captureAtBatSnapshot() {
@@ -1515,13 +1517,14 @@
             }
 
             grid.innerHTML = "";
+            grid.style.gridTemplateColumns = "56px repeat(" + MAX_INNINGS + ", minmax(56px, 1fr))";
 
             const corner = document.createElement("div");
             corner.className = "sheet-header";
             corner.textContent = "打順/回";
             grid.appendChild(corner);
 
-            for (let inning = 1; inning <= 9; inning += 1) {
+            for (let inning = 1; inning <= MAX_INNINGS; inning += 1) {
                 const header = document.createElement("div");
                 header.className = "sheet-header";
                 header.textContent = inning + "回";
@@ -1534,7 +1537,7 @@
                 label.textContent = (row + 1) + "番";
                 grid.appendChild(label);
 
-                for (let col = 0; col < 9; col += 1) {
+                for (let col = 0; col < MAX_INNINGS; col += 1) {
                     const button = document.createElement("button");
                     button.className = "sheet-cell";
                     if (row === state.selectedSheetRow && col === state.selectedSheetCol) {
@@ -1596,7 +1599,7 @@
             let nextCol = state.selectedSheetCol;
             if (nextRow >= 9) {
                 nextRow = 0;
-                nextCol = Math.min(8, state.selectedSheetCol + 1);
+                nextCol = Math.min(MAX_INNINGS - 1, state.selectedSheetCol + 1);
             }
             selectSheetCell(nextRow, nextCol);
             resetState();
@@ -1608,6 +1611,35 @@
             updateDisplay();
         }
 
+        function isLikelyNikkanInningToken(token) {
+            if (!token) {
+                return false;
+            }
+            if (/^[0-9.]+$/.test(token)) {
+                return false;
+            }
+            if (/^(?:\.{3,}|…+|・+|ー+|－+)$/.test(token)) {
+                return true;
+            }
+            return /[一二三遊投捕左右中123456789１２３４５６７８９安飛振球死本ゴ盗犠直併失野選]/.test(token);
+        }
+
+        function extractNikkanInningCells(tokens) {
+            const cells = [];
+            for (let index = tokens.length - 1; index >= 0; index -= 1) {
+                const token = tokens[index];
+                if (isLikelyNikkanInningToken(token)) {
+                    cells.unshift(token);
+                    if (cells.length >= MAX_INNINGS) {
+                        break;
+                    }
+                } else if (cells.length >= 9) {
+                    break;
+                }
+            }
+            return cells;
+        }
+
         function parseNikkanSportsRow(text) {
             const normalized = (text || "").replace(/\s+/g, " ").trim();
             if (!normalized) {
@@ -1615,11 +1647,11 @@
             }
 
             const tokens = normalized.split(" ");
-            if (tokens.length < 9) {
+            const inningCells = extractNikkanInningCells(tokens);
+            if (inningCells.length < 9) {
                 return null;
             }
 
-            const inningCells = tokens.slice(-9);
             return {
                 raw: normalized,
                 inningCells
@@ -1698,7 +1730,7 @@
             ].join("<br>");
         }
 
-        function importNikkanSportsBoard() {
+        function importNikkanSportsBoard(startFromTop = false) {
             const input = document.getElementById("nikkanBoardInput").value.trim();
             const preview = document.getElementById("nikkanBoardPreview");
             if (!input) {
@@ -1716,12 +1748,13 @@
                 return;
             }
 
-            const startRow = state.selectedSheetRow;
+            const startRow = startFromTop ? 0 : state.selectedSheetRow;
+            const maxRows = 9 - startRow;
             let importedRows = 0;
             let importedCells = 0;
             let lowConfidenceCells = 0;
 
-            parsedRows.slice(0, 9 - startRow).forEach((entry, rowOffset) => {
+            parsedRows.slice(0, maxRows).forEach((entry, rowOffset) => {
                 const targetRow = startRow + rowOffset;
                 let rowImported = false;
 
@@ -1751,7 +1784,8 @@
                 "開始打順: " + (startRow + 1) + "番",
                 "反映行数: " + importedRows,
                 "反映セル数: " + importedCells,
-                "低確度セル: " + lowConfidenceCells + "件"
+                "低確度セル: " + lowConfidenceCells + "件",
+                startFromTop ? "配置: 1番から自動" : "配置: 選択打順から"
             ].join("<br>");
         }
 
