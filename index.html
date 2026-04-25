@@ -525,6 +525,17 @@
                 </section>
 
                 <section class="section">
+                    <div class="section-title">日刊スポーツ 1行インポート</div>
+                    <div class="nl-panel">
+                        <textarea id="nikkanRowInput" class="nl-input" placeholder="例: (左) キャベッジ (左) 4 2 0 .304 4 二ゴ 右安 死球 …… …… 左2 …… 二ゴ ……"></textarea>
+                        <div class="nl-actions">
+                            <button onclick="importNikkanSportsRow()">選択打順に取り込む</button>
+                        </div>
+                        <div id="nikkanImportPreview" class="nl-preview">現在選択中の打順へ、1回〜9回をまとめて取り込みます。</div>
+                    </div>
+                </section>
+
+                <section class="section">
                     <div class="section-title">自然言語入力</div>
                     <div class="nl-panel">
                         <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
@@ -1561,6 +1572,69 @@
             document.getElementById("battingOrderSelect").value = state.battingOrder;
             renderScoreSheet();
             updateDisplay();
+        }
+
+        function parseNikkanSportsRow(text) {
+            const normalized = (text || "").replace(/\s+/g, " ").trim();
+            if (!normalized) {
+                return null;
+            }
+
+            const tokens = normalized.split(" ");
+            if (tokens.length < 9) {
+                return null;
+            }
+
+            const inningCells = tokens.slice(-9);
+            return {
+                raw: normalized,
+                inningCells
+            };
+        }
+
+        function importNikkanSportsRow() {
+            const input = document.getElementById("nikkanRowInput").value.trim();
+            const preview = document.getElementById("nikkanImportPreview");
+            const parsedRow = parseNikkanSportsRow(input);
+
+            if (!parsedRow) {
+                preview.textContent = "1行の分解に失敗しました。日刊スポーツの1行をそのまま貼ってください。";
+                return;
+            }
+
+            let importedCount = 0;
+
+            parsedRow.inningCells.forEach((cellText, index) => {
+                const parsed = buildParsedInput(cellText);
+                if (!parsed || !parsed.result) {
+                    return;
+                }
+
+                const previousRow = state.selectedSheetRow;
+                const previousCol = state.selectedSheetCol;
+
+                state.selectedSheetRow = previousRow;
+                state.selectedSheetCol = index;
+                state.battingOrder = String(previousRow + 1);
+                document.getElementById("battingOrderSelect").value = state.battingOrder;
+
+                applyParsedInput(parsed);
+                saveCurrentToSheet();
+                importedCount += 1;
+
+                state.selectedSheetRow = previousRow;
+                state.selectedSheetCol = previousCol;
+            });
+
+            renderScoreSheet();
+            updateDisplay();
+
+            preview.innerHTML = [
+                "取り込み完了:",
+                "打順: " + (state.selectedSheetRow + 1) + "番",
+                "反映数: " + importedCount + "打席",
+                "セル: " + parsedRow.inningCells.join(" | ")
+            ].join("<br>");
         }
 
         function setBattingOrder() {
