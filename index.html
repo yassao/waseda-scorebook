@@ -1,0 +1,3147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>早稲田式スコアブック v0.7</title>
+    <style>
+        :root {
+            --bg-top: #f5f1e8;
+            --bg-bottom: #d6e4f0;
+            --panel: rgba(255, 255, 255, 0.94);
+            --ink: #222222;
+            --accent: #0f6a73;
+            --accent-strong: #094c52;
+            --danger: #c8513f;
+            --success: #2b9a62;
+            --warning: #d68a1f;
+            --muted: #6b7280;
+            --border: #233142;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(255, 255, 255, 0.8), transparent 36%),
+                linear-gradient(160deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+            color: var(--ink);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            max-width: 720px;
+            height: 100vh;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-header {
+            padding: 18px 20px 10px;
+            color: #12202c;
+            flex-shrink: 0;
+        }
+
+        .app-header h1 {
+            font-size: 28px;
+            line-height: 1.2;
+            letter-spacing: 0.04em;
+        }
+
+        .app-header p {
+            margin-top: 6px;
+            color: #34495e;
+            font-size: 14px;
+        }
+
+        .scorebox-container {
+            background: var(--panel);
+            margin: 0 16px;
+            padding: 18px;
+            border-radius: 18px;
+            box-shadow: 0 18px 40px rgba(22, 34, 51, 0.12);
+            flex-shrink: 0;
+            border: 1px solid rgba(35, 49, 66, 0.08);
+        }
+
+        .scorebox-svg {
+            width: 100%;
+            max-width: 430px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .status-line {
+            margin-top: 12px;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .control-panel-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            padding-bottom: calc(32px + env(safe-area-inset-bottom));
+        }
+
+        .control-panel {
+            background: var(--panel);
+            border-radius: 18px;
+            padding: 18px;
+            border: 1px solid rgba(35, 49, 66, 0.08);
+            box-shadow: 0 18px 40px rgba(22, 34, 51, 0.08);
+        }
+
+        .section {
+            margin-bottom: 22px;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 10px;
+            color: #22313f;
+        }
+
+        .button-grid,
+        .button-grid-3,
+        .pitch-buttons,
+        .button-grid-4 {
+            display: grid;
+            gap: 10px;
+        }
+
+        .button-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .button-grid-3 {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .pitch-buttons {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .button-grid-4 {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        button,
+        select {
+            font: inherit;
+        }
+
+        button {
+            min-height: 50px;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: #ffffff;
+            color: var(--ink);
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+        }
+
+        button:hover {
+            background: #f5f7f9;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button.is-active {
+            background: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent-strong);
+        }
+
+        .btn-hit {
+            background: #d9edf7;
+            border-color: #4080a8;
+        }
+
+        .btn-out {
+            background: #f7ddd9;
+            border-color: #b14b3f;
+        }
+
+        .btn-walk {
+            background: #def2e5;
+            border-color: #2f8b5a;
+        }
+
+        .btn-k {
+            background: #f7ead3;
+            border-color: #c47c17;
+        }
+
+        .btn-reset {
+            width: 100%;
+            background: #596775;
+            color: #ffffff;
+            border-color: #45515d;
+        }
+
+        .fielder-selector {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 14px;
+            background: #f4f7f8;
+            border-radius: 14px;
+        }
+
+        .fielder-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .direction-btn {
+            width: 52px;
+            min-height: 52px;
+            padding: 0;
+            font-size: 24px;
+        }
+
+        #fielderSelect {
+            min-width: 168px;
+            padding: 10px 12px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .current-selection {
+            font-size: 14px;
+            font-weight: 700;
+            color: #3b4956;
+        }
+
+        .note {
+            margin-top: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--muted);
+        }
+
+        .summary-card {
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: #f8fafb;
+            border: 1px solid #d8e1e8;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #334155;
+        }
+
+        .sheet-panel {
+            padding: 14px;
+            border-radius: 14px;
+            background: #f8fafb;
+            border: 1px solid #d8e1e8;
+        }
+
+        .sheet-toolbar {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .sheet-meta {
+            margin-bottom: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #475569;
+        }
+
+        .sheet-grid {
+            display: grid;
+            grid-template-columns: 56px repeat(9, minmax(56px, 1fr));
+            gap: 6px;
+            overflow-x: auto;
+        }
+
+        .sheet-header,
+        .sheet-label,
+        .sheet-cell {
+            min-height: 56px;
+            border-radius: 12px;
+            border: 1px solid #c9d5df;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 6px;
+        }
+
+        .sheet-header,
+        .sheet-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #334155;
+            background: #eef3f7;
+        }
+
+        .sheet-cell {
+            cursor: pointer;
+            flex-direction: column;
+            gap: 2px;
+            min-height: 64px;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+
+        .sheet-cell.is-active {
+            border-color: #0f6a73;
+            box-shadow: inset 0 0 0 2px rgba(15, 106, 115, 0.16);
+            background: #edf9fa;
+        }
+
+        .sheet-cell-main {
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .sheet-cell-sub {
+            font-size: 10px;
+            color: #64748b;
+        }
+
+        .sheet-cell-svg {
+            width: 100%;
+            height: 72px;
+            display: block;
+        }
+
+        .sheet-cell-empty {
+            font-size: 16px;
+            color: #94a3b8;
+            font-weight: 700;
+        }
+
+        .result-picker {
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+            flex-wrap: wrap;
+        }
+
+        .result-picker select {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .result-help {
+            margin-top: 8px;
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .nl-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .nl-input {
+            width: 100%;
+            min-height: 56px;
+            padding: 12px 14px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font: inherit;
+            resize: vertical;
+            background: #fff;
+        }
+
+        .nl-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .nl-preview {
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: #f8fafb;
+            border: 1px solid #d8e1e8;
+            color: #334155;
+            font-size: 14px;
+            line-height: 1.6;
+            min-height: 72px;
+        }
+
+        .nl-corrections {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .nl-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .nl-field label {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .nl-field select {
+            padding: 10px 12px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 13px;
+            color: #506170;
+            margin-top: 16px;
+        }
+
+        @media (max-width: 480px) {
+            .app-header h1 {
+                font-size: 24px;
+            }
+
+            .scorebox-container,
+            .control-panel {
+                border-radius: 16px;
+            }
+
+            .button-grid-3 {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .button-grid-4 {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .nl-corrections {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="app-header">
+            <h1>早稲田式スコアブック v0.7</h1>
+            <p>まずは1打席を正しく書ける状態まで仕上げたプロトタイプです。</p>
+        </header>
+
+        <div class="scorebox-container">
+            <svg id="scoreboxSvg" class="scorebox-svg" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg" aria-label="スコアボックス">
+                <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                <g id="hitLines" fill="none" stroke="#d14b3a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                    <path id="hit-line-first" d="" visibility="hidden"></path>
+                    <path id="hit-line-second" d="" visibility="hidden"></path>
+                    <path id="hit-line-third" d="" visibility="hidden"></path>
+                    <path id="hit-line-home" d="" visibility="hidden"></path>
+                </g>
+                <line id="inningEndSlash" x1="146" y1="185" x2="215" y2="116" stroke="#111" stroke-width="2" visibility="hidden"/>
+                <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+
+                <g id="pitchCountDisplay"></g>
+
+                <text id="outCountDisplay" x="125" y="106" text-anchor="middle" font-size="32" font-weight="700" fill="#222"></text>
+
+                <g id="resultGroup" transform="translate(182 166)">
+                    <rect id="sacrificeBox" x="-18" y="-24" width="36" height="40" fill="none" stroke="#222" stroke-width="2" visibility="hidden"></rect>
+                    <polygon id="sacrificeFlyTriangle" points="-22,14 0,-24 22,14" fill="none" stroke="#1f5fbf" stroke-width="2" visibility="hidden"></polygon>
+                    <path id="ballTypeDecoration" d="" fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <text id="resultPrefixDisplay" x="0" y="-18" text-anchor="middle" font-size="14" font-weight="700" fill="#222"></text>
+                    <text id="resultDisplay" x="0" y="0" text-anchor="middle" dominant-baseline="middle" font-size="24" font-weight="700" fill="#222"></text>
+                    <path id="infieldHitArc" d="" fill="none" stroke="#d14b3a" stroke-width="2" visibility="hidden"></path>
+                    <circle id="dotUp" cx="0" cy="0" r="2.5" fill="#c8513f" visibility="hidden"></circle>
+                    <circle id="dotDown" cx="0" cy="0" r="2.5" fill="#c8513f" visibility="hidden"></circle>
+                    <circle id="dotLeft" cx="0" cy="0" r="2.5" fill="#c8513f" visibility="hidden"></circle>
+                    <circle id="dotRight" cx="0" cy="0" r="2.5" fill="#c8513f" visibility="hidden"></circle>
+                </g>
+                <g id="rbiGroup" visibility="hidden">
+                    <circle id="rbiCircle" cx="58" cy="132" r="18" fill="none" stroke="#111" stroke-width="2"></circle>
+                    <text id="rbiText" x="58" y="140" text-anchor="middle" font-size="24" font-weight="700" fill="#111"></text>
+                </g>
+            </svg>
+
+            <div class="status-line">
+                <span id="countStatus">ストライク 0 / ボール 0</span>
+                <span id="autoJudgeStatus">自動判定待ち</span>
+            </div>
+        </div>
+
+        <div class="control-panel-wrapper">
+            <div class="control-panel">
+                <section class="section">
+                    <div class="section-title">9人 × 9回 シート</div>
+                    <div class="sheet-panel">
+                        <div class="sheet-toolbar">
+                            <button onclick="saveCurrentToSheet()">この打席を保存</button>
+                            <button onclick="goToNextSheetCell()">次の打席へ</button>
+                            <button onclick="loadCurrentSheetCell()">選択マスを開く</button>
+                            <button onclick="clearCurrentSheetCell()">選択マスを消去</button>
+                        </div>
+                        <div id="sheetMeta" class="sheet-meta">現在: 1番 × 1回</div>
+                        <div id="sheetGrid" class="sheet-grid"></div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">自然言語入力</div>
+                    <div class="nl-panel">
+                        <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
+                        <div class="nl-actions">
+                            <button onclick="parseNaturalLanguage()">解釈する</button>
+                            <button onclick="applyNaturalLanguage()">反映する</button>
+                        </div>
+                        <div id="naturalLanguagePreview" class="nl-preview">ここに解釈結果を表示します。</div>
+                        <div class="nl-corrections">
+                            <div class="nl-field">
+                                <label for="nlFielderSelect">守備位置</label>
+                                <select id="nlFielderSelect">
+                                    <option value="">未指定</option>
+                                    <option value="1">1: 投手</option>
+                                    <option value="2">2: 捕手</option>
+                                    <option value="3">3: 一塁手</option>
+                                    <option value="4">4: 二塁手</option>
+                                    <option value="5">5: 三塁手</option>
+                                    <option value="6">6: 遊撃手</option>
+                                    <option value="7">7: 左翼手</option>
+                                    <option value="8">8: 中堅手</option>
+                                    <option value="9">9: 右翼手</option>
+                                </select>
+                            </div>
+                            <div class="nl-field">
+                                <label for="nlBallTypeSelect">打球種別</label>
+                                <select id="nlBallTypeSelect">
+                                    <option value="none">なし</option>
+                                    <option value="ground">ゴロ</option>
+                                    <option value="fly">フライ</option>
+                                    <option value="liner">ライナー</option>
+                                </select>
+                            </div>
+                            <div class="nl-field">
+                                <label for="nlResultSelect">結果</label>
+                                <select id="nlResultSelect">
+                                    <option value="">未指定</option>
+                                    <option value="OUT">アウト/凡退</option>
+                                    <option value="1B">単打</option>
+                                    <option value="2B">二塁打</option>
+                                    <option value="3B">三塁打</option>
+                                    <option value="HR">本塁打</option>
+                                    <option value="G">ゴロ安</option>
+                                    <option value="BH">バントヒット</option>
+                                    <option value="K">三振</option>
+                                    <option value="B">四球</option>
+                                    <option value="HP">死球</option>
+                                    <option value="IB">敬遠</option>
+                                    <option value="W">暴投</option>
+                                    <option value="P">捕逸</option>
+                                    <option value="BK">ボーク</option>
+                                    <option value="IF">打撃妨害</option>
+                                </select>
+                            </div>
+                            <div class="nl-field">
+                                <label for="nlDirectionSelect">方向</label>
+                                <select id="nlDirectionSelect">
+                                    <option value="none">未指定</option>
+                                    <option value="up">上</option>
+                                    <option value="down">前</option>
+                                    <option value="left">左</option>
+                                    <option value="right">右</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="nl-actions">
+                            <button onclick="applyCorrectedNaturalLanguage()">修正内容で反映</button>
+                            <button onclick="saveNaturalLanguageMapping()">この対応を登録</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">守備位置と打球方向</div>
+                    <div class="fielder-selector">
+                        <button id="dir-up" class="direction-btn" onclick="setDirection('up')">↑</button>
+                        <div class="fielder-row">
+                            <button id="dir-left" class="direction-btn" onclick="setDirection('left')">←</button>
+                            <select id="fielderSelect" onchange="updateFielder()">
+                                <option value="1">1: 投手</option>
+                                <option value="2">2: 捕手</option>
+                                <option value="3">3: 一塁手</option>
+                                <option value="4">4: 二塁手</option>
+                                <option value="5">5: 三塁手</option>
+                                <option value="6">6: 遊撃手</option>
+                                <option value="7">7: 左翼手</option>
+                                <option value="8" selected>8: 中堅手</option>
+                                <option value="9">9: 右翼手</option>
+                            </select>
+                            <button id="dir-right" class="direction-btn" onclick="setDirection('right')">→</button>
+                        </div>
+                        <button id="dir-down" class="direction-btn" onclick="setDirection('down')">↓</button>
+                    </div>
+                    <div id="currentSelection" class="current-selection">選択: 8 中堅手</div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">打順 / 打点</div>
+                    <div class="result-picker">
+                        <select id="battingOrderSelect" onchange="setBattingOrder()">
+                            <option value="1">1番</option>
+                            <option value="2">2番</option>
+                            <option value="3">3番</option>
+                            <option value="4" selected>4番</option>
+                            <option value="5">5番</option>
+                            <option value="6">6番</option>
+                            <option value="7">7番</option>
+                            <option value="8">8番</option>
+                            <option value="9">9番</option>
+                        </select>
+                        <button id="rbiToggle" onclick="toggleRbi()">打点を付ける</button>
+                    </div>
+                    <div class="result-help">
+                        BASEBALL ONE の打点表記に合わせて、打点が付いた打席は打順を黒丸で囲みます。
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">打球種別</div>
+                    <div class="button-grid-3">
+                        <button id="ball-ground" class="btn-out" onclick="setBallType('ground')">ゴロ</button>
+                        <button id="ball-fly" class="btn-out" onclick="setBallType('fly')">フライ</button>
+                        <button id="ball-liner" class="btn-out" onclick="setBallType('liner')">ライナー</button>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">補助記号</div>
+                    <div class="button-grid-4">
+                        <button id="modifier-foul" onclick="toggleModifier('foul')">F ファール飛</button>
+                        <button id="modifier-bunt" onclick="toggleModifier('bunt')">@ バント</button>
+                        <button id="modifier-sac-fly" onclick="toggleModifier('sacrificeFly')">□ 犠飛</button>
+                        <button id="modifier-sac-bunt" onclick="toggleModifier('sacrificeBunt')">□ 犠打</button>
+                    </div>
+                    <div class="result-help">
+                        BASEBALL ONE の図に寄せて、フライなら `F` や `@F`、ゴロなら `@`、犠飛・犠打は青い囲み記号で表します。
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">守備連係</div>
+                    <div class="button-grid-4">
+                        <button onclick="startFieldSequence()">開始位置をセット</button>
+                        <button onclick="appendToFieldSequence('1')">1</button>
+                        <button onclick="appendToFieldSequence('2')">2</button>
+                        <button onclick="appendToFieldSequence('3')">3</button>
+                        <button onclick="appendToFieldSequence('4')">4</button>
+                        <button onclick="appendToFieldSequence('5')">5</button>
+                        <button onclick="appendToFieldSequence('6')">6</button>
+                        <button onclick="appendToFieldSequence('7')">7</button>
+                        <button onclick="appendToFieldSequence('8')">8</button>
+                        <button onclick="appendToFieldSequence('9')">9</button>
+                        <button onclick="removeLastFieldStep()">1つ戻す</button>
+                        <button onclick="clearFieldSequence()">連係クリア</button>
+                    </div>
+                    <div class="result-help">
+                        ゴロアウトは `1-3`、`4-6`、`5-4-3` のように送球順で入力します。ベースカバーは `3A`、`6B` の形です。
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">失策・補助記号</div>
+                    <div class="button-grid-4">
+                        <button id="field-error-fielder" onclick="setErrorMode('fielder')">E 捕球ミス</button>
+                        <button id="field-error-thrower" onclick="setErrorMode('thrower')">送球側E</button>
+                        <button id="field-error-receiver" onclick="setErrorMode('receiver')">受け手E</button>
+                        <button id="field-clear" onclick="clearFieldMarks()">記号クリア</button>
+                    </div>
+                    <div class="button-grid-4" style="margin-top: 10px;">
+                        <button id="cover-A" onclick="setBaseCover('A')">A 1塁踏む</button>
+                        <button id="cover-B" onclick="setBaseCover('B')">B 2塁踏む</button>
+                        <button id="cover-C" onclick="setBaseCover('C')">C 3塁踏む</button>
+                        <button id="cover-D" onclick="setBaseCover('D')">D 本塁踏む</button>
+                    </div>
+                    <div class="result-help">
+                        BASEBALL ONE に合わせて、失策は `E` で表します。捕球ミスは `6E`、悪送球は `5E-3`、受け手の落球は `4-3E` の形です。`A-D` は `3A`、`2D` の形で表示します。
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">ヒット種別</div>
+                    <div class="button-grid">
+                        <button class="btn-hit" onclick="setHitType('1B')">単打</button>
+                        <button class="btn-hit" onclick="setHitType('2B')">二塁打</button>
+                        <button class="btn-hit" onclick="setHitType('3B')">三塁打</button>
+                        <button class="btn-hit" onclick="setHitType('HR')">本塁打</button>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">投球カウント</div>
+                    <div class="button-grid-3">
+                        <button onclick="addPitch('ball')">● ボール</button>
+                        <button onclick="addPitch('calledStrike')">× 見逃し</button>
+                        <button onclick="addPitch('swingStrike')">空振り</button>
+                        <button onclick="addPitch('foul')">△ ファウル</button>
+                        <button onclick="addPitch('buntFoul')">△• バントF</button>
+                        <button onclick="addPitch('buntSwing')">バント空振り</button>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">打席結果（BASEBALL ONE準拠）</div>
+                    <div class="button-grid-4">
+                        <button class="btn-walk" onclick="setResult('B')">B 四球</button>
+                        <button class="btn-walk" onclick="setResult('HP')">HP 死球</button>
+                        <button class="btn-walk" onclick="setResult('IB')">IB 敬遠</button>
+                        <button class="btn-walk" onclick="setResult('IB')">申告敬遠</button>
+                        <button class="btn-k" onclick="setResult('K')">K 見逃し</button>
+                        <button class="btn-k" onclick="setResult('K')">K 空振り</button>
+                        <button class="btn-k" onclick="setResult('K')">K バント三振</button>
+                        <button onclick="setResult('F')">F ファール飛</button>
+                        <button onclick="setResult('Fc')">Fc 野選</button>
+                        <button onclick="setResult('G')">G ゴロ安</button>
+                        <button onclick="setResult('BH')">BH バントH</button>
+                        <button onclick="setResult('H')">H 強襲安</button>
+                        <button onclick="setResult('T')">T テキサス</button>
+                        <button onclick="setResult('W')">W 暴投</button>
+                        <button onclick="setResult('P')">P 捕逸</button>
+                        <button onclick="setResult('IF')">IF 打撃妨害</button>
+                        <button onclick="setResult('BK')">BK ボーク</button>
+                    </div>
+
+                    <div class="result-picker" style="margin-top: 10px;">
+                        <select id="extraResultSelect" onchange="previewExtraResult()">
+                            <option value="">その他の略号を選択</option>
+                        </select>
+                        <button onclick="applyExtraResult()">略号を反映</button>
+                    </div>
+                    <div id="resultHelp" class="result-help">略号を選ぶと説明をここに表示します。</div>
+                    <div class="result-help">
+                        BASEBALL ONE の長打表記に合わせて、安打は到達した塁まで赤い斜線で表します。
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">アウト / 得点 / 残塁</div>
+                    <div class="button-grid-3">
+                        <button onclick="setOutScore('Ⅰ')">Ⅰ アウト</button>
+                        <button onclick="setOutScore('Ⅱ')">Ⅱ アウト</button>
+                        <button onclick="setOutScore('Ⅲ')">Ⅲ アウト</button>
+                        <button onclick="setOutScore('●')">● 得点</button>
+                        <button onclick="setOutScore('○')">○ 非自責</button>
+                        <button onclick="setOutScore('ℓ')">ℓ 残塁</button>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">現在の状態</div>
+                    <div id="summaryCard" class="summary-card"></div>
+                </section>
+
+                <button class="btn-reset" onclick="resetState()">リセット</button>
+
+                <p class="note">
+                    今回の修正では、ゴロ / フライ / ライナーを文字ではなくSVG図形で描画しています。
+                    これでフォント依存の非表示や、座標ずれが起きにくくなります。
+                </p>
+
+                <div class="footer">次の候補: 9人 × 9回グリッド、走者進塁線、保存機能</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            pitches: [],
+            pitchNotes: [],
+            result: "",
+            outScore: "",
+            strikes: 0,
+            balls: 0,
+            selectedFielder: "8",
+            selectedDirection: "none",
+            selectedBallType: "none",
+            selectedHitType: "none",
+            battingOrder: "4",
+            hasRbi: false,
+            modifiers: {
+                foul: false,
+                bunt: false,
+                sacrificeFly: false,
+                sacrificeBunt: false
+            },
+            fieldSequence: ["8"],
+            errorMode: "none",
+            baseCover: "none",
+            runnerContextText: "",
+            runnerContext: null,
+            baseRunners: [null, null, null],
+            selectedSheetRow: 0,
+            selectedSheetCol: 0,
+            scoreSheet: [],
+            parsedInput: null
+        };
+
+        const fielderNames = {
+            "1": "投手",
+            "2": "捕手",
+            "3": "一塁手",
+            "4": "二塁手",
+            "5": "三塁手",
+            "6": "遊撃手",
+            "7": "左翼手",
+            "8": "中堅手",
+            "9": "右翼手"
+        };
+
+        const resultDescriptions = {
+            "B": "四球（base on balls）",
+            "BIA": "打者の反則（batter's illegal action）",
+            "BK": "ボーク（balk）",
+            "CS": "盗塁失敗（caught stealing）",
+            "DS": "ダブルスチール（double steal）",
+            "F": "ファールフライ",
+            "Fc": "野手選択（fielder's choice）",
+            "BH": "バントヒット",
+            "G": "ゴロヒット",
+            "GR": "エンタイトル（ground rule）",
+            "H": "強襲ヒット",
+            "HP": "死球（hit by pitch）",
+            "IF": "打撃妨害",
+            "IB": "敬遠四球（intentional base on balls）",
+            "K": "三振（見逃し）",
+            "OB": "走塁妨害（obstruction）",
+            "OI": "守備妨害（offensive interference）",
+            "P": "捕逸（passed ball）",
+            "PO": "牽制（pickoff）",
+            "RH": "ランニングHR（inside-the-park home run）",
+            "S": "盗塁（stolen base）",
+            "T": "テキサスヒット",
+            "TB": "タイブレークの走者",
+            "TO": "タッチアウト（tag out）",
+            "TP": "トリプルスチール（triple steal）",
+            "W": "ワイルドピッチ（wild pitch）"
+        };
+
+        const naturalLanguageFielderMap = [
+            { patterns: ["ピッチャー", "投手"], value: "1" },
+            { patterns: ["キャッチャー", "捕手"], value: "2" },
+            { patterns: ["ファースト", "一塁手", "一塁"], value: "3" },
+            { patterns: ["セカンド", "二塁手", "二塁"], value: "4" },
+            { patterns: ["サード", "三塁手", "三塁"], value: "5" },
+            { patterns: ["ショート", "遊撃手"], value: "6" },
+            { patterns: ["レフト", "左翼手"], value: "7" },
+            { patterns: ["センター", "中堅手"], value: "8" },
+            { patterns: ["ライト", "右翼手"], value: "9" }
+        ];
+
+        const NATURAL_LANGUAGE_STORAGE_KEY = "scorebook_nl_mappings_v1";
+        const BUILTIN_NATURAL_LANGUAGE_RULES = createBuiltInNaturalLanguageRules();
+        const SHORT_FIELDER_MAP = {
+            "投": "1",
+            "捕": "2",
+            "一": "3",
+            "二": "4",
+            "三": "5",
+            "遊": "6",
+            "左": "7",
+            "中": "8",
+            "右": "9",
+            "1": "1",
+            "2": "2",
+            "3": "3",
+            "4": "4",
+            "5": "5",
+            "6": "6",
+            "7": "7",
+            "8": "8",
+            "9": "9",
+            "１": "1",
+            "２": "2",
+            "３": "3",
+            "４": "4",
+            "５": "5",
+            "６": "6",
+            "７": "7",
+            "８": "8",
+            "９": "9"
+        };
+
+        function normalizeNaturalLanguageKey(text) {
+            return (text || "")
+                .replace(/\s+/g, "")
+                .replace(/[・、,，。\.！!？?]/g, "")
+                .trim();
+        }
+
+        function normalizeBaseballDigits(text) {
+            return (text || "")
+                .replace(/[１２３４５６７８９]/g, (char) => String("１２３４５６７８９".indexOf(char) + 1))
+                .replace(/－|ー|−/g, "-");
+        }
+
+        function preprocessNaturalLanguageInput(text) {
+            let cleaned = (text || "").trim();
+            if (!cleaned) {
+                return "";
+            }
+
+            cleaned = cleaned.replace(/^[^\S\r\n]+|[^\S\r\n]+$/g, "");
+            cleaned = cleaned.replace(/^[0-9]+番から$/, "");
+            cleaned = cleaned.replace(/^P[^\s　]+$/, "");
+            cleaned = cleaned.replace(/^[0-9０-９一二三四五六七八九]+回[表裏].*攻撃$/, "");
+            cleaned = cleaned.replace(/^横浜[0-9]-[0-9]桐蔭学園.*$/, "");
+            cleaned = cleaned.replace(/^スタメン発表.*$/, "");
+            cleaned = cleaned.replace(/^シート変更.*$/, "");
+            cleaned = cleaned.replace(/^P交代.*$/, "");
+
+            const parts = cleaned.split(/[　\t]/).filter(Boolean);
+            if (parts.length >= 2) {
+                const candidate = parts.slice(1).join("");
+                if (/[投捕一二三遊左右中][飛ゴ安邪]|三振|四球|死球|犠打|犠飛|盗|本塁打|ホームラン|ライナー|ヒット|ゴロ|フライ/.test(candidate)) {
+                    cleaned = candidate;
+                }
+            }
+
+            cleaned = cleaned
+                .replace(/[0-9]{3}km\/h/g, "")
+                .replace(/&/g, " ")
+                .replace(/[①-⑨]/g, " ")
+                .replace(/[\(（][^\)）]*[\)）]/g, " ")
+                .replace(/良い角度の|良い当たりの?|上手く合わせて|やや差し込まれた|完全にアウトのタイミングで|落ち着いて送球|止めたバット|ハーフスイング|ホームベースカバーおらず|内野前進|右寄りポジションが裏目に|だんだん合ってきたか？|ナイスカバー|ダイビングキャッチ/g, " ")
+                .replace(/、.*$/g, "")
+                .replace(/\s+/g, " ")
+                .trim();
+
+            return cleaned;
+        }
+
+        function cloneParsedInput(parsed) {
+            return parsed ? JSON.parse(JSON.stringify(parsed)) : null;
+        }
+
+        function deepClone(value) {
+            return JSON.parse(JSON.stringify(value));
+        }
+
+        function createEmptyScoreSheet() {
+            return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => null));
+        }
+
+        function captureAtBatSnapshot() {
+            return {
+                pitches: [...state.pitches],
+                pitchNotes: [...state.pitchNotes],
+                result: state.result,
+                outScore: state.outScore,
+                strikes: state.strikes,
+                balls: state.balls,
+                selectedFielder: state.selectedFielder,
+                selectedDirection: state.selectedDirection,
+                selectedBallType: state.selectedBallType,
+                selectedHitType: state.selectedHitType,
+                battingOrder: state.battingOrder,
+                hasRbi: state.hasRbi,
+                modifiers: deepClone(state.modifiers),
+                fieldSequence: [...state.fieldSequence],
+                errorMode: state.errorMode,
+                baseCover: state.baseCover,
+                runnerContextText: state.runnerContextText,
+                runnerContext: deepClone(state.runnerContext),
+                runnerStatusText: ""
+            };
+        }
+
+        function applyAtBatSnapshot(snapshot) {
+            if (!snapshot) {
+                return;
+            }
+
+            state.pitches = [...(snapshot.pitches || [])];
+            state.pitchNotes = [...(snapshot.pitchNotes || [])];
+            state.result = snapshot.result || "";
+            state.outScore = snapshot.outScore || "";
+            state.strikes = snapshot.strikes || 0;
+            state.balls = snapshot.balls || 0;
+            state.selectedFielder = snapshot.selectedFielder || "8";
+            state.selectedDirection = snapshot.selectedDirection || "none";
+            state.selectedBallType = snapshot.selectedBallType || "none";
+            state.selectedHitType = snapshot.selectedHitType || "none";
+            state.battingOrder = snapshot.battingOrder || String(state.selectedSheetRow + 1);
+            state.hasRbi = Boolean(snapshot.hasRbi);
+            state.modifiers = deepClone(snapshot.modifiers || {
+                foul: false,
+                bunt: false,
+                sacrificeFly: false,
+                sacrificeBunt: false
+            });
+            state.fieldSequence = [...(snapshot.fieldSequence || [state.selectedFielder])];
+            state.errorMode = snapshot.errorMode || "none";
+            state.baseCover = snapshot.baseCover || "none";
+            state.runnerContextText = snapshot.runnerContextText || "";
+            state.runnerContext = deepClone(snapshot.runnerContext || null);
+
+            document.getElementById("fielderSelect").value = state.selectedFielder;
+            document.getElementById("battingOrderSelect").value = state.battingOrder;
+        }
+
+        function createBuiltInNaturalLanguageRules() {
+            const rules = [];
+            const addRule = (patterns, parsed) => {
+                rules.push({
+                    patterns: patterns.map(normalizeNaturalLanguageKey),
+                    parsed
+                });
+            };
+
+            addRule(["見逃し三振"], { result: "K", note: "初期マスタ: 見逃し三振" });
+            addRule(["空振り三振"], { result: "K", note: "初期マスタ: 空振り三振" });
+            addRule(["バント三振", "スリーバント失敗"], { result: "K", note: "初期マスタ: バント三振" });
+            addRule(["振り逃げアウト", "三振振り逃げアウト"], { fielder: "2", result: "OUT", note: "初期マスタ: 振り逃げアウト" });
+            addRule(["四球", "フォアボール"], { result: "B", note: "初期マスタ: 四球" });
+            addRule(["敬遠", "敬遠四球"], { result: "IB", note: "初期マスタ: 敬遠" });
+            addRule(["申告敬遠"], { result: "IB", note: "初期マスタ: 申告敬遠" });
+            addRule(["死球", "HBP"], { result: "HP", note: "初期マスタ: 死球" });
+            addRule(["暴投", "ワイルドピッチ", "WP"], { result: "W", note: "初期マスタ: 暴投" });
+            addRule(["捕逸", "パスボール", "PB"], { result: "P", note: "初期マスタ: 捕逸" });
+            addRule(["ボーク", "BK"], { result: "BK", note: "初期マスタ: ボーク" });
+            addRule(["打撃妨害", "IF", "CI"], { result: "IF", note: "初期マスタ: 打撃妨害" });
+            addRule(["走塁妨害", "OB"], { result: "OB", note: "初期マスタ: 走塁妨害" });
+            addRule(["守備妨害", "OI"], { result: "OI", note: "初期マスタ: 守備妨害" });
+            addRule(["盗塁失敗", "盗塁刺", "CS"], { result: "CS", note: "初期マスタ: 盗塁失敗" });
+            addRule(["牽制死", "PO"], { result: "PO", note: "初期マスタ: 牽制死" });
+            addRule(["タッチアウト", "TO"], { result: "TO", note: "初期マスタ: タッチアウト" });
+            addRule(["盗塁", "S"], { result: "S", note: "初期マスタ: 盗塁" });
+            addRule(["犠牲フライ", "犠飛"], { fielder: "8", ballType: "fly", result: "OUT", modifiers: { sacrificeFly: true }, note: "初期マスタ: 犠飛" });
+            addRule(["犠牲バント", "送りバント", "犠打"], { fielder: "1", ballType: "ground", result: "OUT", modifiers: { sacrificeBunt: true }, note: "初期マスタ: 犠打" });
+            addRule(["犠打失敗"], { fielder: "1", ballType: "ground", result: "Fc", modifiers: { sacrificeBunt: true }, note: "初期マスタ: 犠打失敗" });
+            addRule(["野手選択", "フィルダースチョイス"], { ballType: "ground", result: "Fc", note: "初期マスタ: 野選" });
+            addRule(["ダブルプレー", "併殺"], { ballType: "ground", result: "OUT", note: "初期マスタ: 併殺" });
+            addRule(["ファールフライ"], { ballType: "fly", result: "OUT", modifiers: { foul: true }, note: "初期マスタ: ファールフライ" });
+            addRule(["バントフライ"], { ballType: "fly", result: "OUT", modifiers: { bunt: true }, note: "初期マスタ: バントフライ" });
+            addRule(["バントファールフライ"], { ballType: "fly", result: "OUT", modifiers: { bunt: true, foul: true }, note: "初期マスタ: バントファールフライ" });
+            addRule(["テキサスヒット", "ポテンヒット"], { fielder: "8", result: "T", note: "初期マスタ: テキサスヒット" });
+            addRule(["ランニングホームラン"], { fielder: "8", result: "RH", note: "初期マスタ: ランニングホームラン" });
+            addRule(["エンタイトルツーベース", "グラウンドルールダブル"], { fielder: "8", result: "GR", note: "初期マスタ: エンタイトル" });
+            addRule(["左中間二塁打", "左中間ツーベース"], { fielder: "8", direction: "left", result: "2B", note: "初期マスタ: 左中間二塁打" });
+            addRule(["右中間二塁打", "右中間ツーベース"], { fielder: "8", direction: "right", result: "2B", note: "初期マスタ: 右中間二塁打" });
+            addRule(["左中間三塁打"], { fielder: "8", direction: "left", result: "3B", note: "初期マスタ: 左中間三塁打" });
+            addRule(["右中間三塁打"], { fielder: "8", direction: "right", result: "3B", note: "初期マスタ: 右中間三塁打" });
+            addRule(["センター前ヒット", "センター前安打"], { fielder: "8", direction: "down", result: "1B", note: "初期マスタ: センター前ヒット" });
+            addRule(["レフト前ヒット", "レフト前安打"], { fielder: "7", direction: "down", result: "1B", note: "初期マスタ: レフト前ヒット" });
+            addRule(["ライト前ヒット", "ライト前安打"], { fielder: "9", direction: "down", result: "1B", note: "初期マスタ: ライト前ヒット" });
+            addRule(["センターオーバー二塁打"], { fielder: "8", direction: "up", result: "2B", note: "初期マスタ: センターオーバー二塁打" });
+            addRule(["レフトオーバー二塁打"], { fielder: "7", direction: "up", result: "2B", note: "初期マスタ: レフトオーバー二塁打" });
+            addRule(["ライトオーバー二塁打"], { fielder: "9", direction: "up", result: "2B", note: "初期マスタ: ライトオーバー二塁打" });
+            addRule(["レフト線二塁打"], { fielder: "7", direction: "left", result: "2B", note: "初期マスタ: レフト線二塁打" });
+            addRule(["ライト線二塁打"], { fielder: "9", direction: "right", result: "2B", note: "初期マスタ: ライト線二塁打" });
+            addRule(["ライト線三塁打"], { fielder: "9", direction: "right", result: "3B", note: "初期マスタ: ライト線三塁打" });
+            addRule(["レフト線三塁打"], { fielder: "7", direction: "left", result: "3B", note: "初期マスタ: レフト線三塁打" });
+            addRule(["センター本塁打", "センターホームラン"], { fielder: "8", result: "HR", note: "初期マスタ: センター本塁打" });
+            addRule(["レフト本塁打", "レフトホームラン"], { fielder: "7", direction: "left", result: "HR", note: "初期マスタ: レフト本塁打" });
+            addRule(["ライト本塁打", "ライトホームラン"], { fielder: "9", direction: "right", result: "HR", note: "初期マスタ: ライト本塁打" });
+            addRule(["ショート左への内野安打"], { fielder: "6", direction: "left", ballType: "ground", result: "G", note: "初期マスタ: ショート左への内野安打" });
+            addRule(["サード前へのバントヒット", "サード前へのバント内野安打"], { fielder: "5", direction: "down", ballType: "ground", result: "BH", note: "初期マスタ: サード前へのバントヒット" });
+            addRule(["ショートへの強襲内野安打"], { fielder: "6", ballType: "ground", result: "H", note: "初期マスタ: 強襲内野安打" });
+
+            const fielderRules = [
+                { value: "1", aliases: ["ピッチャー", "投手"], direction: "none" },
+                { value: "2", aliases: ["キャッチャー", "捕手"], direction: "none" },
+                { value: "3", aliases: ["ファースト", "一塁手"], direction: "none" },
+                { value: "4", aliases: ["セカンド", "二塁手"], direction: "none" },
+                { value: "5", aliases: ["サード", "三塁手"], direction: "none" },
+                { value: "6", aliases: ["ショート", "遊撃手"], direction: "none" },
+                { value: "7", aliases: ["レフト", "左翼手"], direction: "left" },
+                { value: "8", aliases: ["センター", "中堅手"], direction: "none" },
+                { value: "9", aliases: ["ライト", "右翼手"], direction: "right" }
+            ];
+
+            fielderRules.forEach((fielder) => {
+                fielder.aliases.forEach((alias) => {
+                    addRule(
+                        [alias + "ゴロアウト", alias + "ゴロ凡退", alias + "ゴロ"],
+                        { fielder: fielder.value, ballType: "ground", result: "OUT", note: "初期マスタ: " + alias + "ゴロアウト" }
+                    );
+                    addRule(
+                        [alias + "フライアウト", alias + "フライ"],
+                        { fielder: fielder.value, ballType: "fly", result: "OUT", note: "初期マスタ: " + alias + "フライアウト" }
+                    );
+                    addRule(
+                        [alias + "ライナーアウト", alias + "ライナー"],
+                        { fielder: fielder.value, ballType: "liner", result: "OUT", note: "初期マスタ: " + alias + "ライナーアウト" }
+                    );
+                    addRule(
+                        [alias + "への内野安打", alias + "内野安打", alias + "ゴロ安", alias + "ゴロヒット"],
+                        { fielder: fielder.value, direction: fielder.direction, ballType: "ground", result: "G", note: "初期マスタ: " + alias + "内野安打" }
+                    );
+                    addRule(
+                        [alias + "へのバントヒット", alias + "バントヒット", alias + "バント安打"],
+                        { fielder: fielder.value, direction: fielder.direction, ballType: "ground", result: "BH", note: "初期マスタ: " + alias + "バントヒット" }
+                    );
+                    addRule(
+                        [alias + "前ヒット", alias + "前安打", alias + "へのヒット"],
+                        { fielder: fielder.value, direction: fielder.direction === "none" ? "down" : fielder.direction, result: "1B", note: "初期マスタ: " + alias + "ヒット" }
+                    );
+                    addRule(
+                        [alias + "二塁打", alias + "ツーベース", alias + "ツーベースヒット"],
+                        { fielder: fielder.value, direction: fielder.direction, result: "2B", note: "初期マスタ: " + alias + "二塁打" }
+                    );
+                    addRule(
+                        [alias + "三塁打", alias + "スリーベース", alias + "スリーベースヒット"],
+                        { fielder: fielder.value, direction: fielder.direction, result: "3B", note: "初期マスタ: " + alias + "三塁打" }
+                    );
+                    addRule(
+                        [alias + "本塁打", alias + "ホームラン"],
+                        { fielder: fielder.value, direction: fielder.direction, result: "HR", note: "初期マスタ: " + alias + "本塁打" }
+                    );
+                });
+            });
+
+            return rules;
+        }
+
+        function getSheetRef(row, col) {
+            return { row, col };
+        }
+
+        function getSnapshotByRef(ref) {
+            if (!ref) {
+                return null;
+            }
+            return state.scoreSheet?.[ref.row]?.[ref.col] || null;
+        }
+
+        function setRunnerStatusForRef(ref, text) {
+            const snapshot = getSnapshotByRef(ref);
+            if (snapshot) {
+                snapshot.runnerStatusText = text;
+            }
+        }
+
+        function markRunnerOutOnSnapshot(ref) {
+            const snapshot = getSnapshotByRef(ref);
+            if (!snapshot) {
+                return;
+            }
+            snapshot.outScore = "Ⅰ";
+        }
+
+        function moveRunnerToBase(runners, fromIndex, toIndex) {
+            if (!runners[fromIndex]) {
+                return;
+            }
+            const runnerRef = runners[fromIndex];
+            runners[fromIndex] = null;
+            if (toIndex >= 3) {
+                setRunnerStatusForRef(runnerRef, "生還");
+                return;
+            }
+            runners[toIndex] = runnerRef;
+            setRunnerStatusForRef(runnerRef, (toIndex + 1) + "塁");
+        }
+
+        function scoreRunnerFromBase(runners, baseIndex) {
+            if (!runners[baseIndex]) {
+                return;
+            }
+            const runnerRef = runners[baseIndex];
+            runners[baseIndex] = null;
+            setRunnerStatusForRef(runnerRef, "生還");
+        }
+
+        function removeRunnerFromBase(runners, baseIndex, label) {
+            if (!runners[baseIndex]) {
+                return;
+            }
+            const runnerRef = runners[baseIndex];
+            runners[baseIndex] = null;
+            markRunnerOutOnSnapshot(runnerRef);
+            setRunnerStatusForRef(runnerRef, label || "アウト");
+        }
+
+        function applyRunnerContextOverrides(runners, snapshot, batterRef) {
+            const context = snapshot.runnerContext;
+            if (!context) {
+                return;
+            }
+
+            (context.advances || []).forEach((advance) => {
+                if (advance === "一走→二塁") {
+                    moveRunnerToBase(runners, 0, 1);
+                } else if (advance === "一走→三塁") {
+                    moveRunnerToBase(runners, 0, 2);
+                } else if (advance === "二走→三塁") {
+                    moveRunnerToBase(runners, 1, 2);
+                } else if (advance === "二走生還") {
+                    scoreRunnerFromBase(runners, 1);
+                } else if (advance === "一走生還") {
+                    scoreRunnerFromBase(runners, 0);
+                } else if (advance === "三走生還") {
+                    scoreRunnerFromBase(runners, 2);
+                } else if (advance === "二盗") {
+                    moveRunnerToBase(runners, 0, 1);
+                } else if (advance === "三盗") {
+                    moveRunnerToBase(runners, 1, 2);
+                } else if (advance === "打者走者一塁セーフ" && batterRef) {
+                    runners[0] = batterRef;
+                    setRunnerStatusForRef(batterRef, "1塁");
+                }
+            });
+
+            (context.outsOnBases || []).forEach((outLabel) => {
+                if (outLabel === "二盗死" || outLabel === "二塁封殺") {
+                    removeRunnerFromBase(runners, 0, outLabel);
+                } else if (outLabel === "三盗死" || outLabel === "三塁封殺") {
+                    removeRunnerFromBase(runners, 1, outLabel);
+                } else if (outLabel === "本塁アウト" || outLabel === "本塁封殺") {
+                    removeRunnerFromBase(runners, 2, outLabel);
+                }
+            });
+        }
+
+        function updateBaseRunnersForSnapshot(row, col, snapshot) {
+            const runners = state.baseRunners.map((runner) => (runner ? { ...runner } : null));
+            const batterRef = getSheetRef(row, col);
+            const playCode = snapshot.selectedHitType && snapshot.selectedHitType !== "none"
+                ? snapshot.selectedHitType
+                : snapshot.result;
+
+            if (playCode === "1B" || playCode === "G" || playCode === "BH" || playCode === "H" || playCode === "T") {
+                scoreRunnerFromBase(runners, 2);
+                moveRunnerToBase(runners, 1, 2);
+                moveRunnerToBase(runners, 0, 1);
+                runners[0] = batterRef;
+                setRunnerStatusForRef(batterRef, "1塁");
+            } else if (playCode === "2B" || playCode === "GR") {
+                scoreRunnerFromBase(runners, 2);
+                scoreRunnerFromBase(runners, 1);
+                moveRunnerToBase(runners, 0, 2);
+                runners[1] = batterRef;
+                setRunnerStatusForRef(batterRef, "2塁");
+            } else if (playCode === "3B") {
+                scoreRunnerFromBase(runners, 2);
+                scoreRunnerFromBase(runners, 1);
+                scoreRunnerFromBase(runners, 0);
+                runners[2] = batterRef;
+                setRunnerStatusForRef(batterRef, "3塁");
+            } else if (playCode === "HR" || playCode === "RH") {
+                scoreRunnerFromBase(runners, 2);
+                scoreRunnerFromBase(runners, 1);
+                scoreRunnerFromBase(runners, 0);
+                setRunnerStatusForRef(batterRef, "生還");
+            } else if (["B", "HP", "IB", "IF"].includes(playCode)) {
+                if (runners[0] && runners[1] && runners[2]) {
+                    scoreRunnerFromBase(runners, 2);
+                }
+                if (runners[1] && runners[0]) {
+                    moveRunnerToBase(runners, 1, 2);
+                }
+                if (runners[0]) {
+                    moveRunnerToBase(runners, 0, 1);
+                }
+                runners[0] = batterRef;
+                setRunnerStatusForRef(batterRef, "1塁");
+            } else if (snapshot.modifiers?.sacrificeBunt && snapshot.outScore) {
+                if (runners[0]) {
+                    moveRunnerToBase(runners, 0, 1);
+                } else if (runners[1]) {
+                    moveRunnerToBase(runners, 1, 2);
+                }
+                setRunnerStatusForRef(batterRef, snapshot.outScore);
+            } else if (snapshot.modifiers?.sacrificeFly && snapshot.outScore) {
+                if (runners[2]) {
+                    scoreRunnerFromBase(runners, 2);
+                }
+                setRunnerStatusForRef(batterRef, snapshot.outScore);
+            } else if (playCode === "S") {
+                if (runners[0]) {
+                    moveRunnerToBase(runners, 0, 1);
+                } else if (runners[1]) {
+                    moveRunnerToBase(runners, 1, 2);
+                }
+            } else if (playCode === "CS") {
+                if (runners[0]) {
+                    removeRunnerFromBase(runners, 0, "CS");
+                } else if (runners[1]) {
+                    removeRunnerFromBase(runners, 1, "CS");
+                }
+            } else if (snapshot.outScore) {
+                setRunnerStatusForRef(batterRef, snapshot.outScore);
+            }
+
+            applyRunnerContextOverrides(runners, snapshot, batterRef);
+
+            if (snapshot.outScore === "Ⅲ") {
+                state.baseRunners = [null, null, null];
+                return;
+            }
+
+            state.baseRunners = runners;
+        }
+
+        function getDisplayedResultFromSnapshot(snapshot) {
+            if (!snapshot) {
+                return "";
+            }
+
+            const sequence = snapshot.fieldSequence?.length > 0
+                ? [...snapshot.fieldSequence]
+                : [snapshot.selectedFielder || "8"];
+
+            const isFielderPlaySnapshot = snapshot.result === snapshot.selectedFielder
+                || ["1B", "2B", "3B", "HR", "G", "BH"].includes(snapshot.selectedHitType);
+
+            if (isFielderPlaySnapshot) {
+                if (snapshot.errorMode === "fielder") {
+                    return sequence[sequence.length - 1] + "E";
+                }
+                if (snapshot.errorMode === "thrower") {
+                    if (sequence.length >= 2) {
+                        const prefix = sequence.slice(0, -2);
+                        const thrower = sequence[sequence.length - 2] + "E";
+                        const receiver = sequence[sequence.length - 1];
+                        return [...prefix, thrower, receiver].join("-");
+                    }
+                    return sequence[0] + "E";
+                }
+                if (snapshot.errorMode === "receiver") {
+                    if (sequence.length >= 2) {
+                        const prefix = sequence.slice(0, -1);
+                        const receiver = sequence[sequence.length - 1] + "E";
+                        return [...prefix, receiver].join("-");
+                    }
+                    return sequence[0] + "E";
+                }
+                const joined = sequence.join("-");
+                return joined + (snapshot.baseCover && snapshot.baseCover !== "none" ? snapshot.baseCover : "");
+            }
+
+            return snapshot.result || "";
+        }
+
+        function getSnapshotResultColor(snapshot) {
+            const isFielderPlaySnapshot = snapshot.result === snapshot.selectedFielder
+                || ["1B", "2B", "3B", "HR", "G", "BH"].includes(snapshot.selectedHitType);
+
+            if (isFielderPlaySnapshot) {
+                if (["1B", "2B", "3B", "HR", "G", "BH"].includes(snapshot.selectedHitType)) {
+                    return "#c62828";
+                }
+                if (snapshot.modifiers?.sacrificeFly || snapshot.modifiers?.sacrificeBunt) {
+                    return "#1f5fbf";
+                }
+                return "#111";
+            }
+
+            if (["1B", "2B", "3B", "HR", "G", "BH", "H", "T", "RH", "GR"].includes(snapshot.result)) {
+                return "#c62828";
+            }
+            if (["B", "HP", "IB", "IF"].includes(snapshot.result)) {
+                return "#1565c0";
+            }
+            return "#111";
+        }
+
+        function getSnapshotPrefixText(snapshot) {
+            const isInfieldHit = snapshot.selectedHitType === "G" || snapshot.selectedHitType === "BH";
+            if (isInfieldHit && snapshot.selectedHitType === "BH") {
+                return "BH";
+            }
+            if (snapshot.modifiers?.bunt && snapshot.modifiers?.foul && snapshot.selectedBallType === "fly") {
+                return "@F";
+            }
+            if (snapshot.modifiers?.bunt) {
+                return "@";
+            }
+            if (snapshot.modifiers?.foul && snapshot.selectedBallType === "fly") {
+                return "F";
+            }
+            return "";
+        }
+
+        function generateSheetCellSvg(snapshot) {
+            if (!snapshot) {
+                return "";
+            }
+
+            const displayedResult = getDisplayedResultFromSnapshot(snapshot) || " ";
+            const resultColor = getSnapshotResultColor(snapshot);
+            const prefixText = getSnapshotPrefixText(snapshot);
+            const hitLinePaths = {
+                "1B": ["M 125 185 L 215 95"],
+                "G": ["M 125 185 L 215 95"],
+                "BH": ["M 125 185 L 215 95"],
+                "2B": ["M 125 185 L 215 95", "M 215 95 L 125 5"],
+                "3B": ["M 125 185 L 215 95", "M 215 95 L 125 5", "M 125 5 L 35 95"],
+                "HR": ["M 125 185 L 215 95", "M 215 95 L 125 5", "M 125 5 L 35 95", "M 35 95 L 125 185"]
+            };
+            const paths = hitLinePaths[snapshot.selectedHitType] || [];
+            const pitchCount = Math.min((snapshot.pitches || []).length, 9);
+
+            const pitchMarks = Array.from({ length: pitchCount }, (_, index) => {
+                const y = 20 + index * 16;
+                return '<circle cx="20" cy="' + y + '" r="2" fill="#111"/>';
+            }).join("");
+
+            const hitLines = paths.map((path) =>
+                '<path d="' + path + '" fill="none" stroke="#d14b3a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
+            ).join("");
+
+            const inningSlash = snapshot.outScore === "Ⅲ"
+                ? '<line x1="146" y1="185" x2="215" y2="116" stroke="#111" stroke-width="2"/>'
+                : "";
+
+            const outColor = snapshot.outScore === "●" ? "#c62828" : snapshot.outScore === "○" ? "#1565c0" : "#111";
+            const prefix = prefixText
+                ? '<text x="152" y="128" font-size="14" font-weight="700" fill="' + (prefixText === "BH" ? "#c62828" : "#222") + '" transform="rotate(-45 152 128)">' + prefixText + '</text>'
+                : "";
+            const runnerNote = snapshot.runnerStatusText
+                ? '<text x="48" y="22" font-size="12" font-weight="700" fill="#1f5fbf">' + snapshot.runnerStatusText + '</text>'
+                : "";
+
+            return [
+                '<svg class="sheet-cell-svg" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
+                '<rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>',
+                '<rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>',
+                '<polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>',
+                hitLines,
+                inningSlash,
+                '<line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>',
+                '<line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>',
+                '<line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>',
+                '<line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>',
+                runnerNote,
+                pitchMarks,
+                '<text x="125" y="106" text-anchor="middle" font-size="28" font-weight="700" fill="' + outColor + '">' + (snapshot.outScore || "") + '</text>',
+                prefix,
+                '<text x="170" y="160" text-anchor="middle" font-size="24" font-weight="700" fill="' + resultColor + '">' + displayedResult + '</text>',
+                '</svg>'
+            ].join("");
+        }
+
+        function updateSheetMeta() {
+            document.getElementById("sheetMeta").textContent =
+                "現在: " + (state.selectedSheetRow + 1) + "番 × " + (state.selectedSheetCol + 1) + "回";
+        }
+
+        function renderScoreSheet() {
+            const grid = document.getElementById("sheetGrid");
+            if (!grid) {
+                return;
+            }
+
+            grid.innerHTML = "";
+
+            const corner = document.createElement("div");
+            corner.className = "sheet-header";
+            corner.textContent = "打順/回";
+            grid.appendChild(corner);
+
+            for (let inning = 1; inning <= 9; inning += 1) {
+                const header = document.createElement("div");
+                header.className = "sheet-header";
+                header.textContent = inning + "回";
+                grid.appendChild(header);
+            }
+
+            for (let row = 0; row < 9; row += 1) {
+                const label = document.createElement("div");
+                label.className = "sheet-label";
+                label.textContent = (row + 1) + "番";
+                grid.appendChild(label);
+
+                for (let col = 0; col < 9; col += 1) {
+                    const button = document.createElement("button");
+                    button.className = "sheet-cell";
+                    if (row === state.selectedSheetRow && col === state.selectedSheetCol) {
+                        button.classList.add("is-active");
+                    }
+                    button.onclick = () => selectSheetCell(row, col);
+
+                    const snapshot = state.scoreSheet[row][col];
+                    if (snapshot) {
+                        button.innerHTML = generateSheetCellSvg(snapshot);
+                    } else {
+                        const empty = document.createElement("span");
+                        empty.className = "sheet-cell-empty";
+                        empty.textContent = "—";
+                        button.appendChild(empty);
+                    }
+
+                    grid.appendChild(button);
+                }
+            }
+
+            updateSheetMeta();
+        }
+
+        function selectSheetCell(row, col) {
+            state.selectedSheetRow = row;
+            state.selectedSheetCol = col;
+            state.battingOrder = String(row + 1);
+            document.getElementById("battingOrderSelect").value = state.battingOrder;
+            renderScoreSheet();
+            updateDisplay();
+        }
+
+        function saveCurrentToSheet() {
+            const snapshot = captureAtBatSnapshot();
+            state.scoreSheet[state.selectedSheetRow][state.selectedSheetCol] = snapshot;
+            updateBaseRunnersForSnapshot(state.selectedSheetRow, state.selectedSheetCol, snapshot);
+            renderScoreSheet();
+        }
+
+        function loadCurrentSheetCell() {
+            const snapshot = state.scoreSheet[state.selectedSheetRow][state.selectedSheetCol];
+            if (!snapshot) {
+                return;
+            }
+            applyAtBatSnapshot(snapshot);
+            renderScoreSheet();
+            updateDisplay();
+        }
+
+        function clearCurrentSheetCell() {
+            state.scoreSheet[state.selectedSheetRow][state.selectedSheetCol] = null;
+            renderScoreSheet();
+        }
+
+        function goToNextSheetCell() {
+            saveCurrentToSheet();
+            let nextRow = state.selectedSheetRow + 1;
+            let nextCol = state.selectedSheetCol;
+            if (nextRow >= 9) {
+                nextRow = 0;
+                nextCol = Math.min(8, state.selectedSheetCol + 1);
+            }
+            selectSheetCell(nextRow, nextCol);
+            resetState();
+            state.selectedSheetRow = nextRow;
+            state.selectedSheetCol = nextCol;
+            state.battingOrder = String(nextRow + 1);
+            document.getElementById("battingOrderSelect").value = state.battingOrder;
+            renderScoreSheet();
+            updateDisplay();
+        }
+
+        function setBattingOrder() {
+            state.battingOrder = document.getElementById("battingOrderSelect").value;
+            updateDisplay();
+        }
+
+        function toggleRbi() {
+            state.hasRbi = !state.hasRbi;
+            updateDisplay();
+        }
+
+        function markLastPitchNote(note) {
+            if (state.pitchNotes.length === 0) {
+                return;
+            }
+            state.pitchNotes[state.pitchNotes.length - 1] = note;
+        }
+
+        function parseNaturalLanguage() {
+            const input = document.getElementById("naturalLanguageInput").value.trim();
+            const preview = document.getElementById("naturalLanguagePreview");
+
+            if (!input) {
+                state.parsedInput = null;
+                preview.textContent = "入力文が空です。";
+                return;
+            }
+
+            const parsed = buildParsedInput(input);
+            state.parsedInput = parsed;
+
+            if (!parsed) {
+                preview.textContent = "まだ解釈できませんでした。例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打";
+                syncCorrectionControls(null);
+                return;
+            }
+
+            syncCorrectionControls(parsed);
+            const lines = [
+                "解釈:",
+                "守備位置: " + (parsed.fielder ? parsed.fielder + " " + fielderNames[parsed.fielder] : "なし"),
+                "打球種別: " + (parsed.ballType || "なし"),
+                "結果: " + parsed.result,
+                "方向: " + (parsed.direction || "なし"),
+                "走者状況: " + formatRunnerContext(parsed.runnerContext),
+                "補助: " + formatParsedModifiers(parsed),
+                "メモ: " + (parsed.note || "なし")
+            ];
+            preview.innerHTML = lines.join("<br>");
+        }
+
+        function applyNaturalLanguage() {
+            if (!state.parsedInput) {
+                parseNaturalLanguage();
+                if (!state.parsedInput) {
+                    return;
+                }
+            }
+
+            applyParsedInput(state.parsedInput);
+        }
+
+        function applyCorrectedNaturalLanguage() {
+            const corrected = getCorrectedParsedInput();
+            state.parsedInput = corrected;
+            applyParsedInput(corrected);
+            syncPreviewFromParsed(corrected, "修正後");
+        }
+
+        function saveNaturalLanguageMapping() {
+            const input = document.getElementById("naturalLanguageInput").value.trim();
+            if (!input) {
+                document.getElementById("naturalLanguagePreview").textContent = "登録するには入力文が必要です。";
+                return;
+            }
+
+            const corrected = getCorrectedParsedInput();
+            const mappings = loadNaturalLanguageMappings();
+            mappings[input] = corrected;
+            localStorage.setItem(NATURAL_LANGUAGE_STORAGE_KEY, JSON.stringify(mappings));
+            state.parsedInput = corrected;
+            syncPreviewFromParsed(corrected, "登録済み");
+        }
+
+        function buildParsedInput(input) {
+            const preprocessed = preprocessNaturalLanguageInput(input);
+            const normalized = normalizeNaturalLanguageKey(preprocessed || input);
+            const mappings = loadNaturalLanguageMappings();
+            const saved = mappings[input] || mappings[normalized];
+            if (saved) {
+                return cloneParsedInput(saved);
+            }
+
+            const shorthand = buildParsedInputFromShorthand(normalized);
+            if (shorthand) {
+                return shorthand;
+            }
+
+            const builtin = BUILTIN_NATURAL_LANGUAGE_RULES.find((rule) =>
+                rule.patterns.some((pattern) => normalized.includes(pattern))
+            );
+            if (builtin) {
+                return cloneParsedInput(builtin.parsed);
+            }
+
+            if (normalized.includes("見逃し三振") || normalized.includes("空振り三振") || normalized.includes("三振")) {
+                return { result: "K", note: normalized };
+            }
+            if (normalized.includes("四球")) {
+                return { result: "B", note: normalized };
+            }
+            if (normalized.includes("死球")) {
+                return { result: "HP", note: normalized };
+            }
+            if (normalized.includes("敬遠")) {
+                return { result: "IB", note: normalized };
+            }
+            if (normalized.includes("暴投")) {
+                return { result: "W", note: normalized };
+            }
+            if (normalized.includes("捕逸")) {
+                return { result: "P", note: normalized };
+            }
+            if (normalized.includes("ボーク")) {
+                return { result: "BK", note: normalized };
+            }
+
+            const fielder = detectFielder(normalized);
+            const direction = detectDirection(normalized);
+            const ballType = detectBallType(normalized);
+            const modifiers = detectParsedModifiers(normalized);
+            const runnerContext = detectRunnerContext(normalized);
+
+            if (normalized.includes("犠飛")) {
+                return {
+                    fielder,
+                    direction,
+                    ballType: "fly",
+                    result: "OUT",
+                    modifiers: { sacrificeFly: true },
+                    runnerContext,
+                    note: normalized
+                };
+            }
+
+            if (normalized.includes("犠打")) {
+                return {
+                    fielder,
+                    direction,
+                    ballType: "ground",
+                    result: normalized.includes("失敗") ? "Fc" : "OUT",
+                    modifiers: { sacrificeBunt: true },
+                    runnerContext,
+                    note: normalized
+                };
+            }
+
+            if (normalized.includes("野選") || normalized.includes("フィルダースチョイス")) {
+                return {
+                    fielder,
+                    direction,
+                    ballType: ballType || "ground",
+                    result: "Fc",
+                    modifiers,
+                    runnerContext,
+                    note: normalized
+                };
+            }
+
+            if (normalized.includes("内野安打") || normalized.includes("ゴロ安")) {
+                return {
+                    fielder,
+                    direction,
+                    ballType: ballType || "ground",
+                    result: "G",
+                    modifiers,
+                    runnerContext,
+                    note: "内野安打"
+                };
+            }
+
+            if (normalized.includes("ゴロアウト") || normalized.includes("凡退") || normalized.includes("アウト")) {
+                return {
+                    fielder,
+                    direction,
+                    ballType: ballType || "ground",
+                    result: "OUT",
+                    modifiers,
+                    runnerContext,
+                    note: normalized
+                };
+            }
+
+            if (normalized.includes("バントヒット")) {
+                return {
+                    fielder,
+                    direction,
+                    ballType: "ground",
+                    result: "BH",
+                    modifiers: { bunt: true },
+                    runnerContext,
+                    note: "バントヒット"
+                };
+            }
+
+            if (normalized.includes("本塁打") || normalized.includes("ホームラン")) {
+                return { fielder: fielder || "8", direction, result: "HR", runnerContext, note: normalized };
+            }
+            if (normalized.includes("三塁打")) {
+                return { fielder: fielder || "9", direction, result: "3B", runnerContext, note: normalized };
+            }
+            if (normalized.includes("二塁打")) {
+                return { fielder: fielder || "7", direction, result: "2B", runnerContext, note: normalized };
+            }
+            if (normalized.includes("ヒット") || normalized.includes("前安打") || normalized.includes("前ヒット")) {
+                return {
+                    fielder: fielder || "8",
+                    direction,
+                    ballType,
+                    result: "1B",
+                    modifiers,
+                    runnerContext,
+                    note: normalized
+                };
+            }
+
+            if ((normalized.includes("送球間") || normalized.includes("悪送球の間")) && fielder) {
+                return {
+                    fielder,
+                    direction,
+                    ballType: ballType || "ground",
+                    result: "Fc",
+                    modifiers,
+                    runnerContext,
+                    note: normalized
+                };
+            }
+
+            if ((normalized.includes("ダブルプレー") || normalized.includes("併殺")) && fielder) {
+                return {
+                    fielder,
+                    direction,
+                    ballType: ballType || "ground",
+                    result: "OUT",
+                    modifiers,
+                    runnerContext,
+                    note: normalized
+                };
+            }
+
+            if (fielder && ballType !== "none") {
+                return {
+                    fielder,
+                    direction,
+                    ballType,
+                    result: "OUT",
+                    modifiers,
+                    runnerContext,
+                    note: normalized
+                };
+            }
+
+            return null;
+        }
+
+        function buildParsedInputFromShorthand(text) {
+            if (!text) {
+                return null;
+            }
+
+            const normalizedText = normalizeBaseballDigits(text);
+            const isDoublePlayText = normalizedText.includes("ダブルプレー") || normalizedText.includes("併殺");
+
+            if (normalizedText.includes("見三振") || normalizedText.includes("見逃し三振")) {
+                return { result: "K", runnerContext: detectRunnerContext(normalizedText), note: normalizedText };
+            }
+            if (normalizedText.includes("空三振") || normalizedText.includes("空振三振")) {
+                return { result: "K", runnerContext: detectRunnerContext(normalizedText), note: normalizedText };
+            }
+            if (normalizedText.includes("二盗")) {
+                return { result: "S", runnerContext: detectRunnerContext(normalizedText), note: normalizedText };
+            }
+
+            const sequencePlayMatch = normalizedText.match(/([1-9](?:-[1-9]){1,3})/);
+            const compactSequenceMatch = normalizedText.match(/([1-9]{2,4})(?:アウト|ダブルプレー|併殺)?/);
+            const fieldSequence = sequencePlayMatch
+                ? sequencePlayMatch[1].split("-")
+                : compactSequenceMatch
+                    ? compactSequenceMatch[1].split("")
+                    : null;
+
+            if (fieldSequence && (isDoublePlayText || normalizedText.includes("アウト"))) {
+                return {
+                    fielder: fieldSequence[0],
+                    ballType: "ground",
+                    result: "OUT",
+                    fieldSequence,
+                    outScore: isDoublePlayText ? "Ⅱ" : "Ⅰ",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const foulFlyMatch = normalizedText.match(/^([投捕一二三遊左右中1-9])邪飛$/);
+            if (foulFlyMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[foulFlyMatch[1]],
+                    ballType: "fly",
+                    result: "OUT",
+                    modifiers: { foul: true },
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const hitMatch = normalizedText.match(/^([左右中])安$/);
+            if (hitMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[hitMatch[1]],
+                    direction: hitMatch[1] === "左" ? "left" : hitMatch[1] === "右" ? "right" : "down",
+                    result: "1B",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const flyHitMatch = normalizedText.match(/^([左右中])飛$/);
+            if (flyHitMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[flyHitMatch[1]],
+                    ballType: "fly",
+                    result: "OUT",
+                    direction: flyHitMatch[1] === "左" ? "left" : flyHitMatch[1] === "右" ? "right" : "none",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const linerHitMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])ライナー$/);
+            if (linerHitMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[linerHitMatch[1]],
+                    ballType: "liner",
+                    result: "OUT",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const groundMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])ゴロ(悪送球)?$/);
+            if (groundMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[groundMatch[1]],
+                    ballType: "ground",
+                    result: "OUT",
+                    errorMode: groundMatch[2] ? "thrower" : "none",
+                    fieldSequence,
+                    outScore: isDoublePlayText ? "Ⅱ" : "Ⅰ",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const shortFlyMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])飛$/);
+            if (shortFlyMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[shortFlyMatch[1]],
+                    ballType: "fly",
+                    result: "OUT",
+                    fieldSequence,
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const shortHitMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])安$/);
+            if (shortHitMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[shortHitMatch[1]],
+                    result: "1B",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const buntMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])前?バント$/);
+            if (buntMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[buntMatch[1]],
+                    ballType: "ground",
+                    result: "OUT",
+                    modifiers: { bunt: true },
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const sacBuntMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])犠打$/);
+            if (sacBuntMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[sacBuntMatch[1]],
+                    ballType: "ground",
+                    result: "OUT",
+                    modifiers: { sacrificeBunt: true },
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const doubleMatch = normalizedText.match(/^([左右中])線.*2べ/);
+            if (doubleMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[doubleMatch[1]],
+                    direction: doubleMatch[1] === "左" ? "left" : "right",
+                    ballType: normalizedText.includes("ライナー") ? "liner" : "none",
+                    result: "2B",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const singleDirectionalMatch = normalizedText.match(/^([左右中])([飛安])/);
+            if (singleDirectionalMatch && singleDirectionalMatch[2] === "安") {
+                return {
+                    fielder: SHORT_FIELDER_MAP[singleDirectionalMatch[1]],
+                    result: "1B",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            return null;
+        }
+
+        function getCorrectedParsedInput() {
+            return {
+                fielder: document.getElementById("nlFielderSelect").value,
+                ballType: document.getElementById("nlBallTypeSelect").value,
+                result: document.getElementById("nlResultSelect").value,
+                direction: document.getElementById("nlDirectionSelect").value,
+                note: "手動修正"
+            };
+        }
+
+        function syncCorrectionControls(parsed) {
+            document.getElementById("nlFielderSelect").value = parsed?.fielder || "";
+            document.getElementById("nlBallTypeSelect").value = parsed?.ballType || "none";
+            document.getElementById("nlResultSelect").value = parsed?.result || "";
+            document.getElementById("nlDirectionSelect").value = parsed?.direction || "none";
+        }
+
+        function syncPreviewFromParsed(parsed, prefix) {
+            const lines = [
+                prefix + ":",
+                "守備位置: " + (parsed.fielder ? parsed.fielder + " " + fielderNames[parsed.fielder] : "なし"),
+                "打球種別: " + (parsed.ballType || "なし"),
+                "結果: " + (parsed.result || "なし"),
+                "方向: " + (parsed.direction || "なし"),
+                "走者状況: " + formatRunnerContext(parsed.runnerContext),
+                "補助: " + formatParsedModifiers(parsed)
+            ];
+            document.getElementById("naturalLanguagePreview").innerHTML = lines.join("<br>");
+        }
+
+        function loadNaturalLanguageMappings() {
+            try {
+                return JSON.parse(localStorage.getItem(NATURAL_LANGUAGE_STORAGE_KEY) || "{}");
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function detectFielder(text) {
+            for (const entry of naturalLanguageFielderMap) {
+                if (entry.patterns.some((pattern) => text.includes(pattern))) {
+                    return entry.value;
+                }
+            }
+            return "";
+        }
+
+        function detectDirection(text) {
+            if (text.includes("前")) {
+                return "down";
+            }
+            if (text.includes("後方") || text.includes("オーバー")) {
+                return "up";
+            }
+            if (text.includes("左")) {
+                return "left";
+            }
+            if (text.includes("右")) {
+                return "right";
+            }
+            return "none";
+        }
+
+        function detectBallType(text) {
+            if (text.includes("ゴロ")) {
+                return "ground";
+            }
+            if (text.includes("フライ")) {
+                return "fly";
+            }
+            if (text.includes("ライナー")) {
+                return "liner";
+            }
+            return "none";
+        }
+
+        function detectParsedModifiers(text) {
+            return {
+                foul: text.includes("ファウル"),
+                bunt: text.includes("バント"),
+                sacrificeFly: text.includes("犠飛"),
+                sacrificeBunt: text.includes("犠打")
+            };
+        }
+
+        function formatParsedModifiers(parsed) {
+            const modifiers = parsed?.modifiers || {};
+            const labels = [];
+            if (modifiers.foul) {
+                labels.push("ファウル");
+            }
+            if (modifiers.bunt) {
+                labels.push("バント");
+            }
+            if (modifiers.sacrificeFly) {
+                labels.push("犠飛");
+            }
+            if (modifiers.sacrificeBunt) {
+                labels.push("犠打");
+            }
+            return labels.length ? labels.join(" / ") : "なし";
+        }
+
+        function detectRunnerContext(text) {
+            if (!text) {
+                return null;
+            }
+
+            const context = {
+                occupancy: "",
+                outCountText: "",
+                advances: [],
+                scores: 0,
+                outsOnBases: []
+            };
+
+            const occupancyPatterns = ["満塁", "一二塁", "一三塁", "二三塁", "一塁", "二塁", "三塁"];
+            context.occupancy = occupancyPatterns.find((pattern) => text.includes(pattern)) || "";
+
+            const outMatch = text.match(/([一二三]?死)/);
+            context.outCountText = outMatch ? outMatch[1] : "";
+
+            const scoreMatches = text.match(/[①-⑨]/g);
+            if (scoreMatches) {
+                context.scores += scoreMatches.length;
+            }
+            const numericScoreMatch = text.match(/([1-9])点/);
+            if (numericScoreMatch) {
+                context.scores += Number(numericScoreMatch[1]);
+            }
+
+            const advancePatterns = [
+                { pattern: "一走は三塁へ", label: "一走→三塁" },
+                { pattern: "一走は二塁へ", label: "一走→二塁" },
+                { pattern: "二走は三塁へ", label: "二走→三塁" },
+                { pattern: "二走生還", label: "二走生還" },
+                { pattern: "一走生還", label: "一走生還" },
+                { pattern: "三走生還", label: "三走生還" },
+                { pattern: "ランナー一三塁", label: "一三塁" },
+                { pattern: "ランナー一二塁", label: "一二塁" },
+                { pattern: "ランナー二三塁", label: "二三塁" },
+                { pattern: "バックホームはアウト", label: "本塁封殺" },
+                { pattern: "ホーム送球アウト", label: "本塁封殺" },
+                { pattern: "二塁送球はアウト", label: "二塁封殺" },
+                { pattern: "三塁送球はアウト", label: "三塁封殺" },
+                { pattern: "一塁セーフ", label: "打者走者一塁セーフ" }
+            ];
+
+            advancePatterns.forEach((entry) => {
+                if (text.includes(entry.pattern)) {
+                    context.advances.push(entry.label);
+                }
+            });
+
+            if (text.includes("二盗")) {
+                context.advances.push("二盗");
+            }
+            if (text.includes("三盗")) {
+                context.advances.push("三盗");
+            }
+
+            if (text.includes("二盗死")) {
+                context.outsOnBases.push("二盗死");
+            }
+            if (text.includes("三盗死")) {
+                context.outsOnBases.push("三盗死");
+            }
+            if (text.includes("本塁アウト")) {
+                context.outsOnBases.push("本塁アウト");
+            }
+
+            if (!context.occupancy && !context.outCountText && context.advances.length === 0 && context.scores === 0 && context.outsOnBases.length === 0) {
+                return null;
+            }
+
+            return context;
+        }
+
+        function formatRunnerContext(context) {
+            if (!context) {
+                return "なし";
+            }
+
+            const parts = [];
+            if (context.outCountText) {
+                parts.push(context.outCountText);
+            }
+            if (context.occupancy) {
+                parts.push(context.occupancy);
+            }
+            if (context.advances?.length) {
+                parts.push(context.advances.join(" / "));
+            }
+            if (context.outsOnBases?.length) {
+                parts.push(context.outsOnBases.join(" / "));
+            }
+            if (context.scores) {
+                parts.push(context.scores + "点");
+            }
+            return parts.length ? parts.join(" | ") : "なし";
+        }
+
+        function applyParsedInput(parsed) {
+            resetState();
+
+            if (parsed.fielder) {
+                state.selectedFielder = parsed.fielder;
+                document.getElementById("fielderSelect").value = parsed.fielder;
+                state.result = parsed.fielder;
+                state.fieldSequence = [parsed.fielder];
+            }
+
+            if (Array.isArray(parsed.fieldSequence) && parsed.fieldSequence.length > 0) {
+                state.fieldSequence = [...parsed.fieldSequence];
+                if (!parsed.fielder) {
+                    state.selectedFielder = parsed.fieldSequence[0];
+                    document.getElementById("fielderSelect").value = parsed.fieldSequence[0];
+                }
+            }
+
+            if (parsed.direction && parsed.direction !== "none") {
+                state.selectedDirection = parsed.direction;
+            }
+
+            if (parsed.ballType && parsed.ballType !== "none") {
+                state.selectedBallType = parsed.ballType;
+            }
+
+            if (parsed.modifiers) {
+                state.modifiers.foul = Boolean(parsed.modifiers.foul);
+                state.modifiers.bunt = Boolean(parsed.modifiers.bunt);
+                state.modifiers.sacrificeFly = Boolean(parsed.modifiers.sacrificeFly);
+                state.modifiers.sacrificeBunt = Boolean(parsed.modifiers.sacrificeBunt);
+            }
+
+            if (parsed.errorMode) {
+                state.errorMode = parsed.errorMode;
+            }
+
+            state.runnerContextText = formatRunnerContext(parsed.runnerContext);
+
+            if (parsed.result) {
+                if (["1B", "2B", "3B", "HR", "G", "BH"].includes(parsed.result)) {
+                    state.selectedHitType = parsed.result;
+                    state.result = state.selectedFielder || parsed.fielder || "8";
+                } else if (parsed.result === "OUT") {
+                    state.result = state.selectedFielder || parsed.fielder || "8";
+                    state.outScore = parsed.outScore || "Ⅰ";
+                } else if (parsed.result === "Fc") {
+                    state.result = "Fc";
+                } else {
+                    state.result = parsed.result;
+                }
+            }
+
+            updateDisplay();
+        }
+
+        function updateFielder() {
+            state.selectedFielder = document.getElementById("fielderSelect").value;
+            state.selectedDirection = "none";
+            state.fieldSequence = [state.selectedFielder];
+
+            if (state.selectedHitType === "1B" || state.result === state.selectedFielder) {
+                state.result = state.selectedFielder;
+            }
+
+            applySelection();
+        }
+
+        function setDirection(direction) {
+            state.selectedDirection = state.selectedDirection === direction ? "none" : direction;
+            applySelection();
+        }
+
+        function setBallType(type) {
+            state.selectedBallType = state.selectedBallType === type ? "none" : type;
+
+            if (state.selectedBallType !== "fly") {
+                state.modifiers.sacrificeFly = false;
+            }
+            if (state.selectedBallType !== "ground") {
+                state.modifiers.sacrificeBunt = false;
+            }
+
+            if (!isFielderPlay()) {
+                state.result = state.selectedFielder;
+            }
+
+            updateDisplay();
+        }
+
+        function startFieldSequence() {
+            state.result = state.selectedFielder;
+            state.selectedHitType = "none";
+            state.fieldSequence = [state.selectedFielder];
+            updateDisplay();
+        }
+
+        function appendToFieldSequence(step) {
+            if (!isFielderPlay()) {
+                startFieldSequence();
+            }
+
+            if (state.baseCover !== "none") {
+                state.baseCover = "none";
+            }
+
+            if (state.fieldSequence.length === 0) {
+                state.fieldSequence = [state.selectedFielder];
+            }
+
+            const lastStep = state.fieldSequence[state.fieldSequence.length - 1];
+            if (lastStep !== step) {
+                state.fieldSequence.push(step);
+            }
+
+            updateDisplay();
+        }
+
+        function removeLastFieldStep() {
+            if (state.fieldSequence.length > 1) {
+                state.fieldSequence.pop();
+            } else {
+                state.fieldSequence = [state.selectedFielder];
+            }
+            updateDisplay();
+        }
+
+        function clearFieldSequence() {
+            state.fieldSequence = [state.selectedFielder];
+            state.baseCover = "none";
+            updateDisplay();
+        }
+
+        function setErrorMode(mode) {
+            if (!isFielderPlay()) {
+                startFieldSequence();
+            }
+
+            state.errorMode = state.errorMode === mode ? "none" : mode;
+            updateDisplay();
+        }
+
+        function setBaseCover(code) {
+            if (!isFielderPlay()) {
+                startFieldSequence();
+            }
+
+            state.baseCover = state.baseCover === code ? "none" : code;
+            if (state.fieldSequence.length === 0) {
+                state.fieldSequence = [state.selectedFielder];
+            }
+            updateDisplay();
+        }
+
+        function clearFieldMarks() {
+            state.errorMode = "none";
+            state.baseCover = "none";
+            updateDisplay();
+        }
+
+        function setHitType(type) {
+            state.selectedHitType = type;
+            state.result = state.selectedFielder;
+            state.fieldSequence = [state.selectedFielder];
+            state.selectedBallType = "none";
+            state.selectedDirection = "none";
+            resetModifiers();
+            clearFieldMarks();
+
+            updateDisplay();
+        }
+
+        function setResult(symbol) {
+            if (symbol === "G" || symbol === "BH") {
+                state.result = state.selectedFielder;
+                state.selectedHitType = symbol;
+                state.fieldSequence = [state.selectedFielder];
+                if (symbol === "G") {
+                    state.selectedBallType = "ground";
+                } else if (symbol === "BH" && state.selectedBallType === "none") {
+                    state.selectedBallType = "ground";
+                }
+                resetModifiers();
+                state.errorMode = "none";
+                state.baseCover = "none";
+                updateDisplay();
+                return;
+            }
+
+            state.result = symbol;
+            state.selectedHitType = "none";
+            state.selectedBallType = "none";
+            state.selectedDirection = "none";
+            resetModifiers();
+            state.errorMode = "none";
+            state.baseCover = "none";
+            state.fieldSequence = [];
+            if (symbol === "W" || symbol === "P" || symbol === "BK") {
+                markLastPitchNote(symbol);
+            }
+            updateDisplay();
+        }
+
+        function resetModifiers() {
+            state.modifiers.foul = false;
+            state.modifiers.bunt = false;
+            state.modifiers.sacrificeFly = false;
+            state.modifiers.sacrificeBunt = false;
+        }
+
+        function toggleModifier(modifier) {
+            if (!isFielderPlay()) {
+                startFieldSequence();
+            }
+
+            if (modifier === "foul") {
+                state.modifiers.foul = !state.modifiers.foul;
+                if (state.selectedBallType === "none") {
+                    state.selectedBallType = "fly";
+                }
+            } else if (modifier === "bunt") {
+                state.modifiers.bunt = !state.modifiers.bunt;
+                if (state.selectedBallType === "none") {
+                    state.selectedBallType = "ground";
+                }
+            } else if (modifier === "sacrificeFly") {
+                state.modifiers.sacrificeFly = !state.modifiers.sacrificeFly;
+                if (state.modifiers.sacrificeFly) {
+                    state.modifiers.sacrificeBunt = false;
+                    state.selectedBallType = "fly";
+                }
+            } else if (modifier === "sacrificeBunt") {
+                state.modifiers.sacrificeBunt = !state.modifiers.sacrificeBunt;
+                if (state.modifiers.sacrificeBunt) {
+                    state.modifiers.sacrificeFly = false;
+                    state.selectedBallType = "ground";
+                }
+            }
+
+            updateDisplay();
+        }
+
+        function previewExtraResult() {
+            const code = document.getElementById("extraResultSelect").value;
+            const help = document.getElementById("resultHelp");
+            help.textContent = code ? code + " : " + resultDescriptions[code] : "略号を選ぶと説明をここに表示します。";
+        }
+
+        function applyExtraResult() {
+            const code = document.getElementById("extraResultSelect").value;
+            if (!code) {
+                return;
+            }
+            setResult(code);
+        }
+
+        function setOutScore(symbol) {
+            state.outScore = symbol;
+            updateDisplay();
+        }
+
+        function addPitch(symbol) {
+            state.pitches.push(symbol);
+            state.pitchNotes.push("");
+
+            if (symbol === "calledStrike" || symbol === "swingStrike" || symbol === "buntSwing") {
+                state.strikes += 1;
+            } else if (symbol === "ball") {
+                state.balls += 1;
+            } else if (symbol === "foul" && state.strikes < 2) {
+                state.strikes += 1;
+            } else if (symbol === "buntFoul") {
+                state.strikes += 1;
+            }
+
+            if (state.strikes >= 3) {
+                state.result = "K";
+                state.outScore = "Ⅰ";
+                state.selectedHitType = "none";
+                state.selectedBallType = "none";
+                state.selectedDirection = "none";
+                resetModifiers();
+                state.errorMode = "none";
+                state.baseCover = "none";
+                state.fieldSequence = [];
+            } else if (state.balls >= 4) {
+                state.result = "B";
+                state.selectedHitType = "none";
+                state.selectedBallType = "none";
+                state.selectedDirection = "none";
+                resetModifiers();
+                state.errorMode = "none";
+                state.baseCover = "none";
+                state.fieldSequence = [];
+            }
+
+            updateDisplay();
+        }
+
+        function applySelection() {
+            state.result = state.selectedFielder;
+            state.fieldSequence = [state.selectedFielder];
+            if (!isHitTypeSelection()) {
+                state.selectedHitType = "none";
+            }
+            updateDisplay();
+        }
+
+        function isHitTypeSelection() {
+            return ["1B", "2B", "3B", "HR", "G", "BH"].includes(state.selectedHitType);
+        }
+
+        function isFielderPlay() {
+            return state.result === state.selectedFielder || isHitTypeSelection();
+        }
+
+        function updatePitchDisplay() {
+            const pitchDisplay = document.getElementById("pitchCountDisplay");
+            pitchDisplay.innerHTML = "";
+
+            state.pitches.forEach((pitch, index) => {
+                const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+
+                if (index < 8) {
+                    group.setAttribute("transform", "translate(20 " + (20 + index * 20) + ")");
+                } else if (index < 16) {
+                    const row = index - 8;
+                    group.setAttribute("transform", "translate(27 " + (20 + row * 20) + ")");
+                } else {
+                    const row = index - 16;
+                    group.setAttribute("transform", "translate(20 " + (20 + row * 10) + ")");
+                }
+
+                appendPitchMark(group, pitch);
+                appendPitchNote(group, state.pitchNotes[index]);
+                pitchDisplay.appendChild(group);
+            });
+
+            if (state.pitches.length >= 9) {
+                const allGroups = pitchDisplay.querySelectorAll("g");
+                for (let index = 0; index < Math.min(8, allGroups.length); index += 1) {
+                    allGroups[index].setAttribute("transform", "translate(13 " + (20 + index * 20) + ")");
+                }
+            }
+        }
+
+        function appendPitchMark(group, pitch) {
+            const svgNs = "http://www.w3.org/2000/svg";
+
+            if (pitch === "ball") {
+                const circle = document.createElementNS(svgNs, "circle");
+                circle.setAttribute("cx", "0");
+                circle.setAttribute("cy", "0");
+                circle.setAttribute("r", "4");
+                circle.setAttribute("fill", "#111");
+                group.appendChild(circle);
+                return;
+            }
+
+            if (pitch === "calledStrike" || pitch === "swingStrike" || pitch === "buntSwing") {
+                const line1 = document.createElementNS(svgNs, "line");
+                line1.setAttribute("x1", "-4");
+                line1.setAttribute("y1", "-4");
+                line1.setAttribute("x2", "4");
+                line1.setAttribute("y2", "4");
+                line1.setAttribute("stroke", "#111");
+                line1.setAttribute("stroke-width", "1.6");
+                const line2 = document.createElementNS(svgNs, "line");
+                line2.setAttribute("x1", "4");
+                line2.setAttribute("y1", "-4");
+                line2.setAttribute("x2", "-4");
+                line2.setAttribute("y2", "4");
+                line2.setAttribute("stroke", "#111");
+                line2.setAttribute("stroke-width", "1.6");
+                group.appendChild(line1);
+                group.appendChild(line2);
+
+                if (pitch === "swingStrike" || pitch === "buntSwing") {
+                    const extra = document.createElementNS(svgNs, "line");
+                    extra.setAttribute("x1", "0");
+                    extra.setAttribute("y1", "-5");
+                    extra.setAttribute("x2", "0");
+                    extra.setAttribute("y2", "5");
+                    extra.setAttribute("stroke", "#111");
+                    extra.setAttribute("stroke-width", "1.4");
+                    group.appendChild(extra);
+                }
+
+                if (pitch === "buntSwing") {
+                    const bunt = document.createElementNS(svgNs, "line");
+                    bunt.setAttribute("x1", "-5");
+                    bunt.setAttribute("y1", "5");
+                    bunt.setAttribute("x2", "5");
+                    bunt.setAttribute("y2", "5");
+                    bunt.setAttribute("stroke", "#111");
+                    bunt.setAttribute("stroke-width", "1.2");
+                    group.appendChild(bunt);
+                }
+                return;
+            }
+
+            if (pitch === "foul" || pitch === "buntFoul") {
+                const triangle = document.createElementNS(svgNs, "polygon");
+                triangle.setAttribute("points", "0,-5 5,4 -5,4");
+                triangle.setAttribute("fill", "none");
+                triangle.setAttribute("stroke", "#111");
+                triangle.setAttribute("stroke-width", "1.4");
+                group.appendChild(triangle);
+
+                if (pitch === "buntFoul") {
+                    const dot = document.createElementNS(svgNs, "circle");
+                    dot.setAttribute("cx", "0");
+                    dot.setAttribute("cy", "1");
+                    dot.setAttribute("r", "1.5");
+                    dot.setAttribute("fill", "#111");
+                    group.appendChild(dot);
+                }
+            }
+        }
+
+        function appendPitchNote(group, note) {
+            if (!note) {
+                return;
+            }
+
+            const svgNs = "http://www.w3.org/2000/svg";
+            const line = document.createElementNS(svgNs, "line");
+            line.setAttribute("x1", "-6");
+            line.setAttribute("y1", "8");
+            line.setAttribute("x2", "6");
+            line.setAttribute("y2", "8");
+            line.setAttribute("stroke", "#111");
+            line.setAttribute("stroke-width", "1.2");
+            group.appendChild(line);
+
+            const text = document.createElementNS(svgNs, "text");
+            text.setAttribute("x", "0");
+            text.setAttribute("y", "15");
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("font-size", "6");
+            text.setAttribute("fill", "#111");
+            text.textContent = note;
+            group.appendChild(text);
+        }
+
+        function updateDirectionButtons() {
+            const directions = ["up", "down", "left", "right"];
+
+            directions.forEach((direction) => {
+                const button = document.getElementById("dir-" + direction);
+                button.classList.toggle("is-active", state.selectedDirection === direction && isFielderPlay());
+            });
+        }
+
+        function updateBallTypeButtons() {
+            const buttons = {
+                ground: document.getElementById("ball-ground"),
+                fly: document.getElementById("ball-fly"),
+                liner: document.getElementById("ball-liner")
+            };
+
+            Object.entries(buttons).forEach(([type, button]) => {
+                button.classList.toggle("is-active", state.selectedBallType === type && isFielderPlay());
+            });
+        }
+
+        function updateModifierButtons() {
+            document.getElementById("modifier-foul").classList.toggle("is-active", state.modifiers.foul && isFielderPlay());
+            document.getElementById("modifier-bunt").classList.toggle("is-active", state.modifiers.bunt && isFielderPlay());
+            document.getElementById("modifier-sac-fly").classList.toggle("is-active", state.modifiers.sacrificeFly && isFielderPlay());
+            document.getElementById("modifier-sac-bunt").classList.toggle("is-active", state.modifiers.sacrificeBunt && isFielderPlay());
+        }
+
+        function updateFieldActionButtons() {
+            document.getElementById("field-error-fielder").classList.toggle("is-active", state.errorMode === "fielder" && isFielderPlay());
+            document.getElementById("field-error-thrower").classList.toggle("is-active", state.errorMode === "thrower" && isFielderPlay());
+            document.getElementById("field-error-receiver").classList.toggle("is-active", state.errorMode === "receiver" && isFielderPlay());
+            document.getElementById("cover-A").classList.toggle("is-active", state.baseCover === "A" && isFielderPlay());
+            document.getElementById("cover-B").classList.toggle("is-active", state.baseCover === "B" && isFielderPlay());
+            document.getElementById("cover-C").classList.toggle("is-active", state.baseCover === "C" && isFielderPlay());
+            document.getElementById("cover-D").classList.toggle("is-active", state.baseCover === "D" && isFielderPlay());
+        }
+
+        function updateRbiButton() {
+            document.getElementById("rbiToggle").classList.toggle("is-active", state.hasRbi);
+        }
+
+        function updateHitLines() {
+            const segments = [
+                document.getElementById("hit-line-first"),
+                document.getElementById("hit-line-second"),
+                document.getElementById("hit-line-third"),
+                document.getElementById("hit-line-home")
+            ];
+            const paths = [
+                "M 125 185 L 215 95",
+                "M 215 95 L 125 5",
+                "M 125 5 L 35 95",
+                "M 35 95 L 125 185"
+            ];
+
+            let visibleCount = 0;
+            if (state.selectedHitType === "1B" || state.selectedHitType === "G" || state.selectedHitType === "BH") {
+                visibleCount = 1;
+            } else if (state.selectedHitType === "2B") {
+                visibleCount = 2;
+            } else if (state.selectedHitType === "3B") {
+                visibleCount = 3;
+            } else if (state.selectedHitType === "HR") {
+                visibleCount = 4;
+            }
+
+            segments.forEach((segment, index) => {
+                segment.setAttribute("d", paths[index]);
+                segment.setAttribute("visibility", index < visibleCount ? "visible" : "hidden");
+            });
+        }
+
+        function updateResultDecoration() {
+            const resultDisplay = document.getElementById("resultDisplay");
+            const prefixDisplay = document.getElementById("resultPrefixDisplay");
+            const sacrificeBox = document.getElementById("sacrificeBox");
+            const sacrificeFlyTriangle = document.getElementById("sacrificeFlyTriangle");
+            const decoration = document.getElementById("ballTypeDecoration");
+            const infieldHitArc = document.getElementById("infieldHitArc");
+            const dotUp = document.getElementById("dotUp");
+            const dotDown = document.getElementById("dotDown");
+            const dotLeft = document.getElementById("dotLeft");
+            const dotRight = document.getElementById("dotRight");
+
+            decoration.setAttribute("d", "");
+            prefixDisplay.textContent = "";
+            sacrificeBox.setAttribute("visibility", "hidden");
+            sacrificeFlyTriangle.setAttribute("visibility", "hidden");
+            infieldHitArc.setAttribute("visibility", "hidden");
+
+            dotUp.setAttribute("visibility", "hidden");
+            dotDown.setAttribute("visibility", "hidden");
+            dotLeft.setAttribute("visibility", "hidden");
+            dotRight.setAttribute("visibility", "hidden");
+            resultDisplay.setAttribute("x", "0");
+            resultDisplay.setAttribute("y", "0");
+            prefixDisplay.setAttribute("x", "0");
+            prefixDisplay.setAttribute("y", "-18");
+            prefixDisplay.setAttribute("transform", "");
+
+            if (!state.result) {
+                return;
+            }
+
+            try {
+                const isInfieldHit = state.result === "G" || state.result === "BH" || state.selectedHitType === "G" || state.selectedHitType === "BH";
+
+                if (isFielderPlay() && isInfieldHit) {
+                    resultDisplay.setAttribute("x", "8");
+                    resultDisplay.setAttribute("y", "2");
+                }
+
+                const box = resultDisplay.getBBox();
+                const width = Math.max(box.width, 14);
+                const halfWidth = width / 2;
+                const topY = box.y - 8;
+                const bottomY = box.y + box.height + 3;
+                const dotTopY = box.y - 14;
+                const dotBottomY = box.y + box.height + 6;
+                const centerY = box.y + box.height / 2;
+                const leftX = box.x - 8;
+                const rightX = box.x + box.width + 8;
+                const prefixY = topY - 4;
+
+                if (isFielderPlay()) {
+                    let prefixText = "";
+                    if (state.result === "BH" || state.selectedHitType === "BH") {
+                        prefixText = "BH";
+                    } else if (state.modifiers.bunt && state.modifiers.foul && state.selectedBallType === "fly") {
+                        prefixText = "@F";
+                    } else if (state.modifiers.bunt) {
+                        prefixText = "@";
+                    } else if (state.modifiers.foul && state.selectedBallType === "fly") {
+                        prefixText = "F";
+                    }
+                    prefixDisplay.textContent = prefixText;
+                    if (isInfieldHit && prefixText === "BH") {
+                        prefixDisplay.setAttribute("x", "-18");
+                        prefixDisplay.setAttribute("y", "-22");
+                        prefixDisplay.setAttribute("transform", "rotate(-45 -18 -22)");
+                        prefixDisplay.setAttribute("fill", "#c62828");
+                    } else {
+                        prefixDisplay.setAttribute("y", String(prefixY));
+                        prefixDisplay.setAttribute("fill", "#222");
+                    }
+
+                    if (state.selectedBallType === "fly") {
+                        decoration.setAttribute(
+                            "d",
+                            "M " + (-halfWidth - 4) + " " + topY + " Q 0 " + (topY - 8) + " " + (halfWidth + 4) + " " + topY
+                        );
+                    } else if (state.selectedBallType === "liner") {
+                        decoration.setAttribute(
+                            "d",
+                            "M " + (-halfWidth - 4) + " " + topY + " L " + (halfWidth + 4) + " " + topY
+                        );
+                    } else if (state.selectedBallType === "ground" && state.result !== "G" && state.result !== "BH" && state.selectedHitType !== "G" && state.selectedHitType !== "BH") {
+                        decoration.setAttribute(
+                            "d",
+                            "M " + (-halfWidth - 2) + " " + bottomY + " Q 0 " + (bottomY + 7) + " " + (halfWidth + 2) + " " + bottomY
+                        );
+                    }
+
+                    if (state.modifiers.sacrificeBunt && state.selectedBallType === "ground") {
+                        sacrificeBox.setAttribute("x", String(box.x - 10));
+                        sacrificeBox.setAttribute("y", String(box.y - 8));
+                        sacrificeBox.setAttribute("width", String(box.width + 20));
+                        sacrificeBox.setAttribute("height", String(box.height + 16));
+                        sacrificeBox.setAttribute("visibility", "visible");
+                        sacrificeBox.setAttribute("stroke", "#1f5fbf");
+                    }
+
+                    if (state.modifiers.sacrificeFly && state.selectedBallType === "fly") {
+                        sacrificeFlyTriangle.setAttribute("visibility", "visible");
+                    }
+
+                    if (isInfieldHit) {
+                        // Use an exact semicircle, not a spline:
+                        // - center = midpoint of the single-hit slash
+                        // - radius = half of the quadrant box size (90 / 2 = 45)
+                        // The slash in this quadrant is the line from (125,185) to (215,95),
+                        // whose midpoint is (170,140). In resultGroup local coords that is
+                        // (-12,-26). The diameter lies on the slash, and the visible arc bows
+                        // toward the lower-right corner.
+                        const radius = 45;
+                        const centerX = -12;
+                        const centerY = -26;
+                        const delta = radius / Math.sqrt(2);
+                        const arcStartX = centerX - delta;
+                        const arcStartY = centerY + delta;
+                        const arcEndX = centerX + delta;
+                        const arcEndY = centerY - delta;
+                        infieldHitArc.setAttribute(
+                            "d",
+                            "M " + arcStartX + " " + arcStartY +
+                            " A " + radius + " " + radius + " 0 0 0 " + arcEndX + " " + arcEndY
+                        );
+                        infieldHitArc.setAttribute("visibility", "visible");
+                    }
+
+                    if (shouldShowRedLandingDot()) {
+                        if (state.selectedDirection === "up") {
+                            dotUp.setAttribute("cx", "0");
+                            dotUp.setAttribute("cy", String(dotTopY));
+                            dotUp.setAttribute("visibility", "visible");
+                        } else if (state.selectedDirection === "down") {
+                            dotDown.setAttribute("cx", "0");
+                            dotDown.setAttribute("cy", String(dotBottomY));
+                            dotDown.setAttribute("visibility", "visible");
+                        } else if (state.selectedDirection === "left") {
+                            dotLeft.setAttribute("cx", String(leftX - 2));
+                            dotLeft.setAttribute("cy", String(centerY));
+                            dotLeft.setAttribute("visibility", "visible");
+                        } else if (state.selectedDirection === "right") {
+                            dotRight.setAttribute("cx", String(rightX + 2));
+                            dotRight.setAttribute("cy", String(centerY));
+                            dotRight.setAttribute("visibility", "visible");
+                        }
+                    }
+
+                    if (state.selectedHitType === "2B") {
+                        dotUp.setAttribute("cx", "0");
+                        dotUp.setAttribute("cy", String(dotTopY));
+                        dotUp.setAttribute("visibility", "visible");
+                    } else if (state.selectedHitType === "3B") {
+                        dotRight.setAttribute("cx", String(rightX + 6));
+                        dotRight.setAttribute("cy", String(centerY));
+                        dotRight.setAttribute("visibility", "visible");
+                    }
+                }
+            } catch (error) {
+                decoration.setAttribute("d", "");
+            }
+        }
+
+        function shouldShowRedLandingDot() {
+            if (state.selectedHitType === "2B" || state.selectedHitType === "3B" || state.selectedHitType === "HR") {
+                return false;
+            }
+            return state.selectedDirection !== "none";
+        }
+
+        function updateRbiDisplay() {
+            const rbiGroup = document.getElementById("rbiGroup");
+            const rbiText = document.getElementById("rbiText");
+            rbiText.textContent = state.battingOrder;
+            rbiGroup.setAttribute("visibility", state.hasRbi ? "visible" : "hidden");
+        }
+
+        function updateInningEndSlash() {
+            document.getElementById("inningEndSlash").setAttribute("visibility", state.outScore === "Ⅲ" ? "visible" : "hidden");
+        }
+
+        function updateStatusText() {
+            const dirMap = {
+                up: "上",
+                down: "下",
+                left: "左",
+                right: "右",
+                none: "正面"
+            };
+
+            document.getElementById("currentSelection").textContent =
+                "選択: " + state.selectedFielder + " " + fielderNames[state.selectedFielder] + " (" + dirMap[state.selectedDirection] + ")";
+
+            document.getElementById("countStatus").textContent =
+                "ストライク " + state.strikes + " / ボール " + state.balls;
+
+            let autoJudgeText = "自動判定待ち";
+            if (state.result === "K") {
+                autoJudgeText = "三振";
+            } else if (state.result === "B") {
+                autoJudgeText = "四球";
+            }
+            document.getElementById("autoJudgeStatus").textContent = autoJudgeText;
+        }
+
+        function updateSummaryCard() {
+            const ballTypeMap = {
+                none: "なし",
+                ground: "ゴロ",
+                fly: "フライ",
+                liner: "ライナー"
+            };
+
+            const directionMap = {
+                none: "正面 / 未指定",
+                up: "上",
+                down: "下",
+                left: "左",
+                right: "右"
+            };
+
+            const modifiers = [];
+            if (state.modifiers.foul) {
+                modifiers.push("ファール");
+            }
+            if (state.modifiers.bunt) {
+                modifiers.push("バント");
+            }
+            if (state.modifiers.sacrificeFly) {
+                modifiers.push("犠飛");
+            }
+            if (state.modifiers.sacrificeBunt) {
+                modifiers.push("犠打");
+            }
+
+            const fieldMarks = [];
+            if (state.errorMode !== "none") {
+                fieldMarks.push("E");
+            }
+            if (state.baseCover !== "none") {
+                fieldMarks.push(state.baseCover);
+            }
+
+            const displayedResult = getDisplayedResult();
+
+            let hitLineText = "なし";
+            if (state.selectedHitType === "1B") {
+                hitLineText = "単打の赤斜線";
+            } else if (state.selectedHitType === "G") {
+                hitLineText = "ゴロ安の赤斜線";
+            } else if (state.selectedHitType === "BH") {
+                hitLineText = "バントヒットの赤斜線";
+            } else if (state.selectedHitType === "2B") {
+                hitLineText = "二塁打の赤斜線";
+            } else if (state.selectedHitType === "3B") {
+                hitLineText = "三塁打の赤斜線";
+            } else if (state.selectedHitType === "HR") {
+                hitLineText = "本塁打の赤斜線";
+            }
+
+            const resultText = displayedResult || state.result || "未入力";
+            const summary = [
+                "現在セル: " + (state.selectedSheetRow + 1) + "番 / " + (state.selectedSheetCol + 1) + "回",
+                "結果: " + resultText,
+                "守備位置: " + state.selectedFielder + " " + fielderNames[state.selectedFielder],
+                "打球種別: " + ballTypeMap[state.selectedBallType],
+                "補助記号: " + (modifiers.length ? modifiers.join(" / ") : "なし"),
+                "守備処理: " + (fieldMarks.length ? fieldMarks.join(" / ") : "なし"),
+                "走者状況: " + (state.runnerContextText || "なし"),
+                "安打斜線: " + hitLineText,
+                "打順/打点: " + state.battingOrder + "番 / " + (state.hasRbi ? "あり" : "なし"),
+                "方向: " + directionMap[state.selectedDirection],
+                "投球: " + (state.pitches.length > 0 ? state.pitches.join(" / ") : "なし"),
+                "中央表示: " + (state.outScore || "未入力")
+            ];
+
+            document.getElementById("summaryCard").innerHTML = summary.join("<br>");
+        }
+
+        function updateDisplay() {
+            updatePitchDisplay();
+
+            const outDisplay = document.getElementById("outCountDisplay");
+            outDisplay.textContent = state.outScore;
+            outDisplay.setAttribute("fill", getOutScoreColor(state.outScore));
+
+            const resultDisplay = document.getElementById("resultDisplay");
+            const displayedResult = getDisplayedResult();
+            resultDisplay.textContent = displayedResult;
+            resultDisplay.setAttribute("font-size", getResultFontSize(displayedResult));
+            resultDisplay.setAttribute("fill", getResultColor());
+
+            updateDirectionButtons();
+            updateBallTypeButtons();
+            updateModifierButtons();
+            updateFieldActionButtons();
+            updateRbiButton();
+            updateHitLines();
+            updateRbiDisplay();
+            updateInningEndSlash();
+            updateStatusText();
+            updateSummaryCard();
+
+            requestAnimationFrame(updateResultDecoration);
+        }
+
+        function resetState() {
+            state.pitches = [];
+            state.pitchNotes = [];
+            state.result = "";
+            state.outScore = "";
+            state.strikes = 0;
+            state.balls = 0;
+            state.selectedFielder = "8";
+            state.selectedDirection = "none";
+            state.selectedBallType = "none";
+            state.selectedHitType = "none";
+            state.battingOrder = String(state.selectedSheetRow + 1);
+            state.hasRbi = false;
+            resetModifiers();
+            state.fieldSequence = ["8"];
+            state.errorMode = "none";
+            state.baseCover = "none";
+            state.runnerContextText = "";
+
+            document.getElementById("fielderSelect").value = "8";
+            document.getElementById("battingOrderSelect").value = state.battingOrder;
+            document.getElementById("extraResultSelect").value = "";
+            previewExtraResult();
+            updateDisplay();
+        }
+
+        function getDisplayedResult() {
+            if (isFielderPlay()) {
+                const sequence = state.fieldSequence.length > 0 ? [...state.fieldSequence] : [state.selectedFielder];
+                if (state.errorMode === "fielder") {
+                    return sequence[sequence.length - 1] + "E";
+                }
+                if (state.errorMode === "thrower") {
+                    if (sequence.length >= 2) {
+                        const prefix = sequence.slice(0, -2);
+                        const thrower = sequence[sequence.length - 2] + "E";
+                        const receiver = sequence[sequence.length - 1];
+                        return [...prefix, thrower, receiver].join("-");
+                    }
+                    return sequence[0] + "E";
+                }
+                if (state.errorMode === "receiver") {
+                    if (sequence.length >= 2) {
+                        const prefix = sequence.slice(0, -1);
+                        const receiver = sequence[sequence.length - 1] + "E";
+                        return [...prefix, receiver].join("-");
+                    }
+                    return sequence[0] + "E";
+                }
+                const joined = sequence.join("-");
+                return joined + (state.baseCover !== "none" ? state.baseCover : "");
+            }
+
+            return state.result;
+        }
+
+        function getResultColor() {
+            if (isFielderPlay()) {
+                if (["1B", "2B", "3B", "HR", "G", "BH"].includes(state.selectedHitType)) {
+                    return "#c62828";
+                }
+                if (state.modifiers.sacrificeFly || state.modifiers.sacrificeBunt) {
+                    return "#1f5fbf";
+                }
+                return "#111";
+            }
+            if (["1B", "2B", "3B", "HR", "G", "BH", "H", "T", "RH", "GR"].includes(state.result)) {
+                return "#c62828";
+            }
+            if (["B", "HP", "IB", "IF"].includes(state.result)) {
+                return "#1565c0";
+            }
+            return "#111";
+        }
+
+        function getOutScoreColor(symbol) {
+            if (symbol === "●") {
+                return "#c62828";
+            }
+            if (symbol === "○") {
+                return "#1565c0";
+            }
+            return "#111";
+        }
+
+        function getResultFontSize(result) {
+            if (!result) {
+                return "24";
+            }
+            if (isHitTypeSelection()) {
+                return "20";
+            }
+            if (result.length >= 4) {
+                return "18";
+            }
+            if (result.length === 3) {
+                return "20";
+            }
+            return "24";
+        }
+
+        function initializeResultOptions() {
+            const select = document.getElementById("extraResultSelect");
+            const preferredCodes = ["BIA", "CS", "DS", "GR", "OB", "OI", "PO", "RH", "S", "TB", "TO", "TP"];
+
+            preferredCodes.forEach((code) => {
+                const option = document.createElement("option");
+                option.value = code;
+                option.textContent = code + " : " + resultDescriptions[code];
+                select.appendChild(option);
+            });
+
+            previewExtraResult();
+        }
+
+        state.scoreSheet = createEmptyScoreSheet();
+        state.baseRunners = [null, null, null];
+        initializeResultOptions();
+        renderScoreSheet();
+        updateDisplay();
+    </script>
+</body>
+</html>

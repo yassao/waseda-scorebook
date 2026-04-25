@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BASEBALL ONE 仕様チェック 04</title>
+    <style>
+        :root {
+            --ink: #111;
+            --red: #d64a38;
+            --blue: #1f5fbf;
+            --paper: #fffdf8;
+            --line: #d8dee8;
+            --muted: #5b6573;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 24px;
+            font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+            color: var(--ink);
+            background: #f3f5f7;
+        }
+        .page { max-width: 1240px; margin: 0 auto; }
+        h1 { margin: 0 0 8px; font-size: 32px; }
+        p.lead { margin: 0 0 24px; color: var(--muted); line-height: 1.6; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border: 1px solid var(--line);
+        }
+        th, td {
+            border: 1px solid var(--line);
+            padding: 14px;
+            vertical-align: top;
+        }
+        th {
+            background: #f7fafc;
+            text-align: left;
+            font-size: 14px;
+        }
+        td.case { width: 19%; }
+        td.diagram { width: 23%; }
+        td.gap { width: 20%; }
+        .case-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+        .case-note { font-size: 14px; line-height: 1.6; color: #334155; }
+        .mini {
+            width: 220px;
+            max-width: 100%;
+            display: block;
+            margin: 0 auto;
+            background: var(--paper);
+        }
+        .caption { margin-top: 8px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+        .ok { color: #1d7a3a; font-weight: 700; }
+        .warn { color: #a04b00; font-weight: 700; }
+        .ng { color: #b42318; font-weight: 700; }
+        @media (max-width: 900px) {
+            body { padding: 12px; }
+            table, thead, tbody, tr, th, td { display: block; width: 100%; }
+            thead { display: none; }
+            tr { margin-bottom: 18px; background: white; border: 1px solid var(--line); }
+            td { border: none; border-top: 1px solid var(--line); }
+            td:first-child { border-top: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <h1>BASEBALL ONE 仕様チェック 04</h1>
+        <p class="lead">
+            最後の10件です。ここでは `8.6 打点`, `残塁`, `得点`, `3アウト処理`, `投球欄連動` を中心に、現状アプリとの差分を整理しています。
+            これでひと通り「何をどこまで再現できているか」が見渡せる状態になりました。
+        </p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ケース</th>
+                    <th>BASEBALL ONE 想定</th>
+                    <th>現状アプリ相当</th>
+                    <th>差分 / 判定</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="case">
+                        <div class="case-title">26. 打点あり単打</div>
+                        <div class="case-note">安打の赤斜線 + 守備番号 + 打者打順の丸囲み。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <path d="M 125 185 L 215 95" fill="none" stroke="#d64a38" stroke-width="4"/>
+                            <text x="182" y="166" text-anchor="middle" font-size="22" font-weight="700" fill="#d64a38">9</text>
+                            <circle cx="60" cy="132" r="18" fill="none" stroke="#111" stroke-width="2"/>
+                            <text x="60" y="140" text-anchor="middle" font-size="24" font-weight="700" fill="#111">4</text>
+                        </svg>
+                        <div class="caption">赤斜線と丸囲み打順が同居。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <path d="M 125 185 L 215 95" fill="none" stroke="#d64a38" stroke-width="4"/>
+                            <text x="182" y="166" text-anchor="middle" font-size="22" font-weight="700" fill="#d64a38">9</text>
+                        </svg>
+                        <div class="caption">丸囲み打順がまだない。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ng">未対応</div>
+                        <div class="caption">打点と打順の概念をまだ持っていません。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">27. 得点</div>
+                        <div class="case-note">中央の得点記号は赤。記事例では赤丸 / 赤字。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="125" y="108" text-anchor="middle" font-size="28" font-weight="700" fill="#d64a38">●</text>
+                        </svg>
+                        <div class="caption">中央は赤で目立つ。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="125" y="108" text-anchor="middle" font-size="28" font-weight="700" fill="#d64a38">●</text>
+                        </svg>
+                        <div class="caption">ほぼ同じ。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ok">かなり再現できている</div>
+                        <div class="caption">色は合わせられています。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">28. 非自責点</div>
+                        <div class="case-note">中央の `○` は青で記入。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="125" y="108" text-anchor="middle" font-size="28" font-weight="700" fill="#1f5fbf">○</text>
+                        </svg>
+                        <div class="caption">非自責は青。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="125" y="108" text-anchor="middle" font-size="28" font-weight="700" fill="#1f5fbf">○</text>
+                        </svg>
+                        <div class="caption">ほぼ同じ。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ok">かなり再現できている</div>
+                        <div class="caption">中央色は合っています。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">29. 残塁 ℓ</div>
+                        <div class="case-note">中央に `ℓ`。イニング終了時に残塁が分かる。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="125" y="108" text-anchor="middle" font-size="28" font-weight="700" fill="#111">ℓ</text>
+                        </svg>
+                        <div class="caption">残塁は黒記号。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="125" y="108" text-anchor="middle" font-size="28" font-weight="700" fill="#111">ℓ</text>
+                        </svg>
+                        <div class="caption">近い。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ok">ほぼ再現できている</div>
+                        <div class="caption">見た目は大きくずれていません。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">30. 3アウトでイニング終了</div>
+                        <div class="case-note">右下マスに斜線を引いて、ここでチェンジを表す。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="125" y="108" text-anchor="middle" font-size="30" font-weight="700" fill="#111">Ⅲ</text>
+                            <line x1="145" y1="185" x2="215" y2="115" stroke="#111" stroke-width="2"/>
+                        </svg>
+                        <div class="caption">右下のチェンジ斜線。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="125" y="108" text-anchor="middle" font-size="30" font-weight="700" fill="#111">Ⅲ</text>
+                        </svg>
+                        <div class="caption">チェンジ斜線がまだない。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ng">未対応</div>
+                        <div class="caption">3アウト時の専用斜線追加が必要です。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">31. 投球欄の見逃し三振</div>
+                        <div class="case-note">`×` 系の投球記号3つで三振が見て分かる。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <path d="M 16 16 L 24 24 M 24 16 L 16 24" stroke="#111" stroke-width="1.6"/>
+                            <path d="M 16 36 L 24 44 M 24 36 L 16 44" stroke="#111" stroke-width="1.6"/>
+                            <path d="M 16 56 L 24 64 M 24 56 L 16 64" stroke="#111" stroke-width="1.6"/>
+                            <text x="178" y="160" text-anchor="middle" font-size="22" font-weight="700" fill="#111">K</text>
+                        </svg>
+                        <div class="caption">見逃し三振の投球履歴が分かる。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <path d="M 16 16 L 24 24 M 24 16 L 16 24" stroke="#111" stroke-width="1.6"/>
+                            <path d="M 16 36 L 24 44 M 24 36 L 16 44" stroke="#111" stroke-width="1.6"/>
+                            <path d="M 16 56 L 24 64 M 24 56 L 16 64" stroke="#111" stroke-width="1.6"/>
+                            <text x="182" y="166" text-anchor="middle" font-size="22" font-weight="700" fill="#111">K</text>
+                        </svg>
+                        <div class="caption">かなり近い。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ok">かなり再現できている</div>
+                        <div class="caption">投球記号の見た目はだいぶ寄ってきています。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">32. バントファウル</div>
+                        <div class="case-note">三角の中心に黒点。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <polygon points="20,14 25,23 15,23" fill="none" stroke="#111" stroke-width="1.4"/>
+                            <circle cx="20" cy="20" r="1.5" fill="#111"/>
+                        </svg>
+                        <div class="caption">記事の図と一致。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <polygon points="20,14 25,23 15,23" fill="none" stroke="#111" stroke-width="1.4"/>
+                            <circle cx="20" cy="20" r="1.5" fill="#111"/>
+                        </svg>
+                        <div class="caption">かなり近い。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ok">かなり再現できている</div>
+                        <div class="caption">投球欄のこの部分は強いです。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">33. バント空振り</div>
+                        <div class="case-note">`×` に補助線が足された記号。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <path d="M 16 16 L 24 24 M 24 16 L 16 24 M 15 27 L 25 27" stroke="#111" stroke-width="1.4" fill="none"/>
+                        </svg>
+                        <div class="caption">専用記号。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <path d="M 16 16 L 24 24 M 24 16 L 16 24 M 20 15 L 20 25 M 15 25 L 25 25" stroke="#111" stroke-width="1.4" fill="none"/>
+                        </svg>
+                        <div class="caption">やや似ているが形が違う。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="warn">部分一致</div>
+                        <div class="caption">かなり近いが、記号の細部調整が必要です。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">34. 申告敬遠</div>
+                        <div class="case-note">`IB` ではなく、運用によっては別記号。現状との差分確認用。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="178" y="160" text-anchor="middle" font-size="20" font-weight="700" fill="#1f5fbf">IB</text>
+                        </svg>
+                        <div class="caption">ここは運用差もある。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="182" y="166" text-anchor="middle" font-size="20" font-weight="700" fill="#1f5fbf">DIB</text>
+                        </svg>
+                        <div class="caption">`DIB` が残っている。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="warn">差分あり</div>
+                        <div class="caption">運用採用ルールを決めて統一する必要があります。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">35. 最終的な評価</div>
+                        <div class="case-note">ここまでの比較を踏まえた、現状アプリの総評。</div>
+                    </td>
+                    <td class="diagram">
+                        <div class="caption">
+                            仕様どおりに近い状態では、
+                            `赤 / 青 / 黒` の色分け、投球欄、長打斜線、打点、3アウト斜線、走者関連表記が一体で動く必要があります。
+                        </div>
+                    </td>
+                    <td class="diagram">
+                        <div class="caption">
+                            現状アプリは、
+                            `単打/長打の赤斜線`, `一部の中央記号`, `投球欄の主要記号`, `基本の守備番号表示` まではかなり近づいています。
+                        </div>
+                    </td>
+                    <td class="gap">
+                        <div class="warn">総評</div>
+                        <div class="caption">
+                            仕上がりは `6割前後`。<br>
+                            先に直すべきは `打点`, `ゴロ位置`, `赤点位置`, `青囲み`, `3アウト斜線`, `投球欄連動` です。
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

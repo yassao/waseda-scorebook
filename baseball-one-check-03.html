@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BASEBALL ONE 仕様チェック 03</title>
+    <style>
+        :root {
+            --ink: #111;
+            --red: #d64a38;
+            --blue: #1f5fbf;
+            --paper: #fffdf8;
+            --line: #d8dee8;
+            --muted: #5b6573;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 24px;
+            font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+            color: var(--ink);
+            background: #f3f5f7;
+        }
+        .page { max-width: 1240px; margin: 0 auto; }
+        h1 { margin: 0 0 8px; font-size: 32px; }
+        p.lead { margin: 0 0 24px; color: var(--muted); line-height: 1.6; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border: 1px solid var(--line);
+        }
+        th, td {
+            border: 1px solid var(--line);
+            padding: 14px;
+            vertical-align: top;
+        }
+        th {
+            background: #f7fafc;
+            text-align: left;
+            font-size: 14px;
+        }
+        td.case { width: 19%; }
+        td.diagram { width: 23%; }
+        td.gap { width: 20%; }
+        .case-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+        .case-note { font-size: 14px; line-height: 1.6; color: #334155; }
+        .mini {
+            width: 220px;
+            max-width: 100%;
+            display: block;
+            margin: 0 auto;
+            background: var(--paper);
+        }
+        .caption { margin-top: 8px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+        .ok { color: #1d7a3a; font-weight: 700; }
+        .warn { color: #a04b00; font-weight: 700; }
+        .ng { color: #b42318; font-weight: 700; }
+        @media (max-width: 900px) {
+            body { padding: 12px; }
+            table, thead, tbody, tr, th, td { display: block; width: 100%; }
+            thead { display: none; }
+            tr { margin-bottom: 18px; background: white; border: 1px solid var(--line); }
+            td { border: none; border-top: 1px solid var(--line); }
+            td:first-child { border-top: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <h1>BASEBALL ONE 仕様チェック 03</h1>
+        <p class="lead">
+            `8.7` 以降と `10.妨害` を中心に、次の10件を並べました。
+            青記号・囲み記号・投球欄との連動が多いので、現状アプリとの差がかなりはっきり出ています。
+        </p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ケース</th>
+                    <th>BASEBALL ONE 想定</th>
+                    <th>現状アプリ相当</th>
+                    <th>差分 / 判定</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="case">
+                        <div class="case-title">16. 犠打</div>
+                        <div class="case-note">青色の四角で囲み、送球アウトを併記。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <rect x="157" y="138" width="42" height="32" fill="none" stroke="#1f5fbf" stroke-width="2"/>
+                            <text x="178" y="159" text-anchor="middle" font-size="18" font-weight="700" fill="#1f5fbf">1-3</text>
+                        </svg>
+                        <div class="caption">青四角囲みが仕様。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <rect x="157" y="138" width="42" height="32" fill="none" stroke="#111" stroke-width="2"/>
+                            <text x="178" y="159" text-anchor="middle" font-size="18" font-weight="700" fill="#111">1-3</text>
+                        </svg>
+                        <div class="caption">囲み形は近いが色が違う。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="warn">部分一致</div>
+                        <div class="caption">囲みはあるが、青色化と青文字化が必要です。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">17. 犠打失敗</div>
+                        <div class="case-note">犠打狙いだが封殺。打者は送球間で一塁。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="178" y="160" text-anchor="middle" font-size="18" font-weight="700" fill="#111">1-</text>
+                            <text x="178" y="142" text-anchor="middle" font-size="14" font-weight="700" fill="#1f5fbf">@</text>
+                        </svg>
+                        <div class="caption">前走者欄とセットで意味を持つ。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="178" y="160" text-anchor="middle" font-size="18" font-weight="700" fill="#111">1-</text>
+                        </svg>
+                        <div class="caption">前走者との連動がない。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ng">未対応</div>
+                        <div class="caption">走者と打者をまたぐ記録はまだ扱えません。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">18. 犠飛</div>
+                        <div class="case-note">青色の三角囲み。打数に含まれない。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <path d="M 160 170 L 178 140 L 196 170 Z" fill="none" stroke="#1f5fbf" stroke-width="2"/>
+                            <text x="178" y="164" text-anchor="middle" font-size="18" font-weight="700" fill="#1f5fbf">8</text>
+                        </svg>
+                        <div class="caption">青三角囲みが要点。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <path d="M 160 170 L 178 140 L 196 170 Z" fill="none" stroke="#111" stroke-width="2"/>
+                            <text x="178" y="164" text-anchor="middle" font-size="18" font-weight="700" fill="#111">8</text>
+                        </svg>
+                        <div class="caption">形は近いが色が黒。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="warn">部分一致</div>
+                        <div class="caption">囲み形は出せるが、青化と得点連動が必要です。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">19. 盗塁刺 CS</div>
+                        <div class="case-note">`CS` を走者欄に記入。送球で刺したことが分かる。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="178" y="160" text-anchor="middle" font-size="18" font-weight="700" fill="#111">CS</text>
+                        </svg>
+                        <div class="caption">走者欄前提の記号。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="182" y="166" text-anchor="middle" font-size="18" font-weight="700" fill="#111">CS</text>
+                        </svg>
+                        <div class="caption">記号だけなら入る。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="warn">部分一致</div>
+                        <div class="caption">単独記号は可能だが、走者履歴との関連はまだありません。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">20. 暴投 W</div>
+                        <div class="case-note">`W` を記録し、どの投球か分かるよう投球欄にもチェック。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <circle cx="20" cy="20" r="4" fill="#111"/>
+                            <path d="M 13 12 L 27 12" stroke="#111" stroke-width="1.4"/>
+                            <text x="178" y="160" text-anchor="middle" font-size="18" font-weight="700" fill="#111">W</text>
+                        </svg>
+                        <div class="caption">投球欄チェックが必要。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <circle cx="20" cy="20" r="4" fill="#111"/>
+                            <text x="182" y="166" text-anchor="middle" font-size="18" font-weight="700" fill="#111">W</text>
+                        </svg>
+                        <div class="caption">投球欄側のチェックは未実装。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ng">未対応</div>
+                        <div class="caption">投球記号との紐づけチェックが必要です。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">21. 捕逸 P</div>
+                        <div class="case-note">`P` を記録し、投球欄にもチェック。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <path d="M 13 12 L 27 12" stroke="#111" stroke-width="1.4"/>
+                            <text x="178" y="160" text-anchor="middle" font-size="18" font-weight="700" fill="#111">P</text>
+                        </svg>
+                        <div class="caption">`P` + 投球欄チェック。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="182" y="166" text-anchor="middle" font-size="18" font-weight="700" fill="#111">P</text>
+                        </svg>
+                        <div class="caption">`P` は入るがチェックがない。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ng">未対応</div>
+                        <div class="caption">暴投と同様、投球欄チェック連動が必要です。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">22. ボーク BK</div>
+                        <div class="case-note">`BK`。投球間に発生なら投球の間にチェック。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <path d="M 13 20 L 27 20" stroke="#111" stroke-width="1.4"/>
+                            <text x="178" y="160" text-anchor="middle" font-size="18" font-weight="700" fill="#111">BK</text>
+                        </svg>
+                        <div class="caption">投球間チェックがポイント。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="182" y="166" text-anchor="middle" font-size="18" font-weight="700" fill="#111">BK</text>
+                        </svg>
+                        <div class="caption">略号だけ入る。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ng">未対応</div>
+                        <div class="caption">投球間チェックの概念がまだありません。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">23. 打撃妨害 IF</div>
+                        <div class="case-note">`IF` で一塁が与えられる。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="178" y="160" text-anchor="middle" font-size="20" font-weight="700" fill="#1f5fbf">IF</text>
+                        </svg>
+                        <div class="caption">青か黒かは運用差もあるが、略号は `IF`。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="182" y="166" text-anchor="middle" font-size="20" font-weight="700" fill="#1f5fbf">IF</text>
+                        </svg>
+                        <div class="caption">かなり近い。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ok">ほぼ再現できている</div>
+                        <div class="caption">位置調整中心で良さそうです。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">24. 走塁妨害 OB</div>
+                        <div class="case-note">`OB` を記入し、進塁結果と結びつける。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="178" y="160" text-anchor="middle" font-size="18" font-weight="700" fill="#111">OB</text>
+                        </svg>
+                        <div class="caption">進塁文脈込みで意味を持つ。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="182" y="166" text-anchor="middle" font-size="18" font-weight="700" fill="#111">OB</text>
+                        </svg>
+                        <div class="caption">単独記号は入る。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="warn">部分一致</div>
+                        <div class="caption">略号はあるが、走者との関係までは表せません。</div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="case">
+                        <div class="case-title">25. 守備妨害 x</div>
+                        <div class="case-note">記事では `x` 記号を使う。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="178" y="160" text-anchor="middle" font-size="22" font-weight="700" fill="#111">x</text>
+                        </svg>
+                        <div class="caption">`x` が仕様。</div>
+                    </td>
+                    <td class="diagram">
+                        <svg class="mini" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                            <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                            <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                            <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                            <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                            <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+                            <text x="182" y="166" text-anchor="middle" font-size="18" font-weight="700" fill="#111">OI</text>
+                        </svg>
+                        <div class="caption">現状は `OI` ベース。</div>
+                    </td>
+                    <td class="gap">
+                        <div class="ng">未対応</div>
+                        <div class="caption">略号体系を `x` へ寄せる必要があります。</div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
