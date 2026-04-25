@@ -518,15 +518,15 @@
         <div class="control-panel-wrapper">
             <div class="control-panel">
                 <section class="section">
-                    <div class="section-title">9人 × 9回 シート</div>
+                    <div class="section-title">9人 × 12回 シート</div>
                     <div class="sheet-panel">
                         <div class="sheet-toolbar">
                             <button onclick="saveCurrentToSheet()">この打席を保存</button>
                             <button onclick="goToNextSheetCell()">次の打席へ</button>
-                            <button onclick="loadCurrentSheetCell()">選択マスを開く</button>
+                            <button onclick="loadCurrentSheetCell()">選択マスを再読込</button>
                             <button onclick="clearCurrentSheetCell()">選択マスを消去</button>
                         </div>
-                        <div id="sheetMeta" class="sheet-meta">現在: 1番 × 1回</div>
+                        <div id="sheetMeta" class="sheet-meta">現在: 1番 × 1回<br>保存済みマスをタップすると上の個別スコアへ拡大表示します。</div>
                         <div id="sheetGrid" class="sheet-grid"></div>
                     </div>
                 </section>
@@ -1506,8 +1506,12 @@
         }
 
         function updateSheetMeta() {
-            document.getElementById("sheetMeta").textContent =
-                "現在: " + (state.selectedSheetRow + 1) + "番 × " + (state.selectedSheetCol + 1) + "回";
+            const snapshot = state.scoreSheet[state.selectedSheetRow]?.[state.selectedSheetCol];
+            const detail = snapshot
+                ? "保存済みマスです。タップで上の個別スコアへ拡大表示し、続けて編集できます。"
+                : "空マスです。ここへ新しい打席を保存できます。";
+            document.getElementById("sheetMeta").innerHTML =
+                "現在: " + (state.selectedSheetRow + 1) + "番 × " + (state.selectedSheetCol + 1) + "回<br>" + detail;
         }
 
         function renderScoreSheet() {
@@ -1567,8 +1571,19 @@
             state.selectedSheetCol = col;
             state.battingOrder = String(row + 1);
             document.getElementById("battingOrderSelect").value = state.battingOrder;
+            const snapshot = state.scoreSheet[row][col];
+            if (snapshot) {
+                applyAtBatSnapshot(snapshot);
+            } else {
+                resetState();
+                state.selectedSheetRow = row;
+                state.selectedSheetCol = col;
+                state.battingOrder = String(row + 1);
+                document.getElementById("battingOrderSelect").value = state.battingOrder;
+            }
             renderScoreSheet();
             updateDisplay();
+            document.querySelector(".scorebox-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
         }
 
         function saveCurrentToSheet() {
