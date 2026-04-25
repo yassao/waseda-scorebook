@@ -55,10 +55,12 @@
             letter-spacing: 0.04em;
         }
 
-        .app-header p {
-            margin-top: 6px;
-            color: #34495e;
-            font-size: 14px;
+        .app-header h1 small {
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 0.08em;
+            opacity: 0.7;
+            vertical-align: super;
         }
 
         .top-workspace {
@@ -519,6 +521,10 @@
                 font-size: 24px;
             }
 
+            .app-header h1 small {
+                font-size: 8px;
+            }
+
             .top-workspace {
                 grid-template-columns: 146px minmax(0, 1fr);
                 padding: 0 12px;
@@ -578,8 +584,7 @@
 <body>
     <div class="container">
         <header class="app-header">
-            <h1>スコアブック by CuViu</h1>
-            <p>まずは1打席を正しく書ける状態まで仕上げたプロトタイプです。</p>
+            <h1>スコアブック <small>by CuViu</small></h1>
         </header>
 
         <div class="top-workspace">
