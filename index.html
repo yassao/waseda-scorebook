@@ -344,6 +344,13 @@
             font-weight: 700;
         }
 
+        .import-help {
+            margin-top: 8px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #64748b;
+        }
+
         .result-picker {
             display: flex;
             gap: 10px;
@@ -532,6 +539,18 @@
                             <button onclick="importNikkanSportsRow()">選択打順に取り込む</button>
                         </div>
                         <div id="nikkanImportPreview" class="nl-preview">現在選択中の打順へ、1回〜9回をまとめて取り込みます。</div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">日刊スポーツ 全体インポート</div>
+                    <div class="nl-panel">
+                        <textarea id="nikkanBoardInput" class="nl-input" placeholder="日刊スポーツの打者成績表を複数行まとめて貼り付け"></textarea>
+                        <div class="nl-actions">
+                            <button onclick="importNikkanSportsBoard()">選択打順から一括取り込み</button>
+                        </div>
+                        <div id="nikkanBoardPreview" class="nl-preview">選択中の打順を先頭にして、複数行を 1番ずつ下へ流し込みます。</div>
+                        <div class="import-help">低確度のセルはシート上でグレーハッチ表示にします。あとでタップして修正できます。</div>
                     </div>
                 </section>
 
@@ -826,6 +845,7 @@
             runnerContextText: "",
             runnerContext: null,
             baseRunners: [null, null, null],
+            currentConfidence: 1,
             selectedSheetRow: 0,
             selectedSheetCol: 0,
             scoreSheet: [],
@@ -998,7 +1018,8 @@
                 baseCover: state.baseCover,
                 runnerContextText: state.runnerContextText,
                 runnerContext: deepClone(state.runnerContext),
-                runnerStatusText: ""
+                runnerStatusText: "",
+                confidence: state.currentConfidence
             };
         }
 
@@ -1030,6 +1051,7 @@
             state.baseCover = snapshot.baseCover || "none";
             state.runnerContextText = snapshot.runnerContextText || "";
             state.runnerContext = deepClone(snapshot.runnerContext || null);
+            state.currentConfidence = snapshot.confidence || 1;
 
             document.getElementById("fielderSelect").value = state.selectedFielder;
             document.getElementById("battingOrderSelect").value = state.battingOrder;
@@ -1448,9 +1470,21 @@
             const runnerNote = snapshot.runnerStatusText
                 ? '<text x="48" y="22" font-size="12" font-weight="700" fill="#1f5fbf">' + snapshot.runnerStatusText + '</text>'
                 : "";
+            const lowConfidenceOverlay = snapshot.confidence && snapshot.confidence < 0.7
+                ? [
+                    '<defs>',
+                    '<pattern id="sheet-hatch-' + snapshot.battingOrder + '-' + displayedResult.replace(/[^A-Za-z0-9]/g, "") + '" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">',
+                    '<rect width="8" height="8" fill="rgba(148,163,184,0.08)"></rect>',
+                    '<line x1="0" y1="0" x2="0" y2="8" stroke="#94a3b8" stroke-width="2"></line>',
+                    '</pattern>',
+                    '</defs>',
+                    '<rect x="35" y="5" width="180" height="180" fill="url(#sheet-hatch-' + snapshot.battingOrder + '-' + displayedResult.replace(/[^A-Za-z0-9]/g, "") + ')" opacity="0.65"></rect>'
+                ].join("")
+                : "";
 
             return [
                 '<svg class="sheet-cell-svg" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
+                lowConfidenceOverlay,
                 '<rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>',
                 '<rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>',
                 '<polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>',
@@ -1592,6 +1626,34 @@
             };
         }
 
+        function fillSheetCellFromParsed(row, col, parsed) {
+            const preservedSelection = {
+                row: state.selectedSheetRow,
+                col: state.selectedSheetCol,
+                battingOrder: state.battingOrder,
+                baseRunners: deepClone(state.baseRunners)
+            };
+            const preservedSnapshot = captureAtBatSnapshot();
+
+            state.selectedSheetRow = row;
+            state.selectedSheetCol = col;
+            state.battingOrder = String(row + 1);
+            document.getElementById("battingOrderSelect").value = state.battingOrder;
+
+            applyParsedInput(parsed);
+            const snapshot = captureAtBatSnapshot();
+            snapshot.confidence = parsed.confidence || 1;
+            snapshot.source = parsed.source || "import";
+            state.scoreSheet[row][col] = snapshot;
+
+            state.selectedSheetRow = preservedSelection.row;
+            state.selectedSheetCol = preservedSelection.col;
+            state.battingOrder = preservedSelection.battingOrder;
+            state.baseRunners = preservedSelection.baseRunners;
+            applyAtBatSnapshot(preservedSnapshot);
+            document.getElementById("battingOrderSelect").value = state.battingOrder;
+        }
+
         function importNikkanSportsRow() {
             const input = document.getElementById("nikkanRowInput").value.trim();
             const preview = document.getElementById("nikkanImportPreview");
@@ -1618,8 +1680,7 @@
                 state.battingOrder = String(previousRow + 1);
                 document.getElementById("battingOrderSelect").value = state.battingOrder;
 
-                applyParsedInput(parsed);
-                saveCurrentToSheet();
+                fillSheetCellFromParsed(previousRow, index, parsed);
                 importedCount += 1;
 
                 state.selectedSheetRow = previousRow;
@@ -1634,6 +1695,63 @@
                 "打順: " + (state.selectedSheetRow + 1) + "番",
                 "反映数: " + importedCount + "打席",
                 "セル: " + parsedRow.inningCells.join(" | ")
+            ].join("<br>");
+        }
+
+        function importNikkanSportsBoard() {
+            const input = document.getElementById("nikkanBoardInput").value.trim();
+            const preview = document.getElementById("nikkanBoardPreview");
+            if (!input) {
+                preview.textContent = "全体表を貼り付けてください。";
+                return;
+            }
+
+            const lines = input.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+            const parsedRows = lines
+                .map((line) => ({ line, parsed: parseNikkanSportsRow(line) }))
+                .filter((entry) => entry.parsed);
+
+            if (parsedRows.length === 0) {
+                preview.textContent = "有効な打者行を見つけられませんでした。表全体か、打者行を複数行で貼ってください。";
+                return;
+            }
+
+            const startRow = state.selectedSheetRow;
+            let importedRows = 0;
+            let importedCells = 0;
+            let lowConfidenceCells = 0;
+
+            parsedRows.slice(0, 9 - startRow).forEach((entry, rowOffset) => {
+                const targetRow = startRow + rowOffset;
+                let rowImported = false;
+
+                entry.parsed.inningCells.forEach((cellText, inningIndex) => {
+                    const parsed = buildParsedInput(cellText);
+                    if (!parsed || !parsed.result) {
+                        return;
+                    }
+                    fillSheetCellFromParsed(targetRow, inningIndex, parsed);
+                    importedCells += 1;
+                    rowImported = true;
+                    if ((parsed.confidence || 1) < 0.7) {
+                        lowConfidenceCells += 1;
+                    }
+                });
+
+                if (rowImported) {
+                    importedRows += 1;
+                }
+            });
+
+            renderScoreSheet();
+            updateDisplay();
+
+            preview.innerHTML = [
+                "一括取り込み完了:",
+                "開始打順: " + (startRow + 1) + "番",
+                "反映行数: " + importedRows,
+                "反映セル数: " + importedCells,
+                "低確度セル: " + lowConfidenceCells + "件"
             ].join("<br>");
         }
 
@@ -1738,29 +1856,32 @@
                 rule.patterns.some((pattern) => normalized.includes(pattern))
             );
             if (builtin) {
-                return cloneParsedInput(builtin.parsed);
+                const parsed = cloneParsedInput(builtin.parsed);
+                parsed.confidence = parsed.confidence || 0.9;
+                parsed.source = "builtin";
+                return parsed;
             }
 
             if (normalized.includes("見逃し三振") || normalized.includes("空振り三振") || normalized.includes("三振")) {
-                return { result: "K", note: normalized };
+                return { result: "K", note: normalized, confidence: 0.9, source: "rule" };
             }
             if (normalized.includes("四球")) {
-                return { result: "B", note: normalized };
+                return { result: "B", note: normalized, confidence: 0.9, source: "rule" };
             }
             if (normalized.includes("死球")) {
-                return { result: "HP", note: normalized };
+                return { result: "HP", note: normalized, confidence: 0.9, source: "rule" };
             }
             if (normalized.includes("敬遠")) {
-                return { result: "IB", note: normalized };
+                return { result: "IB", note: normalized, confidence: 0.9, source: "rule" };
             }
             if (normalized.includes("暴投")) {
-                return { result: "W", note: normalized };
+                return { result: "W", note: normalized, confidence: 0.85, source: "rule" };
             }
             if (normalized.includes("捕逸")) {
-                return { result: "P", note: normalized };
+                return { result: "P", note: normalized, confidence: 0.85, source: "rule" };
             }
             if (normalized.includes("ボーク")) {
-                return { result: "BK", note: normalized };
+                return { result: "BK", note: normalized, confidence: 0.85, source: "rule" };
             }
 
             const fielder = detectFielder(normalized);
@@ -1777,7 +1898,9 @@
                     result: "OUT",
                     modifiers: { sacrificeFly: true },
                     runnerContext,
-                    note: normalized
+                    note: normalized,
+                    confidence: 0.8,
+                    source: "rule"
                 };
             }
 
@@ -1789,7 +1912,9 @@
                     result: normalized.includes("失敗") ? "Fc" : "OUT",
                     modifiers: { sacrificeBunt: true },
                     runnerContext,
-                    note: normalized
+                    note: normalized,
+                    confidence: 0.75,
+                    source: "rule"
                 };
             }
 
@@ -1801,7 +1926,9 @@
                     result: "Fc",
                     modifiers,
                     runnerContext,
-                    note: normalized
+                    note: normalized,
+                    confidence: 0.7,
+                    source: "rule"
                 };
             }
 
@@ -1813,7 +1940,9 @@
                     result: "G",
                     modifiers,
                     runnerContext,
-                    note: "内野安打"
+                    note: "内野安打",
+                    confidence: 0.75,
+                    source: "rule"
                 };
             }
 
@@ -1825,7 +1954,9 @@
                     result: "OUT",
                     modifiers,
                     runnerContext,
-                    note: normalized
+                    note: normalized,
+                    confidence: 0.7,
+                    source: "rule"
                 };
             }
 
@@ -1837,18 +1968,20 @@
                     result: "BH",
                     modifiers: { bunt: true },
                     runnerContext,
-                    note: "バントヒット"
+                    note: "バントヒット",
+                    confidence: 0.8,
+                    source: "rule"
                 };
             }
 
             if (normalized.includes("本塁打") || normalized.includes("ホームラン")) {
-                return { fielder: fielder || "8", direction, result: "HR", runnerContext, note: normalized };
+                return { fielder: fielder || "8", direction, result: "HR", runnerContext, note: normalized, confidence: 0.8, source: "rule" };
             }
             if (normalized.includes("三塁打")) {
-                return { fielder: fielder || "9", direction, result: "3B", runnerContext, note: normalized };
+                return { fielder: fielder || "9", direction, result: "3B", runnerContext, note: normalized, confidence: 0.8, source: "rule" };
             }
             if (normalized.includes("二塁打")) {
-                return { fielder: fielder || "7", direction, result: "2B", runnerContext, note: normalized };
+                return { fielder: fielder || "7", direction, result: "2B", runnerContext, note: normalized, confidence: 0.8, source: "rule" };
             }
             if (normalized.includes("ヒット") || normalized.includes("前安打") || normalized.includes("前ヒット")) {
                 return {
@@ -1858,7 +1991,9 @@
                     result: "1B",
                     modifiers,
                     runnerContext,
-                    note: normalized
+                    note: normalized,
+                    confidence: 0.75,
+                    source: "rule"
                 };
             }
 
@@ -1870,7 +2005,9 @@
                     result: "Fc",
                     modifiers,
                     runnerContext,
-                    note: normalized
+                    note: normalized,
+                    confidence: 0.6,
+                    source: "rule"
                 };
             }
 
@@ -1882,7 +2019,9 @@
                     result: "OUT",
                     modifiers,
                     runnerContext,
-                    note: normalized
+                    note: normalized,
+                    confidence: 0.65,
+                    source: "rule"
                 };
             }
 
@@ -1894,7 +2033,9 @@
                     result: "OUT",
                     modifiers,
                     runnerContext,
-                    note: normalized
+                    note: normalized,
+                    confidence: 0.55,
+                    source: "rule"
                 };
             }
 
@@ -1910,17 +2051,17 @@
             const isDoublePlayText = normalizedText.includes("ダブルプレー") || normalizedText.includes("併殺");
 
             if (/^(?:\.{3,}|…+|・+|ー+|－+)$/.test(normalizedText)) {
-                return { result: "", note: "空打席" };
+                return { result: "", note: "空打席", confidence: 1, source: "empty" };
             }
 
             if (normalizedText.includes("見三振") || normalizedText.includes("見逃し三振")) {
-                return { result: "K", runnerContext: detectRunnerContext(normalizedText), note: normalizedText };
+                return { result: "K", runnerContext: detectRunnerContext(normalizedText), note: normalizedText, confidence: 0.95, source: "shorthand" };
             }
             if (normalizedText.includes("空三振") || normalizedText.includes("空振三振")) {
-                return { result: "K", runnerContext: detectRunnerContext(normalizedText), note: normalizedText };
+                return { result: "K", runnerContext: detectRunnerContext(normalizedText), note: normalizedText, confidence: 0.95, source: "shorthand" };
             }
             if (normalizedText.includes("二盗")) {
-                return { result: "S", runnerContext: detectRunnerContext(normalizedText), note: normalizedText };
+                return { result: "S", runnerContext: detectRunnerContext(normalizedText), note: normalizedText, confidence: 0.9, source: "shorthand" };
             }
 
             const sequencePlayMatch = normalizedText.match(/([1-9](?:-[1-9]){1,3})/);
@@ -1939,7 +2080,9 @@
                     fieldSequence,
                     outScore: isDoublePlayText ? "Ⅱ" : "Ⅰ",
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.95,
+                    source: "shorthand"
                 };
             }
 
@@ -1951,7 +2094,9 @@
                     result: "OUT",
                     modifiers: { foul: true },
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.95,
+                    source: "shorthand"
                 };
             }
 
@@ -1962,7 +2107,9 @@
                     direction: homeRunMatch[1] === "左" ? "left" : homeRunMatch[1] === "右" ? "right" : "none",
                     result: "HR",
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.95,
+                    source: "shorthand"
                 };
             }
 
@@ -1972,7 +2119,9 @@
                     fielder: SHORT_FIELDER_MAP[extraBaseHitMatch[1]],
                     result: extraBaseHitMatch[2] === "2" ? "2B" : "3B",
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.92,
+                    source: "shorthand"
                 };
             }
 
@@ -1983,7 +2132,9 @@
                     direction: hitMatch[1] === "左" ? "left" : hitMatch[1] === "右" ? "right" : "down",
                     result: "1B",
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.92,
+                    source: "shorthand"
                 };
             }
 
@@ -1994,7 +2145,9 @@
                     ballType: "ground",
                     result: "G",
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.82,
+                    source: "shorthand"
                 };
             }
 
@@ -2006,7 +2159,9 @@
                     result: "OUT",
                     direction: flyHitMatch[1] === "左" ? "left" : flyHitMatch[1] === "右" ? "right" : "none",
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.92,
+                    source: "shorthand"
                 };
             }
 
@@ -2017,7 +2172,9 @@
                     ballType: "liner",
                     result: "OUT",
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.88,
+                    source: "shorthand"
                 };
             }
 
@@ -2029,7 +2186,9 @@
                     result: "OUT",
                     fieldSequence,
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.9,
+                    source: "shorthand"
                 };
             }
 
@@ -2043,7 +2202,9 @@
                     fieldSequence,
                     outScore: isDoublePlayText ? "Ⅱ" : "Ⅰ",
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: groundMatch[2] ? 0.75 : 0.9,
+                    source: "shorthand"
                 };
             }
 
@@ -2055,7 +2216,9 @@
                     result: "OUT",
                     fieldSequence,
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.88,
+                    source: "shorthand"
                 };
             }
 
@@ -2067,7 +2230,9 @@
                     result: "OUT",
                     fieldSequence,
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.9,
+                    source: "shorthand"
                 };
             }
 
@@ -2079,7 +2244,9 @@
                     result: "OUT",
                     modifiers: { bunt: true },
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.82,
+                    source: "shorthand"
                 };
             }
 
@@ -2091,7 +2258,9 @@
                     result: "OUT",
                     modifiers: { sacrificeBunt: true },
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.84,
+                    source: "shorthand"
                 };
             }
 
@@ -2103,7 +2272,9 @@
                     ballType: normalizedText.includes("ライナー") ? "liner" : "none",
                     result: "2B",
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.9,
+                    source: "shorthand"
                 };
             }
 
@@ -2113,7 +2284,9 @@
                     fielder: SHORT_FIELDER_MAP[singleDirectionalMatch[1]],
                     result: "1B",
                     runnerContext: detectRunnerContext(normalizedText),
-                    note: normalizedText
+                    note: normalizedText,
+                    confidence: 0.8,
+                    source: "shorthand"
                 };
             }
 
