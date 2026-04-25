@@ -1835,6 +1835,10 @@
             const normalizedText = normalizeBaseballDigits(text);
             const isDoublePlayText = normalizedText.includes("ダブルプレー") || normalizedText.includes("併殺");
 
+            if (/^(?:\.{3,}|…+|・+|ー+|－+)$/.test(normalizedText)) {
+                return { result: "", note: "空打席" };
+            }
+
             if (normalizedText.includes("見三振") || normalizedText.includes("見逃し三振")) {
                 return { result: "K", runnerContext: detectRunnerContext(normalizedText), note: normalizedText };
             }
@@ -1877,12 +1881,44 @@
                 };
             }
 
+            const homeRunMatch = normalizedText.match(/^([左右中])本$/);
+            if (homeRunMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[homeRunMatch[1]],
+                    direction: homeRunMatch[1] === "左" ? "left" : homeRunMatch[1] === "右" ? "right" : "none",
+                    result: "HR",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const extraBaseHitMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])([23])$/);
+            if (extraBaseHitMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[extraBaseHitMatch[1]],
+                    result: extraBaseHitMatch[2] === "2" ? "2B" : "3B",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
             const hitMatch = normalizedText.match(/^([左右中])安$/);
             if (hitMatch) {
                 return {
                     fielder: SHORT_FIELDER_MAP[hitMatch[1]],
                     direction: hitMatch[1] === "左" ? "left" : hitMatch[1] === "右" ? "right" : "down",
                     result: "1B",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
+            const infieldHitMatch = normalizedText.match(/^([一二三遊投捕1-9])安$/);
+            if (infieldHitMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[infieldHitMatch[1]],
+                    ballType: "ground",
+                    result: "G",
                     runnerContext: detectRunnerContext(normalizedText),
                     note: normalizedText
                 };
@@ -1911,6 +1947,18 @@
                 };
             }
 
+            const shortFlyMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])飛$/);
+            if (shortFlyMatch) {
+                return {
+                    fielder: SHORT_FIELDER_MAP[shortFlyMatch[1]],
+                    ballType: "fly",
+                    result: "OUT",
+                    fieldSequence,
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText
+                };
+            }
+
             const groundMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])ゴロ(悪送球)?$/);
             if (groundMatch) {
                 return {
@@ -1925,11 +1973,11 @@
                 };
             }
 
-            const shortFlyMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])飛$/);
-            if (shortFlyMatch) {
+            const shortLinerOutMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])直$/);
+            if (shortLinerOutMatch) {
                 return {
-                    fielder: SHORT_FIELDER_MAP[shortFlyMatch[1]],
-                    ballType: "fly",
+                    fielder: SHORT_FIELDER_MAP[shortLinerOutMatch[1]],
+                    ballType: "liner",
                     result: "OUT",
                     fieldSequence,
                     runnerContext: detectRunnerContext(normalizedText),
@@ -1937,11 +1985,13 @@
                 };
             }
 
-            const shortHitMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])安$/);
-            if (shortHitMatch) {
+            const shortGroundMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])ゴ$/);
+            if (shortGroundMatch) {
                 return {
-                    fielder: SHORT_FIELDER_MAP[shortHitMatch[1]],
-                    result: "1B",
+                    fielder: SHORT_FIELDER_MAP[shortGroundMatch[1]],
+                    ballType: "ground",
+                    result: "OUT",
+                    fieldSequence,
                     runnerContext: detectRunnerContext(normalizedText),
                     note: normalizedText
                 };
