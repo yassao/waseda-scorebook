@@ -1639,7 +1639,42 @@
             return /[一二三遊投捕左右中123456789１２３４５６７８９安飛振球死本ゴ盗犠直併失野選]/.test(token);
         }
 
+        function findNikkanInningStartIndex(tokens) {
+            const averageIndex = tokens.findIndex((token) => /^(?:\.\d{3}|---|--)$/.test(token));
+            if (averageIndex >= 0 && averageIndex + 2 < tokens.length) {
+                return averageIndex + 2;
+            }
+
+            for (let index = 0; index < tokens.length; index += 1) {
+                const suffix = tokens.slice(index);
+                if (suffix.length < 9 || suffix.length > MAX_INNINGS) {
+                    continue;
+                }
+                if (suffix.every((token) => isLikelyNikkanInningToken(token))) {
+                    return index;
+                }
+            }
+
+            return -1;
+        }
+
         function extractNikkanInningCells(tokens) {
+            const startIndex = findNikkanInningStartIndex(tokens);
+            if (startIndex >= 0) {
+                const cells = [];
+                for (let index = startIndex; index < tokens.length; index += 1) {
+                    const token = tokens[index];
+                    if (!isLikelyNikkanInningToken(token)) {
+                        break;
+                    }
+                    cells.push(token);
+                    if (cells.length >= MAX_INNINGS) {
+                        break;
+                    }
+                }
+                return cells;
+            }
+
             const cells = [];
             for (let index = tokens.length - 1; index >= 0; index -= 1) {
                 const token = tokens[index];
