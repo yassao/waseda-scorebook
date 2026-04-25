@@ -61,9 +61,16 @@
             font-size: 14px;
         }
 
+        .top-workspace {
+            display: grid;
+            grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+            gap: 14px;
+            padding: 0 16px;
+            align-items: start;
+        }
+
         .scorebox-container {
             background: var(--panel);
-            margin: 0 16px;
             padding: 18px;
             border-radius: 18px;
             box-shadow: 0 18px 40px rgba(22, 34, 51, 0.12);
@@ -73,9 +80,9 @@
 
         .scorebox-svg {
             width: 100%;
-            max-width: 430px;
+            max-width: 235px;
             display: block;
-            margin: 0 auto;
+            margin: 0;
         }
 
         .status-line {
@@ -86,6 +93,14 @@
             flex-wrap: wrap;
             font-size: 13px;
             color: var(--muted);
+        }
+
+        .nl-quick-panel {
+            background: var(--panel);
+            border-radius: 18px;
+            padding: 16px;
+            border: 1px solid rgba(35, 49, 66, 0.08);
+            box-shadow: 0 18px 40px rgba(22, 34, 51, 0.08);
         }
 
         .control-panel-wrapper {
@@ -380,6 +395,10 @@
             gap: 10px;
         }
 
+        .nl-panel.is-compact {
+            gap: 8px;
+        }
+
         .nl-input {
             width: 100%;
             min-height: 56px;
@@ -397,6 +416,19 @@
             gap: 10px;
         }
 
+        .nl-actions.compact {
+            grid-template-columns: repeat(3, max-content);
+            justify-content: start;
+            align-items: center;
+        }
+
+        .small-btn {
+            min-height: 38px;
+            padding: 8px 14px;
+            font-size: 13px;
+            border-radius: 10px;
+        }
+
         .nl-preview {
             padding: 12px 14px;
             border-radius: 12px;
@@ -408,10 +440,28 @@
             min-height: 72px;
         }
 
+        .nl-preview.compact {
+            min-height: 56px;
+            font-size: 13px;
+        }
+
         .nl-corrections {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
+        }
+
+        .nl-correction-panel {
+            display: none;
+            padding: 12px;
+            border-radius: 12px;
+            background: #f8fafb;
+            border: 1px solid #d8e1e8;
+            gap: 10px;
+        }
+
+        .nl-correction-panel.is-open {
+            display: grid;
         }
 
         .nl-field {
@@ -439,29 +489,63 @@
             margin-top: 16px;
         }
 
+        .options-menu {
+            margin-bottom: 22px;
+            border-radius: 14px;
+            background: #f8fafb;
+            border: 1px solid #d8e1e8;
+            overflow: hidden;
+        }
+
+        .options-menu summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 12px 14px;
+            font-weight: 700;
+            color: #22313f;
+            background: rgba(238, 243, 247, 0.85);
+        }
+
+        .options-menu summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .options-body {
+            padding: 14px;
+        }
+
         @media (max-width: 480px) {
             .app-header h1 {
                 font-size: 24px;
             }
 
+            .top-workspace {
+                grid-template-columns: 1fr;
+                padding: 0 12px;
+            }
+
             .scorebox-container {
-                margin: 0 12px;
                 padding: 12px 12px 10px;
             }
 
             .scorebox-container,
-            .control-panel {
+            .control-panel,
+            .nl-quick-panel {
                 border-radius: 16px;
             }
 
             .scorebox-svg {
-                width: 56%;
+                width: 100%;
                 max-width: 235px;
             }
 
             .status-line {
                 margin-top: 10px;
                 font-size: 12px;
+            }
+
+            .nl-actions.compact {
+                grid-template-columns: repeat(3, minmax(0, max-content));
             }
 
             .button-grid-3 {
@@ -485,100 +569,63 @@
             <p>まずは1打席を正しく書ける状態まで仕上げたプロトタイプです。</p>
         </header>
 
-        <div class="scorebox-container">
-            <svg id="scoreboxSvg" class="scorebox-svg" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg" aria-label="スコアボックス">
-                <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
-                <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
-                <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
-                <g id="hitLines" fill="none" stroke="#d14b3a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-                    <path id="hit-line-first" d="" visibility="hidden"></path>
-                    <path id="hit-line-second" d="" visibility="hidden"></path>
-                    <path id="hit-line-third" d="" visibility="hidden"></path>
-                    <path id="hit-line-home" d="" visibility="hidden"></path>
-                </g>
-                <line id="inningEndSlash" x1="146" y1="185" x2="215" y2="116" stroke="#111" stroke-width="2" visibility="hidden"/>
-                <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
-                <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
-                <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
-                <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
+        <div class="top-workspace">
+            <div class="scorebox-container">
+                <svg id="scoreboxSvg" class="scorebox-svg" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg" aria-label="スコアボックス">
+                    <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                    <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
+                    <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
+                    <g id="hitLines" fill="none" stroke="#d14b3a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                        <path id="hit-line-first" d="" visibility="hidden"></path>
+                        <path id="hit-line-second" d="" visibility="hidden"></path>
+                        <path id="hit-line-third" d="" visibility="hidden"></path>
+                        <path id="hit-line-home" d="" visibility="hidden"></path>
+                    </g>
+                    <line id="inningEndSlash" x1="146" y1="185" x2="215" y2="116" stroke="#111" stroke-width="2" visibility="hidden"/>
+                    <line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>
+                    <line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>
+                    <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
+                    <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
 
-                <g id="pitchCountDisplay"></g>
+                    <g id="pitchCountDisplay"></g>
 
-                <text id="outCountDisplay" x="125" y="106" text-anchor="middle" font-size="32" font-weight="700" fill="#222"></text>
+                    <text id="outCountDisplay" x="125" y="106" text-anchor="middle" font-size="32" font-weight="700" fill="#222"></text>
 
-                <g id="resultGroup" transform="translate(182 166)">
-                    <rect id="sacrificeBox" x="-18" y="-24" width="36" height="40" fill="none" stroke="#222" stroke-width="2" visibility="hidden"></rect>
-                    <polygon id="sacrificeFlyTriangle" points="-22,14 0,-24 22,14" fill="none" stroke="#1f5fbf" stroke-width="2" visibility="hidden"></polygon>
-                    <path id="ballTypeDecoration" d="" fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
-                    <text id="resultPrefixDisplay" x="0" y="-18" text-anchor="middle" font-size="14" font-weight="700" fill="#222"></text>
-                    <text id="resultDisplay" x="0" y="0" text-anchor="middle" dominant-baseline="middle" font-size="24" font-weight="700" fill="#222"></text>
-                    <path id="infieldHitArc" d="" fill="none" stroke="#d14b3a" stroke-width="2" visibility="hidden"></path>
-                    <circle id="dotUp" cx="0" cy="0" r="2.5" fill="#c8513f" visibility="hidden"></circle>
-                    <circle id="dotDown" cx="0" cy="0" r="2.5" fill="#c8513f" visibility="hidden"></circle>
-                    <circle id="dotLeft" cx="0" cy="0" r="2.5" fill="#c8513f" visibility="hidden"></circle>
-                    <circle id="dotRight" cx="0" cy="0" r="2.5" fill="#c8513f" visibility="hidden"></circle>
-                </g>
-                <g id="rbiGroup" visibility="hidden">
-                    <circle id="rbiCircle" cx="58" cy="132" r="18" fill="none" stroke="#111" stroke-width="2"></circle>
-                    <text id="rbiText" x="58" y="140" text-anchor="middle" font-size="24" font-weight="700" fill="#111"></text>
-                </g>
-            </svg>
+                    <g id="resultGroup" transform="translate(182 166)">
+                        <rect id="sacrificeBox" x="-18" y="-24" width="36" height="40" fill="none" stroke="#222" stroke-width="2" visibility="hidden"></rect>
+                        <polygon id="sacrificeFlyTriangle" points="-22,14 0,-24 22,14" fill="none" stroke="#1f5fbf" stroke-width="2" visibility="hidden"></polygon>
+                        <path id="ballTypeDecoration" d="" fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <text id="resultPrefixDisplay" x="0" y="-18" text-anchor="middle" font-size="14" font-weight="700" fill="#222"></text>
+                        <text id="resultDisplay" x="0" y="0" text-anchor="middle" dominant-baseline="middle" font-size="24" font-weight="700" fill="#222"></text>
+                        <path id="infieldHitArc" d="" fill="none" stroke="#d14b3a" stroke-width="2" visibility="hidden"></path>
+                        <circle id="dotUp" cx="0" cy="0" r="2.5" fill="#c8513f" visibility="hidden"></circle>
+                        <circle id="dotDown" cx="0" cy="0" r="2.5" fill="#c8513f" visibility="hidden"></circle>
+                        <circle id="dotLeft" cx="0" cy="0" r="2.5" fill="#c8513f" visibility="hidden"></circle>
+                        <circle id="dotRight" cx="0" cy="0" r="2.5" fill="#c8513f" visibility="hidden"></circle>
+                    </g>
+                    <g id="rbiGroup" visibility="hidden">
+                        <circle id="rbiCircle" cx="58" cy="132" r="18" fill="none" stroke="#111" stroke-width="2"></circle>
+                        <text id="rbiText" x="58" y="140" text-anchor="middle" font-size="24" font-weight="700" fill="#111"></text>
+                    </g>
+                </svg>
 
-            <div class="status-line">
-                <span id="countStatus">ストライク 0 / ボール 0</span>
-                <span id="autoJudgeStatus">自動判定待ち</span>
+                <div class="status-line">
+                    <span id="countStatus">ストライク 0 / ボール 0</span>
+                    <span id="autoJudgeStatus">自動判定待ち</span>
+                </div>
             </div>
-        </div>
 
-        <div class="control-panel-wrapper">
-            <div class="control-panel">
-                <section class="section">
-                    <div class="section-title">9人 × 12回 シート</div>
-                    <div class="sheet-panel">
-                        <div class="sheet-toolbar">
-                            <button onclick="saveCurrentToSheet()">この打席を保存</button>
-                            <button onclick="goToNextSheetCell()">次の打席へ</button>
-                            <button onclick="loadCurrentSheetCell()">選択マスを再読込</button>
-                            <button onclick="clearCurrentSheetCell()">選択マスを消去</button>
-                        </div>
-                        <div id="sheetMeta" class="sheet-meta">現在: 1番 × 1回<br>保存済みマスをタップすると上の個別スコアへ拡大表示します。</div>
-                        <div id="sheetGrid" class="sheet-grid"></div>
+            <section class="nl-quick-panel">
+                <div class="section-title">自然言語入力</div>
+                <div class="nl-panel is-compact">
+                    <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
+                    <div class="nl-actions compact">
+                        <button class="small-btn" onclick="parseNaturalLanguage()">解釈</button>
+                        <button class="small-btn" onclick="applyNaturalLanguage()">反映</button>
+                        <button id="nlCorrectionToggle" class="small-btn" onclick="toggleCorrectionEditor()">修正</button>
                     </div>
-                </section>
-
-                <section class="section">
-                    <div class="section-title">日刊スポーツ 1行インポート</div>
-                    <div class="nl-panel">
-                        <textarea id="nikkanRowInput" class="nl-input" placeholder="例: (左) キャベッジ (左) 4 2 0 .304 4 二ゴ 右安 死球 …… …… 左2 …… 二ゴ ……"></textarea>
-                        <div class="nl-actions">
-                            <button onclick="importNikkanSportsRow()">選択打順に取り込む</button>
-                        </div>
-                        <div id="nikkanImportPreview" class="nl-preview">現在選択中の打順へ、1回〜9回をまとめて取り込みます。</div>
-                    </div>
-                </section>
-
-                <section class="section">
-                    <div class="section-title">日刊スポーツ 全体インポート</div>
-                    <div class="nl-panel">
-                        <textarea id="nikkanBoardInput" class="nl-input" placeholder="日刊スポーツの打者成績表を複数行まとめて貼り付け"></textarea>
-                        <div class="nl-actions">
-                            <button onclick="importNikkanSportsBoard()">選択打順から一括取り込み</button>
-                            <button onclick="importNikkanSportsBoard(true)">1番から自動配置</button>
-                        </div>
-                        <div id="nikkanBoardPreview" class="nl-preview">選択中の打順を先頭にして、複数行を 1番ずつ下へ流し込みます。延長は12回まで対応します。</div>
-                        <div class="import-help">低確度のセルはシート上でグレーハッチ表示にします。あとでタップして修正できます。</div>
-                    </div>
-                </section>
-
-                <section class="section">
-                    <div class="section-title">自然言語入力</div>
-                    <div class="nl-panel">
-                        <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
-                        <div class="nl-actions">
-                            <button onclick="parseNaturalLanguage()">解釈する</button>
-                            <button onclick="applyNaturalLanguage()">反映する</button>
-                        </div>
-                        <div id="naturalLanguagePreview" class="nl-preview">ここに解釈結果を表示します。</div>
+                    <div id="naturalLanguagePreview" class="nl-preview compact">ここに解釈結果を表示します。</div>
+                    <div id="nlCorrectionPanel" class="nl-correction-panel">
                         <div class="nl-corrections">
                             <div class="nl-field">
                                 <label for="nlFielderSelect">守備位置</label>
@@ -637,11 +684,58 @@
                             </div>
                         </div>
                         <div class="nl-actions">
-                            <button onclick="applyCorrectedNaturalLanguage()">修正内容で反映</button>
-                            <button onclick="saveNaturalLanguageMapping()">この対応を登録</button>
+                            <button class="small-btn" onclick="applyCorrectedNaturalLanguage()">修正して反映</button>
+                            <button class="small-btn" onclick="saveNaturalLanguageMapping()">登録</button>
                         </div>
                     </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="control-panel-wrapper">
+            <div class="control-panel">
+                <section class="section">
+                    <div class="section-title">9人 × 12回 シート</div>
+                    <div class="sheet-panel">
+                        <div class="sheet-toolbar">
+                            <button onclick="saveCurrentToSheet()">この打席を保存</button>
+                            <button onclick="goToNextSheetCell()">次の打席へ</button>
+                            <button onclick="loadCurrentSheetCell()">選択マスを再読込</button>
+                            <button onclick="clearCurrentSheetCell()">選択マスを消去</button>
+                        </div>
+                        <div id="sheetMeta" class="sheet-meta">現在: 1番 × 1回<br>保存済みマスをタップすると上の個別スコアへ拡大表示します。</div>
+                        <div id="sheetGrid" class="sheet-grid"></div>
+                    </div>
                 </section>
+
+                <details class="options-menu">
+                    <summary>☰ オプション</summary>
+                    <div class="options-body">
+                        <section class="section">
+                            <div class="section-title">日刊スポーツ 1行インポート</div>
+                            <div class="nl-panel">
+                                <textarea id="nikkanRowInput" class="nl-input" placeholder="例: (左) キャベッジ (左) 4 2 0 .304 4 二ゴ 右安 死球 …… …… 左2 …… 二ゴ ……"></textarea>
+                                <div class="nl-actions">
+                                    <button onclick="importNikkanSportsRow()">選択打順に取り込む</button>
+                                </div>
+                                <div id="nikkanImportPreview" class="nl-preview">現在選択中の打順へ、1回〜9回をまとめて取り込みます。</div>
+                            </div>
+                        </section>
+
+                        <section class="section">
+                            <div class="section-title">日刊スポーツ 全体インポート</div>
+                            <div class="nl-panel">
+                                <textarea id="nikkanBoardInput" class="nl-input" placeholder="日刊スポーツの打者成績表を複数行まとめて貼り付け"></textarea>
+                                <div class="nl-actions">
+                                    <button onclick="importNikkanSportsBoard()">選択打順から一括取り込み</button>
+                                    <button onclick="importNikkanSportsBoard(true)">1番から自動配置</button>
+                                </div>
+                                <div id="nikkanBoardPreview" class="nl-preview">選択中の打順を先頭にして、複数行を 1番ずつ下へ流し込みます。延長は12回まで対応します。</div>
+                                <div class="import-help">低確度のセルはシート上でグレーハッチ表示にします。あとでタップして修正できます。</div>
+                            </div>
+                        </section>
+                    </div>
+                </details>
 
                 <section class="section">
                     <div class="section-title">守備位置と打球方向</div>
@@ -1920,6 +2014,7 @@
             state.parsedInput = corrected;
             applyParsedInput(corrected);
             syncPreviewFromParsed(corrected, "修正後");
+            toggleCorrectionEditor(false);
         }
 
         function saveNaturalLanguageMapping() {
@@ -2400,6 +2495,17 @@
                 direction: document.getElementById("nlDirectionSelect").value,
                 note: "手動修正"
             };
+        }
+
+        function toggleCorrectionEditor(forceOpen) {
+            const panel = document.getElementById("nlCorrectionPanel");
+            const button = document.getElementById("nlCorrectionToggle");
+            const shouldOpen = typeof forceOpen === "boolean"
+                ? forceOpen
+                : !panel.classList.contains("is-open");
+
+            panel.classList.toggle("is-open", shouldOpen);
+            button.classList.toggle("is-active", shouldOpen);
         }
 
         function syncCorrectionControls(parsed) {
