@@ -97,6 +97,41 @@
             color: var(--muted);
         }
 
+        .pitch-quick {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .pitch-quick-actions {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+        }
+
+        .pitch-quick-actions button,
+        .pitch-detail-panel button {
+            min-height: 34px;
+            padding: 7px 8px;
+            font-size: 12px;
+            border-radius: 10px;
+        }
+
+        .pitch-detail-panel {
+            display: none;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+            padding: 8px;
+            border: 1px solid #d8e1e8;
+            border-radius: 12px;
+            background: #f8fafb;
+        }
+
+        .pitch-detail-panel.is-open {
+            display: grid;
+        }
+
         .nl-quick-panel {
             background: var(--panel);
             border-radius: 18px;
@@ -550,6 +585,14 @@
                 font-size: 10px;
             }
 
+            .pitch-quick-actions {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .pitch-detail-panel {
+                grid-template-columns: 1fr;
+            }
+
             .nl-actions.compact {
                 grid-template-columns: repeat(3, minmax(0, max-content));
             }
@@ -630,6 +673,20 @@
                 <div class="status-line">
                     <span id="countStatus">ストライク 0 / ボール 0</span>
                     <span id="autoJudgeStatus">自動判定待ち</span>
+                </div>
+                <div class="pitch-quick">
+                    <div class="pitch-quick-actions">
+                        <button onclick="addPitch('calledStrike')">ストライク</button>
+                        <button onclick="addPitch('ball')">ボール</button>
+                        <button id="pitchDetailToggle" onclick="togglePitchDetails()">詳細</button>
+                    </div>
+                    <div id="pitchDetailPanel" class="pitch-detail-panel">
+                        <button onclick="addPitch('calledStrike')">見逃し</button>
+                        <button onclick="addPitch('swingStrike')">空振り</button>
+                        <button onclick="addPitch('foul')">ファール</button>
+                        <button onclick="addPitch('buntFoul')">バントF</button>
+                        <button onclick="addPitch('buntSwing')">バント空振</button>
+                    </div>
                 </div>
             </div>
 
@@ -869,18 +926,6 @@
                         <button class="btn-hit" onclick="setHitType('2B')">二塁打</button>
                         <button class="btn-hit" onclick="setHitType('3B')">三塁打</button>
                         <button class="btn-hit" onclick="setHitType('HR')">本塁打</button>
-                    </div>
-                </section>
-
-                <section class="section">
-                    <div class="section-title">投球カウント</div>
-                    <div class="button-grid-3">
-                        <button onclick="addPitch('ball')">● ボール</button>
-                        <button onclick="addPitch('calledStrike')">× 見逃し</button>
-                        <button onclick="addPitch('swingStrike')">空振り</button>
-                        <button onclick="addPitch('foul')">△ ファウル</button>
-                        <button onclick="addPitch('buntFoul')">△• バントF</button>
-                        <button onclick="addPitch('buntSwing')">バント空振り</button>
                     </div>
                 </section>
 
@@ -2990,6 +3035,17 @@
             updateDisplay();
         }
 
+        function togglePitchDetails(forceOpen) {
+            const panel = document.getElementById("pitchDetailPanel");
+            const button = document.getElementById("pitchDetailToggle");
+            const shouldOpen = typeof forceOpen === "boolean"
+                ? forceOpen
+                : !panel.classList.contains("is-open");
+
+            panel.classList.toggle("is-open", shouldOpen);
+            button.classList.toggle("is-active", shouldOpen);
+        }
+
         function addPitch(symbol) {
             state.pitches.push(symbol);
             state.pitchNotes.push("");
@@ -3025,6 +3081,9 @@
                 state.fieldSequence = [];
             }
 
+            if (symbol !== "ball") {
+                togglePitchDetails(false);
+            }
             updateDisplay();
         }
 
