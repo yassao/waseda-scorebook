@@ -1371,6 +1371,65 @@
             }
         }
 
+        function romanToOutCount(symbol) {
+            if (symbol === "Ⅰ") {
+                return 1;
+            }
+            if (symbol === "Ⅱ") {
+                return 2;
+            }
+            if (symbol === "Ⅲ") {
+                return 3;
+            }
+            return 0;
+        }
+
+        function outCountToRoman(count) {
+            if (count >= 3) {
+                return "Ⅲ";
+            }
+            if (count === 2) {
+                return "Ⅱ";
+            }
+            if (count === 1) {
+                return "Ⅰ";
+            }
+            return "";
+        }
+
+        function getPreviousOutCountForCell(row, col) {
+            for (let prevRow = row - 1; prevRow >= 0; prevRow -= 1) {
+                const previousSnapshot = state.scoreSheet?.[prevRow]?.[col];
+                if (!previousSnapshot) {
+                    continue;
+                }
+                const outCount = romanToOutCount(previousSnapshot.outScore);
+                if (outCount > 0) {
+                    return outCount;
+                }
+            }
+            return 0;
+        }
+
+        function resolveSnapshotOutScore(row, col, snapshot) {
+            const currentPlayOuts = romanToOutCount(snapshot.outScore);
+            if (!currentPlayOuts) {
+                return snapshot.outScore;
+            }
+            const previousOuts = getPreviousOutCountForCell(row, col);
+            return outCountToRoman(Math.min(3, previousOuts + currentPlayOuts));
+        }
+
+        function formatRunnerStatusForSheet(text) {
+            if (text === "2塁") {
+                return "(2)";
+            }
+            if (text === "3塁") {
+                return "(3)";
+            }
+            return "";
+        }
+
         function markRunnerOutOnSnapshot(ref) {
             const snapshot = getSnapshotByRef(ref);
             if (!snapshot) {
@@ -1501,12 +1560,10 @@
                 if (runners[0]) {
                     moveRunnerToBase(runners, 0, 1);
                 }
-                setRunnerStatusForRef(batterRef, snapshot.outScore);
             } else if (snapshot.modifiers?.sacrificeFly && snapshot.outScore) {
                 if (runners[2]) {
                     scoreRunnerFromBase(runners, 2);
                 }
-                setRunnerStatusForRef(batterRef, snapshot.outScore);
             } else if (playCode === "S") {
                 if (runners[0]) {
                     moveRunnerToBase(runners, 0, 1);
@@ -1519,8 +1576,6 @@
                 } else if (runners[1]) {
                     removeRunnerFromBase(runners, 1, "CS");
                 }
-            } else if (snapshot.outScore) {
-                setRunnerStatusForRef(batterRef, snapshot.outScore);
             }
 
             applyRunnerContextOverrides(runners, snapshot, batterRef);
@@ -1698,8 +1753,9 @@
             const prefix = prefixText
                 ? '<text x="152" y="128" font-size="14" font-weight="700" fill="' + (prefixText === "BH" ? "#c62828" : "#222") + '" transform="rotate(-45 152 128)">' + prefixText + '</text>'
                 : "";
-            const runnerNote = snapshot.runnerStatusText
-                ? '<text x="48" y="22" font-size="12" font-weight="700" fill="#1f5fbf">' + snapshot.runnerStatusText + '</text>'
+            const runnerNoteText = formatRunnerStatusForSheet(snapshot.runnerStatusText);
+            const runnerNote = runnerNoteText
+                ? '<text x="176" y="28" text-anchor="middle" font-size="12" font-weight="700" fill="#111">' + runnerNoteText + '</text>'
                 : "";
             const lowConfidenceOverlay = snapshot.confidence && snapshot.confidence < 0.7
                 ? [
@@ -1860,6 +1916,7 @@
 
         function saveCurrentToSheet() {
             const snapshot = captureAtBatSnapshot();
+            snapshot.outScore = resolveSnapshotOutScore(state.selectedSheetRow, state.selectedSheetCol, snapshot);
             state.scoreSheet[state.selectedSheetRow][state.selectedSheetCol] = snapshot;
             updateBaseRunnersForSnapshot(state.selectedSheetRow, state.selectedSheetCol, snapshot);
             renderScoreSheet();
