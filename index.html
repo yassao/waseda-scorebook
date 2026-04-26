@@ -344,7 +344,7 @@
         .sheet-header,
         .sheet-label,
         .sheet-cell {
-            min-height: 98px;
+            min-height: 96px;
             border-radius: 0;
             border-right: 1px solid var(--sheet-green);
             border-bottom: 1px solid var(--sheet-green);
@@ -355,7 +355,7 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 6px;
+            padding: 0;
         }
 
         .sheet-header,
@@ -369,12 +369,14 @@
 
         .sheet-cell {
             cursor: pointer;
-            flex-direction: column;
-            gap: 2px;
-            min-height: 64px;
+            flex-direction: row;
+            gap: 0;
+            min-height: 96px;
             font-size: 12px;
             line-height: 1.2;
             padding: 0;
+            align-items: stretch;
+            justify-content: stretch;
         }
 
         .sheet-cell.is-active {
@@ -395,7 +397,7 @@
         .sheet-cell-svg {
             width: 100%;
             height: 100%;
-            min-height: 98px;
+            min-height: 0;
             display: block;
         }
 
@@ -1614,7 +1616,7 @@
         function generateSheetCellSvg(snapshot) {
             if (!snapshot) {
                 return [
-                    '<svg class="sheet-cell-svg" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
+                    '<svg class="sheet-cell-svg" viewBox="0 0 220 190" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
                     '<rect x="5" y="5" width="30" height="180" fill="none" stroke="#777" stroke-width="2"/>',
                     '<rect x="35" y="5" width="180" height="180" fill="none" stroke="#777" stroke-width="2"/>',
                     '<polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#777" stroke-width="2"/>',
@@ -1678,7 +1680,7 @@
                 : "";
 
             return [
-                '<svg class="sheet-cell-svg" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
+                '<svg class="sheet-cell-svg" viewBox="0 0 220 190" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
                 lowConfidenceOverlay,
                 '<rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>',
                 '<rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>',
@@ -1714,7 +1716,7 @@
             }
 
             grid.innerHTML = "";
-            grid.style.gridTemplateColumns = "56px repeat(" + MAX_INNINGS + ", minmax(56px, 1fr))";
+            grid.style.gridTemplateColumns = "56px repeat(" + MAX_INNINGS + ", 112px)";
 
             const corner = document.createElement("div");
             corner.className = "sheet-header";
@@ -2213,6 +2215,34 @@
             const dynamicModifiers = detectParsedModifiers(normalized);
             const dynamicRunnerContext = detectRunnerContext(normalized);
 
+            if (normalized.includes("バントヒット")) {
+                return {
+                    fielder: dynamicFielder,
+                    direction: dynamicDirection,
+                    ballType: "ground",
+                    result: "BH",
+                    modifiers: { bunt: true },
+                    runnerContext: dynamicRunnerContext,
+                    note: normalized,
+                    confidence: 0.88,
+                    source: "rule"
+                };
+            }
+
+            if (normalized.includes("内野安打") || normalized.includes("ゴロ安") || normalized.includes("ゴロヒット")) {
+                return {
+                    fielder: dynamicFielder,
+                    direction: dynamicDirection,
+                    ballType: "ground",
+                    result: "G",
+                    modifiers: dynamicModifiers,
+                    runnerContext: dynamicRunnerContext,
+                    note: normalized,
+                    confidence: 0.84,
+                    source: "rule"
+                };
+            }
+
             if (normalized.includes("犠飛")) {
                 return {
                     fielder: dynamicFielder,
@@ -2241,9 +2271,16 @@
                 };
             }
 
-            const builtin = BUILTIN_NATURAL_LANGUAGE_RULES.find((rule) =>
-                rule.patterns.some((pattern) => normalized.includes(pattern))
-            );
+            let builtin = null;
+            let bestPatternLength = -1;
+            BUILTIN_NATURAL_LANGUAGE_RULES.forEach((rule) => {
+                rule.patterns.forEach((pattern) => {
+                    if (normalized.includes(pattern) && pattern.length > bestPatternLength) {
+                        builtin = rule;
+                        bestPatternLength = pattern.length;
+                    }
+                });
+            });
             if (builtin) {
                 const parsed = cloneParsedInput(builtin.parsed);
                 parsed.confidence = parsed.confidence || 0.9;
@@ -2293,20 +2330,6 @@
                 };
             }
 
-            if (normalized.includes("内野安打") || normalized.includes("ゴロ安")) {
-                return {
-                    fielder,
-                    direction,
-                    ballType: ballType || "ground",
-                    result: "G",
-                    modifiers,
-                    runnerContext,
-                    note: "内野安打",
-                    confidence: 0.75,
-                    source: "rule"
-                };
-            }
-
             if (normalized.includes("ゴロアウト") || normalized.includes("凡退") || normalized.includes("アウト")) {
                 return {
                     fielder,
@@ -2317,20 +2340,6 @@
                     runnerContext,
                     note: normalized,
                     confidence: 0.7,
-                    source: "rule"
-                };
-            }
-
-            if (normalized.includes("バントヒット")) {
-                return {
-                    fielder,
-                    direction,
-                    ballType: "ground",
-                    result: "BH",
-                    modifiers: { bunt: true },
-                    runnerContext,
-                    note: "バントヒット",
-                    confidence: 0.8,
                     source: "rule"
                 };
             }
