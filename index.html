@@ -65,10 +65,10 @@
 
         .top-workspace {
             display: grid;
-            grid-template-columns: 200px minmax(0, 1fr);
+            grid-template-columns: 168px minmax(0, 1fr);
             gap: 12px;
             padding: 0 16px;
-            align-items: start;
+            align-items: stretch;
         }
 
         .scorebox-container {
@@ -82,7 +82,7 @@
 
         .scorebox-svg {
             width: 100%;
-            max-width: 180px;
+            max-width: 148px;
             display: block;
             margin: 0;
         }
@@ -90,27 +90,22 @@
         .status-line {
             margin-top: 8px;
             display: flex;
-            justify-content: space-between;
-            gap: 8px;
-            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 10px;
             font-size: 11px;
             color: var(--muted);
         }
 
         .pitch-quick {
-            margin-top: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .pitch-quick-actions {
+            margin-top: 8px;
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-rows: auto auto;
             gap: 6px;
+            align-items: start;
         }
 
-        .pitch-quick-actions button,
+        .pitch-main-btn,
         .pitch-detail-panel button {
             min-height: 34px;
             padding: 7px 8px;
@@ -118,9 +113,20 @@
             border-radius: 10px;
         }
 
+        .pitch-main-btn {
+            width: 100%;
+        }
+
+        .pitch-detail-toggle {
+            grid-column: 2;
+            grid-row: 2;
+            width: 100%;
+        }
+
         .pitch-detail-panel {
             display: none;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-column: 1 / span 2;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 6px;
             padding: 8px;
             border: 1px solid #d8e1e8;
@@ -138,6 +144,8 @@
             padding: 12px;
             border: 1px solid rgba(35, 49, 66, 0.08);
             box-shadow: 0 18px 40px rgba(22, 34, 51, 0.08);
+            display: flex;
+            flex-direction: column;
         }
 
         .control-panel-wrapper {
@@ -310,17 +318,10 @@
         }
 
         .sheet-panel {
-            padding: 14px;
-            border-radius: 14px;
-            background: #f8fafb;
-            border: 1px solid #d8e1e8;
-        }
-
-        .sheet-toolbar {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-            margin-bottom: 12px;
+            padding: 0;
+            border-radius: 0;
+            background: transparent;
+            border: none;
         }
 
         .sheet-meta {
@@ -333,7 +334,7 @@
         .sheet-grid {
             display: grid;
             grid-template-columns: 56px repeat(12, minmax(56px, 1fr));
-            gap: 6px;
+            gap: 0;
             overflow-x: auto;
         }
 
@@ -341,7 +342,7 @@
         .sheet-label,
         .sheet-cell {
             min-height: 56px;
-            border-radius: 12px;
+            border-radius: 0;
             border: 1px solid #c9d5df;
             background: #ffffff;
             display: flex;
@@ -434,17 +435,19 @@
 
         .nl-panel.is-compact {
             gap: 8px;
+            height: 100%;
         }
 
         .nl-input {
             width: 100%;
-            min-height: 92px;
+            min-height: 148px;
             padding: 10px 12px;
             border: 2px solid var(--border);
             border-radius: 12px;
             font: inherit;
             resize: vertical;
             background: #fff;
+            flex: 1;
         }
 
         .nl-actions {
@@ -478,7 +481,7 @@
         }
 
         .nl-preview.compact {
-            min-height: 72px;
+            min-height: 54px;
             font-size: 12px;
         }
 
@@ -561,7 +564,7 @@
             }
 
             .top-workspace {
-                grid-template-columns: 146px minmax(0, 1fr);
+                grid-template-columns: 132px minmax(0, 1fr);
                 padding: 0 12px;
             }
 
@@ -577,7 +580,7 @@
 
             .scorebox-svg {
                 width: 100%;
-                max-width: 132px;
+                max-width: 116px;
             }
 
             .status-line {
@@ -585,12 +588,8 @@
                 font-size: 10px;
             }
 
-            .pitch-quick-actions {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-            }
-
             .pitch-detail-panel {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
             .nl-actions.compact {
@@ -602,11 +601,11 @@
             }
 
             .nl-input {
-                min-height: 78px;
+                min-height: 116px;
             }
 
             .nl-preview.compact {
-                min-height: 64px;
+                min-height: 52px;
                 font-size: 11px;
             }
 
@@ -671,15 +670,15 @@
                 </svg>
 
                 <div class="status-line">
-                    <span id="countStatus">ストライク 0 / ボール 0</span>
+                    <span id="countStatus">B 0</span>
+                    <span id="strikeStatus">S 0</span>
+                    <span id="outStatus">O -</span>
                     <span id="autoJudgeStatus">自動判定待ち</span>
                 </div>
                 <div class="pitch-quick">
-                    <div class="pitch-quick-actions">
-                        <button onclick="addPitch('calledStrike')">ストライク</button>
-                        <button onclick="addPitch('ball')">ボール</button>
-                        <button id="pitchDetailToggle" onclick="togglePitchDetails()">詳細</button>
-                    </div>
+                    <button class="pitch-main-btn" onclick="addPitch('ball')">B</button>
+                    <button class="pitch-main-btn" onclick="addPitch('calledStrike')">S</button>
+                    <button id="pitchDetailToggle" class="pitch-main-btn pitch-detail-toggle" onclick="togglePitchDetails()">詳細</button>
                     <div id="pitchDetailPanel" class="pitch-detail-panel">
                         <button onclick="addPitch('calledStrike')">見逃し</button>
                         <button onclick="addPitch('swingStrike')">空振り</button>
@@ -691,7 +690,6 @@
             </div>
 
             <section class="nl-quick-panel">
-                <div class="section-title">自然言語入力</div>
                 <div class="nl-panel is-compact">
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
                     <div class="nl-actions compact">
@@ -772,13 +770,7 @@
                 <section class="section">
                     <div class="section-title">9人 × 12回 シート</div>
                     <div class="sheet-panel">
-                        <div class="sheet-toolbar">
-                            <button onclick="saveCurrentToSheet()">この打席を保存</button>
-                            <button onclick="goToNextSheetCell()">次の打席へ</button>
-                            <button onclick="loadCurrentSheetCell()">選択マスを再読込</button>
-                            <button onclick="clearCurrentSheetCell()">選択マスを消去</button>
-                        </div>
-                        <div id="sheetMeta" class="sheet-meta">現在: 1番 × 1回<br>保存済みマスをタップすると上の個別スコアへ拡大表示します。</div>
+                        <div id="sheetMeta" class="sheet-meta">現在: 1番 × 1回<br>タップで上へ表示、長押しで消去できます。</div>
                         <div id="sheetGrid" class="sheet-grid"></div>
                     </div>
                 </section>
@@ -1026,6 +1018,8 @@
         };
 
         let naturalLanguageParseTimer = null;
+        let sheetCellPressTimer = null;
+        let suppressSheetCellClick = false;
 
         const fielderNames = {
             "1": "投手",
@@ -1682,7 +1676,7 @@
         function updateSheetMeta() {
             const snapshot = state.scoreSheet[state.selectedSheetRow]?.[state.selectedSheetCol];
             const detail = snapshot
-                ? "保存済みマスです。タップで上の個別スコアへ拡大表示し、続けて編集できます。"
+                ? "保存済みマスです。タップで上に表示し、長押しで消去できます。"
                 : "空マスです。ここへ新しい打席を保存できます。";
             document.getElementById("sheetMeta").innerHTML =
                 "現在: " + (state.selectedSheetRow + 1) + "番 × " + (state.selectedSheetCol + 1) + "回<br>" + detail;
@@ -1722,6 +1716,14 @@
                         button.classList.add("is-active");
                     }
                     button.onclick = () => selectSheetCell(row, col);
+                    button.onpointerdown = () => startSheetCellPress(row, col);
+                    button.onpointerup = cancelSheetCellPress;
+                    button.onpointerleave = cancelSheetCellPress;
+                    button.onpointercancel = cancelSheetCellPress;
+                    button.oncontextmenu = (event) => {
+                        event.preventDefault();
+                        confirmClearSheetCell(row, col);
+                    };
 
                     const snapshot = state.scoreSheet[row][col];
                     if (snapshot) {
@@ -1741,6 +1743,10 @@
         }
 
         function selectSheetCell(row, col) {
+            if (suppressSheetCellClick) {
+                suppressSheetCellClick = false;
+                return;
+            }
             state.selectedSheetRow = row;
             state.selectedSheetCol = col;
             state.battingOrder = String(row + 1);
@@ -1760,6 +1766,39 @@
             document.querySelector(".scorebox-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
         }
 
+        function startSheetCellPress(row, col) {
+            cancelSheetCellPress();
+            sheetCellPressTimer = setTimeout(() => {
+                confirmClearSheetCell(row, col);
+            }, 650);
+        }
+
+        function cancelSheetCellPress() {
+            if (sheetCellPressTimer) {
+                clearTimeout(sheetCellPressTimer);
+                sheetCellPressTimer = null;
+            }
+        }
+
+        function confirmClearSheetCell(row, col) {
+            cancelSheetCellPress();
+            suppressSheetCellClick = true;
+            if (!window.confirm((row + 1) + "番 " + (col + 1) + "回のマスを消去しますか？")) {
+                suppressSheetCellClick = false;
+                return;
+            }
+            state.scoreSheet[row][col] = null;
+            if (state.selectedSheetRow === row && state.selectedSheetCol === col) {
+                resetState();
+                state.selectedSheetRow = row;
+                state.selectedSheetCol = col;
+                state.battingOrder = String(row + 1);
+                document.getElementById("battingOrderSelect").value = state.battingOrder;
+            }
+            renderScoreSheet();
+            updateDisplay();
+        }
+
         function saveCurrentToSheet() {
             const snapshot = captureAtBatSnapshot();
             state.scoreSheet[state.selectedSheetRow][state.selectedSheetCol] = snapshot;
@@ -1767,23 +1806,7 @@
             renderScoreSheet();
         }
 
-        function loadCurrentSheetCell() {
-            const snapshot = state.scoreSheet[state.selectedSheetRow][state.selectedSheetCol];
-            if (!snapshot) {
-                return;
-            }
-            applyAtBatSnapshot(snapshot);
-            renderScoreSheet();
-            updateDisplay();
-        }
-
-        function clearCurrentSheetCell() {
-            state.scoreSheet[state.selectedSheetRow][state.selectedSheetCol] = null;
-            renderScoreSheet();
-        }
-
-        function goToNextSheetCell() {
-            saveCurrentToSheet();
+        function advanceToNextSheetCell() {
             let nextRow = state.selectedSheetRow + 1;
             let nextCol = state.selectedSheetCol;
             if (nextRow >= 9) {
@@ -2081,6 +2104,8 @@
             }
 
             applyParsedInput(state.parsedInput);
+            saveCurrentToSheet();
+            advanceToNextSheetCell();
         }
 
         function applyCorrectedNaturalLanguage() {
@@ -2089,6 +2114,8 @@
             applyParsedInput(corrected);
             syncPreviewFromParsed(corrected, "修正後");
             toggleCorrectionEditor(false);
+            saveCurrentToSheet();
+            advanceToNextSheetCell();
         }
 
         function saveNaturalLanguageMapping() {
@@ -3499,8 +3526,9 @@
             document.getElementById("currentSelection").textContent =
                 "選択: " + state.selectedFielder + " " + fielderNames[state.selectedFielder] + " (" + dirMap[state.selectedDirection] + ")";
 
-            document.getElementById("countStatus").textContent =
-                "ストライク " + state.strikes + " / ボール " + state.balls;
+            document.getElementById("countStatus").textContent = "B " + state.balls;
+            document.getElementById("strikeStatus").textContent = "S " + state.strikes;
+            document.getElementById("outStatus").textContent = "O " + (state.outScore || "-");
 
             let autoJudgeText = "自動判定待ち";
             if (state.result === "K") {
