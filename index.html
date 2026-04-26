@@ -373,6 +373,7 @@
             min-height: 64px;
             font-size: 12px;
             line-height: 1.2;
+            padding: 0;
         }
 
         .sheet-cell.is-active {
@@ -392,7 +393,8 @@
 
         .sheet-cell-svg {
             width: 100%;
-            height: 72px;
+            height: 100%;
+            min-height: 64px;
             display: block;
         }
 
@@ -817,6 +819,7 @@
                         <div class="fielder-row">
                             <button id="dir-left" class="direction-btn" onclick="setDirection('left')">←</button>
                             <select id="fielderSelect" onchange="updateFielder()">
+                                <option value="">未指定</option>
                                 <option value="1">1: 投手</option>
                                 <option value="2">2: 捕手</option>
                                 <option value="3">3: 一塁手</option>
@@ -824,14 +827,14 @@
                                 <option value="5">5: 三塁手</option>
                                 <option value="6">6: 遊撃手</option>
                                 <option value="7">7: 左翼手</option>
-                                <option value="8" selected>8: 中堅手</option>
+                                <option value="8">8: 中堅手</option>
                                 <option value="9">9: 右翼手</option>
                             </select>
                             <button id="dir-right" class="direction-btn" onclick="setDirection('right')">→</button>
                         </div>
                         <button id="dir-down" class="direction-btn" onclick="setDirection('down')">↓</button>
                     </div>
-                    <div id="currentSelection" class="current-selection">選択: 8 中堅手</div>
+                    <div id="currentSelection" class="current-selection">選択: 未指定</div>
                 </section>
 
                 <section class="section">
@@ -998,7 +1001,7 @@
             outScore: "",
             strikes: 0,
             balls: 0,
-            selectedFielder: "8",
+            selectedFielder: "",
             selectedDirection: "none",
             selectedBallType: "none",
             selectedHitType: "none",
@@ -1210,7 +1213,7 @@
             state.outScore = snapshot.outScore || "";
             state.strikes = snapshot.strikes || 0;
             state.balls = snapshot.balls || 0;
-            state.selectedFielder = snapshot.selectedFielder || "8";
+            state.selectedFielder = snapshot.selectedFielder || "";
             state.selectedDirection = snapshot.selectedDirection || "none";
             state.selectedBallType = snapshot.selectedBallType || "none";
             state.selectedHitType = snapshot.selectedHitType || "none";
@@ -1222,7 +1225,7 @@
                 sacrificeFly: false,
                 sacrificeBunt: false
             });
-            state.fieldSequence = [...(snapshot.fieldSequence || [state.selectedFielder])];
+            state.fieldSequence = [...(snapshot.fieldSequence || (state.selectedFielder ? [state.selectedFielder] : []))];
             state.errorMode = snapshot.errorMode || "none";
             state.baseCover = snapshot.baseCover || "none";
             state.runnerContextText = snapshot.runnerContextText || "";
@@ -1629,11 +1632,15 @@
                 "1B": ["M 125 185 L 215 95"],
                 "G": ["M 125 185 L 215 95"],
                 "BH": ["M 125 185 L 215 95"],
+                "B": ["M 125 185 L 215 95"],
+                "HP": ["M 125 185 L 215 95"],
+                "IB": ["M 125 185 L 215 95"],
+                "IF": ["M 125 185 L 215 95"],
                 "2B": ["M 125 185 L 215 95", "M 215 95 L 125 5"],
                 "3B": ["M 125 185 L 215 95", "M 215 95 L 125 5", "M 125 5 L 35 95"],
                 "HR": ["M 125 185 L 215 95", "M 215 95 L 125 5", "M 125 5 L 35 95", "M 35 95 L 125 185"]
             };
-            const paths = hitLinePaths[snapshot.selectedHitType] || [];
+            const paths = hitLinePaths[snapshot.selectedHitType] || hitLinePaths[snapshot.result] || [];
             const pitchCount = Math.min((snapshot.pitches || []).length, 9);
 
             const pitchMarks = Array.from({ length: pitchCount }, (_, index) => {
@@ -1641,8 +1648,9 @@
                 return '<circle cx="20" cy="' + y + '" r="2" fill="#111"/>';
             }).join("");
 
+            const lineColor = ["B", "HP", "IB", "IF"].includes(snapshot.result) ? "#1565c0" : "#d14b3a";
             const hitLines = paths.map((path) =>
-                '<path d="' + path + '" fill="none" stroke="#d14b3a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
+                '<path d="' + path + '" fill="none" stroke="' + lineColor + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
             ).join("");
 
             const inningSlash = snapshot.outScore === "Ⅲ"
@@ -2118,7 +2126,7 @@
                 (label || "解釈") + ":",
                 "結果: " + (resultLabelMap[state.result] || display || "未確定"),
                 "打球種別: " + (state.selectedBallType || "なし"),
-                "守備位置: " + (state.selectedFielder ? state.selectedFielder + " " + fielderNames[state.selectedFielder] : "なし"),
+                "守備位置: " + (state.selectedFielder ? state.selectedFielder + " " + fielderNames[state.selectedFielder] : "未指定"),
                 "補助: " + formatParsedModifiers({
                     modifiers: state.modifiers,
                     ballType: state.selectedBallType
@@ -2902,10 +2910,15 @@
         function updateFielder() {
             state.selectedFielder = document.getElementById("fielderSelect").value;
             state.selectedDirection = "none";
-            state.fieldSequence = [state.selectedFielder];
+            state.fieldSequence = state.selectedFielder ? [state.selectedFielder] : [];
 
-            if (state.selectedHitType === "1B" || state.result === state.selectedFielder) {
+            if (state.selectedFielder && (state.selectedHitType === "1B" || state.result === state.selectedFielder)) {
                 state.result = state.selectedFielder;
+            }
+
+            if (!state.selectedFielder) {
+                updateDisplay();
+                return;
             }
 
             applySelection();
@@ -2926,7 +2939,7 @@
                 state.modifiers.sacrificeBunt = false;
             }
 
-            if (!isFielderPlay()) {
+            if (!isFielderPlay() && state.selectedFielder) {
                 state.result = state.selectedFielder;
             }
 
@@ -2934,6 +2947,10 @@
         }
 
         function startFieldSequence() {
+            if (!state.selectedFielder) {
+                updateDisplay();
+                return;
+            }
             state.result = state.selectedFielder;
             state.selectedHitType = "none";
             state.fieldSequence = [state.selectedFielder];
@@ -3005,8 +3022,8 @@
 
         function setHitType(type) {
             state.selectedHitType = type;
-            state.result = state.selectedFielder;
-            state.fieldSequence = [state.selectedFielder];
+            state.result = state.selectedFielder || "";
+            state.fieldSequence = state.selectedFielder ? [state.selectedFielder] : [];
             state.selectedBallType = "none";
             state.selectedDirection = "none";
             resetModifiers();
@@ -3017,6 +3034,10 @@
 
         function setResult(symbol) {
             if (symbol === "G" || symbol === "BH") {
+                if (!state.selectedFielder) {
+                    updateDisplay();
+                    return;
+                }
                 state.result = state.selectedFielder;
                 state.selectedHitType = symbol;
                 state.fieldSequence = [state.selectedFielder];
@@ -3194,6 +3215,10 @@
         }
 
         function applySelection() {
+            if (!state.selectedFielder) {
+                updateDisplay();
+                return;
+            }
             state.result = state.selectedFielder;
             state.fieldSequence = [state.selectedFielder];
             if (!isHitTypeSelection()) {
@@ -3207,7 +3232,7 @@
         }
 
         function isFielderPlay() {
-            return state.result === state.selectedFielder || isHitTypeSelection();
+            return (state.selectedFielder && state.result === state.selectedFielder) || isHitTypeSelection();
         }
 
         function updatePitchDisplay() {
@@ -3396,7 +3421,7 @@
             ];
 
             let visibleCount = 0;
-            if (state.selectedHitType === "1B" || state.selectedHitType === "G" || state.selectedHitType === "BH") {
+            if (state.selectedHitType === "1B" || state.selectedHitType === "G" || state.selectedHitType === "BH" || ["B", "HP", "IB", "IF"].includes(state.result)) {
                 visibleCount = 1;
             } else if (state.selectedHitType === "2B") {
                 visibleCount = 2;
@@ -3408,6 +3433,7 @@
 
             segments.forEach((segment, index) => {
                 segment.setAttribute("d", paths[index]);
+                segment.setAttribute("stroke", ["B", "HP", "IB", "IF"].includes(state.result) ? "#1565c0" : "#d14b3a");
                 segment.setAttribute("visibility", index < visibleCount ? "visible" : "hidden");
             });
         }
@@ -3603,7 +3629,9 @@
             };
 
             document.getElementById("currentSelection").textContent =
-                "選択: " + state.selectedFielder + " " + fielderNames[state.selectedFielder] + " (" + dirMap[state.selectedDirection] + ")";
+                state.selectedFielder
+                    ? "選択: " + state.selectedFielder + " " + fielderNames[state.selectedFielder] + " (" + dirMap[state.selectedDirection] + ")"
+                    : "選択: 未指定";
 
             document.getElementById("countStatus").textContent = "B " + state.balls;
             document.getElementById("strikeStatus").textContent = "S " + state.strikes;
@@ -3677,7 +3705,7 @@
             const summary = [
                 "現在セル: " + (state.selectedSheetRow + 1) + "番 / " + (state.selectedSheetCol + 1) + "回",
                 "結果: " + resultText,
-                "守備位置: " + state.selectedFielder + " " + fielderNames[state.selectedFielder],
+                "守備位置: " + (state.selectedFielder ? state.selectedFielder + " " + fielderNames[state.selectedFielder] : "未指定"),
                 "打球種別: " + ballTypeMap[state.selectedBallType],
                 "補助記号: " + (modifiers.length ? modifiers.join(" / ") : "なし"),
                 "守備処理: " + (fieldMarks.length ? fieldMarks.join(" / ") : "なし"),
@@ -3726,19 +3754,19 @@
             state.outScore = "";
             state.strikes = 0;
             state.balls = 0;
-            state.selectedFielder = "8";
+            state.selectedFielder = "";
             state.selectedDirection = "none";
             state.selectedBallType = "none";
             state.selectedHitType = "none";
             state.battingOrder = String(state.selectedSheetRow + 1);
             state.hasRbi = false;
             resetModifiers();
-            state.fieldSequence = ["8"];
+            state.fieldSequence = [];
             state.errorMode = "none";
             state.baseCover = "none";
             state.runnerContextText = "";
 
-            document.getElementById("fielderSelect").value = "8";
+            document.getElementById("fielderSelect").value = "";
             document.getElementById("battingOrderSelect").value = state.battingOrder;
             document.getElementById("extraResultSelect").value = "";
             previewExtraResult();
