@@ -134,17 +134,35 @@
 
         .pitch-detail-panel {
             display: none;
-            grid-column: 1 / span 2;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 6px;
-            padding: 8px;
-            border: 1px solid #d8e1e8;
-            border-radius: 12px;
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 50;
+            width: min(320px, calc(100vw - 32px));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 14px;
             background: #f8fafb;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
         }
 
         .pitch-detail-panel.is-open {
             display: grid;
+        }
+
+        .pitch-detail-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 40;
+            background: rgba(15, 23, 42, 0.2);
+        }
+
+        .pitch-detail-backdrop.is-open {
+            display: block;
         }
 
         .nl-quick-panel {
@@ -346,25 +364,25 @@
         }
 
         .sheet-meta {
-            margin-bottom: 12px;
-            font-size: 13px;
-            line-height: 1.5;
-            color: #475569;
+            display: none;
         }
 
         .sheet-grid {
             display: grid;
-            grid-template-columns: 44px repeat(12, 84px);
+            grid-template-columns: 34px repeat(12, 58px);
             gap: 0;
-            overflow-x: auto;
+            overflow: auto;
+            max-height: 72dvh;
             border-left: 1px solid var(--sheet-green);
             border-top: 1px solid var(--sheet-green);
+            position: relative;
+            background: #ffffff;
         }
 
         .sheet-header,
         .sheet-label,
         .sheet-cell {
-            min-height: 72px;
+            min-height: 52px;
             border-radius: 0;
             border-right: 1px solid var(--sheet-green);
             border-bottom: 1px solid var(--sheet-green);
@@ -380,23 +398,40 @@
 
         .sheet-header,
         .sheet-label {
-            font-size: 11px;
+            font-size: 9px;
             font-weight: 700;
             color: var(--sheet-green);
             background: #ffffff;
-            min-height: 36px;
+            min-height: 28px;
+            position: sticky;
+            z-index: 3;
+            background: #ffffff;
         }
 
         .sheet-cell {
             cursor: pointer;
             flex-direction: row;
             gap: 0;
-            min-height: 72px;
-            font-size: 11px;
+            min-height: 52px;
+            font-size: 9px;
             line-height: 1.2;
             padding: 0;
             align-items: stretch;
             justify-content: stretch;
+        }
+
+        .sheet-header {
+            top: 0;
+        }
+
+        .sheet-label {
+            left: 0;
+            z-index: 2;
+        }
+
+        .sheet-header:first-child {
+            left: 0;
+            z-index: 4;
         }
 
         .sheet-cell.is-active {
@@ -477,6 +512,7 @@
             border: 2px solid var(--border);
             border-radius: 12px;
             font: inherit;
+            font-size: 16px;
             resize: none;
             background: #fff;
             flex: 1;
@@ -488,6 +524,9 @@
             border: 2px solid var(--border);
             border-radius: 12px;
             background: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
         }
 
         .nl-actions {
@@ -668,7 +707,7 @@
             }
 
             .pitch-detail-panel {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+                width: min(300px, calc(100vw - 24px));
             }
 
             .nl-actions.compact {
@@ -681,6 +720,7 @@
 
             .nl-input {
                 height: 88px;
+                font-size: 15px;
             }
 
             .nl-preview.compact {
@@ -699,6 +739,23 @@
 
             .nl-corrections {
                 grid-template-columns: 1fr;
+            }
+
+            .sheet-grid {
+                grid-template-columns: 30px repeat(12, 50px);
+                max-height: 74dvh;
+            }
+
+            .sheet-header,
+            .sheet-label,
+            .sheet-cell {
+                min-height: 46px;
+            }
+
+            .sheet-header,
+            .sheet-label {
+                min-height: 24px;
+                font-size: 8px;
             }
         }
     </style>
@@ -760,6 +817,7 @@
                     <button class="pitch-main-btn" onclick="addPitch('calledStrike')">S</button>
                     <button class="pitch-main-btn" onclick="undoPitch()">Undo</button>
                     <button id="pitchDetailToggle" class="pitch-main-btn pitch-detail-toggle" onclick="togglePitchDetails()">詳細</button>
+                    <div id="pitchDetailBackdrop" class="pitch-detail-backdrop" onclick="togglePitchDetails(false)"></div>
                     <div id="pitchDetailPanel" class="pitch-detail-panel">
                         <button onclick="addPitch('calledStrike')">見逃し</button>
                         <button onclick="addPitch('swingStrike')">空振り</button>
@@ -787,6 +845,7 @@
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
                     <div class="nl-actions compact">
                         <button id="nlCorrectionToggle" class="small-btn" onclick="toggleCorrectionEditor()">解釈結果を手動修正</button>
+                        <button class="small-btn" onclick="openManualDetails()">手動詳細入力</button>
                     </div>
                     <div id="naturalLanguagePreview" class="nl-preview compact">ここに解釈結果を表示します。</div>
                     <div id="nlCorrectionPanel" class="nl-correction-panel">
@@ -794,6 +853,7 @@
                             <div class="nl-field">
                                 <label for="nlFielderSelect">守備位置</label>
                                 <select id="nlFielderSelect">
+                                    <option value="?">? 不明</option>
                                     <option value="">未指定</option>
                                     <option value="1">1: 投手</option>
                                     <option value="2">2: 捕手</option>
@@ -839,6 +899,7 @@
                             <div class="nl-field">
                                 <label for="nlDirectionSelect">方向</label>
                                 <select id="nlDirectionSelect">
+                                    <option value="?">? 不明</option>
                                     <option value="none">未指定</option>
                                     <option value="up">上</option>
                                     <option value="down">前</option>
@@ -861,7 +922,7 @@
                 <section class="section">
                     <div class="section-title">9人 × 12回 シート</div>
                     <div class="sheet-panel">
-                        <div id="sheetMeta" class="sheet-meta">現在: 1番 × 1回<br>タップで上へ表示、長押しで消去できます。</div>
+                        <div id="sheetMeta" class="sheet-meta"></div>
                         <div id="sheetGrid" class="sheet-grid"></div>
                     </div>
                 </section>
@@ -895,7 +956,7 @@
                     </div>
                 </details>
 
-                <details class="manual-editor">
+                <details id="manualEditor" class="manual-editor">
                     <summary>手動詳細入力</summary>
                     <div class="manual-editor-body">
                         <section class="section">
@@ -1208,6 +1269,7 @@
 
         function normalizeNaturalLanguageKey(text) {
             return (text || "")
+                .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xFEE0))
                 .replace(/\s+/g, "")
                 .replace(/[・、,，。\.！!？?]/g, "")
                 .trim();
@@ -1959,8 +2021,11 @@
             const detail = snapshot
                 ? "保存済みマスです。タップで上に表示し、長押しで消去できます。"
                 : "空マスです。ここへ新しい打席を保存できます。";
-            document.getElementById("sheetMeta").innerHTML =
-                "現在: " + (state.selectedSheetRow + 1) + "番 × " + (state.selectedSheetCol + 1) + "回<br>" + detail;
+            const meta = document.getElementById("sheetMeta");
+            if (!meta) {
+                return;
+            }
+            meta.innerHTML = "";
         }
 
         function renderScoreSheet() {
@@ -1970,7 +2035,7 @@
             }
 
             grid.innerHTML = "";
-            grid.style.gridTemplateColumns = "44px repeat(" + MAX_INNINGS + ", 84px)";
+            grid.style.gridTemplateColumns = "34px repeat(" + MAX_INNINGS + ", 58px)";
 
             const corner = document.createElement("div");
             corner.className = "sheet-header";
@@ -2491,6 +2556,26 @@
                     runnerContext: dynamicRunnerContext,
                     note: normalized,
                     confidence: 0.88,
+                    source: "keyword"
+                };
+            }
+
+            if ((normalized.includes("安打") || normalized.includes("ヒット"))
+                && !normalized.includes("内野安打")
+                && !normalized.includes("ゴロ安")
+                && !normalized.includes("バントヒット")
+                && !normalized.includes("二塁打")
+                && !normalized.includes("三塁打")
+                && !normalized.includes("本塁打")) {
+                return {
+                    fielder: dynamicFielder || "?",
+                    direction: dynamicDirection !== "none" ? dynamicDirection : "?",
+                    ballType: dynamicBallType,
+                    result: "1B",
+                    modifiers: dynamicModifiers,
+                    runnerContext: dynamicRunnerContext,
+                    note: normalized,
+                    confidence: dynamicFielder ? 0.82 : 0.68,
                     source: "keyword"
                 };
             }
@@ -3053,7 +3138,7 @@
         function syncPreviewFromParsed(parsed, prefix) {
             const lines = [
                 prefix + ":",
-                "守備位置: " + (parsed.fielder ? parsed.fielder + " " + fielderNames[parsed.fielder] : "なし"),
+                "守備位置: " + (parsed.fielder ? parsed.fielder + " " + (fielderNames[parsed.fielder] || "不明") : "なし"),
                 "打球種別: " + (parsed.ballType || "なし"),
                 "結果: " + (parsed.result || "なし"),
                 "方向: " + (parsed.direction || "なし"),
@@ -3243,7 +3328,11 @@
 
             if (parsed.fielder) {
                 state.selectedFielder = parsed.fielder;
-                document.getElementById("fielderSelect").value = parsed.fielder;
+                if (document.querySelector('#fielderSelect option[value="' + parsed.fielder + '"]')) {
+                    document.getElementById("fielderSelect").value = parsed.fielder;
+                } else {
+                    document.getElementById("fielderSelect").value = "";
+                }
                 state.result = parsed.fielder;
                 state.fieldSequence = [parsed.fielder];
             }
@@ -3252,7 +3341,11 @@
                 state.fieldSequence = [...parsed.fieldSequence];
                 if (!parsed.fielder) {
                     state.selectedFielder = parsed.fieldSequence[0];
-                    document.getElementById("fielderSelect").value = parsed.fieldSequence[0];
+                    if (document.querySelector('#fielderSelect option[value="' + parsed.fieldSequence[0] + '"]')) {
+                        document.getElementById("fielderSelect").value = parsed.fieldSequence[0];
+                    } else {
+                        document.getElementById("fielderSelect").value = "";
+                    }
                 }
             }
 
@@ -3522,12 +3615,23 @@
         function togglePitchDetails(forceOpen) {
             const panel = document.getElementById("pitchDetailPanel");
             const button = document.getElementById("pitchDetailToggle");
+            const backdrop = document.getElementById("pitchDetailBackdrop");
             const shouldOpen = typeof forceOpen === "boolean"
                 ? forceOpen
                 : !panel.classList.contains("is-open");
 
             panel.classList.toggle("is-open", shouldOpen);
             button.classList.toggle("is-active", shouldOpen);
+            backdrop.classList.toggle("is-open", shouldOpen);
+        }
+
+        function openManualDetails() {
+            const details = document.getElementById("manualEditor");
+            if (!details) {
+                return;
+            }
+            details.open = true;
+            details.scrollIntoView({ behavior: "smooth", block: "start" });
         }
 
         function recomputePitchState() {
