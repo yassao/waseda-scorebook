@@ -1140,6 +1140,15 @@
             }
 
             cleaned = cleaned.replace(/^[^\S\r\n]+|[^\S\r\n]+$/g, "");
+            cleaned = cleaned
+                .replace(/\bdouble\s*play\b/ig, "ダブルプレー")
+                .replace(/\bdp\b/ig, "ダブルプレー")
+                .replace(/\bhome\s*run\b/ig, "ホームラン")
+                .replace(/\bhr\b/ig, "本塁打")
+                .replace(/\bhbp\b/ig, "死球")
+                .replace(/\bibb\b/ig, "敬遠")
+                .replace(/\bbb\b/ig, "四球")
+                .replace(/\bks?\b/ig, "三振");
             cleaned = cleaned.replace(/^[0-9]+番から$/, "");
             cleaned = cleaned.replace(/^P[^\s　]+$/, "");
             cleaned = cleaned.replace(/^[0-9０-９一二三四五六七八九]+回[表裏].*攻撃$/, "");
@@ -1374,6 +1383,13 @@
             }
         }
 
+        function setOutScoreForRef(ref, text) {
+            const snapshot = getSnapshotByRef(ref);
+            if (snapshot) {
+                snapshot.outScore = text;
+            }
+        }
+
         function romanToOutCount(symbol) {
             if (symbol === "Ⅰ") {
                 return 1;
@@ -1424,6 +1440,9 @@
         }
 
         function formatRunnerStatusForSheet(text) {
+            if (text === "1塁") {
+                return "";
+            }
             if (text === "2塁") {
                 return "(2)";
             }
@@ -1433,7 +1452,7 @@
             if (text === "残塁") {
                 return "ℓ";
             }
-            return "";
+            return text || "";
         }
 
         function markLeftOnBaseRunners(runners) {
@@ -1490,6 +1509,14 @@
             runners[baseIndex] = null;
             markRunnerOutOnSnapshot(runnerRef);
             setRunnerStatusForRef(runnerRef, label || "アウト");
+        }
+
+        function resolveDoublePlayRunnerNote(snapshot) {
+            const sequence = snapshot.fieldSequence || [];
+            if (sequence.length >= 2) {
+                return sequence.slice(0, -1).join("-");
+            }
+            return "?";
         }
 
         function applyRunnerContextOverrides(runners, snapshot, batterRef) {
@@ -1575,12 +1602,17 @@
                 runners[0] = batterRef;
                 setRunnerStatusForRef(batterRef, "1塁");
             } else if (snapshot.modifiers?.doublePlay && snapshot.outScore) {
+                const runnerOutScore = outCountToRoman(Math.max(1, romanToOutCount(snapshot.outScore) - 1));
+                const runnerNote = resolveDoublePlayRunnerNote(snapshot);
                 if (runners[0]) {
-                    removeRunnerFromBase(runners, 0, "DP");
+                    setOutScoreForRef(runners[0], runnerOutScore);
+                    removeRunnerFromBase(runners, 0, runnerNote);
                 } else if (runners[1]) {
-                    removeRunnerFromBase(runners, 1, "DP");
+                    setOutScoreForRef(runners[1], runnerOutScore);
+                    removeRunnerFromBase(runners, 1, runnerNote);
                 } else if (runners[2]) {
-                    removeRunnerFromBase(runners, 2, "DP");
+                    setOutScoreForRef(runners[2], runnerOutScore);
+                    removeRunnerFromBase(runners, 2, runnerNote);
                 }
             } else if (snapshot.modifiers?.sacrificeBunt && snapshot.outScore) {
                 if (runners[1]) {
@@ -1685,9 +1717,6 @@
             const isInfieldHit = snapshot.selectedHitType === "G" || snapshot.selectedHitType === "BH";
             if (isInfieldHit && snapshot.selectedHitType === "BH") {
                 return "BH";
-            }
-            if (snapshot.modifiers?.doublePlay) {
-                return "DP";
             }
             if (snapshot.modifiers?.bunt && snapshot.modifiers?.foul && snapshot.selectedBallType === "fly") {
                 return "@F";
@@ -3688,9 +3717,7 @@
 
                 if (isFielderPlay()) {
                     let prefixText = "";
-                    if (state.modifiers.doublePlay) {
-                        prefixText = "DP";
-                    } else if (state.result === "BH" || state.selectedHitType === "BH") {
+                    if (state.result === "BH" || state.selectedHitType === "BH") {
                         prefixText = "BH";
                     } else if (state.modifiers.bunt && state.modifiers.foul && state.selectedBallType === "fly") {
                         prefixText = "@F";
@@ -3705,11 +3732,6 @@
                         prefixDisplay.setAttribute("y", "-22");
                         prefixDisplay.setAttribute("transform", "rotate(-45 -18 -22)");
                         prefixDisplay.setAttribute("fill", "#c62828");
-                    } else if (prefixText === "DP") {
-                        prefixDisplay.setAttribute("x", "-4");
-                        prefixDisplay.setAttribute("y", String(prefixY));
-                        prefixDisplay.setAttribute("transform", "");
-                        prefixDisplay.setAttribute("fill", "#111");
                     } else {
                         prefixDisplay.setAttribute("y", String(prefixY));
                         prefixDisplay.setAttribute("fill", "#222");
