@@ -2576,10 +2576,11 @@
                     direction,
                     ballType: ballType || "ground",
                     result: "OUT",
-                    modifiers,
+                    modifiers: { ...modifiers, doublePlay: true },
                     runnerContext,
+                    outScore: "Ⅱ",
                     note: normalized,
-                    confidence: 0.65,
+                    confidence: 0.78,
                     source: "rule"
                 };
             }
@@ -2608,6 +2609,25 @@
 
             const normalizedText = normalizeBaseballDigits(text);
             const isDoublePlayText = normalizedText.includes("ダブルプレー") || normalizedText.includes("併殺");
+            const sequenceDoublePlayMatch = normalizedText.match(/([1-9](?:[-ー－−‐‑‒–—―][1-9]){1,3}).*(ダブルプレー|併殺)/);
+
+            if (sequenceDoublePlayMatch) {
+                const fieldSequence = sequenceDoublePlayMatch[1]
+                    .replace(/[-ー－−‐‑‒–—―]/g, "-")
+                    .split("-");
+                return {
+                    fielder: fieldSequence[0],
+                    ballType: "ground",
+                    result: "OUT",
+                    fieldSequence,
+                    outScore: "Ⅱ",
+                    modifiers: { doublePlay: true },
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText,
+                    confidence: 0.98,
+                    source: "shorthand"
+                };
+            }
 
             if (/^(?:\.{3,}|…+|・+|ー+|－+)$/.test(normalizedText)) {
                 return { result: "", note: "空打席", confidence: 1, source: "empty" };
