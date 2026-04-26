@@ -470,6 +470,14 @@
             flex: 1;
         }
 
+        .quick-phrase-select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: #fff;
+        }
+
         .nl-actions {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -742,6 +750,16 @@
 
             <section class="nl-quick-panel">
                 <div class="nl-panel is-compact">
+                    <select id="quickPhraseSelect" class="quick-phrase-select" onchange="applyQuickPhrase()">
+                        <option value="">典型例を選択</option>
+                        <option value="センター前安打">センター前安打</option>
+                        <option value="ショートゴロ内野安打">ショートゴロ内野安打</option>
+                        <option value="ライトオーバー二塁打">ライトオーバー二塁打</option>
+                        <option value="見逃し三振">見逃し三振</option>
+                        <option value="四球">四球</option>
+                        <option value="犠打成功">犠打成功</option>
+                        <option value="6-4-3の併殺">6-4-3の併殺</option>
+                    </select>
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
                     <div class="nl-actions compact">
                         <button id="nlCorrectionToggle" class="small-btn" onclick="toggleCorrectionEditor()">解釈結果を手動修正</button>
@@ -806,7 +824,7 @@
                             </div>
                         </div>
                         <div class="nl-actions">
-                            <button class="small-btn" onclick="applyCorrectedNaturalLanguage()">修正して反映</button>
+                            <button class="small-btn" onclick="applyCorrectedNaturalLanguage()">修正を適用</button>
                             <button class="small-btn" onclick="saveNaturalLanguageMapping()">登録</button>
                         </div>
                     </div>
@@ -2394,17 +2412,26 @@
             applyParsedInput(corrected);
             syncPreviewFromParsed(corrected, "解釈");
             toggleCorrectionEditor(false);
-            saveCurrentToSheet();
-            clearNaturalLanguageInput();
-            advanceToNextSheetCell();
         }
 
         function clearNaturalLanguageInput() {
             document.getElementById("naturalLanguageInput").value = "";
+            document.getElementById("quickPhraseSelect").value = "";
             document.getElementById("naturalLanguagePreview").textContent = "ここに解釈結果を表示します。";
             state.parsedInput = null;
             syncCorrectionControls(null);
             toggleCorrectionEditor(false);
+        }
+
+        function applyQuickPhrase() {
+            const select = document.getElementById("quickPhraseSelect");
+            if (!select.value) {
+                return;
+            }
+            const input = document.getElementById("naturalLanguageInput");
+            input.value = select.value;
+            scheduleNaturalLanguageParse();
+            input.focus();
         }
 
         function saveNaturalLanguageMapping() {
@@ -2441,6 +2468,48 @@
             const dynamicBallType = detectBallType(normalized);
             const dynamicModifiers = detectParsedModifiers(normalized);
             const dynamicRunnerContext = detectRunnerContext(normalized);
+
+            if ((normalized.includes("安打") || normalized.includes("ヒット")) && dynamicFielder) {
+                if (normalized.includes("内野安打") || normalized.includes("ゴロ安") || normalized.includes("ゴロヒット")) {
+                    return {
+                        fielder: dynamicFielder,
+                        direction: dynamicDirection,
+                        ballType: "ground",
+                        result: "G",
+                        modifiers: dynamicModifiers,
+                        runnerContext: dynamicRunnerContext,
+                        note: normalized,
+                        confidence: 0.86,
+                        source: "keyword"
+                    };
+                }
+                if (normalized.includes("バントヒット")) {
+                    return {
+                        fielder: dynamicFielder,
+                        direction: dynamicDirection,
+                        ballType: "ground",
+                        result: "BH",
+                        modifiers: { bunt: true },
+                        runnerContext: dynamicRunnerContext,
+                        note: normalized,
+                        confidence: 0.88,
+                        source: "keyword"
+                    };
+                }
+                if (normalized.includes("前") || normalized.includes("安打")) {
+                    return {
+                        fielder: dynamicFielder,
+                        direction: dynamicDirection === "none" ? "down" : dynamicDirection,
+                        ballType: dynamicBallType,
+                        result: "1B",
+                        modifiers: dynamicModifiers,
+                        runnerContext: dynamicRunnerContext,
+                        note: normalized,
+                        confidence: 0.82,
+                        source: "keyword"
+                    };
+                }
+            }
 
             if (normalized.includes("バントヒット")) {
                 return {
