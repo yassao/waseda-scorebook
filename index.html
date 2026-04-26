@@ -1430,7 +1430,25 @@
             if (text === "3塁") {
                 return "(3)";
             }
+            if (text === "残塁") {
+                return "ℓ";
+            }
             return "";
+        }
+
+        function markLeftOnBaseRunners(runners) {
+            runners.forEach((runnerRef) => {
+                if (!runnerRef) {
+                    return;
+                }
+                const snapshot = getSnapshotByRef(runnerRef);
+                if (!snapshot) {
+                    return;
+                }
+                if (snapshot.runnerStatusText === "1塁" || snapshot.runnerStatusText === "2塁" || snapshot.runnerStatusText === "3塁") {
+                    setRunnerStatusForRef(runnerRef, "残塁");
+                }
+            });
         }
 
         function markRunnerOutOnSnapshot(ref) {
@@ -1592,6 +1610,7 @@
             applyRunnerContextOverrides(runners, snapshot, batterRef);
 
             if (snapshot.outScore === "Ⅲ") {
+                markLeftOnBaseRunners(runners);
                 state.baseRunners = [null, null, null];
                 return;
             }
@@ -1715,9 +1734,24 @@
             const paths = hitLinePaths[snapshot.selectedHitType] || hitLinePaths[snapshot.result] || [];
             const pitchCount = Math.min((snapshot.pitches || []).length, 9);
 
-            const pitchMarks = Array.from({ length: pitchCount }, (_, index) => {
+            const pitchMarks = (snapshot.pitches || []).slice(0, 9).map((pitch, index) => {
                 const y = 20 + index * 16;
-                return '<circle cx="20" cy="' + y + '" r="2" fill="#111"/>';
+                if (pitch === "ball") {
+                    return '<circle cx="20" cy="' + y + '" r="2.8" fill="#111"/>';
+                }
+                if (pitch === "calledStrike") {
+                    return '<text x="20" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#111">◎</text>';
+                }
+                if (pitch === "swingStrike") {
+                    return '<text x="20" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#111">○</text>';
+                }
+                if (pitch === "foul" || pitch === "buntFoul") {
+                    return '<text x="20" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#111">－</text>';
+                }
+                if (pitch === "buntSwing") {
+                    return '<text x="20" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#111">○</text>';
+                }
+                return '<text x="20" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#111">◎</text>';
             }).join("");
 
             const lineColor = "#d14b3a";
@@ -1769,7 +1803,7 @@
                 : "";
             const runnerNoteText = formatRunnerStatusForSheet(snapshot.runnerStatusText);
             const runnerNote = runnerNoteText
-                ? '<text x="176" y="28" text-anchor="middle" font-size="12" font-weight="700" fill="#111">' + runnerNoteText + '</text>'
+                ? '<text x="176" y="28" text-anchor="middle" font-size="' + (runnerNoteText === "ℓ" ? "15" : "14") + '" font-weight="700" fill="#111">' + runnerNoteText + '</text>'
                 : "";
             const lowConfidenceOverlay = snapshot.confidence && snapshot.confidence < 0.7
                 ? [
