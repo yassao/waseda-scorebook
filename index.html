@@ -1141,6 +1141,16 @@
 
             cleaned = cleaned.replace(/^[^\S\r\n]+|[^\S\r\n]+$/g, "");
             cleaned = cleaned
+                .replace(/ダブルプレー/g, "併殺")
+                .replace(/ゲッツー/g, "併殺")
+                .replace(/ホームラン/g, "本塁打")
+                .replace(/ツーベース(?:ヒット)?/g, "二塁打")
+                .replace(/スリーベース(?:ヒット)?/g, "三塁打")
+                .replace(/フォアボール/g, "四球")
+                .replace(/デッドボール/g, "死球")
+                .replace(/ワイルドピッチ/g, "暴投")
+                .replace(/パスボール/g, "捕逸")
+                .replace(/フィルダースチョイス/g, "野選")
                 .replace(/\bdouble\s*play\b/ig, "ダブルプレー")
                 .replace(/\bdp\b/ig, "ダブルプレー")
                 .replace(/\bhome\s*run\b/ig, "ホームラン")
