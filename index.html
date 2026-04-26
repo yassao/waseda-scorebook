@@ -66,7 +66,7 @@
 
         .top-workspace {
             display: grid;
-            grid-template-columns: 168px minmax(0, 1fr);
+            grid-template-columns: minmax(0, 1fr) 168px;
             gap: 12px;
             padding: 0 16px;
             align-items: stretch;
@@ -79,6 +79,7 @@
             box-shadow: 0 18px 40px rgba(22, 34, 51, 0.12);
             flex-shrink: 0;
             border: 1px solid rgba(35, 49, 66, 0.08);
+            order: 2;
         }
 
         .scorebox-svg {
@@ -147,6 +148,15 @@
             box-shadow: 0 18px 40px rgba(22, 34, 51, 0.08);
             display: flex;
             flex-direction: column;
+            order: 1;
+        }
+
+        .scorebox-action {
+            margin-top: 8px;
+        }
+
+        .scorebox-action .small-btn {
+            width: 100%;
         }
 
         .control-panel-wrapper {
@@ -508,6 +518,8 @@
             background: #f8fafb;
             border: 1px solid #d8e1e8;
             gap: 10px;
+            max-height: 320px;
+            overflow-y: auto;
         }
 
         .nl-correction-panel.is-open {
@@ -564,6 +576,31 @@
             padding: 14px;
         }
 
+        .manual-editor {
+            margin-bottom: 22px;
+            border-radius: 14px;
+            background: #f8fafb;
+            border: 1px solid #d8e1e8;
+            overflow: hidden;
+        }
+
+        .manual-editor summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 12px 14px;
+            font-weight: 700;
+            color: #22313f;
+            background: rgba(238, 243, 247, 0.85);
+        }
+
+        .manual-editor summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .manual-editor-body {
+            padding: 14px;
+        }
+
         @media (max-width: 480px) {
             .app-header h1 {
                 font-size: 24px;
@@ -574,7 +611,7 @@
             }
 
             .top-workspace {
-                grid-template-columns: 132px minmax(0, 1fr);
+                grid-template-columns: minmax(0, 1fr) 132px;
                 padding: 0 12px;
             }
 
@@ -603,7 +640,7 @@
             }
 
             .nl-actions.compact {
-                grid-template-columns: repeat(3, minmax(0, max-content));
+                grid-template-columns: repeat(2, minmax(0, max-content));
             }
 
             .nl-quick-panel {
@@ -698,13 +735,15 @@
                         <button onclick="addPitch('buntSwing')">バント空振</button>
                     </div>
                 </div>
+                <div class="scorebox-action">
+                    <button class="small-btn" onclick="applyNaturalLanguage()">スコアブックに反映</button>
+                </div>
             </div>
 
             <section class="nl-quick-panel">
                 <div class="nl-panel is-compact">
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
                     <div class="nl-actions compact">
-                        <button class="small-btn" onclick="applyNaturalLanguage()">スコアブックに反映</button>
                         <button id="nlCorrectionToggle" class="small-btn" onclick="toggleCorrectionEditor()">解釈結果を手動修正</button>
                     </div>
                     <div id="naturalLanguagePreview" class="nl-preview compact">ここに解釈結果を表示します。</div>
@@ -814,169 +853,174 @@
                     </div>
                 </details>
 
-                <section class="section">
-                    <div class="section-title">守備位置と打球方向</div>
-                    <div class="fielder-selector">
-                        <button id="dir-up" class="direction-btn" onclick="setDirection('up')">↑</button>
-                        <div class="fielder-row">
-                            <button id="dir-left" class="direction-btn" onclick="setDirection('left')">←</button>
-                            <select id="fielderSelect" onchange="updateFielder()">
-                                <option value="">未指定</option>
-                                <option value="1">1: 投手</option>
-                                <option value="2">2: 捕手</option>
-                                <option value="3">3: 一塁手</option>
-                                <option value="4">4: 二塁手</option>
-                                <option value="5">5: 三塁手</option>
-                                <option value="6">6: 遊撃手</option>
-                                <option value="7">7: 左翼手</option>
-                                <option value="8">8: 中堅手</option>
-                                <option value="9">9: 右翼手</option>
-                            </select>
-                            <button id="dir-right" class="direction-btn" onclick="setDirection('right')">→</button>
-                        </div>
-                        <button id="dir-down" class="direction-btn" onclick="setDirection('down')">↓</button>
-                    </div>
-                    <div id="currentSelection" class="current-selection">選択: 未指定</div>
-                </section>
+                <details class="manual-editor">
+                    <summary>手動詳細入力</summary>
+                    <div class="manual-editor-body">
+                        <section class="section">
+                            <div class="section-title">守備位置と打球方向</div>
+                            <div class="fielder-selector">
+                                <button id="dir-up" class="direction-btn" onclick="setDirection('up')">↑</button>
+                                <div class="fielder-row">
+                                    <button id="dir-left" class="direction-btn" onclick="setDirection('left')">←</button>
+                                    <select id="fielderSelect" onchange="updateFielder()">
+                                        <option value="">未指定</option>
+                                        <option value="1">1: 投手</option>
+                                        <option value="2">2: 捕手</option>
+                                        <option value="3">3: 一塁手</option>
+                                        <option value="4">4: 二塁手</option>
+                                        <option value="5">5: 三塁手</option>
+                                        <option value="6">6: 遊撃手</option>
+                                        <option value="7">7: 左翼手</option>
+                                        <option value="8">8: 中堅手</option>
+                                        <option value="9">9: 右翼手</option>
+                                    </select>
+                                    <button id="dir-right" class="direction-btn" onclick="setDirection('right')">→</button>
+                                </div>
+                                <button id="dir-down" class="direction-btn" onclick="setDirection('down')">↓</button>
+                            </div>
+                            <div id="currentSelection" class="current-selection">選択: 未指定</div>
+                        </section>
 
-                <section class="section">
-                    <div class="section-title">打順 / 打点</div>
-                    <div class="result-picker">
-                        <select id="battingOrderSelect" onchange="setBattingOrder()">
-                            <option value="1">1番</option>
-                            <option value="2">2番</option>
-                            <option value="3">3番</option>
-                            <option value="4" selected>4番</option>
-                            <option value="5">5番</option>
-                            <option value="6">6番</option>
-                            <option value="7">7番</option>
-                            <option value="8">8番</option>
-                            <option value="9">9番</option>
-                        </select>
-                        <button id="rbiToggle" onclick="toggleRbi()">打点を付ける</button>
-                    </div>
-                    <div class="result-help">
-                        BASEBALL ONE の打点表記に合わせて、打点が付いた打席は打順を黒丸で囲みます。
-                    </div>
-                </section>
+                        <section class="section">
+                            <div class="section-title">打順 / 打点</div>
+                            <div class="result-picker">
+                                <select id="battingOrderSelect" onchange="setBattingOrder()">
+                                    <option value="1">1番</option>
+                                    <option value="2">2番</option>
+                                    <option value="3">3番</option>
+                                    <option value="4" selected>4番</option>
+                                    <option value="5">5番</option>
+                                    <option value="6">6番</option>
+                                    <option value="7">7番</option>
+                                    <option value="8">8番</option>
+                                    <option value="9">9番</option>
+                                </select>
+                                <button id="rbiToggle" onclick="toggleRbi()">打点を付ける</button>
+                            </div>
+                            <div class="result-help">
+                                BASEBALL ONE の打点表記に合わせて、打点が付いた打席は打順を黒丸で囲みます。
+                            </div>
+                        </section>
 
-                <section class="section">
-                    <div class="section-title">打球種別</div>
-                    <div class="button-grid-3">
-                        <button id="ball-ground" class="btn-out" onclick="setBallType('ground')">ゴロ</button>
-                        <button id="ball-fly" class="btn-out" onclick="setBallType('fly')">フライ</button>
-                        <button id="ball-liner" class="btn-out" onclick="setBallType('liner')">ライナー</button>
-                    </div>
-                </section>
+                        <section class="section">
+                            <div class="section-title">打球種別</div>
+                            <div class="button-grid-3">
+                                <button id="ball-ground" class="btn-out" onclick="setBallType('ground')">ゴロ</button>
+                                <button id="ball-fly" class="btn-out" onclick="setBallType('fly')">フライ</button>
+                                <button id="ball-liner" class="btn-out" onclick="setBallType('liner')">ライナー</button>
+                            </div>
+                        </section>
 
-                <section class="section">
-                    <div class="section-title">補助記号</div>
-                    <div class="button-grid-4">
-                        <button id="modifier-foul" onclick="toggleModifier('foul')">F ファール飛</button>
-                        <button id="modifier-bunt" onclick="toggleModifier('bunt')">@ バント</button>
-                        <button id="modifier-sac-fly" onclick="toggleModifier('sacrificeFly')">□ 犠飛</button>
-                        <button id="modifier-sac-bunt" onclick="toggleModifier('sacrificeBunt')">□ 犠打</button>
-                    </div>
-                    <div class="result-help">
-                        BASEBALL ONE の図に寄せて、フライなら `F` や `@F`、ゴロなら `@`、犠飛・犠打は青い囲み記号で表します。
-                    </div>
-                </section>
+                        <section class="section">
+                            <div class="section-title">補助記号</div>
+                            <div class="button-grid-4">
+                                <button id="modifier-foul" onclick="toggleModifier('foul')">F ファール飛</button>
+                                <button id="modifier-bunt" onclick="toggleModifier('bunt')">@ バント</button>
+                                <button id="modifier-sac-fly" onclick="toggleModifier('sacrificeFly')">□ 犠飛</button>
+                                <button id="modifier-sac-bunt" onclick="toggleModifier('sacrificeBunt')">□ 犠打</button>
+                            </div>
+                            <div class="result-help">
+                                BASEBALL ONE の図に寄せて、フライなら `F` や `@F`、ゴロなら `@`、犠飛・犠打は青い囲み記号で表します。
+                            </div>
+                        </section>
 
-                <section class="section">
-                    <div class="section-title">守備連係</div>
-                    <div class="button-grid-4">
-                        <button onclick="startFieldSequence()">開始位置をセット</button>
-                        <button onclick="appendToFieldSequence('1')">1</button>
-                        <button onclick="appendToFieldSequence('2')">2</button>
-                        <button onclick="appendToFieldSequence('3')">3</button>
-                        <button onclick="appendToFieldSequence('4')">4</button>
-                        <button onclick="appendToFieldSequence('5')">5</button>
-                        <button onclick="appendToFieldSequence('6')">6</button>
-                        <button onclick="appendToFieldSequence('7')">7</button>
-                        <button onclick="appendToFieldSequence('8')">8</button>
-                        <button onclick="appendToFieldSequence('9')">9</button>
-                        <button onclick="removeLastFieldStep()">1つ戻す</button>
-                        <button onclick="clearFieldSequence()">連係クリア</button>
-                    </div>
-                    <div class="result-help">
-                        ゴロアウトは `1-3`、`4-6`、`5-4-3` のように送球順で入力します。ベースカバーは `3A`、`6B` の形です。
-                    </div>
-                </section>
+                        <section class="section">
+                            <div class="section-title">守備連係</div>
+                            <div class="button-grid-4">
+                                <button onclick="startFieldSequence()">開始位置をセット</button>
+                                <button onclick="appendToFieldSequence('1')">1</button>
+                                <button onclick="appendToFieldSequence('2')">2</button>
+                                <button onclick="appendToFieldSequence('3')">3</button>
+                                <button onclick="appendToFieldSequence('4')">4</button>
+                                <button onclick="appendToFieldSequence('5')">5</button>
+                                <button onclick="appendToFieldSequence('6')">6</button>
+                                <button onclick="appendToFieldSequence('7')">7</button>
+                                <button onclick="appendToFieldSequence('8')">8</button>
+                                <button onclick="appendToFieldSequence('9')">9</button>
+                                <button onclick="removeLastFieldStep()">1つ戻す</button>
+                                <button onclick="clearFieldSequence()">連係クリア</button>
+                            </div>
+                            <div class="result-help">
+                                ゴロアウトは `1-3`、`4-6`、`5-4-3` のように送球順で入力します。ベースカバーは `3A`、`6B` の形です。
+                            </div>
+                        </section>
 
-                <section class="section">
-                    <div class="section-title">失策・補助記号</div>
-                    <div class="button-grid-4">
-                        <button id="field-error-fielder" onclick="setErrorMode('fielder')">E 捕球ミス</button>
-                        <button id="field-error-thrower" onclick="setErrorMode('thrower')">送球側E</button>
-                        <button id="field-error-receiver" onclick="setErrorMode('receiver')">受け手E</button>
-                        <button id="field-clear" onclick="clearFieldMarks()">記号クリア</button>
-                    </div>
-                    <div class="button-grid-4" style="margin-top: 10px;">
-                        <button id="cover-A" onclick="setBaseCover('A')">A 1塁踏む</button>
-                        <button id="cover-B" onclick="setBaseCover('B')">B 2塁踏む</button>
-                        <button id="cover-C" onclick="setBaseCover('C')">C 3塁踏む</button>
-                        <button id="cover-D" onclick="setBaseCover('D')">D 本塁踏む</button>
-                    </div>
-                    <div class="result-help">
-                        BASEBALL ONE に合わせて、失策は `E` で表します。捕球ミスは `6E`、悪送球は `5E-3`、受け手の落球は `4-3E` の形です。`A-D` は `3A`、`2D` の形で表示します。
-                    </div>
-                </section>
+                        <section class="section">
+                            <div class="section-title">失策・補助記号</div>
+                            <div class="button-grid-4">
+                                <button id="field-error-fielder" onclick="setErrorMode('fielder')">E 捕球ミス</button>
+                                <button id="field-error-thrower" onclick="setErrorMode('thrower')">送球側E</button>
+                                <button id="field-error-receiver" onclick="setErrorMode('receiver')">受け手E</button>
+                                <button id="field-clear" onclick="clearFieldMarks()">記号クリア</button>
+                            </div>
+                            <div class="button-grid-4" style="margin-top: 10px;">
+                                <button id="cover-A" onclick="setBaseCover('A')">A 1塁踏む</button>
+                                <button id="cover-B" onclick="setBaseCover('B')">B 2塁踏む</button>
+                                <button id="cover-C" onclick="setBaseCover('C')">C 3塁踏む</button>
+                                <button id="cover-D" onclick="setBaseCover('D')">D 本塁踏む</button>
+                            </div>
+                            <div class="result-help">
+                                BASEBALL ONE に合わせて、失策は `E` で表します。捕球ミスは `6E`、悪送球は `5E-3`、受け手の落球は `4-3E` の形です。`A-D` は `3A`、`2D` の形で表示します。
+                            </div>
+                        </section>
 
-                <section class="section">
-                    <div class="section-title">ヒット種別</div>
-                    <div class="button-grid">
-                        <button class="btn-hit" onclick="setHitType('1B')">単打</button>
-                        <button class="btn-hit" onclick="setHitType('2B')">二塁打</button>
-                        <button class="btn-hit" onclick="setHitType('3B')">三塁打</button>
-                        <button class="btn-hit" onclick="setHitType('HR')">本塁打</button>
-                    </div>
-                </section>
+                        <section class="section">
+                            <div class="section-title">ヒット種別</div>
+                            <div class="button-grid">
+                                <button class="btn-hit" onclick="setHitType('1B')">単打</button>
+                                <button class="btn-hit" onclick="setHitType('2B')">二塁打</button>
+                                <button class="btn-hit" onclick="setHitType('3B')">三塁打</button>
+                                <button class="btn-hit" onclick="setHitType('HR')">本塁打</button>
+                            </div>
+                        </section>
 
-                <section class="section">
-                    <div class="section-title">打席結果（BASEBALL ONE準拠）</div>
-                    <div class="button-grid-4">
-                        <button class="btn-walk" onclick="setResult('B')">B 四球</button>
-                        <button class="btn-walk" onclick="setResult('HP')">HP 死球</button>
-                        <button class="btn-walk" onclick="setResult('IB')">IB 敬遠</button>
-                        <button class="btn-walk" onclick="setResult('IB')">申告敬遠</button>
-                        <button class="btn-k" onclick="setResult('K')">K 見逃し</button>
-                        <button class="btn-k" onclick="setResult('K')">K 空振り</button>
-                        <button class="btn-k" onclick="setResult('K')">K バント三振</button>
-                        <button onclick="setResult('F')">F ファール飛</button>
-                        <button onclick="setResult('Fc')">Fc 野選</button>
-                        <button onclick="setResult('G')">G ゴロ安</button>
-                        <button onclick="setResult('BH')">BH バントH</button>
-                        <button onclick="setResult('H')">H 強襲安</button>
-                        <button onclick="setResult('T')">T テキサス</button>
-                        <button onclick="setResult('W')">W 暴投</button>
-                        <button onclick="setResult('P')">P 捕逸</button>
-                        <button onclick="setResult('IF')">IF 打撃妨害</button>
-                        <button onclick="setResult('BK')">BK ボーク</button>
-                    </div>
+                        <section class="section">
+                            <div class="section-title">打席結果（BASEBALL ONE準拠）</div>
+                            <div class="button-grid-4">
+                                <button class="btn-walk" onclick="setResult('B')">B 四球</button>
+                                <button class="btn-walk" onclick="setResult('HP')">HP 死球</button>
+                                <button class="btn-walk" onclick="setResult('IB')">IB 敬遠</button>
+                                <button class="btn-walk" onclick="setResult('IB')">申告敬遠</button>
+                                <button class="btn-k" onclick="setResult('K')">K 見逃し</button>
+                                <button class="btn-k" onclick="setResult('K')">K 空振り</button>
+                                <button class="btn-k" onclick="setResult('K')">K バント三振</button>
+                                <button onclick="setResult('F')">F ファール飛</button>
+                                <button onclick="setResult('Fc')">Fc 野選</button>
+                                <button onclick="setResult('G')">G ゴロ安</button>
+                                <button onclick="setResult('BH')">BH バントH</button>
+                                <button onclick="setResult('H')">H 強襲安</button>
+                                <button onclick="setResult('T')">T テキサス</button>
+                                <button onclick="setResult('W')">W 暴投</button>
+                                <button onclick="setResult('P')">P 捕逸</button>
+                                <button onclick="setResult('IF')">IF 打撃妨害</button>
+                                <button onclick="setResult('BK')">BK ボーク</button>
+                            </div>
 
-                    <div class="result-picker" style="margin-top: 10px;">
-                        <select id="extraResultSelect" onchange="previewExtraResult()">
-                            <option value="">その他の略号を選択</option>
-                        </select>
-                        <button onclick="applyExtraResult()">略号を反映</button>
-                    </div>
-                    <div id="resultHelp" class="result-help">略号を選ぶと説明をここに表示します。</div>
-                    <div class="result-help">
-                        BASEBALL ONE の長打表記に合わせて、安打は到達した塁まで赤い斜線で表します。
-                    </div>
-                </section>
+                            <div class="result-picker" style="margin-top: 10px;">
+                                <select id="extraResultSelect" onchange="previewExtraResult()">
+                                    <option value="">その他の略号を選択</option>
+                                </select>
+                                <button onclick="applyExtraResult()">略号を反映</button>
+                            </div>
+                            <div id="resultHelp" class="result-help">略号を選ぶと説明をここに表示します。</div>
+                            <div class="result-help">
+                                BASEBALL ONE の長打表記に合わせて、安打は到達した塁まで赤い斜線で表します。
+                            </div>
+                        </section>
 
-                <section class="section">
-                    <div class="section-title">アウト / 得点 / 残塁</div>
-                    <div class="button-grid-3">
-                        <button onclick="setOutScore('Ⅰ')">Ⅰ アウト</button>
-                        <button onclick="setOutScore('Ⅱ')">Ⅱ アウト</button>
-                        <button onclick="setOutScore('Ⅲ')">Ⅲ アウト</button>
-                        <button onclick="setOutScore('●')">● 得点</button>
-                        <button onclick="setOutScore('○')">○ 非自責</button>
-                        <button onclick="setOutScore('ℓ')">ℓ 残塁</button>
+                        <section class="section">
+                            <div class="section-title">アウト / 得点 / 残塁</div>
+                            <div class="button-grid-3">
+                                <button onclick="setOutScore('Ⅰ')">Ⅰ アウト</button>
+                                <button onclick="setOutScore('Ⅱ')">Ⅱ アウト</button>
+                                <button onclick="setOutScore('Ⅲ')">Ⅲ アウト</button>
+                                <button onclick="setOutScore('●')">● 得点</button>
+                                <button onclick="setOutScore('○')">○ 非自責</button>
+                                <button onclick="setOutScore('ℓ')">ℓ 残塁</button>
+                            </div>
+                        </section>
                     </div>
-                </section>
+                </details>
 
                 <section class="section">
                     <div class="section-title">現在の状態</div>
