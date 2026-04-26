@@ -752,13 +752,12 @@
                 <div class="nl-panel is-compact">
                     <select id="quickPhraseSelect" class="quick-phrase-select" onchange="applyQuickPhrase()">
                         <option value="">典型例を選択</option>
-                        <option value="センター前安打">センター前安打</option>
-                        <option value="ショートゴロ内野安打">ショートゴロ内野安打</option>
-                        <option value="ライトオーバー二塁打">ライトオーバー二塁打</option>
-                        <option value="見逃し三振">見逃し三振</option>
+                        <option value="安打">安打</option>
+                        <option value="二塁打">二塁打</option>
+                        <option value="三塁打">三塁打</option>
+                        <option value="本塁打">本塁打</option>
+                        <option value="三振">三振</option>
                         <option value="四球">四球</option>
-                        <option value="犠打成功">犠打成功</option>
-                        <option value="6-4-3の併殺">6-4-3の併殺</option>
                     </select>
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
                     <div class="nl-actions compact">
@@ -1837,22 +1836,7 @@
 
             const pitchMarks = (snapshot.pitches || []).slice(0, 9).map((pitch, index) => {
                 const y = 20 + index * 16;
-                if (pitch === "ball") {
-                    return '<circle cx="20" cy="' + y + '" r="2.8" fill="#111"/>';
-                }
-                if (pitch === "calledStrike") {
-                    return '<text x="20" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#111">◎</text>';
-                }
-                if (pitch === "swingStrike") {
-                    return '<text x="20" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#111">○</text>';
-                }
-                if (pitch === "foul" || pitch === "buntFoul") {
-                    return '<text x="20" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#111">－</text>';
-                }
-                if (pitch === "buntSwing") {
-                    return '<text x="20" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#111">○</text>';
-                }
-                return '<text x="20" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#111">◎</text>';
+                return '<text x="20" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#111">' + getLegacyPitchSymbol(pitch) + '</text>';
             }).join("");
 
             const lineColor = "#d14b3a";
@@ -2468,6 +2452,22 @@
             const dynamicBallType = detectBallType(normalized);
             const dynamicModifiers = detectParsedModifiers(normalized);
             const dynamicRunnerContext = detectRunnerContext(normalized);
+            const numberedSingleMatch = normalized.match(/(?:安打|ヒット)([1-9])|([1-9])(?:安打|ヒット)/);
+
+            if (numberedSingleMatch) {
+                const numberedFielder = numberedSingleMatch[1] || numberedSingleMatch[2];
+                return {
+                    fielder: numberedFielder,
+                    direction: "down",
+                    ballType: "none",
+                    result: "1B",
+                    modifiers: dynamicModifiers,
+                    runnerContext: dynamicRunnerContext,
+                    note: normalized,
+                    confidence: 0.88,
+                    source: "keyword"
+                };
+            }
 
             if ((normalized.includes("安打") || normalized.includes("ヒット")) && dynamicFielder) {
                 if (normalized.includes("内野安打") || normalized.includes("ゴロ安") || normalized.includes("ゴロヒット")) {
@@ -3633,78 +3633,34 @@
             }
         }
 
+        function getLegacyPitchSymbol(pitch) {
+            if (pitch === "ball") {
+                return "●";
+            }
+            if (pitch === "calledStrike") {
+                return "◎";
+            }
+            if (pitch === "swingStrike" || pitch === "buntSwing") {
+                return "○";
+            }
+            if (pitch === "foul" || pitch === "buntFoul") {
+                return "－";
+            }
+            return "◎";
+        }
+
         function appendPitchMark(group, pitch) {
             const svgNs = "http://www.w3.org/2000/svg";
-
-            if (pitch === "ball") {
-                const circle = document.createElementNS(svgNs, "circle");
-                circle.setAttribute("cx", "0");
-                circle.setAttribute("cy", "0");
-                circle.setAttribute("r", "4");
-                circle.setAttribute("fill", "#111");
-                group.appendChild(circle);
-                return;
-            }
-
-            if (pitch === "calledStrike" || pitch === "swingStrike" || pitch === "buntSwing") {
-                const line1 = document.createElementNS(svgNs, "line");
-                line1.setAttribute("x1", "-4");
-                line1.setAttribute("y1", "-4");
-                line1.setAttribute("x2", "4");
-                line1.setAttribute("y2", "4");
-                line1.setAttribute("stroke", "#111");
-                line1.setAttribute("stroke-width", "1.6");
-                const line2 = document.createElementNS(svgNs, "line");
-                line2.setAttribute("x1", "4");
-                line2.setAttribute("y1", "-4");
-                line2.setAttribute("x2", "-4");
-                line2.setAttribute("y2", "4");
-                line2.setAttribute("stroke", "#111");
-                line2.setAttribute("stroke-width", "1.6");
-                group.appendChild(line1);
-                group.appendChild(line2);
-
-                if (pitch === "swingStrike" || pitch === "buntSwing") {
-                    const extra = document.createElementNS(svgNs, "line");
-                    extra.setAttribute("x1", "0");
-                    extra.setAttribute("y1", "-5");
-                    extra.setAttribute("x2", "0");
-                    extra.setAttribute("y2", "5");
-                    extra.setAttribute("stroke", "#111");
-                    extra.setAttribute("stroke-width", "1.4");
-                    group.appendChild(extra);
-                }
-
-                if (pitch === "buntSwing") {
-                    const bunt = document.createElementNS(svgNs, "line");
-                    bunt.setAttribute("x1", "-5");
-                    bunt.setAttribute("y1", "5");
-                    bunt.setAttribute("x2", "5");
-                    bunt.setAttribute("y2", "5");
-                    bunt.setAttribute("stroke", "#111");
-                    bunt.setAttribute("stroke-width", "1.2");
-                    group.appendChild(bunt);
-                }
-                return;
-            }
-
-            if (pitch === "foul" || pitch === "buntFoul") {
-                const triangle = document.createElementNS(svgNs, "polygon");
-                triangle.setAttribute("points", "0,-5 5,4 -5,4");
-                triangle.setAttribute("fill", "none");
-                triangle.setAttribute("stroke", "#111");
-                triangle.setAttribute("stroke-width", "1.4");
-                group.appendChild(triangle);
-
-                if (pitch === "buntFoul") {
-                    const dot = document.createElementNS(svgNs, "circle");
-                    dot.setAttribute("cx", "0");
-                    dot.setAttribute("cy", "1");
-                    dot.setAttribute("r", "1.5");
-                    dot.setAttribute("fill", "#111");
-                    group.appendChild(dot);
-                }
-            }
+            const text = document.createElementNS(svgNs, "text");
+            text.setAttribute("x", "0");
+            text.setAttribute("y", "4");
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("font-size", "14");
+            text.setAttribute("font-family", "sans-serif");
+            text.setAttribute("font-weight", "700");
+            text.setAttribute("fill", "#111");
+            text.textContent = getLegacyPitchSymbol(pitch);
+            group.appendChild(text);
         }
 
         function appendPitchNote(group, note) {
