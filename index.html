@@ -334,7 +334,7 @@
 
         .sheet-grid {
             display: grid;
-            grid-template-columns: 52px repeat(12, 112px);
+            grid-template-columns: 44px repeat(12, 84px);
             gap: 0;
             overflow-x: auto;
             border-left: 1px solid var(--sheet-green);
@@ -344,7 +344,7 @@
         .sheet-header,
         .sheet-label,
         .sheet-cell {
-            min-height: 96px;
+            min-height: 72px;
             border-radius: 0;
             border-right: 1px solid var(--sheet-green);
             border-bottom: 1px solid var(--sheet-green);
@@ -360,19 +360,19 @@
 
         .sheet-header,
         .sheet-label {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             color: var(--sheet-green);
             background: #ffffff;
-            min-height: 44px;
+            min-height: 36px;
         }
 
         .sheet-cell {
             cursor: pointer;
             flex-direction: row;
             gap: 0;
-            min-height: 96px;
-            font-size: 12px;
+            min-height: 72px;
+            font-size: 11px;
             line-height: 1.2;
             padding: 0;
             align-items: stretch;
@@ -1013,9 +1013,10 @@
                 foul: false,
                 bunt: false,
                 sacrificeFly: false,
-                sacrificeBunt: false
+                sacrificeBunt: false,
+                doublePlay: false
             },
-            fieldSequence: ["8"],
+            fieldSequence: [],
             errorMode: "none",
             baseCover: "none",
             runnerContextText: "",
@@ -1041,7 +1042,8 @@
             "6": "遊撃手",
             "7": "左翼手",
             "8": "中堅手",
-            "9": "右翼手"
+            "9": "右翼手",
+            "?": "不明"
         };
 
         const resultDescriptions = {
@@ -1225,7 +1227,8 @@
                 foul: false,
                 bunt: false,
                 sacrificeFly: false,
-                sacrificeBunt: false
+                sacrificeBunt: false,
+                doublePlay: false
             });
             state.fieldSequence = [...(snapshot.fieldSequence || (state.selectedFielder ? [state.selectedFielder] : []))];
             state.errorMode = snapshot.errorMode || "none";
@@ -1269,7 +1272,7 @@
             addRule(["犠牲バント", "送りバント", "犠打"], { fielder: "1", ballType: "ground", result: "OUT", modifiers: { sacrificeBunt: true }, note: "初期マスタ: 犠打" });
             addRule(["犠打失敗"], { fielder: "1", ballType: "ground", result: "Fc", modifiers: { sacrificeBunt: true }, note: "初期マスタ: 犠打失敗" });
             addRule(["野手選択", "フィルダースチョイス"], { ballType: "ground", result: "Fc", note: "初期マスタ: 野選" });
-            addRule(["ダブルプレー", "併殺"], { ballType: "ground", result: "OUT", note: "初期マスタ: 併殺" });
+            addRule(["ダブルプレー", "併殺"], { fielder: "?", ballType: "ground", result: "OUT", outScore: "Ⅱ", fieldSequence: ["?"], modifiers: { doublePlay: true }, note: "初期マスタ: 併殺" });
             addRule(["ファールフライ"], { ballType: "fly", result: "OUT", modifiers: { foul: true }, note: "初期マスタ: ファールフライ" });
             addRule(["バントフライ"], { ballType: "fly", result: "OUT", modifiers: { bunt: true }, note: "初期マスタ: バントフライ" });
             addRule(["バントファールフライ"], { ballType: "fly", result: "OUT", modifiers: { bunt: true, foul: true }, note: "初期マスタ: バントファールフライ" });
@@ -1553,6 +1556,14 @@
                 }
                 runners[0] = batterRef;
                 setRunnerStatusForRef(batterRef, "1塁");
+            } else if (snapshot.modifiers?.doublePlay && snapshot.outScore) {
+                if (runners[0]) {
+                    removeRunnerFromBase(runners, 0, "DP");
+                } else if (runners[1]) {
+                    removeRunnerFromBase(runners, 1, "DP");
+                } else if (runners[2]) {
+                    removeRunnerFromBase(runners, 2, "DP");
+                }
             } else if (snapshot.modifiers?.sacrificeBunt && snapshot.outScore) {
                 if (runners[1]) {
                     moveRunnerToBase(runners, 1, 2);
@@ -1595,7 +1606,7 @@
 
             const sequence = snapshot.fieldSequence?.length > 0
                 ? [...snapshot.fieldSequence]
-                : [snapshot.selectedFielder || "8"];
+                : [snapshot.selectedFielder || "?"];
 
             const isFielderPlaySnapshot = snapshot.result === snapshot.selectedFielder
                 || ["1B", "2B", "3B", "HR", "G", "BH"].includes(snapshot.selectedHitType);
@@ -1655,6 +1666,9 @@
             const isInfieldHit = snapshot.selectedHitType === "G" || snapshot.selectedHitType === "BH";
             if (isInfieldHit && snapshot.selectedHitType === "BH") {
                 return "BH";
+            }
+            if (snapshot.modifiers?.doublePlay) {
+                return "DP";
             }
             if (snapshot.modifiers?.bunt && snapshot.modifiers?.foul && snapshot.selectedBallType === "fly") {
                 return "@F";
@@ -1811,7 +1825,7 @@
             }
 
             grid.innerHTML = "";
-            grid.style.gridTemplateColumns = "56px repeat(" + MAX_INNINGS + ", 112px)";
+            grid.style.gridTemplateColumns = "44px repeat(" + MAX_INNINGS + ", 84px)";
 
             const corner = document.createElement("div");
             corner.className = "sheet-header";
@@ -2367,6 +2381,22 @@
                 };
             }
 
+            if (normalized.includes("ダブルプレー") || normalized.includes("併殺")) {
+                return {
+                    fielder: dynamicFielder || "?",
+                    direction: dynamicDirection,
+                    ballType: dynamicBallType || "ground",
+                    result: "OUT",
+                    fieldSequence: dynamicFielder ? [dynamicFielder] : ["?"],
+                    modifiers: { doublePlay: true },
+                    runnerContext: dynamicRunnerContext,
+                    outScore: "Ⅱ",
+                    note: normalized,
+                    confidence: dynamicFielder ? 0.82 : 0.68,
+                    source: "rule"
+                };
+            }
+
             let builtin = null;
             let bestPatternLength = -1;
             BUILTIN_NATURAL_LANGUAGE_RULES.forEach((rule) => {
@@ -2545,6 +2575,7 @@
                     result: "OUT",
                     fieldSequence,
                     outScore: isDoublePlayText ? "Ⅱ" : "Ⅰ",
+                    modifiers: isDoublePlayText ? { doublePlay: true } : undefined,
                     runnerContext: detectRunnerContext(normalizedText),
                     note: normalizedText,
                     confidence: 0.95,
@@ -2870,6 +2901,9 @@
             if (modifiers.sacrificeBunt) {
                 labels.push("犠打");
             }
+            if (modifiers.doublePlay) {
+                labels.push("DP");
+            }
             return labels.length ? labels.join(" / ") : "なし";
         }
 
@@ -3003,6 +3037,7 @@
                 state.modifiers.bunt = Boolean(parsed.modifiers.bunt);
                 state.modifiers.sacrificeFly = Boolean(parsed.modifiers.sacrificeFly);
                 state.modifiers.sacrificeBunt = Boolean(parsed.modifiers.sacrificeBunt);
+                state.modifiers.doublePlay = Boolean(parsed.modifiers.doublePlay);
             }
 
             if (parsed.errorMode) {
@@ -3198,6 +3233,7 @@
             state.modifiers.bunt = false;
             state.modifiers.sacrificeFly = false;
             state.modifiers.sacrificeBunt = false;
+            state.modifiers.doublePlay = false;
         }
 
         function toggleModifier(modifier) {
@@ -3618,7 +3654,9 @@
 
                 if (isFielderPlay()) {
                     let prefixText = "";
-                    if (state.result === "BH" || state.selectedHitType === "BH") {
+                    if (state.modifiers.doublePlay) {
+                        prefixText = "DP";
+                    } else if (state.result === "BH" || state.selectedHitType === "BH") {
                         prefixText = "BH";
                     } else if (state.modifiers.bunt && state.modifiers.foul && state.selectedBallType === "fly") {
                         prefixText = "@F";
@@ -3633,6 +3671,11 @@
                         prefixDisplay.setAttribute("y", "-22");
                         prefixDisplay.setAttribute("transform", "rotate(-45 -18 -22)");
                         prefixDisplay.setAttribute("fill", "#c62828");
+                    } else if (prefixText === "DP") {
+                        prefixDisplay.setAttribute("x", "-4");
+                        prefixDisplay.setAttribute("y", String(prefixY));
+                        prefixDisplay.setAttribute("transform", "");
+                        prefixDisplay.setAttribute("fill", "#111");
                     } else {
                         prefixDisplay.setAttribute("y", String(prefixY));
                         prefixDisplay.setAttribute("fill", "#222");
