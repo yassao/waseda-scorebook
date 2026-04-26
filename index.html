@@ -465,15 +465,15 @@
         }
 
         .nl-actions.compact {
-            grid-template-columns: repeat(3, max-content);
+            grid-template-columns: repeat(2, max-content);
             justify-content: start;
             align-items: center;
         }
 
         .small-btn {
-            min-height: 38px;
-            padding: 8px 14px;
-            font-size: 13px;
+            min-height: 34px;
+            padding: 7px 12px;
+            font-size: 11px;
             border-radius: 10px;
         }
 
@@ -702,9 +702,8 @@
                 <div class="nl-panel is-compact">
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
                     <div class="nl-actions compact">
-                        <button class="small-btn" onclick="parseNaturalLanguage()">解釈</button>
-                        <button class="small-btn" onclick="applyNaturalLanguage()">反映</button>
-                        <button id="nlCorrectionToggle" class="small-btn" onclick="toggleCorrectionEditor()">修正</button>
+                        <button class="small-btn" onclick="applyNaturalLanguage()">スコアブックに反映</button>
+                        <button id="nlCorrectionToggle" class="small-btn" onclick="toggleCorrectionEditor()">解釈結果を手動修正</button>
                     </div>
                     <div id="naturalLanguagePreview" class="nl-preview compact">ここに解釈結果を表示します。</div>
                     <div id="nlCorrectionPanel" class="nl-correction-panel">
@@ -1494,10 +1493,11 @@
                 runners[0] = batterRef;
                 setRunnerStatusForRef(batterRef, "1塁");
             } else if (snapshot.modifiers?.sacrificeBunt && snapshot.outScore) {
+                if (runners[1]) {
+                    moveRunnerToBase(runners, 1, 2);
+                }
                 if (runners[0]) {
                     moveRunnerToBase(runners, 0, 1);
-                } else if (runners[1]) {
-                    moveRunnerToBase(runners, 1, 2);
                 }
                 setRunnerStatusForRef(batterRef, snapshot.outScore);
             } else if (snapshot.modifiers?.sacrificeFly && snapshot.outScore) {
@@ -2077,7 +2077,15 @@
 
             if (!input) {
                 state.parsedInput = null;
-                preview.textContent = "入力文が空です。";
+                syncCorrectionControls(null);
+                const currentSnapshot = state.scoreSheet[state.selectedSheetRow]?.[state.selectedSheetCol];
+                if (currentSnapshot) {
+                    applyAtBatSnapshot(currentSnapshot);
+                } else {
+                    resetState();
+                }
+                preview.textContent = "ここに解釈結果を表示します。";
+                updateDisplay();
                 return;
             }
 
@@ -2090,18 +2098,9 @@
                 return;
             }
 
+            applyParsedInput(parsed);
             syncCorrectionControls(parsed);
-            const lines = [
-                "解釈:",
-                "守備位置: " + (parsed.fielder ? parsed.fielder + " " + fielderNames[parsed.fielder] : "なし"),
-                "打球種別: " + (parsed.ballType || "なし"),
-                "結果: " + parsed.result,
-                "方向: " + (parsed.direction || "なし"),
-                "走者状況: " + formatRunnerContext(parsed.runnerContext),
-                "補助: " + formatParsedModifiers(parsed),
-                "メモ: " + (parsed.note || "なし")
-            ];
-            preview.innerHTML = lines.join("<br>");
+            syncPreviewFromParsed(parsed, "解釈");
         }
 
         function scheduleNaturalLanguageParse() {
@@ -2138,14 +2137,15 @@
 
         function applyNaturalLanguage() {
             if (state.parsedInput) {
-                applyParsedInput(state.parsedInput);
                 saveCurrentToSheet();
+                clearNaturalLanguageInput();
                 advanceToNextSheetCell();
                 return;
             }
 
             if (!document.getElementById("naturalLanguageInput").value.trim() && (state.result || state.pitches.length > 0)) {
                 saveCurrentToSheet();
+                clearNaturalLanguageInput();
                 advanceToNextSheetCell();
                 return;
             }
@@ -2154,8 +2154,8 @@
             if (!state.parsedInput) {
                 return;
             }
-            applyParsedInput(state.parsedInput);
             saveCurrentToSheet();
+            clearNaturalLanguageInput();
             advanceToNextSheetCell();
         }
 
@@ -2163,10 +2163,19 @@
             const corrected = getCorrectedParsedInput();
             state.parsedInput = corrected;
             applyParsedInput(corrected);
-            syncPreviewFromParsed(corrected, "修正後");
+            syncPreviewFromParsed(corrected, "解釈");
             toggleCorrectionEditor(false);
             saveCurrentToSheet();
+            clearNaturalLanguageInput();
             advanceToNextSheetCell();
+        }
+
+        function clearNaturalLanguageInput() {
+            document.getElementById("naturalLanguageInput").value = "";
+            document.getElementById("naturalLanguagePreview").textContent = "ここに解釈結果を表示します。";
+            state.parsedInput = null;
+            syncCorrectionControls(null);
+            toggleCorrectionEditor(false);
         }
 
         function saveNaturalLanguageMapping() {
@@ -2896,6 +2905,8 @@
             }
 
             state.runnerContextText = formatRunnerContext(parsed.runnerContext);
+            state.runnerContext = deepClone(parsed.runnerContext || null);
+            state.currentConfidence = parsed.confidence || 1;
 
             if (parsed.result) {
                 if (["1B", "2B", "3B", "HR", "G", "BH"].includes(parsed.result)) {
@@ -3775,6 +3786,8 @@
             state.errorMode = "none";
             state.baseCover = "none";
             state.runnerContextText = "";
+            state.runnerContext = null;
+            state.currentConfidence = 1;
 
             document.getElementById("fielderSelect").value = "";
             document.getElementById("battingOrderSelect").value = state.battingOrder;
