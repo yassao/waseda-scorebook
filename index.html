@@ -1616,7 +1616,7 @@
         function generateSheetCellSvg(snapshot) {
             if (!snapshot) {
                 return [
-                    '<svg class="sheet-cell-svg" viewBox="0 0 220 190" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
+                    '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
                     '<rect x="5" y="5" width="30" height="180" fill="none" stroke="#777" stroke-width="2"/>',
                     '<rect x="35" y="5" width="180" height="180" fill="none" stroke="#777" stroke-width="2"/>',
                     '<polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#777" stroke-width="2"/>',
@@ -1655,6 +1655,40 @@
             const hitLines = paths.map((path) =>
                 '<path d="' + path + '" fill="none" stroke="' + lineColor + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
             ).join("");
+            const isInfieldHit = snapshot.selectedHitType === "G" || snapshot.selectedHitType === "BH";
+            const infieldHitArc = isInfieldHit
+                ? (function () {
+                    const radius = 45;
+                    const centerX = 170;
+                    const centerY = 140;
+                    const delta = radius / Math.sqrt(2);
+                    const arcStartX = centerX - delta;
+                    const arcStartY = centerY + delta;
+                    const arcEndX = centerX + delta;
+                    const arcEndY = centerY - delta;
+                    return '<path d="M ' + arcStartX + ' ' + arcStartY + ' A ' + radius + ' ' + radius + ' 0 0 0 ' + arcEndX + ' ' + arcEndY + '" fill="none" stroke="#d14b3a" stroke-width="2"/>';
+                }())
+                : "";
+
+            const ballTypeDecoration = (function () {
+                if (snapshot.selectedBallType === "fly") {
+                    return '<path d="M 158 144 Q 170 136 182 144" fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+                }
+                if (snapshot.selectedBallType === "liner") {
+                    return '<path d="M 158 144 L 182 144" fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+                }
+                if (snapshot.selectedBallType === "ground" && !isInfieldHit) {
+                    return '<path d="M 160 170 Q 170 177 180 170" fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+                }
+                return "";
+            }());
+
+            const sacrificeBox = snapshot.modifiers?.sacrificeBunt && snapshot.selectedBallType === "ground"
+                ? '<rect x="152" y="136" width="36" height="40" fill="none" stroke="#1f5fbf" stroke-width="2"/>'
+                : "";
+            const sacrificeFlyTriangle = snapshot.modifiers?.sacrificeFly && snapshot.selectedBallType === "fly"
+                ? '<polygon points="148,174 170,136 192,174" fill="none" stroke="#1f5fbf" stroke-width="2"/>'
+                : "";
 
             const inningSlash = snapshot.outScore === "Ⅲ"
                 ? '<line x1="146" y1="185" x2="215" y2="116" stroke="#111" stroke-width="2"/>'
@@ -1678,9 +1712,10 @@
                     '<rect x="35" y="5" width="180" height="180" fill="url(#sheet-hatch-' + snapshot.battingOrder + '-' + displayedResult.replace(/[^A-Za-z0-9]/g, "") + ')" opacity="0.65"></rect>'
                 ].join("")
                 : "";
+            const resultX = isInfieldHit ? 178 : 170;
 
             return [
-                '<svg class="sheet-cell-svg" viewBox="0 0 220 190" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
+                '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
                 lowConfidenceOverlay,
                 '<rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>',
                 '<rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>',
@@ -1694,8 +1729,12 @@
                 runnerNote,
                 pitchMarks,
                 '<text x="125" y="106" text-anchor="middle" font-size="28" font-weight="700" fill="' + outColor + '">' + (snapshot.outScore || "") + '</text>',
+                sacrificeBox,
+                sacrificeFlyTriangle,
+                ballTypeDecoration,
                 prefix,
-                '<text x="170" y="160" text-anchor="middle" font-size="24" font-weight="700" fill="' + resultColor + '">' + displayedResult + '</text>',
+                '<text x="' + resultX + '" y="160" text-anchor="middle" font-size="24" font-weight="700" fill="' + resultColor + '">' + displayedResult + '</text>',
+                infieldHitArc,
                 '</svg>'
             ].join("");
         }
