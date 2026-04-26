@@ -334,7 +334,7 @@
 
         .sheet-grid {
             display: grid;
-            grid-template-columns: 56px repeat(12, minmax(56px, 1fr));
+            grid-template-columns: 52px repeat(12, 112px);
             gap: 0;
             overflow-x: auto;
             border-left: 1px solid var(--sheet-green);
@@ -344,7 +344,7 @@
         .sheet-header,
         .sheet-label,
         .sheet-cell {
-            min-height: 56px;
+            min-height: 98px;
             border-radius: 0;
             border-right: 1px solid var(--sheet-green);
             border-bottom: 1px solid var(--sheet-green);
@@ -364,6 +364,7 @@
             font-weight: 700;
             color: var(--sheet-green);
             background: #ffffff;
+            min-height: 44px;
         }
 
         .sheet-cell {
@@ -394,7 +395,7 @@
         .sheet-cell-svg {
             width: 100%;
             height: 100%;
-            min-height: 64px;
+            min-height: 98px;
             display: block;
         }
 
@@ -1648,7 +1649,7 @@
                 return '<circle cx="20" cy="' + y + '" r="2" fill="#111"/>';
             }).join("");
 
-            const lineColor = ["B", "HP", "IB", "IF"].includes(snapshot.result) ? "#1565c0" : "#d14b3a";
+            const lineColor = "#d14b3a";
             const hitLines = paths.map((path) =>
                 '<path d="' + path + '" fill="none" stroke="' + lineColor + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
             ).join("");
@@ -2197,6 +2198,40 @@
                 return shorthand;
             }
 
+            const dynamicFielder = detectFielder(normalized);
+            const dynamicDirection = detectDirection(normalized);
+            const dynamicBallType = detectBallType(normalized);
+            const dynamicModifiers = detectParsedModifiers(normalized);
+            const dynamicRunnerContext = detectRunnerContext(normalized);
+
+            if (normalized.includes("犠飛")) {
+                return {
+                    fielder: dynamicFielder,
+                    direction: dynamicDirection,
+                    ballType: "fly",
+                    result: "OUT",
+                    modifiers: { sacrificeFly: true },
+                    runnerContext: dynamicRunnerContext,
+                    note: normalized,
+                    confidence: 0.8,
+                    source: "rule"
+                };
+            }
+
+            if (normalized.includes("犠打") || normalized.includes("送りバント")) {
+                return {
+                    fielder: dynamicFielder,
+                    direction: dynamicDirection,
+                    ballType: "ground",
+                    result: normalized.includes("失敗") ? "Fc" : "OUT",
+                    modifiers: { sacrificeBunt: true },
+                    runnerContext: dynamicRunnerContext,
+                    note: normalized,
+                    confidence: 0.78,
+                    source: "rule"
+                };
+            }
+
             const builtin = BUILTIN_NATURAL_LANGUAGE_RULES.find((rule) =>
                 rule.patterns.some((pattern) => normalized.includes(pattern))
             );
@@ -2229,39 +2264,11 @@
                 return { result: "BK", note: normalized, confidence: 0.85, source: "rule" };
             }
 
-            const fielder = detectFielder(normalized);
-            const direction = detectDirection(normalized);
-            const ballType = detectBallType(normalized);
-            const modifiers = detectParsedModifiers(normalized);
-            const runnerContext = detectRunnerContext(normalized);
-
-            if (normalized.includes("犠飛")) {
-                return {
-                    fielder,
-                    direction,
-                    ballType: "fly",
-                    result: "OUT",
-                    modifiers: { sacrificeFly: true },
-                    runnerContext,
-                    note: normalized,
-                    confidence: 0.8,
-                    source: "rule"
-                };
-            }
-
-            if (normalized.includes("犠打")) {
-                return {
-                    fielder,
-                    direction,
-                    ballType: "ground",
-                    result: normalized.includes("失敗") ? "Fc" : "OUT",
-                    modifiers: { sacrificeBunt: true },
-                    runnerContext,
-                    note: normalized,
-                    confidence: 0.75,
-                    source: "rule"
-                };
-            }
+            const fielder = dynamicFielder;
+            const direction = dynamicDirection;
+            const ballType = dynamicBallType;
+            const modifiers = dynamicModifiers;
+            const runnerContext = dynamicRunnerContext;
 
             if (normalized.includes("野選") || normalized.includes("フィルダースチョイス")) {
                 return {
@@ -2893,12 +2900,15 @@
             if (parsed.result) {
                 if (["1B", "2B", "3B", "HR", "G", "BH"].includes(parsed.result)) {
                     state.selectedHitType = parsed.result;
-                    state.result = state.selectedFielder || parsed.fielder || "8";
+                    state.result = state.selectedFielder || parsed.fielder || "";
                 } else if (parsed.result === "OUT") {
-                    state.result = state.selectedFielder || parsed.fielder || "8";
+                    state.result = state.selectedFielder || parsed.fielder || "";
                     state.outScore = parsed.outScore || "Ⅰ";
                 } else if (parsed.result === "Fc") {
                     state.result = "Fc";
+                } else if (parsed.result === "K") {
+                    state.result = "K";
+                    state.outScore = parsed.outScore || "Ⅰ";
                 } else {
                     state.result = parsed.result;
                 }
@@ -3433,7 +3443,7 @@
 
             segments.forEach((segment, index) => {
                 segment.setAttribute("d", paths[index]);
-                segment.setAttribute("stroke", ["B", "HP", "IB", "IF"].includes(state.result) ? "#1565c0" : "#d14b3a");
+                segment.setAttribute("stroke", "#d14b3a");
                 segment.setAttribute("visibility", index < visibleCount ? "visible" : "hidden");
             });
         }
