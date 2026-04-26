@@ -841,6 +841,7 @@
                         <option value="本塁打">本塁打</option>
                         <option value="三振">三振</option>
                         <option value="四球">四球</option>
+                        <option value="併殺">併殺</option>
                     </select>
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
                     <div class="nl-actions compact">
@@ -2768,13 +2769,13 @@
             }
 
             if (normalized.includes("本塁打") || normalized.includes("ホームラン")) {
-                return { fielder: fielder || "8", direction, result: "HR", runnerContext, note: normalized, confidence: 0.8, source: "rule" };
+                return { fielder: fielder || "?", direction: direction !== "none" ? direction : "?", result: "HR", runnerContext, note: normalized, confidence: 0.8, source: "rule" };
             }
             if (normalized.includes("三塁打")) {
-                return { fielder: fielder || "9", direction, result: "3B", runnerContext, note: normalized, confidence: 0.8, source: "rule" };
+                return { fielder: fielder || "?", direction: direction !== "none" ? direction : "?", result: "3B", runnerContext, note: normalized, confidence: 0.8, source: "rule" };
             }
             if (normalized.includes("二塁打")) {
-                return { fielder: fielder || "7", direction, result: "2B", runnerContext, note: normalized, confidence: 0.8, source: "rule" };
+                return { fielder: fielder || "?", direction: direction !== "none" ? direction : "?", result: "2B", runnerContext, note: normalized, confidence: 0.8, source: "rule" };
             }
             if (normalized.includes("ヒット") || normalized.includes("前安打") || normalized.includes("前ヒット")) {
                 return {
@@ -3157,10 +3158,22 @@
         }
 
         function detectFielder(text) {
+            const normalizedText = normalizeNaturalLanguageKey(text || "");
+            const fielderContextText = normalizedText
+                .replace(/本塁打|ホームラン/g, "")
+                .replace(/三塁打/g, "")
+                .replace(/二塁打/g, "")
+                .replace(/一塁打/g, "");
+
             for (const entry of naturalLanguageFielderMap) {
-                if (entry.patterns.some((pattern) => text.includes(pattern))) {
+                if (entry.patterns.some((pattern) => fielderContextText.includes(pattern))) {
                     return entry.value;
                 }
+            }
+
+            const digitMatch = fielderContextText.match(/[1-9]/);
+            if (digitMatch) {
+                return digitMatch[0];
             }
             return "";
         }
