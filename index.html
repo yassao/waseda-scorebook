@@ -18,6 +18,12 @@
             --muted: #6b7280;
             --border: #233142;
             --sheet-green: #1f5c2e;
+            --sheet-label-w: 34px;
+            --sheet-cell-w: 58px;
+            --sheet-cell-h: 52px;
+            --sheet-header-h: 28px;
+            --sheet-font: 9px;
+            --sheet-zoom: 1;
         }
 
         * {
@@ -363,26 +369,32 @@
             border: none;
         }
 
+        .sheet-viewport {
+            overflow: auto;
+            max-height: 72dvh;
+            touch-action: pan-x pan-y;
+            overscroll-behavior: contain;
+        }
+
         .sheet-meta {
             display: none;
         }
 
         .sheet-grid {
             display: grid;
-            grid-template-columns: 34px repeat(12, 58px);
+            grid-template-columns: var(--sheet-label-w) repeat(12, var(--sheet-cell-w));
             gap: 0;
-            overflow: auto;
-            max-height: 72dvh;
             border-left: 1px solid var(--sheet-green);
             border-top: 1px solid var(--sheet-green);
             position: relative;
             background: #ffffff;
+            width: max-content;
         }
 
         .sheet-header,
         .sheet-label,
         .sheet-cell {
-            min-height: 52px;
+            min-height: var(--sheet-cell-h);
             border-radius: 0;
             border-right: 1px solid var(--sheet-green);
             border-bottom: 1px solid var(--sheet-green);
@@ -398,11 +410,11 @@
 
         .sheet-header,
         .sheet-label {
-            font-size: 9px;
+            font-size: var(--sheet-font);
             font-weight: 700;
             color: var(--sheet-green);
             background: #ffffff;
-            min-height: 28px;
+            min-height: var(--sheet-header-h);
             position: sticky;
             z-index: 3;
             background: #ffffff;
@@ -412,8 +424,8 @@
             cursor: pointer;
             flex-direction: row;
             gap: 0;
-            min-height: 52px;
-            font-size: 9px;
+            min-height: var(--sheet-cell-h);
+            font-size: var(--sheet-font);
             line-height: 1.2;
             padding: 0;
             align-items: stretch;
@@ -457,7 +469,7 @@
         }
 
         .sheet-cell-empty {
-            font-size: 16px;
+            font-size: calc(14px * var(--sheet-zoom));
             color: #94a3b8;
             font-weight: 700;
         }
@@ -742,20 +754,19 @@
             }
 
             .sheet-grid {
-                grid-template-columns: 30px repeat(12, 50px);
                 max-height: 74dvh;
             }
 
-            .sheet-header,
-            .sheet-label,
-            .sheet-cell {
-                min-height: 46px;
+            .sheet-viewport {
+                max-height: 74dvh;
             }
 
-            .sheet-header,
-            .sheet-label {
-                min-height: 24px;
-                font-size: 8px;
+            :root {
+                --sheet-label-w: 30px;
+                --sheet-cell-w: 50px;
+                --sheet-cell-h: 46px;
+                --sheet-header-h: 24px;
+                --sheet-font: 8px;
             }
         }
     </style>
@@ -921,10 +932,11 @@
         <div class="control-panel-wrapper">
             <div class="control-panel">
                 <section class="section">
-                    <div class="section-title">9人 × 12回 シート</div>
                     <div class="sheet-panel">
                         <div id="sheetMeta" class="sheet-meta"></div>
-                        <div id="sheetGrid" class="sheet-grid"></div>
+                        <div id="sheetViewport" class="sheet-viewport">
+                            <div id="sheetGrid" class="sheet-grid"></div>
+                        </div>
                     </div>
                 </section>
 
@@ -1174,12 +1186,15 @@
             selectedSheetRow: 0,
             selectedSheetCol: 0,
             scoreSheet: [],
-            parsedInput: null
+            parsedInput: null,
+            sheetZoom: 1
         };
 
         let naturalLanguageParseTimer = null;
         let sheetCellPressTimer = null;
         let suppressSheetCellClick = false;
+        let sheetPinchStartDistance = 0;
+        let sheetPinchStartZoom = 1;
 
         const fielderNames = {
             "1": "投手",
@@ -2029,6 +2044,62 @@
             meta.innerHTML = "";
         }
 
+        function updateSheetZoom() {
+            const root = document.documentElement;
+            const zoom = Math.max(0.5, Math.min(2, state.sheetZoom || 1));
+            state.sheetZoom = zoom;
+            const compact = window.matchMedia("(max-width: 480px)").matches;
+            const baseLabelW = compact ? 30 : 34;
+            const baseCellW = compact ? 50 : 58;
+            const baseCellH = compact ? 46 : 52;
+            const baseHeaderH = compact ? 24 : 28;
+            const baseFont = compact ? 8 : 9;
+
+            root.style.setProperty("--sheet-zoom", String(zoom));
+            root.style.setProperty("--sheet-label-w", Math.round(baseLabelW * zoom) + "px");
+            root.style.setProperty("--sheet-cell-w", Math.round(baseCellW * zoom) + "px");
+            root.style.setProperty("--sheet-cell-h", Math.round(baseCellH * zoom) + "px");
+            root.style.setProperty("--sheet-header-h", Math.round(baseHeaderH * zoom) + "px");
+            root.style.setProperty("--sheet-font", (baseFont * zoom).toFixed(2) + "px");
+        }
+
+        function getTouchDistance(touchA, touchB) {
+            const dx = touchA.clientX - touchB.clientX;
+            const dy = touchA.clientY - touchB.clientY;
+            return Math.hypot(dx, dy);
+        }
+
+        function initializeSheetPinchZoom() {
+            const viewport = document.getElementById("sheetViewport");
+            if (!viewport) {
+                return;
+            }
+
+            viewport.addEventListener("touchstart", (event) => {
+                if (event.touches.length === 2) {
+                    sheetPinchStartDistance = getTouchDistance(event.touches[0], event.touches[1]);
+                    sheetPinchStartZoom = state.sheetZoom;
+                }
+            }, { passive: true });
+
+            viewport.addEventListener("touchmove", (event) => {
+                if (event.touches.length !== 2 || !sheetPinchStartDistance) {
+                    return;
+                }
+                const distance = getTouchDistance(event.touches[0], event.touches[1]);
+                const nextZoom = sheetPinchStartZoom * (distance / sheetPinchStartDistance);
+                state.sheetZoom = Math.max(0.5, Math.min(2, nextZoom));
+                updateSheetZoom();
+                event.preventDefault();
+            }, { passive: false });
+
+            viewport.addEventListener("touchend", (event) => {
+                if (event.touches.length < 2) {
+                    sheetPinchStartDistance = 0;
+                }
+            }, { passive: true });
+        }
+
         function renderScoreSheet() {
             const grid = document.getElementById("sheetGrid");
             if (!grid) {
@@ -2036,8 +2107,6 @@
             }
 
             grid.innerHTML = "";
-            grid.style.gridTemplateColumns = "34px repeat(" + MAX_INNINGS + ", 58px)";
-
             const corner = document.createElement("div");
             corner.className = "sheet-header";
             corner.textContent = "打順";
@@ -4417,6 +4486,8 @@
         state.scoreSheet = createEmptyScoreSheet();
         state.baseRunners = [null, null, null];
         initializeResultOptions();
+        updateSheetZoom();
+        initializeSheetPinchZoom();
         document.getElementById("naturalLanguageInput").addEventListener("input", scheduleNaturalLanguageParse);
         renderScoreSheet();
         updateDisplay();
