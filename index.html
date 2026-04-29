@@ -1404,6 +1404,7 @@
                 runnerContextText: state.runnerContextText,
                 runnerContext: deepClone(state.runnerContext),
                 runnerStatusText: "",
+                runnerStatusEvents: [],
                 confidence: state.currentConfidence
             };
         }
@@ -1572,9 +1573,35 @@
             return state.scoreSheet?.[ref.row]?.[ref.col] || null;
         }
 
+        function getRunnerStatusEvents(snapshot) {
+            if (!snapshot) {
+                return [];
+            }
+            if (Array.isArray(snapshot.runnerStatusEvents) && snapshot.runnerStatusEvents.length > 0) {
+                return snapshot.runnerStatusEvents;
+            }
+            return snapshot.runnerStatusText ? [snapshot.runnerStatusText] : [];
+        }
+
+        function getLatestRunnerBaseStatus(snapshot) {
+            const events = getRunnerStatusEvents(snapshot);
+            for (let index = events.length - 1; index >= 0; index -= 1) {
+                if (events[index] === "1塁" || events[index] === "2塁" || events[index] === "3塁") {
+                    return events[index];
+                }
+            }
+            return "";
+        }
+
         function setRunnerStatusForRef(ref, text) {
             const snapshot = getSnapshotByRef(ref);
             if (snapshot) {
+                if (!Array.isArray(snapshot.runnerStatusEvents)) {
+                    snapshot.runnerStatusEvents = snapshot.runnerStatusText ? [snapshot.runnerStatusText] : [];
+                }
+                if (snapshot.runnerStatusEvents[snapshot.runnerStatusEvents.length - 1] !== text) {
+                    snapshot.runnerStatusEvents.push(text);
+                }
                 snapshot.runnerStatusText = text;
             }
         }
@@ -1651,6 +1678,40 @@
             return text || "";
         }
 
+        function buildRunnerNotesForSheet(snapshot) {
+            const events = getRunnerStatusEvents(snapshot)
+                .map(formatRunnerStatusForSheet)
+                .filter(Boolean);
+            if (!events.length) {
+                return "";
+            }
+
+            const uniqueEvents = [];
+            events.forEach((event) => {
+                if (!uniqueEvents.includes(event)) {
+                    uniqueEvents.push(event);
+                }
+            });
+
+            const parts = [];
+            const hasLeftOnBase = uniqueEvents.includes("ℓ");
+            if (hasLeftOnBase) {
+                parts.push('<text x="125" y="106" text-anchor="middle" font-size="28" font-weight="700" fill="#111">ℓ</text>');
+            }
+
+            uniqueEvents
+                .filter((event) => event !== "ℓ")
+                .forEach((event, index) => {
+                    parts.push(
+                        '<text x="178" y="' + (24 + index * 16) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#111">' +
+                        event +
+                        '</text>'
+                    );
+                });
+
+            return parts.join("");
+        }
+
         function markLeftOnBaseRunners(runners) {
             runners.forEach((runnerRef) => {
                 if (!runnerRef) {
@@ -1660,7 +1721,8 @@
                 if (!snapshot) {
                     return;
                 }
-                if (snapshot.runnerStatusText === "1塁" || snapshot.runnerStatusText === "2塁" || snapshot.runnerStatusText === "3塁") {
+                const latestBaseStatus = getLatestRunnerBaseStatus(snapshot);
+                if (latestBaseStatus === "1塁" || latestBaseStatus === "2塁" || latestBaseStatus === "3塁") {
                     setRunnerStatusForRef(runnerRef, "残塁");
                 }
             });
@@ -2060,12 +2122,7 @@
             const prefix = prefixText
                 ? '<text x="152" y="128" font-size="14" font-weight="700" fill="' + (prefixText === "BH" ? "#c62828" : "#222") + '" transform="rotate(-45 152 128)">' + prefixText + '</text>'
                 : "";
-            const runnerNoteText = formatRunnerStatusForSheet(snapshot.runnerStatusText);
-            const runnerNote = runnerNoteText
-                ? (runnerNoteText === "ℓ"
-                    ? '<text x="125" y="106" text-anchor="middle" font-size="28" font-weight="700" fill="#111">' + runnerNoteText + '</text>'
-                    : '<text x="176" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#111">' + runnerNoteText + '</text>')
-                : "";
+            const runnerNote = buildRunnerNotesForSheet(snapshot);
             const lowConfidenceOverlay = snapshot.confidence && snapshot.confidence < 0.7
                 ? [
                     '<defs>',
@@ -3457,8 +3514,14 @@
 
             const advancePatterns = [
                 { pattern: "一走は三塁へ", label: "一走→三塁" },
+                { pattern: "一走三塁", label: "一走→三塁" },
+                { pattern: "一走3塁", label: "一走→三塁" },
                 { pattern: "一走は二塁へ", label: "一走→二塁" },
+                { pattern: "一走二塁", label: "一走→二塁" },
+                { pattern: "一走2塁", label: "一走→二塁" },
                 { pattern: "二走は三塁へ", label: "二走→三塁" },
+                { pattern: "二走三塁", label: "二走→三塁" },
+                { pattern: "二走3塁", label: "二走→三塁" },
                 { pattern: "二走生還", label: "二走生還" },
                 { pattern: "一走生還", label: "一走生還" },
                 { pattern: "三走生還", label: "三走生還" },
