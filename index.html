@@ -906,6 +906,14 @@
                                     <option value="P">捕逸</option>
                                     <option value="BK">ボーク</option>
                                     <option value="IF">打撃妨害</option>
+                                    <option value="S">盗塁</option>
+                                    <option value="CS">盗塁刺</option>
+                                    <option value="DS">重盗</option>
+                                    <option value="TP">三重盗</option>
+                                    <option value="OB">走塁妨害</option>
+                                    <option value="x">守備妨害</option>
+                                    <option value="TO">タッグアウト</option>
+                                    <option value="PO">牽制</option>
                                 </select>
                             </div>
                             <div class="nl-field">
@@ -1099,7 +1107,7 @@
                                 <button class="btn-walk" onclick="setResult('IB')">申告敬遠</button>
                                 <button class="btn-k" onclick="setResult('K')">K 見逃し</button>
                                 <button class="btn-k" onclick="setResult('K')">K 空振り</button>
-                                <button class="btn-k" onclick="setResult('K')">K バント三振</button>
+                                <button class="btn-k" onclick="setThreeBuntStrikeout()">K バント三振</button>
                                 <button onclick="setResult('F')">F ファール飛</button>
                                 <button onclick="setResult('Fc')">Fc 野選</button>
                                 <button onclick="setResult('G')">G ゴロ安</button>
@@ -1110,6 +1118,14 @@
                                 <button onclick="setResult('P')">P 捕逸</button>
                                 <button onclick="setResult('IF')">IF 打撃妨害</button>
                                 <button onclick="setResult('BK')">BK ボーク</button>
+                                <button onclick="setResult('S')">S 盗塁</button>
+                                <button onclick="setResult('CS')">CS 盗塁刺</button>
+                                <button onclick="setResult('DS')">DS 重盗</button>
+                                <button onclick="setResult('TP')">TP 三重盗</button>
+                                <button onclick="setResult('OB')">OB 走塁妨害</button>
+                                <button onclick="setResult('x')">x 守備妨害</button>
+                                <button onclick="setResult('TO')">TO タッグ</button>
+                                <button onclick="setResult('PO')">PO 牽制</button>
                             </div>
 
                             <div class="result-picker" style="margin-top: 10px;">
@@ -1174,7 +1190,8 @@
                 bunt: false,
                 sacrificeFly: false,
                 sacrificeBunt: false,
-                doublePlay: false
+                doublePlay: false,
+                threeBuntStrikeout: false
             },
             fieldSequence: [],
             errorMode: "none",
@@ -1228,6 +1245,7 @@
             "K": "三振（見逃し）",
             "OB": "走塁妨害（obstruction）",
             "OI": "守備妨害（offensive interference）",
+            "x": "守備妨害",
             "P": "捕逸（passed ball）",
             "PO": "牽制（pickoff）",
             "RH": "ランニングHR（inside-the-park home run）",
@@ -1412,7 +1430,8 @@
                 bunt: false,
                 sacrificeFly: false,
                 sacrificeBunt: false,
-                doublePlay: false
+                doublePlay: false,
+                threeBuntStrikeout: false
             });
             state.fieldSequence = [...(snapshot.fieldSequence || (state.selectedFielder ? [state.selectedFielder] : []))];
             state.errorMode = snapshot.errorMode || "none";
@@ -1436,7 +1455,7 @@
 
             addRule(["見逃し三振"], { result: "K", note: "初期マスタ: 見逃し三振" });
             addRule(["空振り三振"], { result: "K", note: "初期マスタ: 空振り三振" });
-            addRule(["バント三振", "スリーバント失敗"], { result: "K", note: "初期マスタ: バント三振" });
+            addRule(["バント三振", "スリーバント失敗"], { result: "K", modifiers: { threeBuntStrikeout: true }, note: "初期マスタ: バント三振" });
             addRule(["振り逃げアウト", "三振振り逃げアウト"], { fielder: "2", result: "OUT", note: "初期マスタ: 振り逃げアウト" });
             addRule(["四球", "フォアボール"], { result: "B", note: "初期マスタ: 四球" });
             addRule(["敬遠", "敬遠四球"], { result: "IB", note: "初期マスタ: 敬遠" });
@@ -1447,11 +1466,13 @@
             addRule(["ボーク", "BK"], { result: "BK", note: "初期マスタ: ボーク" });
             addRule(["打撃妨害", "IF", "CI"], { result: "IF", note: "初期マスタ: 打撃妨害" });
             addRule(["走塁妨害", "OB"], { result: "OB", note: "初期マスタ: 走塁妨害" });
-            addRule(["守備妨害", "OI"], { result: "OI", note: "初期マスタ: 守備妨害" });
-            addRule(["盗塁失敗", "盗塁刺", "CS"], { result: "CS", note: "初期マスタ: 盗塁失敗" });
+            addRule(["守備妨害", "オフェンスインターフェア", "OI"], { result: "x", note: "初期マスタ: 守備妨害" });
+            addRule(["盗塁失敗", "盗塁刺", "盗塁死", "CS"], { result: "CS", note: "初期マスタ: 盗塁失敗" });
             addRule(["牽制死", "PO"], { result: "PO", note: "初期マスタ: 牽制死" });
-            addRule(["タッチアウト", "TO"], { result: "TO", note: "初期マスタ: タッチアウト" });
-            addRule(["盗塁", "S"], { result: "S", note: "初期マスタ: 盗塁" });
+            addRule(["タッチアウト", "タッグアウト", "タグアウト", "TO"], { result: "TO", note: "初期マスタ: タッグアウト" });
+            addRule(["重盗", "ダブルスチール", "DS"], { result: "DS", note: "初期マスタ: 重盗" });
+            addRule(["三重盗", "トリプルスチール", "TP"], { result: "TP", note: "初期マスタ: 三重盗" });
+            addRule(["盗塁", "スチール", "S"], { result: "S", note: "初期マスタ: 盗塁" });
             addRule(["犠牲フライ", "犠飛"], { fielder: "8", ballType: "fly", result: "OUT", modifiers: { sacrificeFly: true }, note: "初期マスタ: 犠飛" });
             addRule(["犠牲バント", "送りバント", "犠打"], { fielder: "1", ballType: "ground", result: "OUT", modifiers: { sacrificeBunt: true }, note: "初期マスタ: 犠打" });
             addRule(["犠打失敗"], { fielder: "1", ballType: "ground", result: "Fc", modifiers: { sacrificeBunt: true }, note: "初期マスタ: 犠打失敗" });
@@ -1885,6 +1906,9 @@
             if (["B", "HP", "IB", "IF"].includes(snapshot.result)) {
                 return "#1565c0";
             }
+            if (snapshot.result === "x") {
+                return "#111";
+            }
             return "#111";
         }
 
@@ -1964,6 +1988,9 @@
                 : "";
 
             const ballTypeDecoration = (function () {
+                if (snapshot.result === "K" && snapshot.modifiers?.threeBuntStrikeout) {
+                    return '<path d="M 154 172 Q 170 179 186 172" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+                }
                 if (snapshot.selectedBallType === "fly") {
                     return '<path d="M 158 144 Q 170 136 182 144" fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
                 }
@@ -2476,7 +2503,9 @@
             if (state.pitchNotes.length === 0) {
                 return;
             }
-            state.pitchNotes[state.pitchNotes.length - 1] = note;
+            const lastIndex = state.pitchNotes.length - 1;
+            const current = state.pitchNotes[lastIndex];
+            state.pitchNotes[lastIndex] = current ? current + "/" + note : note;
         }
 
         function parseNaturalLanguage() {
@@ -2806,6 +2835,9 @@
             if (normalized.includes("死球")) {
                 return { result: "HP", note: normalized, confidence: 0.9, source: "rule" };
             }
+            if (normalized.includes("スリーバント失敗") || normalized.includes("3バント失敗")) {
+                return { result: "K", modifiers: { threeBuntStrikeout: true }, note: normalized, confidence: 0.9, source: "rule" };
+            }
             if (normalized.includes("敬遠")) {
                 return { result: "IB", note: normalized, confidence: 0.9, source: "rule" };
             }
@@ -2817,6 +2849,27 @@
             }
             if (normalized.includes("ボーク")) {
                 return { result: "BK", note: normalized, confidence: 0.85, source: "rule" };
+            }
+            if (normalized.includes("走塁妨害") || normalized.includes("オブストラクション")) {
+                return { result: "OB", note: normalized, confidence: 0.82, source: "rule" };
+            }
+            if (normalized.includes("守備妨害") || normalized.includes("打球が走者に当たる")) {
+                return { result: "x", note: normalized, confidence: 0.82, source: "rule" };
+            }
+            if (normalized.includes("タッグアウト") || normalized.includes("タグアウト")) {
+                return { result: "TO", note: normalized, confidence: 0.82, source: "rule" };
+            }
+            if (normalized.includes("重盗") || normalized.includes("ダブルスチール")) {
+                return { result: "DS", note: normalized, confidence: 0.85, source: "rule" };
+            }
+            if (normalized.includes("三重盗") || normalized.includes("トリプルスチール")) {
+                return { result: "TP", note: normalized, confidence: 0.85, source: "rule" };
+            }
+            if (normalized.includes("盗塁刺") || normalized.includes("盗塁死")) {
+                return { result: "CS", note: normalized, confidence: 0.85, source: "rule" };
+            }
+            if (normalized.includes("盗塁")) {
+                return { result: "S", note: normalized, confidence: 0.85, source: "rule" };
             }
 
             const fielder = dynamicFielder;
@@ -3319,6 +3372,9 @@
             if (modifiers.doublePlay) {
                 labels.push("DP");
             }
+            if (modifiers.threeBuntStrikeout) {
+                labels.push("スリーバント失敗");
+            }
             return labels.length ? labels.join(" / ") : "なし";
         }
 
@@ -3423,6 +3479,9 @@
 
         function applyParsedInput(parsed) {
             resetState();
+            if (parsed.result === "OI") {
+                parsed.result = "x";
+            }
 
             if (parsed.fielder) {
                 state.selectedFielder = parsed.fielder;
@@ -3461,6 +3520,7 @@
                 state.modifiers.sacrificeFly = Boolean(parsed.modifiers.sacrificeFly);
                 state.modifiers.sacrificeBunt = Boolean(parsed.modifiers.sacrificeBunt);
                 state.modifiers.doublePlay = Boolean(parsed.modifiers.doublePlay);
+                state.modifiers.threeBuntStrikeout = Boolean(parsed.modifiers.threeBuntStrikeout);
             }
 
             if (parsed.errorMode) {
@@ -3485,6 +3545,10 @@
                     state.outScore = parsed.outScore || "Ⅰ";
                 } else {
                     state.result = parsed.result;
+                }
+
+                if (["S", "CS", "DS", "TP", "W", "P", "BK", "OB", "IF"].includes(parsed.result)) {
+                    markLastPitchNote(parsed.result);
                 }
             }
 
@@ -3617,6 +3681,10 @@
         }
 
         function setResult(symbol) {
+            if (symbol === "OI") {
+                symbol = "x";
+            }
+
             if (symbol === "G" || symbol === "BH") {
                 if (!state.selectedFielder) {
                     updateDisplay();
@@ -3645,9 +3713,15 @@
             state.errorMode = "none";
             state.baseCover = "none";
             state.fieldSequence = [];
-            if (symbol === "W" || symbol === "P" || symbol === "BK") {
+            if (["S", "CS", "DS", "TP", "W", "P", "BK", "OB", "IF"].includes(symbol)) {
                 markLastPitchNote(symbol);
             }
+            updateDisplay();
+        }
+
+        function setThreeBuntStrikeout() {
+            setResult("K");
+            state.modifiers.threeBuntStrikeout = true;
             updateDisplay();
         }
 
@@ -3657,6 +3731,7 @@
             state.modifiers.sacrificeFly = false;
             state.modifiers.sacrificeBunt = false;
             state.modifiers.doublePlay = false;
+            state.modifiers.threeBuntStrikeout = false;
         }
 
         function toggleModifier(modifier) {
@@ -4125,6 +4200,13 @@
                 const rightX = box.x + box.width + 8;
                 const prefixY = topY - 4;
 
+                if (state.result === "K" && state.modifiers.threeBuntStrikeout) {
+                    decoration.setAttribute(
+                        "d",
+                        "M " + (-halfWidth - 4) + " " + bottomY + " Q 0 " + (bottomY + 7) + " " + (halfWidth + 4) + " " + bottomY
+                    );
+                }
+
                 if (isFielderPlay()) {
                     let prefixText = "";
                     if (state.result === "BH" || state.selectedHitType === "BH") {
@@ -4310,6 +4392,9 @@
             if (state.modifiers.sacrificeBunt) {
                 modifiers.push("犠打");
             }
+            if (state.modifiers.threeBuntStrikeout) {
+                modifiers.push("スリーバント失敗");
+            }
 
             const fieldMarks = [];
             if (state.errorMode !== "none") {
@@ -4456,6 +4541,9 @@
             if (["B", "HP", "IB", "IF"].includes(state.result)) {
                 return "#1565c0";
             }
+            if (state.result === "x") {
+                return "#111";
+            }
             return "#111";
         }
 
@@ -4487,7 +4575,7 @@
 
         function initializeResultOptions() {
             const select = document.getElementById("extraResultSelect");
-            const preferredCodes = ["BIA", "CS", "DS", "GR", "OB", "OI", "PO", "RH", "S", "TB", "TO", "TP"];
+            const preferredCodes = ["BIA", "CS", "DS", "GR", "OB", "OI", "x", "PO", "RH", "S", "TB", "TO", "TP"];
 
             preferredCodes.forEach((code) => {
                 const option = document.createElement("option");
