@@ -1973,6 +1973,13 @@
                 '<path d="' + path + '" fill="none" stroke="' + lineColor + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
             ).join("");
             const isInfieldHit = snapshot.selectedHitType === "G" || snapshot.selectedHitType === "BH";
+            const resultX = isInfieldHit ? 178 : 170;
+            const showLandingDot = Boolean(snapshot.selectedDirection && snapshot.selectedDirection !== "none" && snapshot.selectedDirection !== "?")
+                && (
+                    ["1B", "G", "BH"].includes(snapshot.selectedHitType)
+                    || snapshot.result === snapshot.selectedFielder
+                    || snapshot.result === snapshot.fielder
+                );
             const infieldHitArc = isInfieldHit
                 ? (function () {
                     const radius = 45;
@@ -1984,6 +1991,20 @@
                     const arcEndX = centerX + delta;
                     const arcEndY = centerY - delta;
                     return '<path d="M ' + arcStartX + ' ' + arcStartY + ' A ' + radius + ' ' + radius + ' 0 0 0 ' + arcEndX + ' ' + arcEndY + '" fill="none" stroke="#d14b3a" stroke-width="2"/>';
+                }())
+                : "";
+            const landingDot = showLandingDot
+                ? (function () {
+                    const dotMap = {
+                        up: { x: resultX, y: 134 },
+                        down: { x: resultX, y: 169 },
+                        left: { x: resultX - 16, y: 152 },
+                        right: { x: resultX + 16, y: 152 }
+                    };
+                    const dot = dotMap[snapshot.selectedDirection];
+                    return dot
+                        ? '<circle cx="' + dot.x + '" cy="' + dot.y + '" r="2.5" fill="#c8513f"/>'
+                        : "";
                 }())
                 : "";
 
@@ -2033,7 +2054,6 @@
                     '<rect x="35" y="5" width="180" height="180" fill="url(#sheet-hatch-' + snapshot.battingOrder + '-' + displayedResult.replace(/[^A-Za-z0-9]/g, "") + ')" opacity="0.65"></rect>'
                 ].join("")
                 : "";
-            const resultX = isInfieldHit ? 178 : 170;
 
             return [
                 '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
@@ -2054,8 +2074,9 @@
                 sacrificeFlyTriangle,
                 ballTypeDecoration,
                 prefix,
-                '<text x="' + resultX + '" y="160" text-anchor="middle" font-size="24" font-weight="700" fill="' + resultColor + '">' + displayedResult + '</text>',
                 infieldHitArc,
+                '<text x="' + resultX + '" y="160" text-anchor="middle" font-size="24" font-weight="700" fill="' + resultColor + '">' + displayedResult + '</text>',
+                landingDot,
                 '</svg>'
             ].join("");
         }
@@ -2660,6 +2681,34 @@
             const dynamicRunnerContext = detectRunnerContext(normalized);
             const numberedSingleMatch = normalized.match(/(?:安打|ヒット)([1-9])|([1-9])(?:安打|ヒット)/);
 
+            if (normalized.includes("バントヒット")) {
+                return {
+                    fielder: dynamicFielder,
+                    direction: dynamicDirection === "none" ? "down" : dynamicDirection,
+                    ballType: "ground",
+                    result: "BH",
+                    modifiers: { bunt: true },
+                    runnerContext: dynamicRunnerContext,
+                    note: normalized,
+                    confidence: 0.88,
+                    source: "rule"
+                };
+            }
+
+            if (normalized.includes("内野安打") || normalized.includes("ゴロ安") || normalized.includes("ゴロヒット")) {
+                return {
+                    fielder: dynamicFielder,
+                    direction: dynamicDirection === "none" ? "down" : dynamicDirection,
+                    ballType: "ground",
+                    result: "G",
+                    modifiers: dynamicModifiers,
+                    runnerContext: dynamicRunnerContext,
+                    note: normalized,
+                    confidence: 0.84,
+                    source: "rule"
+                };
+            }
+
             if (numberedSingleMatch) {
                 const numberedFielder = numberedSingleMatch[1] || numberedSingleMatch[2];
                 return {
@@ -2735,34 +2784,6 @@
                         source: "keyword"
                     };
                 }
-            }
-
-            if (normalized.includes("バントヒット")) {
-                return {
-                    fielder: dynamicFielder,
-                    direction: dynamicDirection,
-                    ballType: "ground",
-                    result: "BH",
-                    modifiers: { bunt: true },
-                    runnerContext: dynamicRunnerContext,
-                    note: normalized,
-                    confidence: 0.88,
-                    source: "rule"
-                };
-            }
-
-            if (normalized.includes("内野安打") || normalized.includes("ゴロ安") || normalized.includes("ゴロヒット")) {
-                return {
-                    fielder: dynamicFielder,
-                    direction: dynamicDirection,
-                    ballType: "ground",
-                    result: "G",
-                    modifiers: dynamicModifiers,
-                    runnerContext: dynamicRunnerContext,
-                    note: normalized,
-                    confidence: 0.84,
-                    source: "rule"
-                };
             }
 
             if (normalized.includes("犠飛")) {
