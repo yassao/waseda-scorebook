@@ -577,6 +577,11 @@
             text-align: center;
         }
 
+        .play-part-row input::placeholder {
+            color: #cbd5e1;
+            opacity: 1;
+        }
+
         .play-part-remove {
             min-height: 32px;
             width: 32px;
@@ -1711,6 +1716,9 @@
         function getLatestRunnerBaseStatus(snapshot) {
             const events = getRunnerStatusEvents(snapshot);
             for (let index = events.length - 1; index >= 0; index -= 1) {
+                if (events[index]?.type === "advance") {
+                    return events[index].base + "塁";
+                }
                 if (events[index] === "1塁" || events[index] === "2塁" || events[index] === "3塁") {
                     return events[index];
                 }
@@ -1788,6 +1796,22 @@
         }
 
         function formatRunnerStatusForSheet(text) {
+            if (text?.type === "advance") {
+                if (text.base === 1) {
+                    return "";
+                }
+                return { kind: "advance", base: text.base, label: "(" + (text.by || "?") + ")" };
+            }
+            if (text?.type === "score") {
+                return { kind: "score", label: "●" };
+            }
+            if (text?.type === "out") {
+                return {
+                    kind: "out",
+                    label: text.label || "アウト",
+                    doublePlay: Boolean(text.doublePlay)
+                };
+            }
             if (text === "1塁") {
                 return "";
             }
@@ -1798,7 +1822,10 @@
                 return "(3)";
             }
             if (text === "残塁") {
-                return "ℓ";
+                return { kind: "leftOnBase", label: "ℓ" };
+            }
+            if (text === "生還") {
+                return { kind: "score", label: "●" };
             }
             return text || "";
         }
@@ -1813,28 +1840,62 @@
 
             const uniqueEvents = [];
             events.forEach((event) => {
-                if (!uniqueEvents.includes(event)) {
+                const key = typeof event === "string" ? event : JSON.stringify(event);
+                const exists = uniqueEvents.some((existing) => (typeof existing === "string" ? existing : JSON.stringify(existing)) === key);
+                if (!exists) {
                     uniqueEvents.push(event);
                 }
             });
 
             const parts = [];
-            const hasLeftOnBase = uniqueEvents.includes("ℓ");
+            const hasLeftOnBase = uniqueEvents.some((event) => event?.kind === "leftOnBase");
             if (hasLeftOnBase) {
                 parts.push('<text x="125" y="106" text-anchor="middle" font-size="28" font-weight="700" fill="#111">ℓ</text>');
             }
 
-            uniqueEvents
-                .filter((event) => event !== "ℓ")
-                .forEach((event, index) => {
-                    parts.push(
-                        '<text x="178" y="' + (24 + index * 16) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#111">' +
-                        event +
-                        '</text>'
-                    );
-                });
+            uniqueEvents.forEach((event, index) => {
+                if (event?.kind === "leftOnBase") {
+                    return;
+                }
+                if (event?.kind === "score") {
+                    parts.push('<text x="125" y="106" text-anchor="middle" font-size="24" font-weight="700" fill="#c62828">●</text>');
+                    return;
+                }
+                if (event?.kind === "advance") {
+                    const position = event.base === 3 ? { x: 72, y: 24 } : { x: 178, y: 24 };
+                    parts.push('<text x="' + position.x + '" y="' + position.y + '" text-anchor="middle" font-size="13" font-weight="700" fill="#111">' + event.label + '</text>');
+                    return;
+                }
+                if (event?.kind === "out") {
+                    const outPosition = getRunnerOutNotePosition(event.label);
+                    if (event.doublePlay) {
+                        parts.push('<path d="M 48 66 C 32 74 32 136 48 144" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round"/>');
+                        parts.push('<text x="48" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#111">DP</text>');
+                    }
+                    parts.push('<text x="' + outPosition.x + '" y="' + outPosition.y + '" text-anchor="middle" font-size="13" font-weight="700" fill="#111">' + event.label + '</text>');
+                    return;
+                }
+                parts.push(
+                    '<text x="178" y="' + (24 + index * 16) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#111">' +
+                    event +
+                    '</text>'
+                );
+            });
 
             return parts.join("");
+        }
+
+        function getRunnerOutNotePosition(label) {
+            if (/本塁|ホーム|(?:^|-)2$/.test(label)) {
+                return { x: 72, y: 166 };
+            }
+            if (/三塁|(?:^|-)5$/.test(label)) {
+                return { x: 72, y: 24 };
+            }
+            if (/二塁|(?:^|-)[46]$/.test(label)) {
+                return { x: 178, y: 24 };
+            }
+            return { x: 178, y: 166 };
         }
 
         function markLeftOnBaseRunners(runners) {
@@ -1861,6 +1922,10 @@
             snapshot.outScore = outScore || "Ⅰ";
         }
 
+        function currentBatterNumberForRunnerEvent() {
+            return state.selectedSheetRow + 1;
+        }
+
         function moveRunnerToBase(runners, fromIndex, toIndex) {
             if (!runners[fromIndex]) {
                 return;
@@ -1868,11 +1933,11 @@
             const runnerRef = runners[fromIndex];
             runners[fromIndex] = null;
             if (toIndex >= 3) {
-                setRunnerStatusForRef(runnerRef, "生還");
+                setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent() });
                 return;
             }
             runners[toIndex] = runnerRef;
-            setRunnerStatusForRef(runnerRef, (toIndex + 1) + "塁");
+            setRunnerStatusForRef(runnerRef, { type: "advance", base: toIndex + 1, by: currentBatterNumberForRunnerEvent() });
         }
 
         function scoreRunnerFromBase(runners, baseIndex) {
@@ -1881,7 +1946,7 @@
             }
             const runnerRef = runners[baseIndex];
             runners[baseIndex] = null;
-            setRunnerStatusForRef(runnerRef, "生還");
+            setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent() });
         }
 
         function removeRunnerFromBase(runners, baseIndex, label, outScore) {
@@ -1891,7 +1956,12 @@
             const runnerRef = runners[baseIndex];
             runners[baseIndex] = null;
             markRunnerOutOnSnapshot(runnerRef, outScore);
-            setRunnerStatusForRef(runnerRef, label || "アウト");
+            setRunnerStatusForRef(runnerRef, {
+                type: "out",
+                label: label || "アウト",
+                by: currentBatterNumberForRunnerEvent(),
+                doublePlay: Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]?.modifiers?.doublePlay)
+            });
         }
 
         function resolveDoublePlayRunnerNote(snapshot) {
@@ -1955,6 +2025,12 @@
                 } else if (advance === "打者走者一塁セーフ" && batterRef) {
                     runners[0] = batterRef;
                     setRunnerStatusForRef(batterRef, "1塁");
+                } else if (advance === "打者走者二塁セーフ" && batterRef) {
+                    if (runners[0]?.row === batterRef.row && runners[0]?.col === batterRef.col) {
+                        runners[0] = null;
+                    }
+                    runners[1] = batterRef;
+                    setRunnerStatusForRef(batterRef, { type: "advance", base: 2, by: currentBatterNumberForRunnerEvent() });
                 }
             });
 
@@ -2122,6 +2198,9 @@
 
         function getSnapshotPrefixText(snapshot) {
             const isInfieldHit = snapshot.selectedHitType === "G" || snapshot.selectedHitType === "BH";
+            if (snapshot.modifiers?.doublePlay) {
+                return "DP";
+            }
             if (isInfieldHit && snapshot.selectedHitType === "BH") {
                 return "BH";
             }
@@ -2946,14 +3025,17 @@
                     case "error_onbase":
                         parsed.result = parsed.result || "Fc";
                         parsed.errorMode = parsed.errorMode || "fielder";
+                        parsed.runnerContext.advances.push("一走→二塁");
                         parsed.runnerContext.advances.push("打者走者一塁セーフ");
                         break;
                     case "fc_onbase":
                         parsed.result = parsed.result || "Fc";
+                        parsed.runnerContext.advances.push("一走→二塁");
                         parsed.runnerContext.advances.push("打者走者一塁セーフ");
                         break;
                     case "dropped_third":
                         parsed.result = parsed.result || "K";
+                        parsed.runnerContext.advances.push("一走→二塁");
                         parsed.runnerContext.advances.push("打者走者一塁セーフ");
                         break;
                     case "ground_out":
@@ -3028,6 +3110,7 @@
                     case "error_advance":
                     case "throwing_error":
                         parsed.errorMode = parsed.errorMode || "thrower";
+                        parsed.runnerContext.advances.push("打者走者二塁セーフ");
                         break;
                     case "wild_pitch":
                         parsed.result = parsed.result || "W";
@@ -3048,6 +3131,11 @@
 
             if (parsed.result === "OUT" && !parsed.outScore) {
                 parsed.outScore = "Ⅰ";
+            }
+            if (parsed.result === "1B" && /^[1-6]$/.test(parsed.fielder || "")) {
+                parsed.result = "G";
+                parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
+                parsed.direction = parsed.direction === "?" ? "down" : parsed.direction;
             }
             if (!parsed.result && parsed.runnerContext.advances.length) {
                 parsed.result = "S";
@@ -3232,11 +3320,12 @@
 
             if (numberedSingleMatch) {
                 const numberedFielder = numberedSingleMatch[1] || numberedSingleMatch[2];
+                const isInfieldFielder = /^[1-6]$/.test(numberedFielder);
                 return {
                     fielder: numberedFielder,
                     direction: "down",
-                    ballType: "none",
-                    result: "1B",
+                    ballType: isInfieldFielder ? "ground" : "none",
+                    result: isInfieldFielder ? "G" : "1B",
                     modifiers: dynamicModifiers,
                     runnerContext: dynamicRunnerContext,
                     note: normalized,
