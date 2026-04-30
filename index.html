@@ -597,6 +597,54 @@
             color: var(--muted);
         }
 
+        .runner-gui {
+            display: grid;
+            gap: 8px;
+            padding: 10px;
+            border: 1px solid #d8e1e8;
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .runner-gui-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 800;
+            color: #334155;
+        }
+
+        .runner-gui-controls {
+            display: grid;
+            grid-template-columns: minmax(86px, 1fr) repeat(4, minmax(48px, 0.74fr));
+            gap: 6px;
+        }
+
+        .runner-gui select,
+        .runner-gui button {
+            min-width: 0;
+            min-height: 32px;
+            padding: 6px 8px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .runner-gui button {
+            cursor: pointer;
+        }
+
+        .runner-gui-status {
+            min-height: 18px;
+            font-size: 11px;
+            line-height: 1.45;
+            color: var(--muted);
+        }
+
         .nl-actions {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -916,8 +964,28 @@
                         </div>
                         <div id="playParts" class="play-parts"></div>
                         <div class="play-builder-note">
-                            出塁・進塁・走塁アウトなどを同列に追加できます。1ヒット1エラーは「出塁: 安打」＋「補助: 失策進塁」で入力します。
+                            出塁・進塁・走塁アウトなどを同列に追加できます。1ヒット1エラーは「出塁: 安打」＋「補助: 送球エラー進塁」などで入力します。
                         </div>
+                    </div>
+                    <div class="runner-gui">
+                        <div class="runner-gui-title">
+                            <span>走者GUI</span>
+                            <span>現在セルへ追記</span>
+                        </div>
+                        <div class="runner-gui-controls">
+                            <select id="runnerGuiSource" aria-label="対象走者">
+                                <option value="batter">打者走者</option>
+                                <option value="r1">一走</option>
+                                <option value="r2">二走</option>
+                                <option value="r3">三走</option>
+                            </select>
+                            <button onclick="applyRunnerGuiAction('1')">1塁</button>
+                            <button onclick="applyRunnerGuiAction('2')">2塁</button>
+                            <button onclick="applyRunnerGuiAction('3')">3塁</button>
+                            <button onclick="applyRunnerGuiAction('score')">生還</button>
+                            <button onclick="applyRunnerGuiAction('out')">アウト</button>
+                        </div>
+                        <div id="runnerGuiStatus" class="runner-gui-status">打撃結果のあと、走者の到達先だけをここで補正できます。</div>
                     </div>
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
                     <div class="nl-actions compact">
@@ -1333,9 +1401,9 @@
                     { value: "hit_hr", label: "本塁打" },
                     { value: "walk", label: "四球" },
                     { value: "hbp", label: "死球" },
-                    { value: "fielding_error_onbase", label: "打球処理ミス出塁" },
-                    { value: "throw_error_onbase", label: "送球ミス出塁" },
-                    { value: "receive_error_onbase", label: "捕球ミス出塁" },
+                    { value: "fielding_error_onbase", label: "打球処理エラー" },
+                    { value: "throw_error_onbase", label: "送球エラー" },
+                    { value: "receive_error_onbase", label: "捕球エラー" },
                     { value: "fc_onbase", label: "野選出塁" },
                     { value: "dropped_third", label: "振り逃げ" }
                 ]
@@ -1380,8 +1448,8 @@
             support: {
                 label: "補助",
                 options: [
-                    { value: "error_advance", label: "捕球失策進塁（打者二塁）" },
-                    { value: "throwing_error", label: "送球失策進塁（打者二塁）" },
+                    { value: "error_advance", label: "捕球エラー進塁（打者二塁）" },
+                    { value: "throwing_error", label: "送球エラー進塁（打者二塁）" },
                     { value: "wild_pitch", label: "暴投" },
                     { value: "passed_ball", label: "捕逸" },
                     { value: "balk", label: "ボーク" },
@@ -2046,11 +2114,24 @@
                         by: currentBatterNumberForRunnerEvent(),
                         label: advanceLabel || null
                     });
+                } else if (advance === "打者走者三塁セーフ" && batterRef) {
+                    runners[0] = null;
+                    runners[1] = null;
+                    runners[2] = batterRef;
+                    setRunnerStatusForRef(batterRef, { type: "advance", base: 3, by: currentBatterNumberForRunnerEvent() });
+                } else if (advance === "打者走者生還" && batterRef) {
+                    runners[0] = null;
+                    runners[1] = null;
+                    runners[2] = null;
+                    setRunnerStatusForRef(batterRef, { type: "score", by: currentBatterNumberForRunnerEvent() });
                 }
             });
 
             (context.outsOnBases || []).forEach((outLabel) => {
-                if (outLabel === "二盗死" || outLabel === "二塁封殺") {
+                if (outLabel === "一塁封殺" && batterRef) {
+                    markRunnerOutOnSnapshot(batterRef, "Ⅰ");
+                    setRunnerStatusForRef(batterRef, { type: "out", label: outLabel, by: currentBatterNumberForRunnerEvent() });
+                } else if (outLabel === "二盗死" || outLabel === "二塁封殺") {
                     removeRunnerFromBase(runners, 0, outLabel);
                 } else if (outLabel === "三盗死" || outLabel === "三塁封殺") {
                     removeRunnerFromBase(runners, 1, outLabel);
@@ -2902,10 +2983,10 @@
                 '<select class="play-part-content" onchange="applyPlayParts()">',
                 createPlayPartContentOptions(category, value),
                 '</select>',
-                '<select class="play-part-fielder" onchange="applyPlayParts()" aria-label="捕球者">',
+                '<select class="play-part-fielder" onchange="applyPlayParts()" aria-label="野手1">',
                 createPlayPartFielderOptions(),
                 '</select>',
-                '<select class="play-part-receiver" onchange="applyPlayParts()" aria-label="受け手">',
+                '<select class="play-part-receiver" onchange="applyPlayParts()" aria-label="野手2">',
                 createPlayPartReceiverOptions(),
                 '</select>',
                 '<input class="play-part-sequence" type="text" inputmode="numeric" placeholder="6-4-3" oninput="applyPlayParts()" aria-label="送球順">',
@@ -2916,7 +2997,7 @@
 
         function createPlayPartFielderOptions(selectedValue = "") {
             const options = [
-                ["", "捕球"],
+                ["", "野手1"],
                 ["?", "?"],
                 ["1", "1"],
                 ["2", "2"],
@@ -2935,7 +3016,7 @@
 
         function createPlayPartReceiverOptions(selectedValue = "") {
             const options = [
-                ["", "受け手"],
+                ["", "野手2"],
                 ["?", "?"],
                 ["1", "1"],
                 ["2", "2"],
@@ -2994,6 +3075,105 @@
                 scores: 0,
                 outsOnBases: []
             };
+        }
+
+        function ensureCurrentRunnerContext() {
+            if (!state.runnerContext) {
+                state.runnerContext = createEmptyRunnerContext();
+            }
+            if (!Array.isArray(state.runnerContext.advances)) {
+                state.runnerContext.advances = [];
+            }
+            if (!Array.isArray(state.runnerContext.outsOnBases)) {
+                state.runnerContext.outsOnBases = [];
+            }
+            return state.runnerContext;
+        }
+
+        function compactRunnerContext(context) {
+            if (!context) {
+                return null;
+            }
+            const hasContext = context.occupancy
+                || context.outCountText
+                || context.advances.length > 0
+                || context.scores > 0
+                || context.outsOnBases.length > 0;
+            return hasContext ? context : null;
+        }
+
+        function addUniqueContextEntry(list, value) {
+            if (!value || list.includes(value)) {
+                return;
+            }
+            list.push(value);
+        }
+
+        function applyRunnerGuiAction(action) {
+            const source = document.getElementById("runnerGuiSource")?.value || "batter";
+            const context = ensureCurrentRunnerContext();
+            const labels = {
+                batter: "打者走者",
+                r1: "一走",
+                r2: "二走",
+                r3: "三走"
+            };
+
+            let entry = "";
+            if (action === "out") {
+                const outLabels = {
+                    batter: "一塁封殺",
+                    r1: "二塁封殺",
+                    r2: "三塁封殺",
+                    r3: "本塁封殺"
+                };
+                addUniqueContextEntry(context.outsOnBases, outLabels[source]);
+                entry = labels[source] + "アウト";
+            } else if (source === "batter") {
+                const batterAdvance = {
+                    "1": "打者走者一塁セーフ",
+                    "2": "打者走者二塁セーフ",
+                    "3": "打者走者三塁セーフ",
+                    score: "打者走者生還"
+                };
+                addUniqueContextEntry(context.advances, batterAdvance[action]);
+                entry = labels[source] + "→" + (action === "score" ? "本塁" : action + "塁");
+            } else {
+                const runnerAdvance = {
+                    r1: { "2": "一走→二塁", "3": "一走→三塁", score: "一走生還" },
+                    r2: { "3": "二走→三塁", score: "二走生還" },
+                    r3: { score: "三走生還" }
+                };
+                if (runnerAdvance[source]?.[action]) {
+                    addUniqueContextEntry(context.advances, runnerAdvance[source][action]);
+                    entry = labels[source] + "→" + (action === "score" ? "本塁" : action + "塁");
+                }
+            }
+
+            state.runnerContext = compactRunnerContext(context);
+            state.runnerContextText = formatRunnerContext(state.runnerContext);
+            if (state.parsedInput) {
+                state.parsedInput.runnerContext = deepClone(state.runnerContext);
+            }
+            updateDisplay();
+            syncPreviewFromCurrentState("走者GUI");
+            updateRunnerGuiStatus(entry || "その進塁はまだ対象外です");
+        }
+
+        function updateRunnerGuiStatus(message) {
+            const status = document.getElementById("runnerGuiStatus");
+            if (!status) {
+                return;
+            }
+            if (message) {
+                status.textContent = message.includes("対象外")
+                    ? message
+                    : message + " を追記しました。";
+                return;
+            }
+            status.textContent = state.runnerContextText && state.runnerContextText !== "なし"
+                ? "追記済み: " + state.runnerContextText
+                : "打撃結果のあと、走者の到達先だけをここで補正できます。";
         }
 
         function parsePlayPartSequence(text) {
@@ -3299,10 +3479,10 @@
                     mainText = fielderPhrase + labels.join(" + ");
                 } else if (parsed.result === "Fc" && parsed.errorMode) {
                     const errorPhrase = parsed.errorMode === "thrower"
-                        ? "送球ミス出塁"
+                        ? "送球エラー"
                         : parsed.errorMode === "receiver"
-                            ? "捕球ミス出塁"
-                            : "打球処理ミス出塁";
+                            ? "捕球エラー"
+                            : "打球処理エラー";
                     mainText = fielderPhrase + errorPhrase;
                 }
             }
@@ -3384,7 +3564,8 @@
                 "補助: " + formatParsedModifiers({
                     modifiers: state.modifiers,
                     ballType: state.selectedBallType
-                })
+                }),
+                "走者状況: " + (state.runnerContextText || "なし")
             ];
             document.getElementById("naturalLanguagePreview").innerHTML = lines.join("<br>");
         }
@@ -5364,6 +5545,7 @@
             updateInningEndSlash();
             updateStatusText();
             updateSummaryCard();
+            updateRunnerGuiStatus();
 
             requestAnimationFrame(updateResultDecoration);
         }
