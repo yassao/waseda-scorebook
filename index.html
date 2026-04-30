@@ -541,6 +541,62 @@
             color: #475569;
         }
 
+        .play-builder {
+            display: grid;
+            gap: 8px;
+            padding: 10px;
+            border: 1px solid #d8e1e8;
+            border-radius: 12px;
+            background: #f8fafb;
+        }
+
+        .play-builder-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #334155;
+        }
+
+        .play-parts {
+            display: grid;
+            gap: 6px;
+        }
+
+        .play-part-row {
+            display: grid;
+            grid-template-columns: minmax(88px, 0.8fr) minmax(120px, 1.2fr) auto;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .play-part-row select {
+            min-width: 0;
+            padding: 8px 9px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .play-part-remove {
+            min-height: 32px;
+            width: 32px;
+            padding: 0;
+            border-radius: 10px;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .play-builder-note {
+            font-size: 11px;
+            line-height: 1.45;
+            color: var(--muted);
+        }
+
         .nl-actions {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -844,6 +900,16 @@
 
             <section class="nl-quick-panel">
                 <div class="nl-panel is-compact">
+                    <div class="play-builder">
+                        <div class="play-builder-title">
+                            <span>プレー部品</span>
+                            <button class="small-btn" onclick="addPlayPartRow()">＋</button>
+                        </div>
+                        <div id="playParts" class="play-parts"></div>
+                        <div class="play-builder-note">
+                            出塁・進塁・走塁アウトなどを同列に追加できます。進塁だけのプレーは、下のシートで対象走者のセルを選んでから入力します。
+                        </div>
+                    </div>
                     <select id="quickPhraseSelect" class="quick-phrase-select" onchange="applyQuickPhrase()">
                         <option value="">典型例を選択</option>
                         <option value="安打">安打</option>
@@ -1255,6 +1321,71 @@
             "TO": "タッチアウト（tag out）",
             "TP": "トリプルスチール（triple steal）",
             "W": "ワイルドピッチ（wild pitch）"
+        };
+
+        const PLAY_PART_OPTIONS = {
+            onBase: {
+                label: "出塁",
+                options: [
+                    { value: "hit_1b", label: "安打" },
+                    { value: "hit_2b", label: "二塁打" },
+                    { value: "hit_3b", label: "三塁打" },
+                    { value: "hit_hr", label: "本塁打" },
+                    { value: "walk", label: "四球" },
+                    { value: "hbp", label: "死球" },
+                    { value: "error_onbase", label: "失策出塁" },
+                    { value: "fc_onbase", label: "野選出塁" },
+                    { value: "dropped_third", label: "振り逃げ" }
+                ]
+            },
+            out: {
+                label: "アウト",
+                options: [
+                    { value: "ground_out", label: "ゴロアウト" },
+                    { value: "fly_out", label: "フライアウト" },
+                    { value: "liner_out", label: "ライナーアウト" },
+                    { value: "strikeout", label: "三振" },
+                    { value: "sac_bunt", label: "犠打" },
+                    { value: "sac_fly", label: "犠飛" },
+                    { value: "double_play", label: "併殺" }
+                ]
+            },
+            advance: {
+                label: "進塁",
+                options: [
+                    { value: "r1_to_2", label: "一走→二塁" },
+                    { value: "r1_to_3", label: "一走→三塁" },
+                    { value: "r1_score", label: "一走生還" },
+                    { value: "r2_to_3", label: "二走→三塁" },
+                    { value: "r2_score", label: "二走生還" },
+                    { value: "r3_score", label: "三走生還" },
+                    { value: "wp_advance", label: "暴投進塁" },
+                    { value: "pb_advance", label: "捕逸進塁" },
+                    { value: "balk_advance", label: "ボーク進塁" }
+                ]
+            },
+            runnerOut: {
+                label: "走塁アウト",
+                options: [
+                    { value: "force_2", label: "二塁封殺" },
+                    { value: "force_3", label: "三塁封殺" },
+                    { value: "home_out", label: "本塁アウト" },
+                    { value: "caught_stealing", label: "盗塁死" },
+                    { value: "pickoff", label: "牽制死" },
+                    { value: "tag_out", label: "タッチアウト" }
+                ]
+            },
+            support: {
+                label: "補助",
+                options: [
+                    { value: "error_advance", label: "失策進塁" },
+                    { value: "throwing_error", label: "悪送球" },
+                    { value: "wild_pitch", label: "暴投" },
+                    { value: "passed_ball", label: "捕逸" },
+                    { value: "balk", label: "ボーク" },
+                    { value: "fielder_choice", label: "野選" }
+                ]
+            }
         };
 
         const naturalLanguageFielderMap = [
@@ -2650,6 +2781,267 @@
             }, 140);
         }
 
+        function createPlayPartCategoryOptions(selectedValue = "") {
+            return [
+                '<option value="">分類</option>',
+                ...Object.entries(PLAY_PART_OPTIONS).map(([value, config]) =>
+                    '<option value="' + value + '"' + (value === selectedValue ? " selected" : "") + '>' + config.label + '</option>'
+                )
+            ].join("");
+        }
+
+        function createPlayPartContentOptions(category, selectedValue = "") {
+            const config = PLAY_PART_OPTIONS[category];
+            if (!config) {
+                return '<option value="">内容</option>';
+            }
+            return [
+                '<option value="">内容</option>',
+                ...config.options.map((option) =>
+                    '<option value="' + option.value + '"' + (option.value === selectedValue ? " selected" : "") + '>' + option.label + '</option>'
+                )
+            ].join("");
+        }
+
+        function addPlayPartRow(category = "", value = "") {
+            const container = document.getElementById("playParts");
+            const row = document.createElement("div");
+            row.className = "play-part-row";
+            row.innerHTML = [
+                '<select class="play-part-category" onchange="updatePlayPartContent(this)">',
+                createPlayPartCategoryOptions(category),
+                '</select>',
+                '<select class="play-part-content" onchange="applyPlayParts()">',
+                createPlayPartContentOptions(category, value),
+                '</select>',
+                '<button class="play-part-remove" onclick="removePlayPartRow(this)" aria-label="プレー部品を削除">−</button>'
+            ].join("");
+            container.appendChild(row);
+        }
+
+        function removePlayPartRow(button) {
+            const row = button.closest(".play-part-row");
+            if (row) {
+                row.remove();
+            }
+            if (!document.querySelector("#playParts .play-part-row")) {
+                addPlayPartRow();
+            }
+            applyPlayParts();
+        }
+
+        function updatePlayPartContent(select) {
+            const row = select.closest(".play-part-row");
+            const content = row.querySelector(".play-part-content");
+            content.innerHTML = createPlayPartContentOptions(select.value);
+            applyPlayParts();
+        }
+
+        function getPlayPartRows() {
+            return Array.from(document.querySelectorAll("#playParts .play-part-row"))
+                .map((row) => {
+                    const category = row.querySelector(".play-part-category").value;
+                    const value = row.querySelector(".play-part-content").value;
+                    const option = PLAY_PART_OPTIONS[category]?.options.find((entry) => entry.value === value);
+                    return category && value && option
+                        ? { category, value, label: option.label }
+                        : null;
+                })
+                .filter(Boolean);
+        }
+
+        function createEmptyRunnerContext() {
+            return {
+                occupancy: "",
+                outCountText: "",
+                advances: [],
+                scores: 0,
+                outsOnBases: []
+            };
+        }
+
+        function buildParsedInputFromPlayParts(parts) {
+            if (!parts.length) {
+                return null;
+            }
+
+            const parsed = {
+                fielder: "?",
+                direction: "?",
+                ballType: "none",
+                result: "",
+                modifiers: {},
+                runnerContext: createEmptyRunnerContext(),
+                note: parts.map((part) => part.label).join(" + "),
+                confidence: 0.86,
+                source: "play-parts"
+            };
+
+            parts.forEach((part) => {
+                switch (part.value) {
+                    case "hit_1b":
+                        parsed.result = parsed.result || "1B";
+                        break;
+                    case "hit_2b":
+                        parsed.result = parsed.result || "2B";
+                        break;
+                    case "hit_3b":
+                        parsed.result = parsed.result || "3B";
+                        break;
+                    case "hit_hr":
+                        parsed.result = parsed.result || "HR";
+                        break;
+                    case "walk":
+                        parsed.result = parsed.result || "B";
+                        break;
+                    case "hbp":
+                        parsed.result = parsed.result || "HP";
+                        break;
+                    case "error_onbase":
+                        parsed.result = parsed.result || "Fc";
+                        parsed.errorMode = parsed.errorMode || "fielder";
+                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        break;
+                    case "fc_onbase":
+                        parsed.result = parsed.result || "Fc";
+                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        break;
+                    case "dropped_third":
+                        parsed.result = parsed.result || "K";
+                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        break;
+                    case "ground_out":
+                        parsed.result = parsed.result || "OUT";
+                        parsed.ballType = "ground";
+                        break;
+                    case "fly_out":
+                        parsed.result = parsed.result || "OUT";
+                        parsed.ballType = "fly";
+                        break;
+                    case "liner_out":
+                        parsed.result = parsed.result || "OUT";
+                        parsed.ballType = "liner";
+                        break;
+                    case "strikeout":
+                        parsed.result = parsed.result || "K";
+                        break;
+                    case "sac_bunt":
+                        parsed.result = parsed.result || "OUT";
+                        parsed.ballType = "ground";
+                        parsed.modifiers.sacrificeBunt = true;
+                        break;
+                    case "sac_fly":
+                        parsed.result = parsed.result || "OUT";
+                        parsed.ballType = "fly";
+                        parsed.modifiers.sacrificeFly = true;
+                        break;
+                    case "double_play":
+                        parsed.result = parsed.result || "OUT";
+                        parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
+                        parsed.modifiers.doublePlay = true;
+                        parsed.outScore = "Ⅱ";
+                        break;
+                    case "r1_to_2":
+                    case "wp_advance":
+                    case "pb_advance":
+                    case "balk_advance":
+                        parsed.runnerContext.advances.push("一走→二塁");
+                        break;
+                    case "r1_to_3":
+                        parsed.runnerContext.advances.push("一走→三塁");
+                        break;
+                    case "r1_score":
+                        parsed.runnerContext.advances.push("一走生還");
+                        break;
+                    case "r2_to_3":
+                        parsed.runnerContext.advances.push("二走→三塁");
+                        break;
+                    case "r2_score":
+                        parsed.runnerContext.advances.push("二走生還");
+                        break;
+                    case "r3_score":
+                        parsed.runnerContext.advances.push("三走生還");
+                        break;
+                    case "force_2":
+                    case "caught_stealing":
+                        parsed.runnerContext.outsOnBases.push("二塁封殺");
+                        break;
+                    case "force_3":
+                        parsed.runnerContext.outsOnBases.push("三塁封殺");
+                        break;
+                    case "home_out":
+                        parsed.runnerContext.outsOnBases.push("本塁封殺");
+                        break;
+                    case "pickoff":
+                        parsed.result = parsed.result || "PO";
+                        parsed.runnerContext.outsOnBases.push("二塁封殺");
+                        break;
+                    case "tag_out":
+                        parsed.result = parsed.result || "TO";
+                        break;
+                    case "error_advance":
+                    case "throwing_error":
+                        parsed.errorMode = parsed.errorMode || "thrower";
+                        break;
+                    case "wild_pitch":
+                        parsed.result = parsed.result || "W";
+                        break;
+                    case "passed_ball":
+                        parsed.result = parsed.result || "P";
+                        break;
+                    case "balk":
+                        parsed.result = parsed.result || "BK";
+                        break;
+                    case "fielder_choice":
+                        parsed.result = parsed.result || "Fc";
+                        break;
+                    default:
+                        break;
+                }
+            });
+
+            if (parsed.result === "OUT" && !parsed.outScore) {
+                parsed.outScore = "Ⅰ";
+            }
+            if (!parsed.result && parsed.runnerContext.advances.length) {
+                parsed.result = "S";
+            }
+            if (
+                !parsed.runnerContext.occupancy
+                && !parsed.runnerContext.outCountText
+                && parsed.runnerContext.advances.length === 0
+                && parsed.runnerContext.scores === 0
+                && parsed.runnerContext.outsOnBases.length === 0
+            ) {
+                parsed.runnerContext = null;
+            }
+            return parsed.result ? parsed : null;
+        }
+
+        function applyPlayParts() {
+            const parts = getPlayPartRows();
+            const parsed = buildParsedInputFromPlayParts(parts);
+            if (!parsed) {
+                return;
+            }
+
+            const input = document.getElementById("naturalLanguageInput");
+            input.value = parsed.note;
+            state.parsedInput = parsed;
+            applyParsedInput(parsed);
+            syncCorrectionControls(parsed);
+            syncPreviewFromParsed(parsed, "部品入力");
+        }
+
+        function resetPlayParts() {
+            const container = document.getElementById("playParts");
+            if (!container) {
+                return;
+            }
+            container.innerHTML = "";
+            addPlayPartRow();
+        }
+
         function syncPreviewFromCurrentState(label) {
             const resultLabelMap = {
                 K: "三振",
@@ -2712,6 +3104,7 @@
             state.parsedInput = null;
             syncCorrectionControls(null);
             toggleCorrectionEditor(false);
+            resetPlayParts();
         }
 
         function applyQuickPhrase() {
@@ -3651,7 +4044,7 @@
                     state.result = state.selectedFielder || parsed.fielder || "";
                     state.outScore = parsed.outScore || "Ⅰ";
                 } else if (parsed.result === "Fc") {
-                    state.result = "Fc";
+                    state.result = parsed.errorMode && state.selectedFielder ? state.selectedFielder : "Fc";
                 } else if (parsed.result === "K") {
                     state.result = "K";
                     state.outScore = parsed.outScore || "Ⅰ";
@@ -4702,6 +5095,7 @@
         state.scoreSheet = createEmptyScoreSheet();
         state.baseRunners = [null, null, null];
         initializeResultOptions();
+        resetPlayParts();
         updateSheetZoom();
         initializeSheetPinchZoom();
         document.getElementById("naturalLanguageInput").addEventListener("input", scheduleNaturalLanguageParse);
