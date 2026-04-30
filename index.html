@@ -859,6 +859,7 @@
                     <line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>
                     <line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>
 
+                    <g id="runnerNotesDisplay"></g>
                     <g id="pitchCountDisplay"></g>
 
                     <text id="outCountDisplay" x="125" y="106" text-anchor="middle" font-size="32" font-weight="700" fill="#222"></text>
@@ -1377,8 +1378,8 @@
             support: {
                 label: "補助",
                 options: [
-                    { value: "error_advance", label: "失策進塁（打者二塁）" },
-                    { value: "throwing_error", label: "悪送球" },
+                    { value: "error_advance", label: "捕球失策進塁（打者二塁）" },
+                    { value: "throwing_error", label: "送球失策進塁（打者二塁）" },
                     { value: "wild_pitch", label: "暴投" },
                     { value: "passed_ball", label: "捕逸" },
                     { value: "balk", label: "ボーク" },
@@ -3007,6 +3008,19 @@
             return "E";
         }
 
+        function buildThrowerErrorLabel(fielder, sequence) {
+            const resolvedSequence = buildDefaultFirstBaseSequence(fielder, sequence);
+            if (resolvedSequence.length >= 2) {
+                const thrower = resolvedSequence[resolvedSequence.length - 2] + "E";
+                const receiver = resolvedSequence[resolvedSequence.length - 1];
+                return resolvedSequence.slice(0, -2).concat([thrower, receiver]).join("-");
+            }
+            if (resolvedSequence.length === 1) {
+                return resolvedSequence[0] + "E";
+            }
+            return "E";
+        }
+
         function buildParsedInputFromPlayParts(parts) {
             if (!parts.length) {
                 return null;
@@ -3141,9 +3155,13 @@
                         parsed.result = parsed.result || "TO";
                         break;
                     case "error_advance":
-                    case "throwing_error":
                         parsed.runnerContext.advances.push(
                             "打者走者二塁セーフ:" + buildReceiverErrorLabel(parsed.fielder, parsed.fieldSequence)
+                        );
+                        break;
+                    case "throwing_error":
+                        parsed.runnerContext.advances.push(
+                            "打者走者二塁セーフ:" + buildThrowerErrorLabel(parsed.fielder, parsed.fieldSequence)
                         );
                         break;
                     case "wild_pitch":
@@ -4701,6 +4719,45 @@
             }
         }
 
+        function getCurrentPreviewRunnerNotes() {
+            const notes = [];
+            const advances = state.runnerContext?.advances || [];
+            advances.forEach((advance) => {
+                if (typeof advance === "string" && advance.startsWith("打者走者二塁セーフ:")) {
+                    notes.push({
+                        kind: "advance",
+                        base: 2,
+                        label: advance.split(":").slice(1).join(":").trim()
+                    });
+                }
+            });
+            return notes;
+        }
+
+        function updateRunnerNotesDisplay() {
+            const notesDisplay = document.getElementById("runnerNotesDisplay");
+            if (!notesDisplay) {
+                return;
+            }
+            notesDisplay.innerHTML = "";
+
+            getCurrentPreviewRunnerNotes().forEach((note) => {
+                if (!note.label) {
+                    return;
+                }
+                const position = note.base === 3 ? { x: 72, y: 24 } : { x: 178, y: 24 };
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", String(position.x));
+                text.setAttribute("y", String(position.y));
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("font-size", "13");
+                text.setAttribute("font-weight", "700");
+                text.setAttribute("fill", "#111");
+                text.textContent = note.label;
+                notesDisplay.appendChild(text);
+            });
+        }
+
         function getPitchMarkSvgMarkup(pitch, x, y, scale, note) {
             const pieces = [];
             const actualScale = scale || 1;
@@ -5235,6 +5292,7 @@
 
         function updateDisplay() {
             updatePitchDisplay();
+            updateRunnerNotesDisplay();
 
             const outDisplay = document.getElementById("outCountDisplay");
             outDisplay.textContent = state.outScore;
