@@ -2887,7 +2887,7 @@
                 '<select class="play-part-content" onchange="applyPlayParts()">',
                 createPlayPartContentOptions(category, value),
                 '</select>',
-                '<select class="play-part-fielder" onchange="applyPlayParts()" aria-label="守備位置または打球方向">',
+                '<select class="play-part-fielder" onchange="applyPlayParts()" aria-label="捕球者">',
                 createPlayPartFielderOptions(),
                 '</select>',
                 '<input class="play-part-sequence" type="text" inputmode="numeric" placeholder="6-4-3" oninput="applyPlayParts()" aria-label="送球順">',
@@ -2898,7 +2898,7 @@
 
         function createPlayPartFielderOptions(selectedValue = "") {
             const options = [
-                ["", "守"],
+                ["", "捕球"],
                 ["?", "?"],
                 ["1", "1"],
                 ["2", "2"],
@@ -3155,6 +3155,65 @@
             return parsed.result ? parsed : null;
         }
 
+        function getPlayPartFielderPhrase(parsed) {
+            const fielder = parsed?.fielder;
+            if (!fielder || fielder === "?") {
+                return "";
+            }
+            const shortNames = {
+                "1": "ピッチャー",
+                "2": "キャッチャー",
+                "3": "ファースト",
+                "4": "セカンド",
+                "5": "サード",
+                "6": "ショート",
+                "7": "レフト",
+                "8": "センター",
+                "9": "ライト"
+            };
+            return shortNames[fielder] || "";
+        }
+
+        function buildNaturalTextFromPlayParts(parts, parsed) {
+            const fielderPhrase = getPlayPartFielderPhrase(parsed);
+            const labels = parts.map((part) => part.label);
+            let mainText = labels.join(" + ");
+
+            if (fielderPhrase) {
+                if (parsed.result === "G") {
+                    mainText = fielderPhrase + "内野安打";
+                } else if (parsed.result === "1B") {
+                    mainText = fielderPhrase + "前安打";
+                } else if (parsed.result === "2B") {
+                    mainText = fielderPhrase + "二塁打";
+                } else if (parsed.result === "3B") {
+                    mainText = fielderPhrase + "三塁打";
+                } else if (parsed.result === "HR") {
+                    mainText = fielderPhrase + "本塁打";
+                } else if (parsed.result === "OUT" && parsed.ballType !== "none") {
+                    mainText = fielderPhrase + labels.join(" + ");
+                } else if (parsed.result === "Fc" && parsed.errorMode) {
+                    mainText = fielderPhrase + "失策出塁";
+                }
+            }
+
+            const advanceText = [];
+            const context = parsed.runnerContext;
+            if (context?.advances?.includes("打者走者二塁セーフ")) {
+                advanceText.push("失策進塁で二塁");
+            }
+            if (context?.advances?.includes("一走→二塁")) {
+                advanceText.push("一走二塁");
+            }
+            if (context?.advances?.includes("一走→三塁")) {
+                advanceText.push("一走三塁");
+            }
+            if (context?.advances?.includes("一走生還")) {
+                advanceText.push("一走生還");
+            }
+            return [mainText, ...advanceText].filter(Boolean).join(" / ");
+        }
+
         function applyPlayParts() {
             const parts = getPlayPartRows();
             const parsed = buildParsedInputFromPlayParts(parts);
@@ -3163,7 +3222,7 @@
             }
 
             const input = document.getElementById("naturalLanguageInput");
-            input.value = parsed.note;
+            input.value = buildNaturalTextFromPlayParts(parts, parsed);
             state.parsedInput = parsed;
             applyParsedInput(parsed);
             syncCorrectionControls(parsed);
