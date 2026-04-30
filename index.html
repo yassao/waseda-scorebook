@@ -518,27 +518,16 @@
 
         .nl-input {
             width: 100%;
-            min-height: 0;
-            height: 100px;
+            min-height: 92px;
+            height: 92px;
             padding: 10px 12px;
             border: 2px solid var(--border);
             border-radius: 12px;
             font: inherit;
-            font-size: 16px;
+            font-size: 18px;
+            line-height: 1.45;
             resize: none;
             background: #fff;
-            flex: 1;
-        }
-
-        .quick-phrase-select {
-            width: 100%;
-            padding: 10px 12px;
-            border: 2px solid var(--border);
-            border-radius: 12px;
-            background: #fff;
-            font-size: 12px;
-            font-weight: 600;
-            color: #475569;
         }
 
         .play-builder {
@@ -567,12 +556,13 @@
 
         .play-part-row {
             display: grid;
-            grid-template-columns: minmax(88px, 0.8fr) minmax(120px, 1.2fr) auto;
+            grid-template-columns: minmax(68px, 0.78fr) minmax(94px, 1.08fr) minmax(56px, 0.58fr) minmax(74px, 0.74fr) auto;
             gap: 6px;
             align-items: center;
         }
 
-        .play-part-row select {
+        .play-part-row select,
+        .play-part-row input {
             min-width: 0;
             padding: 8px 9px;
             border: 2px solid var(--border);
@@ -580,6 +570,11 @@
             background: #fff;
             font-size: 12px;
             font-weight: 600;
+        }
+
+        .play-part-row input {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            text-align: center;
         }
 
         .play-part-remove {
@@ -630,6 +625,14 @@
         .nl-preview.compact {
             min-height: 48px;
             font-size: 12px;
+        }
+
+        .nl-preview-details {
+            display: none;
+        }
+
+        .nl-preview-details.is-open {
+            display: block;
         }
 
         .nl-corrections {
@@ -910,22 +913,13 @@
                             出塁・進塁・走塁アウトなどを同列に追加できます。進塁だけのプレーは、下のシートで対象走者のセルを選んでから入力します。
                         </div>
                     </div>
-                    <select id="quickPhraseSelect" class="quick-phrase-select" onchange="applyQuickPhrase()">
-                        <option value="">典型例を選択</option>
-                        <option value="安打">安打</option>
-                        <option value="二塁打">二塁打</option>
-                        <option value="三塁打">三塁打</option>
-                        <option value="本塁打">本塁打</option>
-                        <option value="三振">三振</option>
-                        <option value="四球">四球</option>
-                        <option value="併殺">併殺</option>
-                    </select>
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
                     <div class="nl-actions compact">
                         <button id="nlCorrectionToggle" class="small-btn" onclick="toggleCorrectionEditor()">解釈結果を手動修正</button>
                         <button class="small-btn" onclick="openManualDetails()">手動詳細入力</button>
+                        <button class="small-btn" onclick="toggleInterpretationDetails()">解釈結果</button>
                     </div>
-                    <div id="naturalLanguagePreview" class="nl-preview compact">ここに解釈結果を表示します。</div>
+                    <div id="naturalLanguagePreview" class="nl-preview compact nl-preview-details">ここに解釈結果を表示します。</div>
                     <div id="nlCorrectionPanel" class="nl-correction-panel">
                         <div class="nl-corrections">
                             <div class="nl-field">
@@ -2814,9 +2808,32 @@
                 '<select class="play-part-content" onchange="applyPlayParts()">',
                 createPlayPartContentOptions(category, value),
                 '</select>',
+                '<select class="play-part-fielder" onchange="applyPlayParts()" aria-label="守備位置または打球方向">',
+                createPlayPartFielderOptions(),
+                '</select>',
+                '<input class="play-part-sequence" type="text" inputmode="numeric" placeholder="6-4-3" oninput="applyPlayParts()" aria-label="送球順">',
                 '<button class="play-part-remove" onclick="removePlayPartRow(this)" aria-label="プレー部品を削除">−</button>'
             ].join("");
             container.appendChild(row);
+        }
+
+        function createPlayPartFielderOptions(selectedValue = "") {
+            const options = [
+                ["", "守"],
+                ["?", "?"],
+                ["1", "1"],
+                ["2", "2"],
+                ["3", "3"],
+                ["4", "4"],
+                ["5", "5"],
+                ["6", "6"],
+                ["7", "7"],
+                ["8", "8"],
+                ["9", "9"]
+            ];
+            return options
+                .map(([value, label]) => '<option value="' + value + '"' + (value === selectedValue ? " selected" : "") + '>' + label + '</option>')
+                .join("");
         }
 
         function removePlayPartRow(button) {
@@ -2842,9 +2859,11 @@
                 .map((row) => {
                     const category = row.querySelector(".play-part-category").value;
                     const value = row.querySelector(".play-part-content").value;
+                    const fielder = row.querySelector(".play-part-fielder")?.value || "";
+                    const sequenceText = row.querySelector(".play-part-sequence")?.value || "";
                     const option = PLAY_PART_OPTIONS[category]?.options.find((entry) => entry.value === value);
                     return category && value && option
-                        ? { category, value, label: option.label }
+                        ? { category, value, label: option.label, fielder, sequenceText }
                         : null;
                 })
                 .filter(Boolean);
@@ -2858,6 +2877,22 @@
                 scores: 0,
                 outsOnBases: []
             };
+        }
+
+        function parsePlayPartSequence(text) {
+            const normalized = normalizeBaseballDigits(text || "")
+                .replace(/[ー－−‐‑‒–—―]/g, "-")
+                .replace(/[^1-9-]/g, "");
+            if (!normalized) {
+                return [];
+            }
+            if (normalized.includes("-")) {
+                return normalized.split("-").filter(Boolean);
+            }
+            if (/^[1-9]{2,4}$/.test(normalized)) {
+                return normalized.split("");
+            }
+            return /^[1-9]$/.test(normalized) ? [normalized] : [];
         }
 
         function buildParsedInputFromPlayParts(parts) {
@@ -2878,6 +2913,17 @@
             };
 
             parts.forEach((part) => {
+                const sequence = parsePlayPartSequence(part.sequenceText);
+                if (sequence.length > 0) {
+                    parsed.fieldSequence = sequence;
+                    parsed.fielder = sequence[0];
+                } else if (part.fielder) {
+                    parsed.fielder = part.fielder;
+                    if (!parsed.fieldSequence) {
+                        parsed.fieldSequence = [part.fielder];
+                    }
+                }
+
                 switch (part.value) {
                     case "hit_1b":
                         parsed.result = parsed.result || "1B";
@@ -3006,6 +3052,9 @@
             if (!parsed.result && parsed.runnerContext.advances.length) {
                 parsed.result = "S";
             }
+            if (parsed.fieldSequence?.length && parsed.fieldSequence[0] !== "?") {
+                parsed.confidence = Math.max(parsed.confidence, 0.9);
+            }
             if (
                 !parsed.runnerContext.occupancy
                 && !parsed.runnerContext.outCountText
@@ -3031,6 +3080,17 @@
             applyParsedInput(parsed);
             syncCorrectionControls(parsed);
             syncPreviewFromParsed(parsed, "部品入力");
+        }
+
+        function toggleInterpretationDetails(force) {
+            const preview = document.getElementById("naturalLanguagePreview");
+            if (!preview) {
+                return;
+            }
+            const shouldOpen = typeof force === "boolean"
+                ? force
+                : !preview.classList.contains("is-open");
+            preview.classList.toggle("is-open", shouldOpen);
         }
 
         function resetPlayParts() {
@@ -3099,23 +3159,11 @@
 
         function clearNaturalLanguageInput() {
             document.getElementById("naturalLanguageInput").value = "";
-            document.getElementById("quickPhraseSelect").value = "";
             document.getElementById("naturalLanguagePreview").textContent = "ここに解釈結果を表示します。";
             state.parsedInput = null;
             syncCorrectionControls(null);
             toggleCorrectionEditor(false);
             resetPlayParts();
-        }
-
-        function applyQuickPhrase() {
-            const select = document.getElementById("quickPhraseSelect");
-            if (!select.value) {
-                return;
-            }
-            const input = document.getElementById("naturalLanguageInput");
-            input.value = select.value;
-            scheduleNaturalLanguageParse();
-            input.focus();
         }
 
         function saveNaturalLanguageMapping() {
