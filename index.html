@@ -1333,8 +1333,9 @@
                     { value: "hit_hr", label: "本塁打" },
                     { value: "walk", label: "四球" },
                     { value: "hbp", label: "死球" },
-                    { value: "catch_error_onbase", label: "捕球失策出塁" },
-                    { value: "throw_error_onbase", label: "送球失策出塁" },
+                    { value: "fielding_error_onbase", label: "打球処理ミス出塁" },
+                    { value: "throw_error_onbase", label: "送球ミス出塁" },
+                    { value: "receive_error_onbase", label: "捕球ミス出塁" },
                     { value: "fc_onbase", label: "野選出塁" },
                     { value: "dropped_third", label: "振り逃げ" }
                 ]
@@ -3097,13 +3098,9 @@
                         parsed.result = parsed.result || "HP";
                         break;
                     case "error_onbase":
-                    case "catch_error_onbase":
+                    case "fielding_error_onbase":
                         parsed.result = parsed.result || "Fc";
-                        if (parsed.fieldSequence?.length >= 2) {
-                            parsed.errorMode = parsed.errorMode || "receiver";
-                        } else {
-                            parsed.errorMode = parsed.errorMode || "fielder";
-                        }
+                        parsed.errorMode = parsed.errorMode || "fielder";
                         parsed.runnerContext.advances.push("一走→二塁");
                         parsed.runnerContext.advances.push("打者走者一塁セーフ");
                         break;
@@ -3112,6 +3109,14 @@
                         parsed.fieldSequence = buildDefaultFirstBaseSequence(parsed.fielder, parsed.fieldSequence);
                         parsed.fielder = parsed.fieldSequence[0] || parsed.fielder;
                         parsed.errorMode = parsed.errorMode || "thrower";
+                        parsed.runnerContext.advances.push("一走→二塁");
+                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        break;
+                    case "receive_error_onbase":
+                        parsed.result = parsed.result || "Fc";
+                        parsed.fieldSequence = buildDefaultFirstBaseSequence(parsed.fielder, parsed.fieldSequence);
+                        parsed.fielder = parsed.fieldSequence[0] || parsed.fielder;
+                        parsed.errorMode = parsed.errorMode || "receiver";
                         parsed.runnerContext.advances.push("一走→二塁");
                         parsed.runnerContext.advances.push("打者走者一塁セーフ");
                         break;
@@ -3293,7 +3298,12 @@
                 } else if (parsed.result === "OUT" && parsed.ballType !== "none") {
                     mainText = fielderPhrase + labels.join(" + ");
                 } else if (parsed.result === "Fc" && parsed.errorMode) {
-                    mainText = fielderPhrase + (parsed.errorMode === "thrower" ? "送球失策出塁" : "捕球失策出塁");
+                    const errorPhrase = parsed.errorMode === "thrower"
+                        ? "送球ミス出塁"
+                        : parsed.errorMode === "receiver"
+                            ? "捕球ミス出塁"
+                            : "打球処理ミス出塁";
+                    mainText = fielderPhrase + errorPhrase;
                 }
             }
 
