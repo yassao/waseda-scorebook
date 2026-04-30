@@ -1800,7 +1800,11 @@
                 if (text.base === 1) {
                     return "";
                 }
-                return { kind: "advance", base: text.base, label: "(" + (text.by || "?") + ")" };
+                return {
+                    kind: "advance",
+                    base: text.base,
+                    label: text.label || "(" + (text.by || "?") + ")"
+                };
             }
             if (text?.type === "score") {
                 return { kind: "score", label: "●" };
@@ -2025,12 +2029,20 @@
                 } else if (advance === "打者走者一塁セーフ" && batterRef) {
                     runners[0] = batterRef;
                     setRunnerStatusForRef(batterRef, "1塁");
-                } else if (advance === "打者走者二塁セーフ" && batterRef) {
+                } else if (typeof advance === "string" && advance.startsWith("打者走者二塁セーフ") && batterRef) {
+                    const advanceLabel = advance.includes(":")
+                        ? advance.split(":").slice(1).join(":").trim()
+                        : "";
                     if (runners[0]?.row === batterRef.row && runners[0]?.col === batterRef.col) {
                         runners[0] = null;
                     }
                     runners[1] = batterRef;
-                    setRunnerStatusForRef(batterRef, { type: "advance", base: 2, by: currentBatterNumberForRunnerEvent() });
+                    setRunnerStatusForRef(batterRef, {
+                        type: "advance",
+                        base: 2,
+                        by: currentBatterNumberForRunnerEvent(),
+                        label: advanceLabel || null
+                    });
                 }
             });
 
@@ -2974,6 +2986,27 @@
             return /^[1-9]$/.test(normalized) ? [normalized] : [];
         }
 
+        function buildDefaultFirstBaseSequence(fielder, sequence) {
+            if (Array.isArray(sequence) && sequence.length >= 2) {
+                return [...sequence];
+            }
+            if (/^[1-6]$/.test(fielder || "")) {
+                return [fielder, "3"];
+            }
+            return Array.isArray(sequence) && sequence.length ? [...sequence] : (fielder ? [fielder] : []);
+        }
+
+        function buildReceiverErrorLabel(fielder, sequence) {
+            const resolvedSequence = buildDefaultFirstBaseSequence(fielder, sequence);
+            if (resolvedSequence.length >= 2) {
+                return resolvedSequence.slice(0, -1).concat(resolvedSequence[resolvedSequence.length - 1] + "E").join("-");
+            }
+            if (resolvedSequence.length === 1) {
+                return resolvedSequence[0] + "E";
+            }
+            return "E";
+        }
+
         function buildParsedInputFromPlayParts(parts) {
             if (!parts.length) {
                 return null;
@@ -3109,8 +3142,9 @@
                         break;
                     case "error_advance":
                     case "throwing_error":
-                        parsed.errorMode = parsed.errorMode || "thrower";
-                        parsed.runnerContext.advances.push("打者走者二塁セーフ");
+                        parsed.runnerContext.advances.push(
+                            "打者走者二塁セーフ:" + buildReceiverErrorLabel(parsed.fielder, parsed.fieldSequence)
+                        );
                         break;
                     case "wild_pitch":
                         parsed.result = parsed.result || "W";
@@ -3131,6 +3165,14 @@
 
             if (parsed.result === "OUT" && !parsed.outScore) {
                 parsed.outScore = "Ⅰ";
+            }
+            if (
+                parsed.result === "OUT"
+                && parsed.ballType === "ground"
+                && !parsed.modifiers.doublePlay
+            ) {
+                parsed.fieldSequence = buildDefaultFirstBaseSequence(parsed.fielder, parsed.fieldSequence);
+                parsed.fielder = parsed.fieldSequence[0] || parsed.fielder;
             }
             if (parsed.result === "1B" && /^[1-6]$/.test(parsed.fielder || "")) {
                 parsed.result = "G";
@@ -3199,7 +3241,7 @@
 
             const advanceText = [];
             const context = parsed.runnerContext;
-            if (context?.advances?.includes("打者走者二塁セーフ")) {
+            if ((context?.advances || []).some((advance) => typeof advance === "string" && advance.startsWith("打者走者二塁セーフ"))) {
                 advanceText.push("失策進塁で二塁");
             }
             if (context?.advances?.includes("一走→二塁")) {
@@ -4174,7 +4216,12 @@
                 parts.push(context.occupancy);
             }
             if (context.advances?.length) {
-                parts.push(context.advances.join(" / "));
+                parts.push(context.advances.map((advance) => {
+                    if (typeof advance === "string" && advance.startsWith("打者走者二塁セーフ:")) {
+                        return "打者走者二塁セーフ（" + advance.split(":").slice(1).join(":") + "）";
+                    }
+                    return advance;
+                }).join(" / "));
             }
             if (context.outsOnBases?.length) {
                 parts.push(context.outsOnBases.join(" / "));
@@ -4212,6 +4259,16 @@
                         document.getElementById("fielderSelect").value = "";
                     }
                 }
+            }
+
+            if (
+                parsed.result === "OUT"
+                && parsed.ballType === "ground"
+                && !parsed.modifiers?.doublePlay
+                && /^[1-6]$/.test(state.selectedFielder || "")
+                && state.fieldSequence.length <= 1
+            ) {
+                state.fieldSequence = [state.selectedFielder, "3"];
             }
 
             if (parsed.direction && parsed.direction !== "none") {
