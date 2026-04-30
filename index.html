@@ -1348,6 +1348,13 @@
         let sheetPinchStartZoom = 1;
         let isSheetPinching = false;
 
+        const SCORE_COLORS = {
+            ink: "#111",
+            red: "#c62828",
+            redLine: "#d14b3a",
+            blue: "#1565c0"
+        };
+
         const fielderNames = {
             "1": "投手",
             "2": "捕手",
@@ -1874,7 +1881,8 @@
                 return {
                     kind: "advance",
                     base: text.base,
-                    label: text.label || "(" + (text.by || "?") + ")"
+                    label: text.label || "(" + (text.by || "?") + ")",
+                    color: getScoreTextColor(text.label || "")
                 };
             }
             if (text?.type === "score") {
@@ -1905,6 +1913,20 @@
             return text || "";
         }
 
+        function getScoreTextColor(text) {
+            const value = String(text || "");
+            if (!value) {
+                return SCORE_COLORS.ink;
+            }
+            if (value.includes("E") || /(WP|PB|BK|DB|HP|IB|IF|OB|^B$|^W$|^P$)/.test(value)) {
+                return SCORE_COLORS.blue;
+            }
+            if (/^(S|DS|TP)$/.test(value) || value === "●") {
+                return SCORE_COLORS.red;
+            }
+            return SCORE_COLORS.ink;
+        }
+
         function buildRunnerNotesForSheet(snapshot) {
             const events = getRunnerStatusEvents(snapshot)
                 .map(formatRunnerStatusForSheet)
@@ -1933,12 +1955,12 @@
                     return;
                 }
                 if (event?.kind === "score") {
-                    parts.push('<text x="125" y="106" text-anchor="middle" font-size="24" font-weight="700" fill="#c62828">●</text>');
+                    parts.push('<text x="125" y="106" text-anchor="middle" font-size="24" font-weight="700" fill="' + SCORE_COLORS.red + '">●</text>');
                     return;
                 }
                 if (event?.kind === "advance") {
                     const position = event.base === 3 ? { x: 72, y: 24 } : { x: 178, y: 24 };
-                    parts.push('<text x="' + position.x + '" y="' + position.y + '" text-anchor="middle" font-size="13" font-weight="700" fill="#111">' + event.label + '</text>');
+                    parts.push('<text x="' + position.x + '" y="' + position.y + '" text-anchor="middle" font-size="13" font-weight="700" fill="' + (event.color || SCORE_COLORS.ink) + '">' + event.label + '</text>');
                     return;
                 }
                 if (event?.kind === "out") {
@@ -2270,26 +2292,31 @@
             const isFielderPlaySnapshot = snapshot.result === snapshot.selectedFielder
                 || ["1B", "2B", "3B", "HR", "G", "BH"].includes(snapshot.selectedHitType);
 
+            const displayed = getDisplayedResultFromSnapshot(snapshot);
+            if (snapshot.errorMode && snapshot.errorMode !== "none") {
+                return SCORE_COLORS.blue;
+            }
+
             if (isFielderPlaySnapshot) {
                 if (["1B", "2B", "3B", "HR", "G", "BH"].includes(snapshot.selectedHitType)) {
-                    return "#c62828";
+                    return SCORE_COLORS.red;
                 }
                 if (snapshot.modifiers?.sacrificeFly || snapshot.modifiers?.sacrificeBunt) {
-                    return "#1f5fbf";
+                    return SCORE_COLORS.blue;
                 }
-                return "#111";
+                return SCORE_COLORS.ink;
             }
 
             if (["1B", "2B", "3B", "HR", "G", "BH", "H", "T", "RH", "GR"].includes(snapshot.result)) {
-                return "#c62828";
+                return SCORE_COLORS.red;
             }
-            if (["B", "HP", "IB", "IF"].includes(snapshot.result)) {
-                return "#1565c0";
+            if (["B", "HP", "IB", "IF", "W", "P", "BK", "OB"].includes(snapshot.result) || getScoreTextColor(displayed) === SCORE_COLORS.blue) {
+                return SCORE_COLORS.blue;
             }
             if (snapshot.result === "x") {
-                return "#111";
+                return SCORE_COLORS.ink;
             }
-            return "#111";
+            return SCORE_COLORS.ink;
         }
 
         function getSnapshotPrefixText(snapshot) {
@@ -2351,7 +2378,7 @@
                 return getPitchMarkSvgMarkup(pitch, 20, y, 0.78, note);
             }).join("");
 
-            const lineColor = "#d14b3a";
+            const lineColor = SCORE_COLORS.redLine;
             const hitLines = paths.map((path) =>
                 '<path d="' + path + '" fill="none" stroke="' + lineColor + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
             ).join("");
@@ -2373,7 +2400,7 @@
                     const arcStartY = centerY + delta;
                     const arcEndX = centerX + delta;
                     const arcEndY = centerY - delta;
-                    return '<path d="M ' + arcStartX + ' ' + arcStartY + ' A ' + radius + ' ' + radius + ' 0 0 0 ' + arcEndX + ' ' + arcEndY + '" fill="none" stroke="#d14b3a" stroke-width="2"/>';
+                    return '<path d="M ' + arcStartX + ' ' + arcStartY + ' A ' + radius + ' ' + radius + ' 0 0 0 ' + arcEndX + ' ' + arcEndY + '" fill="none" stroke="' + SCORE_COLORS.redLine + '" stroke-width="2"/>';
                 }())
                 : "";
             const landingDot = showLandingDot
@@ -2386,7 +2413,7 @@
                     };
                     const dot = dotMap[snapshot.selectedDirection];
                     return dot
-                        ? '<circle cx="' + dot.x + '" cy="' + dot.y + '" r="2.5" fill="#c8513f"/>'
+                        ? '<circle cx="' + dot.x + '" cy="' + dot.y + '" r="2.5" fill="' + SCORE_COLORS.redLine + '"/>'
                         : "";
                 }())
                 : "";
@@ -2408,19 +2435,19 @@
             }());
 
             const sacrificeBox = snapshot.modifiers?.sacrificeBunt && snapshot.selectedBallType === "ground"
-                ? '<rect x="152" y="136" width="36" height="40" fill="none" stroke="#1f5fbf" stroke-width="2"/>'
+                ? '<rect x="152" y="136" width="36" height="40" fill="none" stroke="' + SCORE_COLORS.blue + '" stroke-width="2"/>'
                 : "";
             const sacrificeFlyTriangle = snapshot.modifiers?.sacrificeFly && snapshot.selectedBallType === "fly"
-                ? '<polygon points="148,174 170,136 192,174" fill="none" stroke="#1f5fbf" stroke-width="2"/>'
+                ? '<polygon points="148,174 170,136 192,174" fill="none" stroke="' + SCORE_COLORS.blue + '" stroke-width="2"/>'
                 : "";
 
             const inningSlash = snapshot.outScore === "Ⅲ"
                 ? '<line x1="146" y1="185" x2="215" y2="116" stroke="#111" stroke-width="2"/>'
                 : "";
 
-            const outColor = snapshot.outScore === "●" ? "#c62828" : snapshot.outScore === "○" ? "#1565c0" : "#111";
+            const outColor = snapshot.outScore === "●" ? SCORE_COLORS.red : snapshot.outScore === "○" ? SCORE_COLORS.blue : SCORE_COLORS.ink;
             const prefix = prefixText
-                ? '<text x="152" y="128" font-size="14" font-weight="700" fill="' + (prefixText === "BH" ? "#c62828" : "#222") + '" transform="rotate(-45 152 128)">' + prefixText + '</text>'
+                ? '<text x="152" y="128" font-size="14" font-weight="700" fill="' + (prefixText === "BH" ? SCORE_COLORS.red : SCORE_COLORS.ink) + '" transform="rotate(-45 152 128)">' + prefixText + '</text>'
                 : "";
             const runnerNote = buildRunnerNotesForSheet(snapshot);
             const lowConfidenceOverlay = snapshot.confidence && snapshot.confidence < 0.7
@@ -5196,7 +5223,7 @@
 
             segments.forEach((segment, index) => {
                 segment.setAttribute("d", paths[index]);
-                segment.setAttribute("stroke", "#d14b3a");
+                segment.setAttribute("stroke", SCORE_COLORS.redLine);
                 segment.setAttribute("visibility", index < visibleCount ? "visible" : "hidden");
             });
         }
@@ -5276,10 +5303,10 @@
                         prefixDisplay.setAttribute("x", "-18");
                         prefixDisplay.setAttribute("y", "-22");
                         prefixDisplay.setAttribute("transform", "rotate(-45 -18 -22)");
-                        prefixDisplay.setAttribute("fill", "#c62828");
+                        prefixDisplay.setAttribute("fill", SCORE_COLORS.red);
                     } else {
                         prefixDisplay.setAttribute("y", String(prefixY));
-                        prefixDisplay.setAttribute("fill", "#222");
+                        prefixDisplay.setAttribute("fill", SCORE_COLORS.ink);
                     }
 
                     if (state.selectedBallType === "fly") {
@@ -5305,7 +5332,7 @@
                         sacrificeBox.setAttribute("width", String(box.width + 20));
                         sacrificeBox.setAttribute("height", String(box.height + 16));
                         sacrificeBox.setAttribute("visibility", "visible");
-                        sacrificeBox.setAttribute("stroke", "#1f5fbf");
+                        sacrificeBox.setAttribute("stroke", SCORE_COLORS.blue);
                     }
 
                     if (state.modifiers.sacrificeFly && state.selectedBallType === "fly") {
@@ -5610,34 +5637,37 @@
 
         function getResultColor() {
             if (isFielderPlay()) {
+                if (state.errorMode && state.errorMode !== "none") {
+                    return SCORE_COLORS.blue;
+                }
                 if (["1B", "2B", "3B", "HR", "G", "BH"].includes(state.selectedHitType)) {
-                    return "#c62828";
+                    return SCORE_COLORS.red;
                 }
                 if (state.modifiers.sacrificeFly || state.modifiers.sacrificeBunt) {
-                    return "#1f5fbf";
+                    return SCORE_COLORS.blue;
                 }
-                return "#111";
+                return SCORE_COLORS.ink;
             }
             if (["1B", "2B", "3B", "HR", "G", "BH", "H", "T", "RH", "GR"].includes(state.result)) {
-                return "#c62828";
+                return SCORE_COLORS.red;
             }
-            if (["B", "HP", "IB", "IF"].includes(state.result)) {
-                return "#1565c0";
+            if (["B", "HP", "IB", "IF", "W", "P", "BK", "OB"].includes(state.result) || getScoreTextColor(state.result) === SCORE_COLORS.blue) {
+                return SCORE_COLORS.blue;
             }
             if (state.result === "x") {
-                return "#111";
+                return SCORE_COLORS.ink;
             }
-            return "#111";
+            return SCORE_COLORS.ink;
         }
 
         function getOutScoreColor(symbol) {
             if (symbol === "●") {
-                return "#c62828";
+                return SCORE_COLORS.red;
             }
             if (symbol === "○") {
-                return "#1565c0";
+                return SCORE_COLORS.blue;
             }
-            return "#111";
+            return SCORE_COLORS.ink;
         }
 
         function getResultFontSize(result) {
