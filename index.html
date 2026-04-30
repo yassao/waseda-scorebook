@@ -915,7 +915,7 @@
                         </div>
                         <div id="playParts" class="play-parts"></div>
                         <div class="play-builder-note">
-                            出塁・進塁・走塁アウトなどを同列に追加できます。進塁だけのプレーは、下のシートで対象走者のセルを選んでから入力します。
+                            出塁・進塁・走塁アウトなどを同列に追加できます。1ヒット1エラーは「出塁: 安打」＋「補助: 失策進塁」で入力します。
                         </div>
                     </div>
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
@@ -1377,7 +1377,7 @@
             support: {
                 label: "補助",
                 options: [
-                    { value: "error_advance", label: "失策進塁" },
+                    { value: "error_advance", label: "失策進塁（打者二塁）" },
                     { value: "throwing_error", label: "悪送球" },
                     { value: "wild_pitch", label: "暴投" },
                     { value: "passed_ball", label: "捕逸" },
@@ -1869,8 +1869,8 @@
                 if (event?.kind === "out") {
                     const outPosition = getRunnerOutNotePosition(event.label);
                     if (event.doublePlay) {
-                        parts.push('<path d="M 48 66 C 32 74 32 136 48 144" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round"/>');
-                        parts.push('<text x="48" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#111">DP</text>');
+                        parts.push('<path d="M 30 66 C 18 76 18 134 30 144" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round"/>');
+                        parts.push('<text x="22" y="106" text-anchor="middle" font-size="11" font-weight="700" fill="#111">DP</text>');
                     }
                     parts.push('<text x="' + outPosition.x + '" y="' + outPosition.y + '" text-anchor="middle" font-size="13" font-weight="700" fill="#111">' + event.label + '</text>');
                     return;
@@ -2263,7 +2263,7 @@
             const resultX = isInfieldHit ? 178 : 170;
             const showLandingDot = Boolean(snapshot.selectedDirection && snapshot.selectedDirection !== "none" && snapshot.selectedDirection !== "?")
                 && (
-                    ["1B", "G", "BH"].includes(snapshot.selectedHitType)
+                    ["1B", "2B", "3B", "G", "BH"].includes(snapshot.selectedHitType)
                     || snapshot.result === snapshot.selectedFielder
                     || snapshot.result === snapshot.fielder
                 );
@@ -3237,7 +3237,14 @@
             const shouldOpen = typeof force === "boolean"
                 ? force
                 : !preview.classList.contains("is-open");
+            const manualEditor = document.getElementById("manualEditor");
+            if (manualEditor && shouldOpen) {
+                manualEditor.open = false;
+            }
             preview.classList.toggle("is-open", shouldOpen);
+            if (shouldOpen) {
+                preview.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
         }
 
         function resetPlayParts() {
@@ -5005,13 +5012,41 @@
                     }
 
                     if (state.selectedHitType === "2B") {
-                        dotUp.setAttribute("cx", "0");
-                        dotUp.setAttribute("cy", String(dotTopY));
-                        dotUp.setAttribute("visibility", "visible");
+                        if (state.selectedDirection === "left") {
+                            dotLeft.setAttribute("cx", String(leftX - 2));
+                            dotLeft.setAttribute("cy", String(centerY));
+                            dotLeft.setAttribute("visibility", "visible");
+                        } else if (state.selectedDirection === "right") {
+                            dotRight.setAttribute("cx", String(rightX + 2));
+                            dotRight.setAttribute("cy", String(centerY));
+                            dotRight.setAttribute("visibility", "visible");
+                        } else if (state.selectedDirection === "down") {
+                            dotDown.setAttribute("cx", "0");
+                            dotDown.setAttribute("cy", String(dotBottomY));
+                            dotDown.setAttribute("visibility", "visible");
+                        } else {
+                            dotUp.setAttribute("cx", "0");
+                            dotUp.setAttribute("cy", String(dotTopY));
+                            dotUp.setAttribute("visibility", "visible");
+                        }
                     } else if (state.selectedHitType === "3B") {
-                        dotRight.setAttribute("cx", String(rightX + 6));
-                        dotRight.setAttribute("cy", String(centerY));
-                        dotRight.setAttribute("visibility", "visible");
+                        if (state.selectedDirection === "left") {
+                            dotLeft.setAttribute("cx", String(leftX - 2));
+                            dotLeft.setAttribute("cy", String(centerY));
+                            dotLeft.setAttribute("visibility", "visible");
+                        } else if (state.selectedDirection === "up") {
+                            dotUp.setAttribute("cx", "0");
+                            dotUp.setAttribute("cy", String(dotTopY));
+                            dotUp.setAttribute("visibility", "visible");
+                        } else if (state.selectedDirection === "down") {
+                            dotDown.setAttribute("cx", "0");
+                            dotDown.setAttribute("cy", String(dotBottomY));
+                            dotDown.setAttribute("visibility", "visible");
+                        } else {
+                            dotRight.setAttribute("cx", String(rightX + 6));
+                            dotRight.setAttribute("cy", String(centerY));
+                            dotRight.setAttribute("visibility", "visible");
+                        }
                     }
                 }
             } catch (error) {
