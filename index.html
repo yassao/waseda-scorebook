@@ -556,7 +556,7 @@
 
         .play-part-row {
             display: grid;
-            grid-template-columns: minmax(68px, 0.78fr) minmax(94px, 1.08fr) minmax(56px, 0.58fr) minmax(74px, 0.74fr) auto;
+            grid-template-columns: minmax(62px, 0.72fr) minmax(88px, 1.08fr) minmax(50px, 0.54fr) minmax(50px, 0.54fr) minmax(66px, 0.68fr) auto;
             gap: 6px;
             align-items: center;
         }
@@ -1333,7 +1333,8 @@
                     { value: "hit_hr", label: "本塁打" },
                     { value: "walk", label: "四球" },
                     { value: "hbp", label: "死球" },
-                    { value: "error_onbase", label: "失策出塁" },
+                    { value: "catch_error_onbase", label: "捕球失策出塁" },
+                    { value: "throw_error_onbase", label: "送球失策出塁" },
                     { value: "fc_onbase", label: "野選出塁" },
                     { value: "dropped_third", label: "振り逃げ" }
                 ]
@@ -2903,6 +2904,9 @@
                 '<select class="play-part-fielder" onchange="applyPlayParts()" aria-label="捕球者">',
                 createPlayPartFielderOptions(),
                 '</select>',
+                '<select class="play-part-receiver" onchange="applyPlayParts()" aria-label="受け手">',
+                createPlayPartReceiverOptions(),
+                '</select>',
                 '<input class="play-part-sequence" type="text" inputmode="numeric" placeholder="6-4-3" oninput="applyPlayParts()" aria-label="送球順">',
                 '<button class="play-part-remove" onclick="removePlayPartRow(this)" aria-label="プレー部品を削除">−</button>'
             ].join("");
@@ -2912,6 +2916,25 @@
         function createPlayPartFielderOptions(selectedValue = "") {
             const options = [
                 ["", "捕球"],
+                ["?", "?"],
+                ["1", "1"],
+                ["2", "2"],
+                ["3", "3"],
+                ["4", "4"],
+                ["5", "5"],
+                ["6", "6"],
+                ["7", "7"],
+                ["8", "8"],
+                ["9", "9"]
+            ];
+            return options
+                .map(([value, label]) => '<option value="' + value + '"' + (value === selectedValue ? " selected" : "") + '>' + label + '</option>')
+                .join("");
+        }
+
+        function createPlayPartReceiverOptions(selectedValue = "") {
+            const options = [
+                ["", "受け手"],
                 ["?", "?"],
                 ["1", "1"],
                 ["2", "2"],
@@ -2952,10 +2975,11 @@
                     const category = row.querySelector(".play-part-category").value;
                     const value = row.querySelector(".play-part-content").value;
                     const fielder = row.querySelector(".play-part-fielder")?.value || "";
+                    const receiver = row.querySelector(".play-part-receiver")?.value || "";
                     const sequenceText = row.querySelector(".play-part-sequence")?.value || "";
                     const option = PLAY_PART_OPTIONS[category]?.options.find((entry) => entry.value === value);
                     return category && value && option
-                        ? { category, value, label: option.label, fielder, sequenceText }
+                        ? { category, value, label: option.label, fielder, receiver, sequenceText }
                         : null;
                 })
                 .filter(Boolean);
@@ -3039,7 +3063,10 @@
             };
 
             parts.forEach((part) => {
-                const sequence = parsePlayPartSequence(part.sequenceText);
+                let sequence = parsePlayPartSequence(part.sequenceText);
+                if (sequence.length === 0 && part.fielder && part.receiver) {
+                    sequence = [part.fielder, part.receiver];
+                }
                 if (sequence.length > 0) {
                     parsed.fieldSequence = sequence;
                     parsed.fielder = sequence[0];
@@ -3070,8 +3097,21 @@
                         parsed.result = parsed.result || "HP";
                         break;
                     case "error_onbase":
+                    case "catch_error_onbase":
                         parsed.result = parsed.result || "Fc";
-                        parsed.errorMode = parsed.errorMode || "fielder";
+                        if (parsed.fieldSequence?.length >= 2) {
+                            parsed.errorMode = parsed.errorMode || "receiver";
+                        } else {
+                            parsed.errorMode = parsed.errorMode || "fielder";
+                        }
+                        parsed.runnerContext.advances.push("一走→二塁");
+                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        break;
+                    case "throw_error_onbase":
+                        parsed.result = parsed.result || "Fc";
+                        parsed.fieldSequence = buildDefaultFirstBaseSequence(parsed.fielder, parsed.fieldSequence);
+                        parsed.fielder = parsed.fieldSequence[0] || parsed.fielder;
+                        parsed.errorMode = parsed.errorMode || "thrower";
                         parsed.runnerContext.advances.push("一走→二塁");
                         parsed.runnerContext.advances.push("打者走者一塁セーフ");
                         break;
@@ -3253,7 +3293,7 @@
                 } else if (parsed.result === "OUT" && parsed.ballType !== "none") {
                     mainText = fielderPhrase + labels.join(" + ");
                 } else if (parsed.result === "Fc" && parsed.errorMode) {
-                    mainText = fielderPhrase + "失策出塁";
+                    mainText = fielderPhrase + (parsed.errorMode === "thrower" ? "送球失策出塁" : "捕球失策出塁");
                 }
             }
 
