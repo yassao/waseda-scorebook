@@ -2115,6 +2115,10 @@
             return SCORE_COLORS.ink;
         }
 
+        function isStealOutLabel(label) {
+            return /^2-[456]T$/.test(String(label || "")) || String(label || "").includes("盗死");
+        }
+
         function buildRunnerNotesForSheet(snapshot) {
             const events = getRunnerStatusEvents(snapshot)
                 .map(formatRunnerStatusForSheet)
@@ -2171,13 +2175,13 @@
         }
 
         function getRunnerOutNotePosition(label) {
-            if (/本塁|ホーム|(?:^|-)2$/.test(label)) {
+            if (/本塁|ホーム|本盗死|(?:^|-)2T?$/.test(label)) {
                 return { x: 72, y: 166 };
             }
-            if (/三塁|(?:^|-)5$/.test(label)) {
+            if (/三塁|三盗死|(?:^|-)5T?$/.test(label)) {
                 return { x: 72, y: 24 };
             }
-            if (/二塁|(?:^|-)[46]$/.test(label)) {
+            if (/二塁|二盗死|(?:^|-)[46]T?$/.test(label)) {
                 return { x: 178, y: 24 };
             }
             return { x: 178, y: 166 };
@@ -2341,11 +2345,11 @@
                 if (outLabel === "一塁封殺" && batterRef) {
                     markRunnerOutOnSnapshot(batterRef, "Ⅰ");
                     setRunnerStatusForRef(batterRef, { type: "out", label: outLabel, by: currentBatterNumberForRunnerEvent() });
-                } else if (outLabel === "二盗死" || outLabel === "二塁封殺") {
+                } else if (outLabel === "二盗死" || outLabel === "二塁封殺" || /^2-[46]T$/.test(outLabel)) {
                     removeRunnerFromBase(runners, 0, outLabel);
-                } else if (outLabel === "三盗死" || outLabel === "三塁封殺") {
+                } else if (outLabel === "三盗死" || outLabel === "三塁封殺" || outLabel === "2-5T") {
                     removeRunnerFromBase(runners, 1, outLabel);
-                } else if (outLabel === "本塁アウト" || outLabel === "本塁封殺") {
+                } else if (outLabel === "本塁アウト" || outLabel === "本塁封殺" || outLabel === "2T") {
                     removeRunnerFromBase(runners, 2, outLabel);
                 }
             });
@@ -3375,8 +3379,14 @@
             select.value = currentValue;
         }
 
-        function getRunnerAdvanceLabel(reason, action) {
+        function getRunnerAdvanceLabel(reason, action, source) {
             if (reason === "steal") {
+                if (source === "r1" && action === "3") {
+                    return "2E-6";
+                }
+                if (source === "r2" && action === "score") {
+                    return "2E-5";
+                }
                 return "S";
             }
             if (reason === "wp") {
@@ -3399,7 +3409,13 @@
 
         function getRunnerOutLabel(reason, source) {
             if (reason === "steal") {
-                return source === "r2" ? "三盗死" : source === "r3" ? "本盗死" : "二盗死";
+                if (source === "r1") {
+                    return "2-4T";
+                }
+                if (source === "r2") {
+                    return "2-5T";
+                }
+                return "2T";
             }
             return {
                 batter: "一塁封殺",
@@ -3452,11 +3468,11 @@
             }
 
             runners[fromIndex] = null;
-            const label = getRunnerAdvanceLabel(reason, action);
+            const label = getRunnerAdvanceLabel(reason, action, source);
             let statusMessage = "";
             if (targetIndex >= 3) {
                 setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label });
-                statusMessage = runnerLabel + "→本塁";
+                statusMessage = runnerLabel + "→本塁" + (label ? "（" + label + "）" : "");
             } else {
                 runners[targetIndex] = runnerRef;
                 setRunnerStatusForRef(runnerRef, {
@@ -3465,7 +3481,7 @@
                     by: currentBatterNumberForRunnerEvent(),
                     label
                 });
-                statusMessage = runnerLabel + "→" + (targetIndex + 1) + "塁";
+                statusMessage = runnerLabel + "→" + (targetIndex + 1) + "塁" + (label ? "（" + label + "）" : "");
             }
 
             state.baseRunners = runners;
@@ -4801,10 +4817,10 @@
             }
 
             if (text.includes("二盗死")) {
-                context.outsOnBases.push("二盗死");
+                context.outsOnBases.push("2-4T");
             }
             if (text.includes("三盗死")) {
-                context.outsOnBases.push("三盗死");
+                context.outsOnBases.push("2-5T");
             }
             if (text.includes("本塁アウト")) {
                 context.outsOnBases.push("本塁アウト");
