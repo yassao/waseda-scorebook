@@ -1616,6 +1616,10 @@
                 top: null,
                 bottom: null
             },
+            inningLabelsByHalf: {
+                top: [],
+                bottom: []
+            },
             baseRunnersByHalf: {
                 top: [null, null, null],
                 bottom: [null, null, null]
@@ -1881,6 +1885,58 @@
             return Array.from({ length: 9 }, () => Array.from({ length: MAX_INNINGS }, () => null));
         }
 
+        function createDefaultInningLabels() {
+            return Array.from({ length: MAX_INNINGS }, (_, index) => index + 1);
+        }
+
+        function getInningLabels(half = state.activeHalf) {
+            if (!state.inningLabelsByHalf[half] || state.inningLabelsByHalf[half].length !== MAX_INNINGS) {
+                state.inningLabelsByHalf[half] = createDefaultInningLabels();
+            }
+            return state.inningLabelsByHalf[half];
+        }
+
+        function getColumnInningLabel(col = state.selectedSheetCol, half = state.activeHalf) {
+            const labels = getInningLabels(half);
+            return labels[col] || (col + 1);
+        }
+
+        function findColumnForInning(half, inning) {
+            const labels = getInningLabels(half);
+            const index = labels.findIndex((label) => label === inning);
+            return index >= 0 ? index : Math.min(MAX_INNINGS - 1, inning - 1);
+        }
+
+        function isSheetColumnEmpty(col) {
+            return state.scoreSheet.every((row) => !row[col]);
+        }
+
+        function insertColumnAfterForBattingAround(col) {
+            const nextCol = col + 1;
+            if (nextCol >= MAX_INNINGS) {
+                return col;
+            }
+
+            const labels = getInningLabels();
+            const currentInning = getColumnInningLabel(col);
+            if (labels[nextCol] === currentInning && isSheetColumnEmpty(nextCol)) {
+                return nextCol;
+            }
+
+            for (let row = 0; row < 9; row += 1) {
+                for (let moveCol = MAX_INNINGS - 1; moveCol > nextCol; moveCol -= 1) {
+                    state.scoreSheet[row][moveCol] = state.scoreSheet[row][moveCol - 1];
+                }
+                state.scoreSheet[row][nextCol] = null;
+            }
+
+            for (let moveCol = MAX_INNINGS - 1; moveCol > nextCol; moveCol -= 1) {
+                labels[moveCol] = labels[moveCol - 1];
+            }
+            labels[nextCol] = currentInning;
+            return nextCol;
+        }
+
         function getHalfLabel(half = state.activeHalf) {
             return half === "top" ? "表" : "裏";
         }
@@ -1928,7 +1984,7 @@
                 bottomInput.value = state.teamNames.bottom;
             }
             if (status) {
-                status.textContent = (state.selectedSheetCol + 1) + "回" + getHalfLabel() + " / " + getActiveTeamName() + " / " + (state.selectedSheetRow + 1) + "番";
+                status.textContent = getColumnInningLabel() + "回" + getHalfLabel() + " / " + getActiveTeamName() + " / " + (state.selectedSheetRow + 1) + "番";
             }
         }
 
@@ -2247,6 +2303,20 @@
                 const outCount = romanToOutCount(previousSnapshot.outScore);
                 if (outCount > 0) {
                     return outCount;
+                }
+            }
+
+            const inning = getColumnInningLabel(col);
+            for (let prevCol = col - 1; prevCol >= 0 && getColumnInningLabel(prevCol) === inning; prevCol -= 1) {
+                for (let prevRow = 8; prevRow >= 0; prevRow -= 1) {
+                    const previousSnapshot = state.scoreSheet?.[prevRow]?.[prevCol];
+                    if (!previousSnapshot) {
+                        continue;
+                    }
+                    const outCount = romanToOutCount(previousSnapshot.outScore);
+                    if (outCount > 0) {
+                        return outCount;
+                    }
                 }
             }
             return 0;
@@ -2969,10 +3039,11 @@
             corner.textContent = "打順";
             grid.appendChild(corner);
 
+            const inningLabels = getInningLabels();
             for (let inning = 1; inning <= MAX_INNINGS; inning += 1) {
                 const header = document.createElement("div");
                 header.className = "sheet-header";
-                header.textContent = String(inning);
+                header.textContent = String(inningLabels[inning - 1] || inning);
                 grid.appendChild(header);
             }
 
@@ -3058,7 +3129,7 @@
         function confirmClearSheetCell(row, col) {
             cancelSheetCellPress();
             suppressSheetCellClick = true;
-            if (!window.confirm((row + 1) + "番 " + (col + 1) + "回のマスを消去しますか？")) {
+            if (!window.confirm((row + 1) + "番 " + getColumnInningLabel(col) + "回のマスを消去しますか？")) {
                 suppressSheetCellClick = false;
                 return;
             }
@@ -3088,7 +3159,7 @@
             let nextCol = state.selectedSheetCol;
             if (nextRow >= 9) {
                 nextRow = 0;
-                nextCol = Math.min(MAX_INNINGS - 1, state.selectedSheetCol + 1);
+                nextCol = insertColumnAfterForBattingAround(state.selectedSheetCol);
             }
             selectSheetCell(nextRow, nextCol);
             resetState();
@@ -3105,8 +3176,9 @@
             if (snapshot?.outScore === "Ⅲ") {
                 const endedHalf = state.activeHalf;
                 const currentCol = state.selectedSheetCol;
+                const currentInning = getColumnInningLabel(currentCol, endedHalf);
                 const nextBatterRow = (state.selectedSheetRow + 1) % 9;
-                const nextInningCol = Math.min(MAX_INNINGS - 1, currentCol + 1);
+                const nextInningCol = findColumnForInning(endedHalf, currentInning + 1);
                 state.selectionsByHalf[endedHalf] = {
                     row: nextBatterRow,
                     col: nextInningCol
@@ -6315,6 +6387,10 @@
         state.scoreSheets = {
             top: createEmptyScoreSheet(),
             bottom: createEmptyScoreSheet()
+        };
+        state.inningLabelsByHalf = {
+            top: createDefaultInningLabels(),
+            bottom: createDefaultInningLabels()
         };
         state.baseRunnersByHalf = {
             top: [null, null, null],
