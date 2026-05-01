@@ -1940,11 +1940,13 @@
             updateGameFlowDisplay();
         }
 
-        function activateHalf(half, row = null, col = null) {
+        function activateHalf(half, row = null, col = null, options = {}) {
             if (!["top", "bottom"].includes(half)) {
                 return;
             }
-            saveActiveSelection();
+            if (!options.skipSave) {
+                saveActiveSelection();
+            }
             state.activeHalf = half;
             syncActiveHalfRefs();
 
@@ -3101,11 +3103,19 @@
 
         function advanceAfterSave(snapshot) {
             if (snapshot?.outScore === "Ⅲ") {
+                const endedHalf = state.activeHalf;
                 const currentCol = state.selectedSheetCol;
-                if (state.activeHalf === "top") {
-                    activateHalf("bottom", 0, currentCol);
+                const nextBatterRow = (state.selectedSheetRow + 1) % 9;
+                const nextInningCol = Math.min(MAX_INNINGS - 1, currentCol + 1);
+                state.selectionsByHalf[endedHalf] = {
+                    row: nextBatterRow,
+                    col: nextInningCol
+                };
+
+                if (endedHalf === "top") {
+                    activateHalf("bottom", null, null, { skipSave: true });
                 } else {
-                    activateHalf("top", 0, Math.min(MAX_INNINGS - 1, currentCol + 1));
+                    activateHalf("top", null, null, { skipSave: true });
                 }
                 clearNaturalLanguageInput();
                 return;
