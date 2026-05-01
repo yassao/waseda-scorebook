@@ -549,6 +549,13 @@
             color: #334155;
         }
 
+        .play-builder-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+
         .play-parts {
             display: grid;
             gap: 6px;
@@ -556,19 +563,29 @@
 
         .play-part-row {
             display: grid;
-            grid-template-columns: minmax(62px, 0.72fr) minmax(88px, 1.08fr) minmax(50px, 0.54fr) minmax(50px, 0.54fr) minmax(66px, 0.68fr) auto;
+            grid-template-columns: minmax(76px, 0.9fr) minmax(110px, 1.25fr) 34px;
             gap: 6px;
             align-items: center;
+        }
+
+        .play-part-row .play-part-fielder,
+        .play-part-row .play-part-receiver,
+        .play-part-row .play-part-sequence {
+            grid-row: 2;
+        }
+
+        .play-part-row .play-part-sequence {
+            grid-column: span 1;
         }
 
         .play-part-row select,
         .play-part-row input {
             min-width: 0;
-            padding: 8px 9px;
+            padding: 7px 8px;
             border: 2px solid var(--border);
             border-radius: 10px;
             background: #fff;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
         }
 
@@ -583,8 +600,8 @@
         }
 
         .play-part-remove {
-            min-height: 32px;
-            width: 32px;
+            min-height: 30px;
+            width: 30px;
             padding: 0;
             border-radius: 10px;
             font-size: 16px;
@@ -595,6 +612,15 @@
             font-size: 11px;
             line-height: 1.45;
             color: var(--muted);
+        }
+
+        .icon-btn {
+            min-height: 30px;
+            width: 30px;
+            padding: 0;
+            border-radius: 999px;
+            font-size: 13px;
+            line-height: 1;
         }
 
         .runner-gui {
@@ -618,8 +644,9 @@
 
         .runner-gui-controls {
             display: grid;
-            grid-template-columns: minmax(86px, 1fr) repeat(4, minmax(48px, 0.74fr));
+            grid-template-columns: minmax(96px, 0.8fr) minmax(120px, 1fr);
             gap: 6px;
+            align-items: center;
         }
 
         .runner-gui select,
@@ -636,6 +663,60 @@
 
         .runner-gui button {
             cursor: pointer;
+        }
+
+        .runner-diamond {
+            position: relative;
+            width: min(128px, 100%);
+            aspect-ratio: 1;
+            margin: 0 auto;
+        }
+
+        .runner-diamond::before {
+            content: "";
+            position: absolute;
+            inset: 28%;
+            border: 2px solid #94a3b8;
+            transform: rotate(45deg);
+            background: #fff;
+        }
+
+        .runner-base-btn {
+            position: absolute;
+            min-height: 34px;
+            width: 42px;
+            padding: 0;
+            border-radius: 999px;
+            background: #fff;
+            box-shadow: 0 2px 0 rgba(15, 23, 42, 0.06);
+        }
+
+        .runner-base-btn.home {
+            left: 50%;
+            bottom: 0;
+            transform: translateX(-50%);
+        }
+
+        .runner-base-btn.first {
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .runner-base-btn.second {
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+        }
+
+        .runner-base-btn.third {
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .runner-out-btn {
+            grid-column: 1 / -1;
         }
 
         .runner-gui-status {
@@ -960,12 +1041,12 @@
                     <div class="play-builder">
                         <div class="play-builder-title">
                             <span>プレー部品</span>
-                            <button class="small-btn" onclick="addPlayPartRow()">＋</button>
+                            <div class="play-builder-actions">
+                                <button class="icon-btn" onclick="showPlayBuilderHelp()" aria-label="プレー部品の説明">i</button>
+                                <button class="small-btn" onclick="addPlayPartRow()">＋</button>
+                            </div>
                         </div>
                         <div id="playParts" class="play-parts"></div>
-                        <div class="play-builder-note">
-                            出塁・進塁・走塁アウトなどを同列に追加できます。1ヒット1エラーは「出塁: 安打」＋「補助: 送球エラー進塁」などで入力します。
-                        </div>
                     </div>
                     <div class="runner-gui">
                         <div class="runner-gui-title">
@@ -979,11 +1060,13 @@
                                 <option value="r2">二走</option>
                                 <option value="r3">三走</option>
                             </select>
-                            <button onclick="applyRunnerGuiAction('1')">1塁</button>
-                            <button onclick="applyRunnerGuiAction('2')">2塁</button>
-                            <button onclick="applyRunnerGuiAction('3')">3塁</button>
-                            <button onclick="applyRunnerGuiAction('score')">生還</button>
-                            <button onclick="applyRunnerGuiAction('out')">アウト</button>
+                            <div class="runner-diamond" aria-label="到達塁">
+                                <button class="runner-base-btn second" onclick="applyRunnerGuiAction('2')">2</button>
+                                <button class="runner-base-btn third" onclick="applyRunnerGuiAction('3')">3</button>
+                                <button class="runner-base-btn first" onclick="applyRunnerGuiAction('1')">1</button>
+                                <button class="runner-base-btn home" onclick="applyRunnerGuiAction('score')">本</button>
+                            </div>
+                            <button class="runner-out-btn" onclick="applyRunnerGuiAction('out')">アウト</button>
                         </div>
                         <div id="runnerGuiStatus" class="runner-gui-status">打撃結果のあと、走者の到達先だけをここで補正できます。</div>
                     </div>
@@ -3020,6 +3103,14 @@
                 '<button class="play-part-remove" onclick="removePlayPartRow(this)" aria-label="プレー部品を削除">−</button>'
             ].join("");
             container.appendChild(row);
+        }
+
+        function showPlayBuilderHelp() {
+            window.alert([
+                "プレー部品は、出塁・進塁・走塁アウト・補助を組み合わせます。",
+                "例: 1ヒット1エラーは「出塁: 安打」＋「補助: 送球エラー進塁」。",
+                "野手1は打球を処理する人、野手2は送球を受ける人です。"
+            ].join("\\n"));
         }
 
         function createPlayPartFielderOptions(selectedValue = "") {
