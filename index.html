@@ -415,6 +415,48 @@
             font-weight: 700;
         }
 
+        .line-score-board {
+            width: max-content;
+            max-width: 100%;
+            overflow-x: auto;
+            margin: 0 0 10px;
+            border: 1px solid var(--sheet-green);
+            background: #ffffff;
+            font-size: 11px;
+            color: #1f2937;
+        }
+
+        .line-score-row {
+            display: grid;
+            grid-template-columns: minmax(58px, 1.4fr) repeat(12, 28px) 34px;
+            min-width: 428px;
+        }
+
+        .line-score-cell {
+            min-height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid var(--sheet-green);
+            border-bottom: 1px solid var(--sheet-green);
+            padding: 2px 4px;
+            font-weight: 700;
+        }
+
+        .line-score-row:last-child .line-score-cell {
+            border-bottom: 0;
+        }
+
+        .line-score-cell:first-child {
+            justify-content: flex-start;
+            white-space: nowrap;
+        }
+
+        .line-score-cell:last-child {
+            border-right: 0;
+            color: #c62828;
+        }
+
         .sheet-viewport {
             overflow: auto;
             max-height: 72dvh;
@@ -1348,6 +1390,7 @@
                             <button id="bottomHalfBtn" class="half-switch" onclick="activateHalf('bottom')">後攻</button>
                             <div id="inningStatus" class="inning-status">1回表 先攻</div>
                         </div>
+                        <div id="lineScoreBoard" class="line-score-board" aria-label="点数板"></div>
                         <div id="sheetMeta" class="sheet-meta"></div>
                         <div id="sheetViewport" class="sheet-viewport">
                             <div id="sheetGrid" class="sheet-grid"></div>
@@ -2001,6 +2044,68 @@
             if (status) {
                 status.textContent = getColumnInningLabel() + "回" + getHalfLabel() + " / " + getActiveTeamName() + " / " + (state.selectedSheetRow + 1) + "番";
             }
+            renderLineScoreBoard();
+        }
+
+        function countRunsInSnapshot(snapshot) {
+            if (!snapshot) {
+                return 0;
+            }
+
+            let runs = 0;
+            getRunnerStatusEvents(snapshot).forEach((event) => {
+                if (event?.type === "score" || event === "生還") {
+                    runs += 1;
+                }
+            });
+
+            if (snapshot.outScore === "●" || snapshot.outScore === "○") {
+                runs += 1;
+            }
+
+            return runs;
+        }
+
+        function calculateLineScore(half) {
+            const sheet = state.scoreSheets[half] || createEmptyScoreSheet();
+            const labels = getInningLabels(half);
+            const scores = Array.from({ length: MAX_INNINGS }, () => 0);
+
+            for (let row = 0; row < 9; row += 1) {
+                for (let col = 0; col < MAX_INNINGS; col += 1) {
+                    const inning = labels[col] || (col + 1);
+                    if (inning >= 1 && inning <= MAX_INNINGS) {
+                        scores[inning - 1] += countRunsInSnapshot(sheet[row]?.[col]);
+                    }
+                }
+            }
+
+            return scores;
+        }
+
+        function renderLineScoreBoard() {
+            const board = document.getElementById("lineScoreBoard");
+            if (!board) {
+                return;
+            }
+
+            const innings = Array.from({ length: MAX_INNINGS }, (_, index) => index + 1);
+            const topScores = calculateLineScore("top");
+            const bottomScores = calculateLineScore("bottom");
+            const buildRow = (label, scores, isHeader = false) => {
+                const cells = [
+                    '<div class="line-score-cell">' + label + '</div>',
+                    ...innings.map((inning) => '<div class="line-score-cell">' + (isHeader ? inning : (scores[inning - 1] || "")) + '</div>'),
+                    '<div class="line-score-cell">' + (isHeader ? "計" : scores.reduce((sum, score) => sum + score, 0)) + '</div>'
+                ];
+                return '<div class="line-score-row">' + cells.join("") + '</div>';
+            };
+
+            board.innerHTML = [
+                buildRow("回", innings, true),
+                buildRow(state.teamNames.top || "先攻", topScores),
+                buildRow(state.teamNames.bottom || "後攻", bottomScores)
+            ].join("");
         }
 
         function updateTeamName(half, value) {
@@ -2009,6 +2114,7 @@
             }
             state.teamNames[half] = value.trim() || (half === "top" ? "先攻" : "後攻");
             updateGameFlowDisplay();
+            renderLineScoreBoard();
         }
 
         function activateHalf(half, row = null, col = null, options = {}) {
@@ -2318,6 +2424,19 @@
                 const outCount = romanToOutCount(previousSnapshot.outScore);
                 if (outCount > 0) {
                     return outCount;
+                }
+            }
+
+            if (row === 0) {
+                for (let prevRow = 8; prevRow > 0; prevRow -= 1) {
+                    const previousSnapshot = state.scoreSheet?.[prevRow]?.[col];
+                    if (!previousSnapshot) {
+                        continue;
+                    }
+                    const outCount = romanToOutCount(previousSnapshot.outScore);
+                    if (outCount > 0) {
+                        return outCount;
+                    }
                 }
             }
 
