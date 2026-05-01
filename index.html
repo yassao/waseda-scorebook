@@ -694,7 +694,9 @@
 
         .runner-diamond {
             position: relative;
-            width: min(82px, 100%);
+            grid-column: 2;
+            grid-row: 2 / span 2;
+            width: min(70px, 100%);
             aspect-ratio: 1;
             margin: 0 auto 2px;
         }
@@ -710,8 +712,8 @@
 
         .runner-base-btn {
             position: absolute;
-            min-height: 26px;
-            width: 32px;
+            min-height: 24px;
+            width: 28px;
             padding: 0;
             border-radius: 999px;
             background: #fff;
@@ -720,7 +722,7 @@
 
         .runner-base-btn.home {
             left: 50%;
-            bottom: 7px;
+            bottom: 6px;
             transform: translateX(-50%);
         }
 
@@ -732,7 +734,7 @@
 
         .runner-base-btn.second {
             left: 50%;
-            top: 7px;
+            top: 6px;
             transform: translateX(-50%);
         }
 
@@ -743,7 +745,8 @@
         }
 
         .runner-out-btn {
-            grid-column: 1 / -1;
+            grid-column: 1;
+            grid-row: 2;
         }
 
         .runner-gui-status {
@@ -950,6 +953,48 @@
                 padding: 8px;
             }
 
+            .play-builder,
+            .runner-gui {
+                gap: 4px;
+                padding: 6px;
+            }
+
+            .play-part-row {
+                gap: 4px;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 26px;
+            }
+
+            .play-part-row select,
+            .play-part-row input {
+                padding: 4px 6px;
+                border-radius: 8px;
+                font-size: 10px;
+            }
+
+            .play-part-remove,
+            .icon-btn {
+                min-height: 26px;
+                width: 26px;
+                border-radius: 8px;
+            }
+
+            .runner-gui select,
+            .runner-gui button {
+                min-height: 26px;
+                padding: 4px 5px;
+                border-radius: 8px;
+                font-size: 10px;
+            }
+
+            .runner-diamond {
+                width: min(62px, 100%);
+            }
+
+            .runner-base-btn {
+                min-height: 22px;
+                width: 26px;
+            }
+
             .nl-input {
                 height: 88px;
                 font-size: 15px;
@@ -1078,7 +1123,7 @@
                     <div class="runner-gui">
                         <div class="runner-gui-title">
                             <span>走者GUI</span>
-                            <small>現在セルへ追記</small>
+                            <small>塁上走者を更新</small>
                         </div>
                         <div class="runner-gui-controls">
                             <select id="runnerGuiSource" aria-label="対象走者">
@@ -1086,6 +1131,14 @@
                                 <option value="r1">一走</option>
                                 <option value="r2">二走</option>
                                 <option value="r3">三走</option>
+                            </select>
+                            <select id="runnerGuiReason" aria-label="進塁理由">
+                                <option value="next">次打者</option>
+                                <option value="steal">盗塁</option>
+                                <option value="wp">暴投</option>
+                                <option value="pb">捕逸</option>
+                                <option value="bk">ボーク</option>
+                                <option value="error">失策</option>
                             </select>
                             <div class="runner-diamond" aria-label="到達塁">
                                 <button class="runner-base-btn second" onclick="applyRunnerGuiAction('2')">2</button>
@@ -1095,7 +1148,7 @@
                             </div>
                             <button class="runner-out-btn" onclick="applyRunnerGuiAction('out')">アウト</button>
                         </div>
-                        <div id="runnerGuiStatus" class="runner-gui-status">打撃結果のあと、走者の到達先だけをここで補正できます。</div>
+                        <div id="runnerGuiStatus" class="runner-gui-status">保存済み走者は元の打者セルへ追記します。</div>
                     </div>
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
                     <div class="nl-actions compact">
@@ -3254,8 +3307,143 @@
             list.push(value);
         }
 
+        function getRunnerSourceBaseIndex(source) {
+            const map = { r1: 0, r2: 1, r3: 2 };
+            return map[source] ?? -1;
+        }
+
+        function getRunnerRefLabel(ref) {
+            if (!ref) {
+                return "空";
+            }
+            return (ref.row + 1) + "番";
+        }
+
+        function updateRunnerGuiOptions() {
+            const select = document.getElementById("runnerGuiSource");
+            if (!select) {
+                return;
+            }
+            const currentValue = select.value || "batter";
+            const labels = {
+                batter: "打者走者",
+                r1: "一走: " + getRunnerRefLabel(state.baseRunners[0]),
+                r2: "二走: " + getRunnerRefLabel(state.baseRunners[1]),
+                r3: "三走: " + getRunnerRefLabel(state.baseRunners[2])
+            };
+            Array.from(select.options).forEach((option) => {
+                option.textContent = labels[option.value] || option.textContent;
+            });
+            select.value = currentValue;
+        }
+
+        function getRunnerAdvanceLabel(reason, action) {
+            if (reason === "steal") {
+                return "S";
+            }
+            if (reason === "wp") {
+                return "WP";
+            }
+            if (reason === "pb") {
+                return "PB";
+            }
+            if (reason === "bk") {
+                return "BK";
+            }
+            if (reason === "error") {
+                return "E";
+            }
+            if (action === "score") {
+                return null;
+            }
+            return null;
+        }
+
+        function getRunnerOutLabel(reason, source) {
+            if (reason === "steal") {
+                return source === "r2" ? "三盗死" : source === "r3" ? "本盗死" : "二盗死";
+            }
+            return {
+                batter: "一塁封殺",
+                r1: "二塁封殺",
+                r2: "三塁封殺",
+                r3: "本塁封殺"
+            }[source] || "アウト";
+        }
+
+        function getNextOutScoreForRunnerGui() {
+            const previousOuts = getPreviousOutCountForCell(state.selectedSheetRow, state.selectedSheetCol);
+            return outCountToRoman(Math.min(3, previousOuts + 1)) || "Ⅰ";
+        }
+
+        function applyExistingRunnerGuiAction(source, action, reason) {
+            const fromIndex = getRunnerSourceBaseIndex(source);
+            if (fromIndex < 0) {
+                return false;
+            }
+            const runnerRef = state.baseRunners[fromIndex];
+            if (!runnerRef) {
+                return false;
+            }
+
+            const runners = state.baseRunners.map((runner) => (runner ? { ...runner } : null));
+            const runnerLabel = getRunnerRefLabel(runnerRef);
+
+            if (action === "out") {
+                const outLabel = getRunnerOutLabel(reason, source);
+                removeRunnerFromBase(runners, fromIndex, outLabel, getNextOutScoreForRunnerGui());
+                state.baseRunners = runners;
+                renderScoreSheet();
+                updateDisplay();
+                updateRunnerGuiStatus(runnerLabel + " " + outLabel);
+                return true;
+            }
+
+            const targetIndex = action === "score" ? 3 : Number(action) - 1;
+            if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex > 3) {
+                updateRunnerGuiStatus("その進塁はまだ対象外です");
+                return true;
+            }
+            if (targetIndex <= fromIndex) {
+                updateRunnerGuiStatus("進塁先は現在の塁より先を選んでください");
+                return true;
+            }
+            if (targetIndex < 3 && runners[targetIndex]) {
+                updateRunnerGuiStatus((targetIndex + 1) + "塁にはすでに走者がいます。先の走者から動かしてください");
+                return true;
+            }
+
+            runners[fromIndex] = null;
+            const label = getRunnerAdvanceLabel(reason, action);
+            let statusMessage = "";
+            if (targetIndex >= 3) {
+                setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label });
+                statusMessage = runnerLabel + "→本塁";
+            } else {
+                runners[targetIndex] = runnerRef;
+                setRunnerStatusForRef(runnerRef, {
+                    type: "advance",
+                    base: targetIndex + 1,
+                    by: currentBatterNumberForRunnerEvent(),
+                    label
+                });
+                statusMessage = runnerLabel + "→" + (targetIndex + 1) + "塁";
+            }
+
+            state.baseRunners = runners;
+            renderScoreSheet();
+            updateDisplay();
+            updateRunnerGuiStatus(statusMessage);
+            return true;
+        }
+
         function applyRunnerGuiAction(action) {
             const source = document.getElementById("runnerGuiSource")?.value || "batter";
+            const reason = document.getElementById("runnerGuiReason")?.value || "next";
+            if (applyExistingRunnerGuiAction(source, action, reason)) {
+                return;
+            }
+
             const context = ensureCurrentRunnerContext();
             const labels = {
                 batter: "打者走者",
@@ -3266,13 +3454,7 @@
 
             let entry = "";
             if (action === "out") {
-                const outLabels = {
-                    batter: "一塁封殺",
-                    r1: "二塁封殺",
-                    r2: "三塁封殺",
-                    r3: "本塁封殺"
-                };
-                addUniqueContextEntry(context.outsOnBases, outLabels[source]);
+                addUniqueContextEntry(context.outsOnBases, getRunnerOutLabel(reason, source));
                 entry = labels[source] + "アウト";
             } else if (source === "batter") {
                 const batterAdvance = {
@@ -3318,7 +3500,7 @@
             }
             status.textContent = state.runnerContextText && state.runnerContextText !== "なし"
                 ? "追記済み: " + state.runnerContextText
-                : "打撃結果のあと、走者の到達先だけをここで補正できます。";
+                : "保存済み走者は元の打者セルへ追記します。";
         }
 
         function parsePlayPartSequence(text) {
@@ -5690,6 +5872,7 @@
             updateInningEndSlash();
             updateStatusText();
             updateSummaryCard();
+            updateRunnerGuiOptions();
             updateRunnerGuiStatus();
 
             requestAnimationFrame(updateResultDecoration);
