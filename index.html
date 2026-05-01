@@ -694,6 +694,28 @@
             align-items: center;
         }
 
+        #runnerGuiSource {
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        #runnerGuiReason {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .runner-steal-detail {
+            grid-column: 1;
+        }
+
+        #runnerGuiThrowTarget {
+            grid-row: 3;
+        }
+
+        #runnerGuiErrorTarget {
+            grid-row: 4;
+        }
+
         .runner-gui select,
         .runner-gui button {
             min-width: 0;
@@ -713,7 +735,7 @@
         .runner-diamond {
             position: relative;
             grid-column: 2;
-            grid-row: 2 / span 2;
+            grid-row: 1 / span 5;
             display: grid;
             grid-template-columns: repeat(3, 34px);
             grid-template-rows: repeat(3, 34px);
@@ -768,7 +790,7 @@
 
         .runner-out-btn {
             grid-column: 1;
-            grid-row: 2;
+            grid-row: 5;
         }
 
         .runner-gui-status {
@@ -1164,6 +1186,17 @@
                                 <option value="pb">捕逸</option>
                                 <option value="bk">ボーク</option>
                                 <option value="error">失策</option>
+                            </select>
+                            <select id="runnerGuiThrowTarget" class="runner-steal-detail" aria-label="盗塁送球先">
+                                <option value="auto">送球先 自動</option>
+                                <option value="4">二塁手 4</option>
+                                <option value="5">三塁手 5</option>
+                                <option value="6">遊撃手 6</option>
+                                <option value="2">捕手 2</option>
+                            </select>
+                            <select id="runnerGuiErrorTarget" class="runner-steal-detail" aria-label="盗塁時のE対象">
+                                <option value="thrower">送球E</option>
+                                <option value="receiver">捕球E</option>
                             </select>
                             <div class="runner-diamond" aria-label="到達塁">
                                 <button class="runner-base-btn second" onclick="applyRunnerGuiAction('2')">2</button>
@@ -3379,13 +3412,41 @@
             select.value = currentValue;
         }
 
+        function getDefaultStealThrowTarget(source, action) {
+            if (source === "r1") {
+                return action === "3" ? "5" : "4";
+            }
+            if (source === "r2") {
+                return action === "score" ? "2" : "5";
+            }
+            if (source === "r3") {
+                return "2";
+            }
+            return "2";
+        }
+
+        function getRunnerGuiThrowTarget(source, action) {
+            const selected = document.getElementById("runnerGuiThrowTarget")?.value || "auto";
+            return selected === "auto" ? getDefaultStealThrowTarget(source, action) : selected;
+        }
+
+        function getRunnerGuiErrorTarget() {
+            return document.getElementById("runnerGuiErrorTarget")?.value || "thrower";
+        }
+
+        function buildStealErrorLabel(source, action) {
+            const target = getRunnerGuiThrowTarget(source, action);
+            return getRunnerGuiErrorTarget() === "receiver"
+                ? "2-" + target + "E"
+                : "2E-" + target;
+        }
+
         function getRunnerAdvanceLabel(reason, action, source) {
             if (reason === "steal") {
-                if (source === "r1" && action === "3") {
-                    return "2E-6";
-                }
-                if (source === "r2" && action === "score") {
-                    return "2E-5";
+                const fromIndex = getRunnerSourceBaseIndex(source);
+                const targetIndex = action === "score" ? 3 : Number(action) - 1;
+                if (Number.isInteger(targetIndex) && fromIndex >= 0 && targetIndex > fromIndex + 1) {
+                    return buildStealErrorLabel(source, action);
                 }
                 return "S";
             }
@@ -3409,13 +3470,7 @@
 
         function getRunnerOutLabel(reason, source) {
             if (reason === "steal") {
-                if (source === "r1") {
-                    return "2-4T";
-                }
-                if (source === "r2") {
-                    return "2-5T";
-                }
-                return "2T";
+                return "2-" + getRunnerGuiThrowTarget(source, "out") + "T";
             }
             return {
                 batter: "一塁封殺",
@@ -3560,17 +3615,24 @@
         function parsePlayPartSequence(text) {
             const normalized = normalizeBaseballDigits(text || "")
                 .replace(/[ー－−‐‑‒–—―]/g, "-")
-                .replace(/[^1-9-]/g, "");
+                .replace(/[ｅＥ]/g, "E")
+                .replace(/[ｔＴ]/g, "T")
+                .toUpperCase()
+                .replace(/[^1-9ET-]/g, "");
             if (!normalized) {
                 return [];
             }
             if (normalized.includes("-")) {
-                return normalized.split("-").filter(Boolean);
+                return normalized
+                    .split("-")
+                    .map((part) => (part.match(/[1-9]/) || [""])[0])
+                    .filter(Boolean);
             }
             if (/^[1-9]{2,4}$/.test(normalized)) {
                 return normalized.split("");
             }
-            return /^[1-9]$/.test(normalized) ? [normalized] : [];
+            const digits = normalized.match(/[1-9]/g) || [];
+            return digits.length ? digits : [];
         }
 
         function buildDefaultFirstBaseSequence(fielder, sequence) {
