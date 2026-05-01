@@ -666,33 +666,14 @@
             grid-row: 1;
         }
 
-        .play-part-row .play-part-fielder {
-            grid-column: 1;
-            grid-row: 2;
-        }
-
-        .play-part-row .play-part-receiver {
-            grid-column: 2;
-            grid-row: 2;
-        }
-
-        .play-part-row .play-part-detail {
-            grid-column: 3;
-            grid-row: 2;
-        }
-
         .play-part-row .play-part-sequence {
-            grid-column: 1 / -1;
-            grid-row: 3;
-        }
-
-        .play-part-row:not(.is-detail-open) .play-part-sequence {
-            display: none;
+            grid-column: 1 / 3;
+            grid-row: 2;
         }
 
         .play-part-row .play-part-remove {
             grid-column: 3;
-            grid-row: 1;
+            grid-row: 1 / 3;
         }
 
         .play-part-row select,
@@ -3644,14 +3625,7 @@
                 '<select class="play-part-content" onchange="applyPlayParts()">',
                 createPlayPartContentOptions(category, value),
                 '</select>',
-                '<select class="play-part-fielder" onchange="applyPlayParts()" aria-label="野手1">',
-                createPlayPartFielderOptions(),
-                '</select>',
-                '<select class="play-part-receiver" onchange="applyPlayParts()" aria-label="野手2">',
-                createPlayPartReceiverOptions(),
-                '</select>',
-                '<button class="play-part-detail" onclick="togglePlayPartDetail(this)" aria-label="送球順を表示">詳細</button>',
-                '<input class="play-part-sequence" type="text" inputmode="numeric" placeholder="6-4-3" oninput="applyPlayParts()" aria-label="送球順">',
+                '<input class="play-part-sequence" type="text" inputmode="text" placeholder="野手/連携 例: 8, 63, 643" oninput="applyPlayParts()" aria-label="野手と連携">',
                 '<button class="play-part-remove" onclick="removePlayPartRow(this)" aria-label="プレー部品を削除">−</button>'
             ].join("");
             container.appendChild(row);
@@ -3673,7 +3647,7 @@
             window.alert([
                 "プレー部品は、出塁・進塁・走塁アウト・補助を組み合わせます。",
                 "例: 1ヒット1エラーは「出塁: 安打」＋「補助: 送球エラー進塁」。",
-                "野手1は打球を処理する人、野手2は送球を受ける人です。"
+                "野手/連携は 8、63、643 のようにハイフンなしで入力できます。"
             ].join("\\n"));
         }
 
@@ -3738,12 +3712,10 @@
                 .map((row) => {
                     const category = row.querySelector(".play-part-category").value;
                     const value = row.querySelector(".play-part-content").value;
-                    const fielder = row.querySelector(".play-part-fielder")?.value || "";
-                    const receiver = row.querySelector(".play-part-receiver")?.value || "";
                     const sequenceText = row.querySelector(".play-part-sequence")?.value || "";
                     const option = PLAY_PART_OPTIONS[category]?.options.find((entry) => entry.value === value);
                     return category && value && option
-                        ? { category, value, label: option.label, fielder, receiver, sequenceText }
+                        ? { category, value, label: option.label, sequenceText }
                         : null;
                 })
                 .filter(Boolean);
@@ -4311,13 +4283,28 @@
             return shortNames[fielder] || "";
         }
 
+        function getPlayPartSequencePhrase(parsed) {
+            return Array.isArray(parsed?.fieldSequence) && parsed.fieldSequence.length >= 2
+                ? parsed.fieldSequence.join("-")
+                : "";
+        }
+
         function buildNaturalTextFromPlayParts(parts, parsed) {
             const fielderPhrase = getPlayPartFielderPhrase(parsed);
+            const sequencePhrase = getPlayPartSequencePhrase(parsed);
             const labels = parts.map((part) => part.label);
             let mainText = labels.join(" + ");
 
+            if (parsed.result === "OUT" && parsed.modifiers?.doublePlay && sequencePhrase) {
+                mainText = sequencePhrase + "の併殺";
+            } else if (parsed.result === "OUT" && parsed.ballType === "ground" && sequencePhrase) {
+                mainText = sequencePhrase + "のゴロアウト";
+            }
+
             if (fielderPhrase) {
-                if (parsed.result === "G") {
+                if (parsed.result === "OUT" && sequencePhrase) {
+                    // 送球順がある時は 6-3 / 6-4-3 を優先して表示する。
+                } else if (parsed.result === "G") {
                     mainText = fielderPhrase + "内野安打";
                 } else if (parsed.result === "1B") {
                     mainText = fielderPhrase + "前安打";
