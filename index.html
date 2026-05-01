@@ -564,7 +564,7 @@
 
         .play-part-row {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 30px;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
             gap: 6px;
             align-items: center;
         }
@@ -589,9 +589,18 @@
             grid-row: 2;
         }
 
+        .play-part-row .play-part-detail {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
         .play-part-row .play-part-sequence {
             grid-column: 1 / -1;
             grid-row: 3;
+        }
+
+        .play-part-row:not(.is-detail-open) .play-part-sequence {
+            display: none;
         }
 
         .play-part-row .play-part-remove {
@@ -623,10 +632,19 @@
 
         .play-part-remove {
             min-height: 30px;
-            width: 30px;
+            width: 44px;
             padding: 0;
             border-radius: 10px;
             font-size: 16px;
+            line-height: 1;
+        }
+
+        .play-part-detail {
+            min-height: 30px;
+            width: 44px;
+            padding: 0;
+            border-radius: 10px;
+            font-size: 10px;
             line-height: 1;
         }
 
@@ -671,7 +689,7 @@
 
         .runner-gui-controls {
             display: grid;
-            grid-template-columns: minmax(64px, 0.7fr) minmax(82px, 0.9fr);
+            grid-template-columns: minmax(78px, 1fr) max-content;
             gap: 6px;
             align-items: center;
         }
@@ -696,24 +714,32 @@
             position: relative;
             grid-column: 2;
             grid-row: 2 / span 2;
-            width: min(70px, 100%);
-            aspect-ratio: 1;
+            display: grid;
+            grid-template-columns: repeat(3, 34px);
+            grid-template-rows: repeat(3, 34px);
+            gap: 2px;
+            width: max-content;
             margin: 0 auto 2px;
         }
 
         .runner-diamond::before {
             content: "";
             position: absolute;
-            inset: 30%;
+            left: 50%;
+            top: 50%;
+            width: 44px;
+            height: 44px;
             border: 2px solid #94a3b8;
-            transform: rotate(45deg);
+            transform: translate(-50%, -50%) rotate(45deg);
             background: #fff;
+            z-index: 0;
         }
 
         .runner-base-btn {
-            position: absolute;
-            min-height: 24px;
-            width: 28px;
+            position: relative;
+            z-index: 1;
+            min-height: 34px;
+            width: 34px;
             padding: 0;
             border-radius: 999px;
             background: #fff;
@@ -721,27 +747,23 @@
         }
 
         .runner-base-btn.home {
-            left: 50%;
-            bottom: 6px;
-            transform: translateX(-50%);
+            grid-column: 2;
+            grid-row: 3;
         }
 
         .runner-base-btn.first {
-            right: 2px;
-            top: 50%;
-            transform: translateY(-50%);
+            grid-column: 3;
+            grid-row: 2;
         }
 
         .runner-base-btn.second {
-            left: 50%;
-            top: 6px;
-            transform: translateX(-50%);
+            grid-column: 2;
+            grid-row: 1;
         }
 
         .runner-base-btn.third {
-            left: 2px;
-            top: 50%;
-            transform: translateY(-50%);
+            grid-column: 1;
+            grid-row: 2;
         }
 
         .runner-out-btn {
@@ -908,8 +930,8 @@
                 grid-template-columns: minmax(0, 1fr) 126px;
                 padding: 0 12px;
                 gap: 10px;
-                height: min(44dvh, 292px);
-                max-height: min(44dvh, 292px);
+                height: min(48dvh, 340px);
+                max-height: min(48dvh, 340px);
             }
 
             .scorebox-container {
@@ -961,7 +983,7 @@
 
             .play-part-row {
                 gap: 4px;
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 26px;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 42px;
             }
 
             .play-part-row select,
@@ -972,9 +994,10 @@
             }
 
             .play-part-remove,
+            .play-part-detail,
             .icon-btn {
                 min-height: 26px;
-                width: 26px;
+                width: 42px;
                 border-radius: 8px;
             }
 
@@ -987,12 +1010,14 @@
             }
 
             .runner-diamond {
-                width: min(62px, 100%);
+                grid-template-columns: repeat(3, 32px);
+                grid-template-rows: repeat(3, 32px);
+                width: max-content;
             }
 
             .runner-base-btn {
-                min-height: 22px;
-                width: 26px;
+                min-height: 32px;
+                width: 32px;
             }
 
             .nl-input {
@@ -3179,10 +3204,23 @@
                 '<select class="play-part-receiver" onchange="applyPlayParts()" aria-label="野手2">',
                 createPlayPartReceiverOptions(),
                 '</select>',
+                '<button class="play-part-detail" onclick="togglePlayPartDetail(this)" aria-label="送球順を表示">詳細</button>',
                 '<input class="play-part-sequence" type="text" inputmode="numeric" placeholder="6-4-3" oninput="applyPlayParts()" aria-label="送球順">',
                 '<button class="play-part-remove" onclick="removePlayPartRow(this)" aria-label="プレー部品を削除">−</button>'
             ].join("");
             container.appendChild(row);
+        }
+
+        function togglePlayPartDetail(button) {
+            const row = button.closest(".play-part-row");
+            if (!row) {
+                return;
+            }
+            const isOpen = row.classList.toggle("is-detail-open");
+            button.textContent = isOpen ? "閉" : "詳細";
+            if (isOpen) {
+                row.querySelector(".play-part-sequence")?.focus();
+            }
         }
 
         function showPlayBuilderHelp() {
