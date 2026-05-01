@@ -370,6 +370,51 @@
             border: none;
         }
 
+        .game-flow-bar {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 10px;
+            align-items: stretch;
+        }
+
+        .team-name-input {
+            min-height: 38px;
+            width: 100%;
+            padding: 8px 10px;
+            border: 2px solid #d7e1e8;
+            border-radius: 10px;
+            background: #ffffff;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            color: #22313f;
+        }
+
+        .half-switch {
+            min-height: 38px;
+            padding: 6px 8px;
+            font-size: 13px;
+            border-radius: 10px;
+            background: #ffffff;
+        }
+
+        .half-switch.is-active {
+            background: #e8f6ec;
+            color: var(--sheet-green);
+            border-color: var(--sheet-green);
+        }
+
+        .inning-status {
+            grid-column: 1 / -1;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: #f3f8f4;
+            color: #1f5c2e;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
         .sheet-viewport {
             overflow: auto;
             max-height: 72dvh;
@@ -1296,6 +1341,13 @@
             <div class="control-panel">
                 <section class="section">
                     <div class="sheet-panel">
+                        <div class="game-flow-bar" aria-label="試合進行">
+                            <input id="topTeamName" class="team-name-input" value="先攻" aria-label="先攻チーム名" onchange="updateTeamName('top', this.value)">
+                            <input id="bottomTeamName" class="team-name-input" value="後攻" aria-label="後攻チーム名" onchange="updateTeamName('bottom', this.value)">
+                            <button id="topHalfBtn" class="half-switch" onclick="activateHalf('top')">先攻</button>
+                            <button id="bottomHalfBtn" class="half-switch" onclick="activateHalf('bottom')">後攻</button>
+                            <div id="inningStatus" class="inning-status">1回表 先攻</div>
+                        </div>
                         <div id="sheetMeta" class="sheet-meta"></div>
                         <div id="sheetViewport" class="sheet-viewport">
                             <div id="sheetGrid" class="sheet-grid"></div>
@@ -1555,6 +1607,23 @@
             runnerContext: null,
             baseRunners: [null, null, null],
             currentConfidence: 1,
+            activeHalf: "top",
+            teamNames: {
+                top: "先攻",
+                bottom: "後攻"
+            },
+            scoreSheets: {
+                top: null,
+                bottom: null
+            },
+            baseRunnersByHalf: {
+                top: [null, null, null],
+                bottom: [null, null, null]
+            },
+            selectionsByHalf: {
+                top: { row: 0, col: 0 },
+                bottom: { row: 0, col: 0 }
+            },
             selectedSheetRow: 0,
             selectedSheetCol: 0,
             scoreSheet: [],
@@ -1810,6 +1879,102 @@
 
         function createEmptyScoreSheet() {
             return Array.from({ length: 9 }, () => Array.from({ length: MAX_INNINGS }, () => null));
+        }
+
+        function getHalfLabel(half = state.activeHalf) {
+            return half === "top" ? "表" : "裏";
+        }
+
+        function getActiveTeamName() {
+            return state.teamNames[state.activeHalf] || (state.activeHalf === "top" ? "先攻" : "後攻");
+        }
+
+        function saveActiveSelection() {
+            state.selectionsByHalf[state.activeHalf] = {
+                row: state.selectedSheetRow,
+                col: state.selectedSheetCol
+            };
+        }
+
+        function syncActiveHalfRefs() {
+            if (!state.scoreSheets[state.activeHalf]) {
+                state.scoreSheets[state.activeHalf] = createEmptyScoreSheet();
+            }
+            if (!state.baseRunnersByHalf[state.activeHalf]) {
+                state.baseRunnersByHalf[state.activeHalf] = [null, null, null];
+            }
+            state.scoreSheet = state.scoreSheets[state.activeHalf];
+            state.baseRunners = state.baseRunnersByHalf[state.activeHalf];
+        }
+
+        function setBaseRunners(runners) {
+            state.baseRunners = runners;
+            state.baseRunnersByHalf[state.activeHalf] = runners;
+        }
+
+        function updateGameFlowDisplay() {
+            const topBtn = document.getElementById("topHalfBtn");
+            const bottomBtn = document.getElementById("bottomHalfBtn");
+            const topInput = document.getElementById("topTeamName");
+            const bottomInput = document.getElementById("bottomTeamName");
+            const status = document.getElementById("inningStatus");
+
+            topBtn?.classList.toggle("is-active", state.activeHalf === "top");
+            bottomBtn?.classList.toggle("is-active", state.activeHalf === "bottom");
+            if (topInput && topInput.value !== state.teamNames.top) {
+                topInput.value = state.teamNames.top;
+            }
+            if (bottomInput && bottomInput.value !== state.teamNames.bottom) {
+                bottomInput.value = state.teamNames.bottom;
+            }
+            if (status) {
+                status.textContent = (state.selectedSheetCol + 1) + "回" + getHalfLabel() + " / " + getActiveTeamName() + " / " + (state.selectedSheetRow + 1) + "番";
+            }
+        }
+
+        function updateTeamName(half, value) {
+            if (!["top", "bottom"].includes(half)) {
+                return;
+            }
+            state.teamNames[half] = value.trim() || (half === "top" ? "先攻" : "後攻");
+            updateGameFlowDisplay();
+        }
+
+        function activateHalf(half, row = null, col = null) {
+            if (!["top", "bottom"].includes(half)) {
+                return;
+            }
+            saveActiveSelection();
+            state.activeHalf = half;
+            syncActiveHalfRefs();
+
+            const saved = state.selectionsByHalf[half] || { row: 0, col: 0 };
+            state.selectedSheetRow = Number.isInteger(row) ? row : saved.row;
+            state.selectedSheetCol = Number.isInteger(col) ? col : saved.col;
+            state.battingOrder = String(state.selectedSheetRow + 1);
+
+            const battingOrderSelect = document.getElementById("battingOrderSelect");
+            if (battingOrderSelect) {
+                battingOrderSelect.value = state.battingOrder;
+            }
+
+            const snapshot = state.scoreSheet[state.selectedSheetRow]?.[state.selectedSheetCol];
+            if (snapshot) {
+                applyAtBatSnapshot(snapshot);
+            } else {
+                resetState();
+                state.selectedSheetRow = Number.isInteger(row) ? row : saved.row;
+                state.selectedSheetCol = Number.isInteger(col) ? col : saved.col;
+                state.battingOrder = String(state.selectedSheetRow + 1);
+                if (battingOrderSelect) {
+                    battingOrderSelect.value = state.battingOrder;
+                }
+            }
+
+            saveActiveSelection();
+            renderScoreSheet();
+            updateDisplay();
+            updateGameFlowDisplay();
         }
 
         function captureAtBatSnapshot() {
@@ -2466,11 +2631,11 @@
 
             if (snapshot.outScore === "Ⅲ") {
                 markLeftOnBaseRunners(runners);
-                state.baseRunners = [null, null, null];
+                setBaseRunners([null, null, null]);
                 return;
             }
 
-            state.baseRunners = runners;
+            setBaseRunners(runners);
         }
 
         function getDisplayedResultFromSnapshot(snapshot) {
@@ -2839,6 +3004,7 @@
             }
 
             updateSheetMeta();
+            updateGameFlowDisplay();
         }
 
         function selectSheetCell(row, col) {
@@ -2846,6 +3012,7 @@
                 suppressSheetCellClick = false;
                 return;
             }
+            saveActiveSelection();
             state.selectedSheetRow = row;
             state.selectedSheetCol = col;
             state.battingOrder = String(row + 1);
@@ -2860,6 +3027,7 @@
                 state.battingOrder = String(row + 1);
                 document.getElementById("battingOrderSelect").value = state.battingOrder;
             }
+            saveActiveSelection();
             renderScoreSheet();
             updateDisplay();
             document.querySelector(".scorebox-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -2910,6 +3078,7 @@
             state.scoreSheet[state.selectedSheetRow][state.selectedSheetCol] = snapshot;
             updateBaseRunnersForSnapshot(state.selectedSheetRow, state.selectedSheetCol, snapshot);
             renderScoreSheet();
+            return snapshot;
         }
 
         function advanceToNextSheetCell() {
@@ -2925,8 +3094,30 @@
             state.selectedSheetCol = nextCol;
             state.battingOrder = String(nextRow + 1);
             document.getElementById("battingOrderSelect").value = state.battingOrder;
+            saveActiveSelection();
             renderScoreSheet();
             updateDisplay();
+        }
+
+        function advanceAfterSave(snapshot) {
+            if (snapshot?.outScore === "Ⅲ") {
+                const currentCol = state.selectedSheetCol;
+                if (state.activeHalf === "top") {
+                    activateHalf("bottom", 0, currentCol);
+                } else {
+                    activateHalf("top", 0, Math.min(MAX_INNINGS - 1, currentCol + 1));
+                }
+                clearNaturalLanguageInput();
+                return;
+            }
+
+            clearNaturalLanguageInput();
+            advanceToNextSheetCell();
+        }
+
+        function saveAndAdvanceCurrentPlate() {
+            const snapshot = saveCurrentToSheet();
+            advanceAfterSave(snapshot);
         }
 
         function isLikelyNikkanInningToken(token) {
@@ -3034,7 +3225,7 @@
             state.selectedSheetRow = preservedSelection.row;
             state.selectedSheetCol = preservedSelection.col;
             state.battingOrder = preservedSelection.battingOrder;
-            state.baseRunners = preservedSelection.baseRunners;
+            setBaseRunners(preservedSelection.baseRunners);
             applyAtBatSnapshot(preservedSnapshot);
             document.getElementById("battingOrderSelect").value = state.battingOrder;
         }
@@ -3501,7 +3692,7 @@
             if (action === "out") {
                 const outLabel = getRunnerOutLabel(reason, source);
                 removeRunnerFromBase(runners, fromIndex, outLabel, getNextOutScoreForRunnerGui());
-                state.baseRunners = runners;
+                setBaseRunners(runners);
                 renderScoreSheet();
                 updateDisplay();
                 updateRunnerGuiStatus(runnerLabel + " " + outLabel);
@@ -3539,7 +3730,7 @@
                 statusMessage = runnerLabel + "→" + (targetIndex + 1) + "塁" + (label ? "（" + label + "）" : "");
             }
 
-            state.baseRunners = runners;
+            setBaseRunners(runners);
             renderScoreSheet();
             updateDisplay();
             updateRunnerGuiStatus(statusMessage);
@@ -4015,16 +4206,12 @@
 
         function applyNaturalLanguage() {
             if (state.parsedInput) {
-                saveCurrentToSheet();
-                clearNaturalLanguageInput();
-                advanceToNextSheetCell();
+                saveAndAdvanceCurrentPlate();
                 return;
             }
 
             if (!document.getElementById("naturalLanguageInput").value.trim() && (state.result || state.pitches.length > 0)) {
-                saveCurrentToSheet();
-                clearNaturalLanguageInput();
-                advanceToNextSheetCell();
+                saveAndAdvanceCurrentPlate();
                 return;
             }
 
@@ -4032,9 +4219,7 @@
             if (!state.parsedInput) {
                 return;
             }
-            saveCurrentToSheet();
-            clearNaturalLanguageInput();
-            advanceToNextSheetCell();
+            saveAndAdvanceCurrentPlate();
         }
 
         function applyCorrectedNaturalLanguage() {
@@ -6117,8 +6302,15 @@
             previewExtraResult();
         }
 
-        state.scoreSheet = createEmptyScoreSheet();
-        state.baseRunners = [null, null, null];
+        state.scoreSheets = {
+            top: createEmptyScoreSheet(),
+            bottom: createEmptyScoreSheet()
+        };
+        state.baseRunnersByHalf = {
+            top: [null, null, null],
+            bottom: [null, null, null]
+        };
+        syncActiveHalfRefs();
         initializeResultOptions();
         resetPlayParts();
         updateSheetZoom();
@@ -6126,6 +6318,7 @@
         document.getElementById("naturalLanguageInput").addEventListener("input", scheduleNaturalLanguageParse);
         renderScoreSheet();
         updateDisplay();
+        updateGameFlowDisplay();
     </script>
 </body>
 </html>
