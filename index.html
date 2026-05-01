@@ -1937,6 +1937,21 @@
             return nextCol;
         }
 
+        function findOrCreateColumnForNextBatter(currentCol, nextRow) {
+            const currentInning = getColumnInningLabel(currentCol);
+
+            for (let col = currentCol; col < MAX_INNINGS; col += 1) {
+                if (getColumnInningLabel(col) !== currentInning) {
+                    break;
+                }
+                if (!state.scoreSheet[nextRow]?.[col]) {
+                    return col;
+                }
+            }
+
+            return insertColumnAfterForBattingAround(currentCol);
+        }
+
         function getHalfLabel(half = state.activeHalf) {
             return half === "top" ? "表" : "裏";
         }
@@ -3159,7 +3174,9 @@
             let nextCol = state.selectedSheetCol;
             if (nextRow >= 9) {
                 nextRow = 0;
-                nextCol = insertColumnAfterForBattingAround(state.selectedSheetCol);
+            }
+            if (state.scoreSheet[nextRow]?.[nextCol]) {
+                nextCol = findOrCreateColumnForNextBatter(state.selectedSheetCol, nextRow);
             }
             selectSheetCell(nextRow, nextCol);
             resetState();
