@@ -3234,7 +3234,7 @@
                 if (snapshot.selectedBallType === "liner") {
                     return '<path d="M 158 144 L 182 144" fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
                 }
-                if (snapshot.selectedBallType === "ground" && !isInfieldHit) {
+                if (snapshot.selectedBallType === "ground" && !isInfieldHit && snapshot.result !== "Fc") {
                     return '<path d="M 160 170 Q 170 177 180 170" fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
                 }
                 return "";
