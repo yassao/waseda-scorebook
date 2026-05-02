@@ -2286,6 +2286,14 @@
             };
         }
 
+        function isBatterSafeFielderChoice(snapshot) {
+            return snapshot?.result === "Fc"
+                && Array.isArray(snapshot?.runnerContext?.outsOnBases)
+                && snapshot.runnerContext.outsOnBases.length > 0
+                && Array.isArray(snapshot?.runnerContext?.advances)
+                && snapshot.runnerContext.advances.some((advance) => String(advance || "").startsWith("打者走者一塁セーフ"));
+        }
+
         function applyAtBatSnapshot(snapshot) {
             if (!snapshot) {
                 return;
@@ -2870,6 +2878,7 @@
             if (!context) {
                 return;
             }
+            const deferredBatterAdvances = [];
 
             (context.advances || []).forEach((advance) => {
                 const advanceText = typeof advance === "string" ? advance : "";
@@ -2895,29 +2904,13 @@
                 } else if (advanceBaseText === "三盗") {
                     moveRunnerToBase(runners, 1, 2);
                 } else if (advanceBaseText === "打者走者一塁セーフ" && batterRef) {
-                    runners[0] = batterRef;
-                    setRunnerStatusForRef(batterRef, "1塁");
+                    deferredBatterAdvances.push({ base: 1, label: advanceLabel || null });
                 } else if (advanceBaseText === "打者走者二塁セーフ" && batterRef) {
-                    if (runners[0]?.row === batterRef.row && runners[0]?.col === batterRef.col) {
-                        runners[0] = null;
-                    }
-                    runners[1] = batterRef;
-                    setRunnerStatusForRef(batterRef, {
-                        type: "advance",
-                        base: 2,
-                        by: currentBatterNumberForRunnerEvent(),
-                        label: advanceLabel || null
-                    });
+                    deferredBatterAdvances.push({ base: 2, label: advanceLabel || null });
                 } else if (advanceBaseText === "打者走者三塁セーフ" && batterRef) {
-                    runners[0] = null;
-                    runners[1] = null;
-                    runners[2] = batterRef;
-                    setRunnerStatusForRef(batterRef, { type: "advance", base: 3, by: currentBatterNumberForRunnerEvent() });
+                    deferredBatterAdvances.push({ base: 3, label: advanceLabel || null });
                 } else if (advanceBaseText === "打者走者生還" && batterRef) {
-                    runners[0] = null;
-                    runners[1] = null;
-                    runners[2] = null;
-                    setRunnerStatusForRef(batterRef, { type: "score", by: currentBatterNumberForRunnerEvent(), ...currentScoringMeta() });
+                    deferredBatterAdvances.push({ base: 4, label: advanceLabel || null });
                 }
             });
 
@@ -2933,6 +2926,42 @@
                     removeRunnerFromBase(runners, 1, sheetLabel, scoreOnRunner);
                 } else if (outLabel === "本塁アウト" || outLabel === "本塁封殺" || outLabel === "2T") {
                     removeRunnerFromBase(runners, 2, sheetLabel, scoreOnRunner);
+                }
+            });
+
+            deferredBatterAdvances.forEach((advance) => {
+                if (!batterRef) {
+                    return;
+                }
+                runners[0] = runners[0]?.row === batterRef.row && runners[0]?.col === batterRef.col ? null : runners[0];
+                runners[1] = runners[1]?.row === batterRef.row && runners[1]?.col === batterRef.col ? null : runners[1];
+                runners[2] = runners[2]?.row === batterRef.row && runners[2]?.col === batterRef.col ? null : runners[2];
+                if (advance.base === 1) {
+                    runners[0] = batterRef;
+                    setRunnerStatusForRef(batterRef, "1塁");
+                } else if (advance.base === 2) {
+                    runners[1] = batterRef;
+                    setRunnerStatusForRef(batterRef, {
+                        type: "advance",
+                        base: 2,
+                        by: currentBatterNumberForRunnerEvent(),
+                        label: advance.label || null
+                    });
+                } else if (advance.base === 3) {
+                    runners[2] = batterRef;
+                    setRunnerStatusForRef(batterRef, {
+                        type: "advance",
+                        base: 3,
+                        by: currentBatterNumberForRunnerEvent(),
+                        label: advance.label || null
+                    });
+                } else if (advance.base >= 4) {
+                    setRunnerStatusForRef(batterRef, {
+                        type: "score",
+                        by: currentBatterNumberForRunnerEvent(),
+                        label: advance.label || null,
+                        ...currentScoringMeta()
+                    });
                 }
             });
         }
@@ -3129,6 +3158,9 @@
             }
 
             const displayedResult = getDisplayedResultFromSnapshot(snapshot) || " ";
+            const fcContinuation = snapshot.result === "Fc" && Array.isArray(snapshot.fieldSequence) && snapshot.fieldSequence.length >= 3
+                ? snapshot.fieldSequence.slice(1).join("-")
+                : "";
             const resultColor = getSnapshotResultColor(snapshot);
             const prefixText = getSnapshotPrefixText(snapshot);
             const hitLinePaths = {
@@ -3257,6 +3289,9 @@
                 prefix,
                 infieldHitArc,
                 '<text x="' + resultX + '" y="160" text-anchor="middle" font-size="24" font-weight="700" fill="' + resultColor + '">' + displayedResult + '</text>',
+                fcContinuation
+                    ? '<text x="178" y="178" text-anchor="middle" font-size="10" font-weight="700" fill="' + SCORE_COLORS.ink + '">' + fcContinuation + '</text>'
+                    : "",
                 landingDot,
                 '</svg>'
             ].join("");
@@ -3460,6 +3495,9 @@
 
         function saveCurrentToSheet() {
             const snapshot = captureAtBatSnapshot();
+            if (isBatterSafeFielderChoice(snapshot)) {
+                snapshot.outScore = "";
+            }
             snapshot.outScore = resolveSnapshotOutScore(state.selectedSheetRow, state.selectedSheetCol, snapshot);
             state.scoreSheet[state.selectedSheetRow][state.selectedSheetCol] = snapshot;
             updateBaseRunnersForSnapshot(state.selectedSheetRow, state.selectedSheetCol, snapshot);
@@ -3487,8 +3525,22 @@
             updateDisplay();
         }
 
+        function getMaxOutCountForActiveInning() {
+            const inning = getColumnInningLabel();
+            let maxOuts = 0;
+            for (let col = 0; col < MAX_INNINGS; col += 1) {
+                if (getColumnInningLabel(col) !== inning) {
+                    continue;
+                }
+                for (let row = 0; row < 9; row += 1) {
+                    maxOuts = Math.max(maxOuts, romanToOutCount(state.scoreSheet?.[row]?.[col]?.outScore));
+                }
+            }
+            return maxOuts;
+        }
+
         function advanceAfterSave(snapshot) {
-            if (snapshot?.outScore === "Ⅲ") {
+            if (snapshot?.outScore === "Ⅲ" || getMaxOutCountForActiveInning() >= 3) {
                 const endedHalf = state.activeHalf;
                 const currentCol = state.selectedSheetCol;
                 const currentInning = getColumnInningLabel(currentCol, endedHalf);
@@ -5607,6 +5659,9 @@
                 if (["S", "CS", "DS", "TP", "W", "P", "BK", "OB", "IF"].includes(parsed.result)) {
                     markLastPitchNote(parsed.result);
                 }
+            }
+            if (isBatterSafeFielderChoice(parsed)) {
+                state.outScore = "";
             }
 
             updateDisplay();
