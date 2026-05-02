@@ -1257,8 +1257,8 @@
                     </div>
                     <div class="runner-gui">
                         <div class="runner-gui-title">
-                            <span>走者GUI</span>
-                            <small>塁上走者を更新</small>
+                            <span>走者の移動・アウト</span>
+                            <small>標準進塁と違う時だけ</small>
                         </div>
                         <div class="runner-gui-controls">
                             <select id="runnerGuiSource" aria-label="対象走者">
@@ -1267,7 +1267,7 @@
                                 <option value="r2">二走</option>
                                 <option value="r3">三走</option>
                             </select>
-                            <select id="runnerGuiReason" aria-label="進塁理由">
+                            <select id="runnerGuiReason" aria-label="移動理由">
                                 <option value="next">次打者</option>
                                 <option value="steal">盗塁</option>
                                 <option value="wp">暴投</option>
@@ -1294,7 +1294,7 @@
                             </div>
                             <button class="runner-out-btn" onclick="applyRunnerGuiAction('out')">アウト</button>
                         </div>
-                        <div id="runnerGuiStatus" class="runner-gui-status">保存済み走者は元の打者セルへ追記します。</div>
+                        <div id="runnerGuiStatus" class="runner-gui-status">走者の移動は元の打者セルへ追記します。</div>
                         <div id="runnerLiveStatus" class="runner-live-status" aria-label="現在の塁上走者"></div>
                     </div>
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
@@ -1753,6 +1753,7 @@
                     { value: "throw_error_onbase", label: "送球エラー" },
                     { value: "receive_error_onbase", label: "捕球エラー" },
                     { value: "fc_onbase", label: "野選出塁" },
+                    { value: "force_2_batter_safe", label: "Fc（二塁封殺・打者一塁セーフ）" },
                     { value: "dropped_third", label: "振り逃げ" }
                 ]
             },
@@ -1768,42 +1769,12 @@
                     { value: "double_play", label: "併殺" }
                 ]
             },
-            advance: {
-                label: "進塁",
-                options: [
-                    { value: "r1_to_2", label: "一走→二塁" },
-                    { value: "r1_to_3", label: "一走→三塁" },
-                    { value: "r1_score", label: "一走生還" },
-                    { value: "r2_to_3", label: "二走→三塁" },
-                    { value: "r2_score", label: "二走生還" },
-                    { value: "r3_score", label: "三走生還" },
-                    { value: "double_steal_23", label: "重盗（一二走→二三塁）" },
-                    { value: "double_steal_throw_error_score", label: "重盗＋三塁送球E" },
-                    { value: "wp_advance", label: "暴投進塁" },
-                    { value: "pb_advance", label: "捕逸進塁" },
-                    { value: "balk_advance", label: "ボーク進塁" }
-                ]
-            },
-            runnerOut: {
-                label: "走者アウト",
-                options: [
-                    { value: "force_2_batter_safe", label: "二塁封殺・打者一塁セーフ" },
-                    { value: "force_3", label: "三塁封殺" },
-                    { value: "home_out", label: "本塁アウト" },
-                    { value: "caught_stealing", label: "盗塁死" },
-                    { value: "pickoff", label: "牽制死" },
-                    { value: "tag_out", label: "タッチアウト" }
-                ]
-            },
             support: {
                 label: "補助",
                 options: [
-                    { value: "error_advance", label: "捕球エラー進塁（打者二塁）" },
-                    { value: "throwing_error", label: "送球エラー進塁（打者二塁）" },
-                    { value: "wild_pitch", label: "暴投" },
-                    { value: "passed_ball", label: "捕逸" },
-                    { value: "balk", label: "ボーク" },
-                    { value: "fielder_choice", label: "野選" }
+                    { value: "error_advance", label: "捕球エラーで打者二塁" },
+                    { value: "throwing_error", label: "送球エラーで打者二塁" },
+                    { value: "fielder_choice", label: "野選補助" }
                 ]
             }
         };
@@ -3895,8 +3866,9 @@
 
         function showPlayBuilderHelp() {
             window.alert([
-                "プレー部品は、出塁・進塁・走者アウト・補助を組み合わせます。",
+                "プレー部品は、打者の出塁・アウト・補助を組み合わせます。",
                 "例: 1ヒット1エラーは「出塁: 安打」＋「補助: 送球エラー進塁」。",
+                "標準進塁と違う走者の移動やアウトは、下の「走者の移動・アウト」で追記します。",
                 "野手/連携は 8、63、643 のようにハイフンなしで入力できます。"
             ].join("\\n"));
         }
@@ -4135,11 +4107,11 @@
 
             const targetIndex = action === "score" ? 3 : Number(action) - 1;
             if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex > 3) {
-                updateRunnerGuiStatus("その進塁はまだ対象外です");
+                updateRunnerGuiStatus("その移動はまだ対象外です");
                 return true;
             }
             if (targetIndex <= fromIndex) {
-                updateRunnerGuiStatus("進塁先は現在の塁より先を選んでください");
+                updateRunnerGuiStatus("移動先は現在の塁より先を選んでください");
                 return true;
             }
             if (targetIndex < 3 && runners[targetIndex]) {
@@ -4218,8 +4190,8 @@
                 state.parsedInput.runnerContext = deepClone(state.runnerContext);
             }
             updateDisplay();
-            syncPreviewFromCurrentState("走者GUI");
-            updateRunnerGuiStatus(entry || "その進塁はまだ対象外です");
+            syncPreviewFromCurrentState("走者移動");
+            updateRunnerGuiStatus(entry || "その移動はまだ対象外です");
         }
 
         function updateRunnerGuiStatus(message) {
@@ -4228,14 +4200,14 @@
                 return;
             }
             if (message) {
-                status.textContent = message.includes("対象外") || message.includes("戻しました")
+                status.textContent = message.includes("対象外") || message.includes("戻しました") || message.includes("移動先")
                     ? message
                     : message + " を追記しました。";
                 return;
             }
             status.textContent = state.runnerContextText && state.runnerContextText !== "なし"
                 ? "追記済み: " + state.runnerContextText
-                : "保存済み走者は元の打者セルへ追記します。";
+                : "走者の移動は元の打者セルへ追記します。";
         }
 
         function parsePlayPartSequence(text) {
