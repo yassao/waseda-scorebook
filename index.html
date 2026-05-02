@@ -2806,6 +2806,30 @@
             });
         }
 
+        function resolveForceOutLabel(snapshot, outLabel) {
+            const sequence = snapshot.fieldSequence || [];
+            const label = String(outLabel || "");
+            if (/^\d-\dT$/.test(label) || /^[1-9](?:-[1-9])+$/.test(label) || label.includes("CS")) {
+                return label;
+            }
+            if (["一塁封殺", "二塁封殺", "三塁封殺", "本塁封殺"].includes(label)) {
+                if (sequence.length >= 2) {
+                    return sequence.slice(0, 2).join("-");
+                }
+                const fielder = sequence[0] || snapshot.selectedFielder || snapshot.fielder || "?";
+                const defaultReceivers = {
+                    "一塁封殺": "3",
+                    "二塁封殺": ({ "4": "6", "6": "4", "5": "4", "1": "6", "3": "6" }[fielder] || "4"),
+                    "三塁封殺": "5",
+                    "本塁封殺": "2"
+                };
+                return fielder === "?"
+                    ? "?"
+                    : fielder + "-" + defaultReceivers[label];
+            }
+            return label || "アウト";
+        }
+
         function resolveDoublePlayRunnerNote(snapshot) {
             const sequence = snapshot.fieldSequence || [];
             if (sequence.length >= 2) {
@@ -2898,15 +2922,17 @@
             });
 
             (context.outsOnBases || []).forEach((outLabel) => {
+                const scoreOnRunner = getNextOutScoreForRunnerGui();
+                const sheetLabel = resolveForceOutLabel(snapshot, outLabel);
                 if (outLabel === "一塁封殺" && batterRef) {
-                    markRunnerOutOnSnapshot(batterRef, "Ⅰ");
-                    setRunnerStatusForRef(batterRef, { type: "out", label: outLabel, by: currentBatterNumberForRunnerEvent() });
+                    markRunnerOutOnSnapshot(batterRef, scoreOnRunner);
+                    setRunnerStatusForRef(batterRef, { type: "out", label: sheetLabel, by: currentBatterNumberForRunnerEvent() });
                 } else if (outLabel === "二盗死" || outLabel === "二塁封殺" || /^2-[46]T$/.test(outLabel)) {
-                    removeRunnerFromBase(runners, 0, outLabel);
+                    removeRunnerFromBase(runners, 0, sheetLabel, scoreOnRunner);
                 } else if (outLabel === "三盗死" || outLabel === "三塁封殺" || outLabel === "2-5T") {
-                    removeRunnerFromBase(runners, 1, outLabel);
+                    removeRunnerFromBase(runners, 1, sheetLabel, scoreOnRunner);
                 } else if (outLabel === "本塁アウト" || outLabel === "本塁封殺" || outLabel === "2T") {
-                    removeRunnerFromBase(runners, 2, outLabel);
+                    removeRunnerFromBase(runners, 2, sheetLabel, scoreOnRunner);
                 }
             });
         }
