@@ -1785,10 +1785,9 @@
                 ]
             },
             runnerOut: {
-                label: "走塁アウト",
+                label: "走者アウト",
                 options: [
-                    { value: "force_2", label: "二塁封殺" },
-                    { value: "force_2_batter_safe", label: "二塁封殺・一塁セーフ" },
+                    { value: "force_2_batter_safe", label: "二塁封殺・打者一塁セーフ" },
                     { value: "force_3", label: "三塁封殺" },
                     { value: "home_out", label: "本塁アウト" },
                     { value: "caught_stealing", label: "盗塁死" },
@@ -3896,7 +3895,7 @@
 
         function showPlayBuilderHelp() {
             window.alert([
-                "プレー部品は、出塁・進塁・走塁アウト・補助を組み合わせます。",
+                "プレー部品は、出塁・進塁・走者アウト・補助を組み合わせます。",
                 "例: 1ヒット1エラーは「出塁: 安打」＋「補助: 送球エラー進塁」。",
                 "野手/連携は 8、63、643 のようにハイフンなしで入力できます。"
             ].join("\\n"));
@@ -4442,7 +4441,6 @@
                         parsed.runnerContext.advances.push("二走生還:2E-5");
                         parsed.runnerContext.advances.push("一走→三塁:2E-5");
                         break;
-                    case "force_2":
                     case "caught_stealing":
                         parsed.runnerContext.outsOnBases.push("二塁封殺");
                         break;
