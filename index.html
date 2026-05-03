@@ -2975,6 +2975,23 @@
             setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta() });
         }
 
+        function moveRunnerRefToBase(runners, runnerRef, toIndex, label = null) {
+            if (!runnerRef) {
+                return;
+            }
+            removeRunnerRefFromBases(runners, runnerRef);
+            if (toIndex >= 3) {
+                setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta() });
+                return;
+            }
+            runners[toIndex] = runnerRef;
+            setRunnerStatusForRef(runnerRef, { type: "advance", base: toIndex + 1, by: currentBatterNumberForRunnerEvent(), label });
+        }
+
+        function scoreRunnerRef(runners, runnerRef, label = null) {
+            moveRunnerRefToBase(runners, runnerRef, 3, label);
+        }
+
         function removeRunnerRefFromBases(runners, ref) {
             if (!ref) {
                 return;
@@ -3060,7 +3077,7 @@
             return -1;
         }
 
-        function applyRunnerContextOverrides(runners, snapshot, batterRef) {
+        function applyRunnerContextOverrides(runners, snapshot, batterRef, originalRunners = []) {
             const context = snapshot.runnerContext;
             if (!context) {
                 return;
@@ -3075,21 +3092,21 @@
                 const advanceBaseText = advanceText.split(":")[0];
 
                 if (advanceBaseText === "一走→二塁") {
-                    moveRunnerToBase(runners, 0, 1);
+                    moveRunnerRefToBase(runners, originalRunners[0], 1, advanceLabel);
                 } else if (advanceBaseText === "一走→三塁") {
-                    moveRunnerToBase(runners, 0, 2, advanceLabel);
+                    moveRunnerRefToBase(runners, originalRunners[0], 2, advanceLabel);
                 } else if (advanceBaseText === "二走→三塁") {
-                    moveRunnerToBase(runners, 1, 2, advanceLabel);
+                    moveRunnerRefToBase(runners, originalRunners[1], 2, advanceLabel);
                 } else if (advanceBaseText === "二走生還") {
-                    scoreRunnerFromBase(runners, 1, advanceLabel);
+                    scoreRunnerRef(runners, originalRunners[1], advanceLabel);
                 } else if (advanceBaseText === "一走生還") {
-                    scoreRunnerFromBase(runners, 0, advanceLabel);
+                    scoreRunnerRef(runners, originalRunners[0], advanceLabel);
                 } else if (advanceBaseText === "三走生還") {
-                    scoreRunnerFromBase(runners, 2, advanceLabel);
+                    scoreRunnerRef(runners, originalRunners[2], advanceLabel);
                 } else if (advanceBaseText === "二盗") {
-                    moveRunnerToBase(runners, 0, 1);
+                    moveRunnerRefToBase(runners, originalRunners[0], 1, advanceLabel);
                 } else if (advanceBaseText === "三盗") {
-                    moveRunnerToBase(runners, 1, 2);
+                    moveRunnerRefToBase(runners, originalRunners[1], 2, advanceLabel);
                 } else if (advanceBaseText === "打者走者一塁セーフ" && batterRef) {
                     deferredBatterAdvances.push({ base: 1, label: advanceLabel || null });
                 } else if (advanceBaseText === "打者走者二塁セーフ" && batterRef) {
@@ -3164,6 +3181,7 @@
 
         function updateBaseRunnersForSnapshot(row, col, snapshot) {
             const runners = state.baseRunners.map((runner) => (runner ? { ...runner } : null));
+            const originalRunners = state.baseRunners.map((runner) => (runner ? { ...runner } : null));
             const batterRef = getSheetRef(row, col);
             const playCode = snapshot.selectedHitType && snapshot.selectedHitType !== "none"
                 ? snapshot.selectedHitType
@@ -3236,7 +3254,7 @@
                 }
             }
 
-            applyRunnerContextOverrides(runners, snapshot, batterRef);
+            applyRunnerContextOverrides(runners, snapshot, batterRef, originalRunners);
 
             if (snapshot.outScore === "Ⅲ") {
                 markLeftOnBaseRunners(runners);
@@ -4248,7 +4266,7 @@
                 '<option value="r3">三走</option>',
                 '</select>',
                 '<select class="runnerGuiReason" aria-label="移動理由">',
-                '<option value="next">打球で進塁</option>',
+                '<option value="next">打者結果で進塁</option>',
                 '<option value="steal">盗塁</option>',
                 '<option value="wp">暴投</option>',
                 '<option value="pb">捕逸</option>',
@@ -4511,7 +4529,7 @@
             const step = getRunnerGuiStepFromControl(control);
             const source = step?.querySelector(".runnerGuiSource")?.value || "r1";
             const reason = step?.querySelector(".runnerGuiReason")?.value || "next";
-            if (applyExistingRunnerGuiAction(source, action, reason, step)) {
+            if (reason !== "next" && applyExistingRunnerGuiAction(source, action, reason, step)) {
                 return;
             }
 
