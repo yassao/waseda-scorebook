@@ -95,11 +95,62 @@
             overflow: hidden;
         }
 
+        .scorebox-title {
+            margin: 0 0 4px;
+            font-size: 10px;
+            font-weight: 800;
+            color: #334155;
+        }
+
         .scorebox-svg {
             width: 100%;
             max-width: 148px;
             display: block;
             margin: 0;
+        }
+
+        .runner-preview-panel {
+            display: none;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .runner-preview-panel.is-visible {
+            display: block;
+        }
+
+        .scorebox-container.has-runner-preview .pitch-quick {
+            display: none;
+        }
+
+        .scorebox-container.has-runner-preview .status-line {
+            margin-top: 5px;
+        }
+
+        .runner-preview-label {
+            margin-bottom: 4px;
+            font-size: 9px;
+            font-weight: 800;
+            color: #475569;
+        }
+
+        .runner-preview-card {
+            width: 92px;
+            max-width: 100%;
+            aspect-ratio: 210 / 180;
+        }
+
+        .runner-preview-card .sheet-cell-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .runner-preview-empty {
+            font-size: 9px;
+            color: var(--muted);
+            line-height: 1.35;
         }
 
         .status-line {
@@ -1149,6 +1200,14 @@
                 max-width: 104px;
             }
 
+            .scorebox-title {
+                font-size: 9px;
+            }
+
+            .runner-preview-card {
+                width: 76px;
+            }
+
             .status-line {
                 margin-top: 4px;
                 font-size: 9px;
@@ -1269,6 +1328,7 @@
 
         <div class="top-workspace">
             <div class="scorebox-container">
+                <div class="scorebox-title">打者プレビュー</div>
                 <svg id="scoreboxSvg" class="scorebox-svg" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg" aria-label="スコアボックス">
                     <defs>
                         <marker id="previewAdvanceArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -1313,6 +1373,10 @@
                     </g>
                 </svg>
 
+                <div id="runnerPreviewPanel" class="runner-preview-panel" aria-live="polite">
+                    <div id="runnerPreviewLabel" class="runner-preview-label">走者追記</div>
+                    <div id="runnerPreviewCard" class="runner-preview-card"></div>
+                </div>
                 <div class="status-line">
                     <span id="countStatus">B 0</span>
                     <span id="strikeStatus">S 0</span>
@@ -2340,6 +2404,13 @@
                 runnerStatusEvents: [],
                 confidence: state.currentConfidence
             };
+        }
+
+        function createSnapshotPreviewCopy(snapshot) {
+            const copy = deepClone(snapshot);
+            copy.runnerStatusText = "";
+            copy.runnerStatusEvents = [];
+            return copy;
         }
 
         function isBatterSafeFielderChoice(snapshot) {
@@ -6555,6 +6626,29 @@
             return notes;
         }
 
+        function getBatterPreviewTargetBaseFromContext() {
+            let targetBase = getNormalBatterBaseFromSnapshot(state);
+            (state.runnerContext?.advances || []).forEach((advance) => {
+                if (typeof advance !== "string") {
+                    return;
+                }
+                const baseText = advance.split(":")[0];
+                if (!baseText.startsWith("打者走者")) {
+                    return;
+                }
+                if (baseText.includes("生還")) {
+                    targetBase = Math.max(targetBase, 4);
+                } else if (baseText.includes("三塁")) {
+                    targetBase = Math.max(targetBase, 3);
+                } else if (baseText.includes("二塁")) {
+                    targetBase = Math.max(targetBase, 2);
+                } else if (baseText.includes("一塁")) {
+                    targetBase = Math.max(targetBase, 1);
+                }
+            });
+            return targetBase;
+        }
+
         function updateRunnerNotesDisplay() {
             const notesDisplay = document.getElementById("runnerNotesDisplay");
             if (!notesDisplay) {
@@ -6564,25 +6658,7 @@
 
             const extraAdvancePath = buildExtraAdvanceArrowPath(getExtraAdvanceArrowPoints(
                 getNormalBatterBaseFromSnapshot(state),
-                (function () {
-                    let targetBase = getNormalBatterBaseFromSnapshot(state);
-                    (state.runnerContext?.advances || []).forEach((advance) => {
-                        if (typeof advance !== "string") {
-                            return;
-                        }
-                        const baseText = advance.split(":")[0];
-                        if (baseText.includes("生還")) {
-                            targetBase = Math.max(targetBase, 4);
-                        } else if (baseText.includes("三塁")) {
-                            targetBase = Math.max(targetBase, 3);
-                        } else if (baseText.includes("二塁")) {
-                            targetBase = Math.max(targetBase, 2);
-                        } else if (baseText.includes("一塁")) {
-                            targetBase = Math.max(targetBase, 1);
-                        }
-                    });
-                    return targetBase;
-                }())
+                getBatterPreviewTargetBaseFromContext()
             ));
             if (extraAdvancePath) {
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -6622,6 +6698,103 @@
                 text.textContent = note.label;
                 notesDisplay.appendChild(text);
             });
+        }
+
+        function getRunnerPreviewEntryFromAdvance(advanceText) {
+            if (typeof advanceText !== "string") {
+                return null;
+            }
+            const label = advanceText.includes(":")
+                ? advanceText.split(":").slice(1).join(":").trim()
+                : null;
+            const baseText = advanceText.split(":")[0];
+            const sourceMap = {
+                "一走": { baseIndex: 0, name: "一走" },
+                "二走": { baseIndex: 1, name: "二走" },
+                "三走": { baseIndex: 2, name: "三走" }
+            };
+            const sourceKey = Object.keys(sourceMap).find((key) => baseText.startsWith(key));
+            if (!sourceKey) {
+                return null;
+            }
+            const source = sourceMap[sourceKey];
+            const runnerRef = state.baseRunners[source.baseIndex];
+            if (!runnerRef) {
+                return null;
+            }
+            let event = null;
+            if (baseText.includes("生還")) {
+                event = { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta() };
+            } else if (baseText.includes("三塁")) {
+                event = { type: "advance", base: 3, by: currentBatterNumberForRunnerEvent(), label };
+            } else if (baseText.includes("二塁")) {
+                event = { type: "advance", base: 2, by: currentBatterNumberForRunnerEvent(), label };
+            }
+            if (!event) {
+                return null;
+            }
+            return {
+                source,
+                runnerRef,
+                event
+            };
+        }
+
+        function getRunnerPreviewEntry() {
+            const advances = state.runnerContext?.advances || [];
+            for (let index = advances.length - 1; index >= 0; index -= 1) {
+                const entry = getRunnerPreviewEntryFromAdvance(advances[index]);
+                if (entry) {
+                    return entry;
+                }
+            }
+            return null;
+        }
+
+        function buildRunnerPreviewSnapshot(entry) {
+            const originalSnapshot = getSnapshotByRef(entry.runnerRef);
+            const snapshot = originalSnapshot
+                ? createSnapshotPreviewCopy(originalSnapshot)
+                : {
+                    pitches: [],
+                    pitchNotes: [],
+                    result: "",
+                    outScore: "",
+                    selectedFielder: "",
+                    selectedDirection: "none",
+                    selectedBallType: "none",
+                    selectedHitType: "none",
+                    battingOrder: String((entry.runnerRef?.row || 0) + 1),
+                    hasRbi: false,
+                    modifiers: {},
+                    fieldSequence: [],
+                    errorMode: "none",
+                    baseCover: "none",
+                    confidence: 1
+                };
+            snapshot.runnerStatusEvents = [entry.event];
+            snapshot.runnerStatusText = entry.event;
+            return snapshot;
+        }
+
+        function updateRunnerPreviewPanel() {
+            const panel = document.getElementById("runnerPreviewPanel");
+            const label = document.getElementById("runnerPreviewLabel");
+            const card = document.getElementById("runnerPreviewCard");
+            if (!panel || !label || !card) {
+                return;
+            }
+            const entry = getRunnerPreviewEntry();
+            if (!entry) {
+                panel.classList.remove("is-visible");
+                panel.closest(".scorebox-container")?.classList.remove("has-runner-preview");
+                card.innerHTML = "";
+                return;
+            }
+            panel.classList.add("is-visible");
+            panel.closest(".scorebox-container")?.classList.add("has-runner-preview");
+            label.textContent = "走者追記: " + entry.source.name + " " + getRunnerRefLabel(entry.runnerRef);
+            card.innerHTML = generateSheetCellSvg(buildRunnerPreviewSnapshot(entry));
         }
 
         function getPitchMarkSvgMarkup(pitch, x, y, scale, note) {
@@ -7150,6 +7323,7 @@
         function updateDisplay() {
             updatePitchDisplay();
             updateRunnerNotesDisplay();
+            updateRunnerPreviewPanel();
 
             const outDisplay = document.getElementById("outCountDisplay");
             outDisplay.textContent = state.outScore;
