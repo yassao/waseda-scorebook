@@ -1230,6 +1230,11 @@
         <div class="top-workspace">
             <div class="scorebox-container">
                 <svg id="scoreboxSvg" class="scorebox-svg" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg" aria-label="スコアボックス">
+                    <defs>
+                        <marker id="previewAdvanceArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#111"></path>
+                        </marker>
+                    </defs>
                     <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
                     <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
                     <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
@@ -2793,6 +2798,12 @@
             return reachedBase;
         }
 
+        function getBatterExtraAdvanceTargetBase(snapshot) {
+            const normalBase = getNormalBatterBaseFromSnapshot(snapshot);
+            const reachedBase = getBatterReachedBaseFromSnapshot(snapshot);
+            return reachedBase > normalBase ? reachedBase : 0;
+        }
+
         function getBatterAdvanceLinePaths(base) {
             const allPaths = [
                 "M 125 185 L 215 95",
@@ -2801,6 +2812,51 @@
                 "M 35 95 L 125 185"
             ];
             return allPaths.slice(0, Math.max(0, Math.min(4, Number(base) || 0)));
+        }
+
+        function getExtraAdvanceArrowPoints(fromBase, toBase) {
+            const startBase = Math.max(1, Math.min(4, Number(fromBase) || 0));
+            const endBase = Math.max(1, Math.min(4, Number(toBase) || 0));
+            if (!startBase || endBase <= startBase) {
+                return [];
+            }
+            if (startBase === 1) {
+                if (endBase === 2) {
+                    return [[184, 154], [184, 36]];
+                }
+                if (endBase === 3) {
+                    return [[184, 154], [184, 36], [58, 36]];
+                }
+                return [[184, 154], [184, 36], [58, 36], [58, 154]];
+            }
+            if (startBase === 2) {
+                if (endBase === 3) {
+                    return [[118, 24], [58, 24]];
+                }
+                return [[118, 24], [58, 24], [58, 154]];
+            }
+            if (startBase === 3) {
+                return [[58, 44], [58, 154]];
+            }
+            return [];
+        }
+
+        function buildExtraAdvanceArrowPath(points) {
+            if (!points.length) {
+                return "";
+            }
+            return points.map((point, index) => (index === 0 ? "M " : "L ") + point[0] + " " + point[1]).join(" ");
+        }
+
+        function buildExtraAdvanceArrowSvg(snapshot, markerId) {
+            const normalBase = getNormalBatterBaseFromSnapshot(snapshot);
+            const targetBase = getBatterExtraAdvanceTargetBase(snapshot);
+            const points = getExtraAdvanceArrowPoints(normalBase, targetBase);
+            const path = buildExtraAdvanceArrowPath(points);
+            if (!path) {
+                return "";
+            }
+            return '<path d="' + path + '" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#' + markerId + ')"/>';
         }
 
         function getRunnerOutNotePosition(label) {
@@ -3258,7 +3314,7 @@
                 : "";
             const resultColor = getSnapshotResultColor(snapshot);
             const prefixText = getSnapshotPrefixText(snapshot);
-            const paths = getBatterAdvanceLinePaths(getBatterReachedBaseFromSnapshot(snapshot));
+            const paths = getBatterAdvanceLinePaths(getNormalBatterBaseFromSnapshot(snapshot));
             const pitchCount = Math.min((snapshot.pitches || []).length, 9);
 
             const pitchMarks = (snapshot.pitches || []).slice(0, 9).map((pitch, index) => {
@@ -3339,6 +3395,11 @@
                 ? '<text x="152" y="128" font-size="14" font-weight="700" fill="' + (prefixText === "BH" ? SCORE_COLORS.red : SCORE_COLORS.ink) + '" transform="rotate(-45 152 128)">' + prefixText + '</text>'
                 : "";
             const runnerNote = buildRunnerNotesForSheet(snapshot);
+            const extraAdvanceArrowMarkerId = "sheet-extra-advance-arrow-" + String(snapshot.battingOrder || "x") + "-" + String(snapshot.sheetCol || snapshot.inning || "x") + "-" + String(displayedResult).replace(/[^A-Za-z0-9]/g, "");
+            const extraAdvanceArrow = buildExtraAdvanceArrowSvg(snapshot, extraAdvanceArrowMarkerId);
+            const extraAdvanceArrowDefs = extraAdvanceArrow
+                ? '<defs><marker id="' + extraAdvanceArrowMarkerId + '" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#111"/></marker></defs>'
+                : "";
             const lowConfidenceOverlay = snapshot.confidence && snapshot.confidence < 0.7
                 ? [
                     '<defs>',
@@ -3353,6 +3414,7 @@
 
             return [
                 '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
+                extraAdvanceArrowDefs,
                 lowConfidenceOverlay,
                 '<rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>',
                 '<rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>',
@@ -3363,6 +3425,7 @@
                 '<line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>',
                 '<line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>',
                 '<line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>',
+                extraAdvanceArrow,
                 runnerNote,
                 pitchMarks,
                 '<text x="125" y="106" text-anchor="middle" font-size="28" font-weight="700" fill="' + outColor + '">' + (snapshot.outScore || "") + '</text>',
@@ -6408,6 +6471,40 @@
             }
             notesDisplay.innerHTML = "";
 
+            const extraAdvancePath = buildExtraAdvanceArrowPath(getExtraAdvanceArrowPoints(
+                getNormalBatterBaseFromSnapshot(state),
+                (function () {
+                    let targetBase = getNormalBatterBaseFromSnapshot(state);
+                    (state.runnerContext?.advances || []).forEach((advance) => {
+                        if (typeof advance !== "string") {
+                            return;
+                        }
+                        const baseText = advance.split(":")[0];
+                        if (baseText.includes("生還")) {
+                            targetBase = Math.max(targetBase, 4);
+                        } else if (baseText.includes("三塁")) {
+                            targetBase = Math.max(targetBase, 3);
+                        } else if (baseText.includes("二塁")) {
+                            targetBase = Math.max(targetBase, 2);
+                        } else if (baseText.includes("一塁")) {
+                            targetBase = Math.max(targetBase, 1);
+                        }
+                    });
+                    return targetBase;
+                }())
+            ));
+            if (extraAdvancePath) {
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", extraAdvancePath);
+                path.setAttribute("fill", "none");
+                path.setAttribute("stroke", "#111");
+                path.setAttribute("stroke-width", "2");
+                path.setAttribute("stroke-linecap", "round");
+                path.setAttribute("stroke-linejoin", "round");
+                path.setAttribute("marker-end", "url(#previewAdvanceArrow)");
+                notesDisplay.appendChild(path);
+            }
+
             getCurrentPreviewRunnerNotes().forEach((note) => {
                 if (!note.label) {
                     return;
@@ -6630,22 +6727,7 @@
                 "M 35 95 L 125 185"
             ];
 
-            let visibleCount = getNormalBatterBaseFromSnapshot(state);
-            (state.runnerContext?.advances || []).forEach((advance) => {
-                if (typeof advance !== "string") {
-                    return;
-                }
-                const baseText = advance.split(":")[0];
-                if (baseText.includes("生還")) {
-                    visibleCount = Math.max(visibleCount, 4);
-                } else if (baseText.includes("三塁")) {
-                    visibleCount = Math.max(visibleCount, 3);
-                } else if (baseText.includes("二塁")) {
-                    visibleCount = Math.max(visibleCount, 2);
-                } else if (baseText.includes("一塁")) {
-                    visibleCount = Math.max(visibleCount, 1);
-                }
-            });
+            const visibleCount = getNormalBatterBaseFromSnapshot(state);
 
             segments.forEach((segment, index) => {
                 segment.setAttribute("d", paths[index]);
