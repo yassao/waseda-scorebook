@@ -1807,10 +1807,10 @@
             extraOut: {
                 label: "アウト",
                 options: [
-                    { value: "tag_out", label: "打者走者タッチアウト" },
-                    { value: "force_2_batter_safe", label: "二塁封殺・打者一塁セーフ" },
-                    { value: "force_3", label: "三塁封殺" },
-                    { value: "home_out", label: "本塁封殺" }
+                    { value: "batter_out_1", label: "一塁アウト" },
+                    { value: "batter_out_2", label: "二塁アウト" },
+                    { value: "batter_out_3", label: "三塁アウト" },
+                    { value: "batter_out_home", label: "本塁アウト" }
                 ]
             }
         };
@@ -2805,6 +2805,17 @@
             setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta() });
         }
 
+        function removeRunnerRefFromBases(runners, ref) {
+            if (!ref) {
+                return;
+            }
+            for (let baseIndex = 0; baseIndex < runners.length; baseIndex += 1) {
+                if (runners[baseIndex]?.row === ref.row && runners[baseIndex]?.col === ref.col) {
+                    runners[baseIndex] = null;
+                }
+            }
+        }
+
         function removeRunnerFromBase(runners, baseIndex, label, outScore) {
             if (!runners[baseIndex]) {
                 return;
@@ -2923,7 +2934,16 @@
             (context.outsOnBases || []).forEach((outLabel) => {
                 const scoreOnRunner = getNextOutScoreForRunnerGui();
                 const sheetLabel = resolveForceOutLabel(snapshot, outLabel);
-                if (outLabel === "一塁封殺" && batterRef) {
+                const batterOutMatch = String(outLabel || "").match(/^打者走者(?:一塁|二塁|三塁|本塁)アウト(?::(.+))?$/);
+                if (batterOutMatch && batterRef) {
+                    removeRunnerRefFromBases(runners, batterRef);
+                    markRunnerOutOnSnapshot(batterRef, scoreOnRunner);
+                    setRunnerStatusForRef(batterRef, {
+                        type: "out",
+                        label: batterOutMatch[1] || sheetLabel || "アウト",
+                        by: currentBatterNumberForRunnerEvent()
+                    });
+                } else if (outLabel === "一塁封殺" && batterRef) {
                     markRunnerOutOnSnapshot(batterRef, scoreOnRunner);
                     setRunnerStatusForRef(batterRef, { type: "out", label: sheetLabel, by: currentBatterNumberForRunnerEvent() });
                 } else if (outLabel === "二盗死" || outLabel === "二塁封殺" || /^2-[46]T$/.test(outLabel)) {
@@ -3994,7 +4014,7 @@
                     const sequenceText = row.querySelector(".play-part-sequence")?.value || "";
                     const option = getPlayPartConfig(category, row.dataset.role === "additional")?.options.find((entry) => entry.value === value);
                     return category && value && option
-                        ? { category, value, label: option.label, sequenceText }
+                        ? { category, value, label: option.label, sequenceText, role: row.dataset.role || "main" }
                         : null;
                 })
                 .filter(Boolean);
@@ -4338,6 +4358,13 @@
             return "E";
         }
 
+        function buildBatterRunnerOutLabel(baseLabel, sequence) {
+            const relay = Array.isArray(sequence) && sequence.length
+                ? sequence.join("-") + "T"
+                : "?T";
+            return "打者走者" + baseLabel + "アウト:" + relay;
+        }
+
         function buildParsedInputFromPlayParts(parts) {
             if (!parts.length) {
                 return null;
@@ -4361,10 +4388,11 @@
                 if (sequence.length === 0 && part.fielder && part.receiver) {
                     sequence = [part.fielder, part.receiver];
                 }
-                if (sequence.length > 0) {
+                const sequenceIsAdditionalOut = part.role === "additional" && /^batter_out_/.test(part.value);
+                if (sequence.length > 0 && !sequenceIsAdditionalOut) {
                     parsed.fieldSequence = sequence;
                     parsed.fielder = sequence[0];
-                } else if (part.fielder) {
+                } else if (part.fielder && !sequenceIsAdditionalOut) {
                     parsed.fielder = part.fielder;
                     if (!parsed.fieldSequence) {
                         parsed.fieldSequence = [part.fielder];
@@ -4526,6 +4554,22 @@
                         break;
                     case "tag_out":
                         parsed.result = parsed.result || "TO";
+                        break;
+                    case "batter_out_1":
+                        parsed.runnerContext.outsOnBases.push(buildBatterRunnerOutLabel("一塁", sequence));
+                        parsed.outScore = parsed.outScore || "Ⅰ";
+                        break;
+                    case "batter_out_2":
+                        parsed.runnerContext.outsOnBases.push(buildBatterRunnerOutLabel("二塁", sequence));
+                        parsed.outScore = parsed.outScore || "Ⅰ";
+                        break;
+                    case "batter_out_3":
+                        parsed.runnerContext.outsOnBases.push(buildBatterRunnerOutLabel("三塁", sequence));
+                        parsed.outScore = parsed.outScore || "Ⅰ";
+                        break;
+                    case "batter_out_home":
+                        parsed.runnerContext.outsOnBases.push(buildBatterRunnerOutLabel("本塁", sequence));
+                        parsed.outScore = parsed.outScore || "Ⅰ";
                         break;
                     case "error_advance":
                         parsed.runnerContext.advances.push(
@@ -5730,6 +5774,12 @@
             }
             if (isBatterSafeFielderChoice(parsed)) {
                 state.outScore = "";
+            }
+            if (
+                parsed.outScore
+                && parsed.runnerContext?.outsOnBases?.some((label) => String(label).startsWith("打者走者"))
+            ) {
+                state.outScore = parsed.outScore;
             }
 
             updateDisplay();
