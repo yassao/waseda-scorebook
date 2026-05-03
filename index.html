@@ -765,7 +765,7 @@
         .runner-source-tabs {
             grid-column: 1 / 3;
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 5px;
         }
 
@@ -1282,14 +1282,12 @@
                         </div>
                         <div class="runner-gui-controls">
                             <div class="runner-source-tabs" role="tablist" aria-label="対象走者">
-                                <button type="button" class="runner-source-tab is-active" data-runner-source="batter" onclick="setRunnerGuiSource('batter')">打者走者</button>
-                                <button type="button" class="runner-source-tab" data-runner-source="r1" onclick="setRunnerGuiSource('r1')">一走</button>
+                                <button type="button" class="runner-source-tab is-active" data-runner-source="r1" onclick="setRunnerGuiSource('r1')">一走</button>
                                 <button type="button" class="runner-source-tab" data-runner-source="r2" onclick="setRunnerGuiSource('r2')">二走</button>
                                 <button type="button" class="runner-source-tab" data-runner-source="r3" onclick="setRunnerGuiSource('r3')">三走</button>
                             </div>
                             <select id="runnerGuiSource" class="runner-source-select-hidden" aria-label="対象走者">
-                                <option value="batter">打者走者</option>
-                                <option value="r1">一走</option>
+                                <option value="r1" selected>一走</option>
                                 <option value="r2">二走</option>
                                 <option value="r3">三走</option>
                             </select>
@@ -4021,9 +4019,8 @@
             if (!select) {
                 return;
             }
-            const currentValue = select.value || "batter";
+            const currentValue = ["r1", "r2", "r3"].includes(select.value) ? select.value : "r1";
             const labels = {
-                batter: "打者走者",
                 r1: "一走: " + getRunnerRefLabel(state.baseRunners[0]),
                 r2: "二走: " + getRunnerRefLabel(state.baseRunners[1]),
                 r3: "三走: " + getRunnerRefLabel(state.baseRunners[2])
@@ -4042,7 +4039,7 @@
 
         function setRunnerGuiSource(source) {
             const select = document.getElementById("runnerGuiSource");
-            if (!select || !["batter", "r1", "r2", "r3"].includes(source)) {
+            if (!select || !["r1", "r2", "r3"].includes(source)) {
                 return;
             }
             select.value = source;
@@ -4324,6 +4321,7 @@
                 confidence: 0.86,
                 source: "play-parts"
             };
+            const isHitResult = (result) => ["1B", "2B", "3B", "HR", "G", "BH"].includes(result);
 
             parts.forEach((part) => {
                 let sequence = parsePlayPartSequence(part.sequenceText);
@@ -4361,26 +4359,46 @@
                         break;
                     case "error_onbase":
                     case "fielding_error_onbase":
-                        parsed.result = parsed.result || "Fc";
-                        parsed.errorMode = parsed.errorMode || "fielder";
-                        parsed.runnerContext.advances.push("一走→二塁");
-                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        if (isHitResult(parsed.result)) {
+                            parsed.runnerContext.advances.push(
+                                "打者走者二塁セーフ:" + ((parsed.fieldSequence?.[0] || parsed.fielder || "?") + "E")
+                            );
+                        } else {
+                            parsed.result = parsed.result || "Fc";
+                            parsed.errorMode = parsed.errorMode || "fielder";
+                            parsed.runnerContext.advances.push("一走→二塁");
+                            parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        }
                         break;
                     case "throw_error_onbase":
-                        parsed.result = parsed.result || "Fc";
                         parsed.fieldSequence = buildDefaultFirstBaseSequence(parsed.fielder, parsed.fieldSequence);
                         parsed.fielder = parsed.fieldSequence[0] || parsed.fielder;
-                        parsed.errorMode = parsed.errorMode || "thrower";
-                        parsed.runnerContext.advances.push("一走→二塁");
-                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        if (isHitResult(parsed.result)) {
+                            parsed.runnerContext.advances.push(
+                                "打者走者二塁セーフ:" + buildThrowerErrorLabel(parsed.fielder, parsed.fieldSequence)
+                            );
+                            parsed.fieldSequence = parsed.fielder && parsed.fielder !== "?" ? [parsed.fielder] : [];
+                        } else {
+                            parsed.result = parsed.result || "Fc";
+                            parsed.errorMode = parsed.errorMode || "thrower";
+                            parsed.runnerContext.advances.push("一走→二塁");
+                            parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        }
                         break;
                     case "receive_error_onbase":
-                        parsed.result = parsed.result || "Fc";
                         parsed.fieldSequence = buildDefaultFirstBaseSequence(parsed.fielder, parsed.fieldSequence);
                         parsed.fielder = parsed.fieldSequence[0] || parsed.fielder;
-                        parsed.errorMode = parsed.errorMode || "receiver";
-                        parsed.runnerContext.advances.push("一走→二塁");
-                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        if (isHitResult(parsed.result)) {
+                            parsed.runnerContext.advances.push(
+                                "打者走者二塁セーフ:" + buildReceiverErrorLabel(parsed.fielder, parsed.fieldSequence)
+                            );
+                            parsed.fieldSequence = parsed.fielder && parsed.fielder !== "?" ? [parsed.fielder] : [];
+                        } else {
+                            parsed.result = parsed.result || "Fc";
+                            parsed.errorMode = parsed.errorMode || "receiver";
+                            parsed.runnerContext.advances.push("一走→二塁");
+                            parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        }
                         break;
                     case "fc_onbase":
                         parsed.result = parsed.result || "Fc";
@@ -4480,11 +4498,17 @@
                         parsed.runnerContext.advances.push(
                             "打者走者二塁セーフ:" + buildReceiverErrorLabel(parsed.fielder, parsed.fieldSequence)
                         );
+                        if (isHitResult(parsed.result)) {
+                            parsed.fieldSequence = parsed.fielder && parsed.fielder !== "?" ? [parsed.fielder] : [];
+                        }
                         break;
                     case "throwing_error":
                         parsed.runnerContext.advances.push(
                             "打者走者二塁セーフ:" + buildThrowerErrorLabel(parsed.fielder, parsed.fieldSequence)
                         );
+                        if (isHitResult(parsed.result)) {
+                            parsed.fieldSequence = parsed.fielder && parsed.fielder !== "?" ? [parsed.fielder] : [];
+                        }
                         break;
                     case "wild_pitch":
                         parsed.result = parsed.result || "W";
