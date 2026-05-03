@@ -1792,13 +1792,25 @@
                     { value: "sac_fly", label: "犠飛" },
                     { value: "double_play", label: "併殺" }
                 ]
-            },
-            support: {
-                label: "補助",
+            }
+        };
+
+        const ADDITIONAL_PLAY_PART_OPTIONS = {
+            advance: {
+                label: "進塁",
                 options: [
-                    { value: "error_advance", label: "捕球エラーで打者二塁" },
-                    { value: "throwing_error", label: "送球エラーで打者二塁" },
-                    { value: "fielder_choice", label: "野選補助" }
+                    { value: "fielding_error_onbase", label: "打球処理エラーで打者二塁" },
+                    { value: "throw_error_onbase", label: "送球エラーで打者二塁" },
+                    { value: "receive_error_onbase", label: "捕球エラーで打者二塁" }
+                ]
+            },
+            extraOut: {
+                label: "アウト",
+                options: [
+                    { value: "tag_out", label: "打者走者タッチアウト" },
+                    { value: "force_2_batter_safe", label: "二塁封殺・打者一塁セーフ" },
+                    { value: "force_3", label: "三塁封殺" },
+                    { value: "home_out", label: "本塁封殺" }
                 ]
             }
         };
@@ -3837,17 +3849,34 @@
             }, 140);
         }
 
-        function createPlayPartCategoryOptions(selectedValue = "") {
+        function getPlayPartOptionGroups(isAdditionalRow = false, selectedValue = "") {
+            const baseGroups = isAdditionalRow ? ADDITIONAL_PLAY_PART_OPTIONS : PLAY_PART_OPTIONS;
+            if (!selectedValue || baseGroups[selectedValue]) {
+                return baseGroups;
+            }
+            const legacyGroup = PLAY_PART_OPTIONS[selectedValue] || ADDITIONAL_PLAY_PART_OPTIONS[selectedValue];
+            return legacyGroup
+                ? { ...baseGroups, [selectedValue]: legacyGroup }
+                : baseGroups;
+        }
+
+        function getPlayPartConfig(category, isAdditionalRow = false) {
+            return getPlayPartOptionGroups(isAdditionalRow, category)[category]
+                || PLAY_PART_OPTIONS[category]
+                || ADDITIONAL_PLAY_PART_OPTIONS[category];
+        }
+
+        function createPlayPartCategoryOptions(selectedValue = "", isAdditionalRow = false) {
             return [
                 '<option value="">分類</option>',
-                ...Object.entries(PLAY_PART_OPTIONS).map(([value, config]) =>
+                ...Object.entries(getPlayPartOptionGroups(isAdditionalRow, selectedValue)).map(([value, config]) =>
                     '<option value="' + value + '"' + (value === selectedValue ? " selected" : "") + '>' + config.label + '</option>'
                 )
             ].join("");
         }
 
-        function createPlayPartContentOptions(category, selectedValue = "") {
-            const config = PLAY_PART_OPTIONS[category];
+        function createPlayPartContentOptions(category, selectedValue = "", isAdditionalRow = false) {
+            const config = getPlayPartConfig(category, isAdditionalRow);
             if (!config) {
                 return '<option value="">内容</option>';
             }
@@ -3861,14 +3890,17 @@
 
         function addPlayPartRow(category = "", value = "") {
             const container = document.getElementById("playParts");
+            const isAdditionalRow = container.children.length > 0;
+            const resolvedCategory = category || (isAdditionalRow ? "advance" : "");
             const row = document.createElement("div");
             row.className = "play-part-row";
+            row.dataset.role = isAdditionalRow ? "additional" : "main";
             row.innerHTML = [
                 '<select class="play-part-category" onchange="updatePlayPartContent(this)">',
-                createPlayPartCategoryOptions(category),
+                createPlayPartCategoryOptions(resolvedCategory, isAdditionalRow),
                 '</select>',
                 '<select class="play-part-content" onchange="applyPlayParts()">',
-                createPlayPartContentOptions(category, value),
+                createPlayPartContentOptions(resolvedCategory, value, isAdditionalRow),
                 '</select>',
                 '<input class="play-part-sequence" type="text" inputmode="text" placeholder="野手/連携 例: 8, 63, 643" oninput="applyPlayParts()" aria-label="野手と連携">',
                 '<button class="play-part-remove" onclick="removePlayPartRow(this)" aria-label="打者結果の行を削除">−</button>'
@@ -3890,8 +3922,9 @@
 
         function showPlayBuilderHelp() {
             window.alert([
-                "打者結果は、打者の出塁・アウト・補助を組み合わせます。",
-                "例: 1ヒット1エラーは「出塁: 安打」＋「補助: 送球エラー進塁」。",
+                "打者結果の1行目は、打者が打った結果を入力します。",
+                "＋で追加した行は、1行目に付随する進塁やアウトだけを入力します。",
+                "例: 1ヒット1エラーは「出塁: 安打」＋「進塁: 送球エラーで打者二塁」。",
                 "標準進塁と違う走者の移動やアウトは、下の「走者結果」で追記します。",
                 "野手/連携は 8、63、643 のようにハイフンなしで入力できます。"
             ].join("\\n"));
@@ -3949,7 +3982,7 @@
         function updatePlayPartContent(select) {
             const row = select.closest(".play-part-row");
             const content = row.querySelector(".play-part-content");
-            content.innerHTML = createPlayPartContentOptions(select.value);
+            content.innerHTML = createPlayPartContentOptions(select.value, "", row?.dataset.role === "additional");
             applyPlayParts();
         }
 
@@ -3959,7 +3992,7 @@
                     const category = row.querySelector(".play-part-category").value;
                     const value = row.querySelector(".play-part-content").value;
                     const sequenceText = row.querySelector(".play-part-sequence")?.value || "";
-                    const option = PLAY_PART_OPTIONS[category]?.options.find((entry) => entry.value === value);
+                    const option = getPlayPartConfig(category, row.dataset.role === "additional")?.options.find((entry) => entry.value === value);
                     return category && value && option
                         ? { category, value, label: option.label, sequenceText }
                         : null;
