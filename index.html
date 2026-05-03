@@ -1796,9 +1796,12 @@
             advance: {
                 label: "進塁",
                 options: [
-                    { value: "fielding_error_onbase", label: "打球処理エラーで打者二塁" },
-                    { value: "throw_error_onbase", label: "送球エラーで打者二塁" },
-                    { value: "receive_error_onbase", label: "捕球エラーで打者二塁" }
+                    { value: "fielding_error_plus_1", label: "打球処理エラーで+1塁" },
+                    { value: "throw_error_plus_1", label: "送球エラーで+1塁" },
+                    { value: "receive_error_plus_1", label: "捕球エラーで+1塁" },
+                    { value: "fielding_error_plus_2", label: "打球処理エラーで+2塁" },
+                    { value: "throw_error_plus_2", label: "送球エラーで+2塁" },
+                    { value: "receive_error_plus_2", label: "捕球エラーで+2塁" }
                 ]
             },
             extraOut: {
@@ -4443,6 +4446,55 @@
             return "打者走者" + baseLabel + "アウト:" + relay;
         }
 
+        function getBatterResultBase(result) {
+            if (["1B", "G", "BH", "B", "HP", "IB", "IF", "Fc"].includes(result)) {
+                return 1;
+            }
+            if (result === "2B") {
+                return 2;
+            }
+            if (result === "3B") {
+                return 3;
+            }
+            if (result === "HR") {
+                return 4;
+            }
+            return 1;
+        }
+
+        function getBatterAdvanceTextByBase(base) {
+            if (base <= 1) {
+                return "打者走者一塁セーフ";
+            }
+            if (base === 2) {
+                return "打者走者二塁セーフ";
+            }
+            if (base === 3) {
+                return "打者走者三塁セーフ";
+            }
+            return "打者走者生還";
+        }
+
+        function buildBatterExtraAdvanceLabel(type, fielder, sequence) {
+            if (type === "fielding") {
+                return (sequence?.[0] || fielder || "?") + "E";
+            }
+            if (type === "throw") {
+                return buildThrowerErrorLabel(fielder, sequence);
+            }
+            return buildReceiverErrorLabel(fielder, sequence);
+        }
+
+        function addBatterExtraAdvance(parsed, plusBases, errorType, fielder, sequence) {
+            const currentBase = getBatterResultBase(parsed.result);
+            const targetBase = Math.min(4, currentBase + plusBases);
+            const label = buildBatterExtraAdvanceLabel(errorType, fielder, sequence);
+            parsed.runnerContext.advances.push(getBatterAdvanceTextByBase(targetBase) + ":" + label);
+            if (["1B", "2B", "3B", "HR", "G", "BH"].includes(parsed.result)) {
+                parsed.fieldSequence = fielder && fielder !== "?" ? [fielder] : [];
+            }
+        }
+
         function buildParsedInputFromPlayParts(parts) {
             if (!parts.length) {
                 return null;
@@ -4466,11 +4518,13 @@
                 if (sequence.length === 0 && part.fielder && part.receiver) {
                     sequence = [part.fielder, part.receiver];
                 }
-                const sequenceIsAdditionalOut = part.role === "additional" && /^batter_out_/.test(part.value);
-                if (sequence.length > 0 && !sequenceIsAdditionalOut) {
+                const sequenceIsAdditionalEvent = part.role === "additional" && (
+                    /^batter_out_/.test(part.value) || /_plus_[12]$/.test(part.value)
+                );
+                if (sequence.length > 0 && !sequenceIsAdditionalEvent) {
                     parsed.fieldSequence = sequence;
                     parsed.fielder = sequence[0];
-                } else if (part.fielder && !sequenceIsAdditionalOut) {
+                } else if (part.fielder && !sequenceIsAdditionalEvent) {
                     parsed.fielder = part.fielder;
                     if (!parsed.fieldSequence) {
                         parsed.fieldSequence = [part.fielder];
@@ -4538,6 +4592,24 @@
                             parsed.runnerContext.advances.push("一走→二塁");
                             parsed.runnerContext.advances.push("打者走者一塁セーフ");
                         }
+                        break;
+                    case "fielding_error_plus_1":
+                        addBatterExtraAdvance(parsed, 1, "fielding", sequence[0] || parsed.fielder, sequence);
+                        break;
+                    case "throw_error_plus_1":
+                        addBatterExtraAdvance(parsed, 1, "throw", sequence[0] || parsed.fielder, sequence);
+                        break;
+                    case "receive_error_plus_1":
+                        addBatterExtraAdvance(parsed, 1, "receive", sequence[0] || parsed.fielder, sequence);
+                        break;
+                    case "fielding_error_plus_2":
+                        addBatterExtraAdvance(parsed, 2, "fielding", sequence[0] || parsed.fielder, sequence);
+                        break;
+                    case "throw_error_plus_2":
+                        addBatterExtraAdvance(parsed, 2, "throw", sequence[0] || parsed.fielder, sequence);
+                        break;
+                    case "receive_error_plus_2":
+                        addBatterExtraAdvance(parsed, 2, "receive", sequence[0] || parsed.fielder, sequence);
                         break;
                     case "fc_onbase":
                         parsed.result = parsed.result || "Fc";
@@ -4780,8 +4852,16 @@
 
             const advanceText = [];
             const context = parsed.runnerContext;
-            if ((context?.advances || []).some((advance) => typeof advance === "string" && advance.startsWith("打者走者二塁セーフ"))) {
-                advanceText.push("失策進塁で二塁");
+            const batterAdvance = (context?.advances || []).find((advance) =>
+                typeof advance === "string" && /^打者走者(?:二塁|三塁)セーフ|^打者走者生還/.test(advance)
+            );
+            if (batterAdvance) {
+                const target = batterAdvance.startsWith("打者走者三塁")
+                    ? "三塁"
+                    : batterAdvance.startsWith("打者走者生還")
+                        ? "本塁"
+                        : "二塁";
+                advanceText.push("失策進塁で" + target);
             }
             if (context?.advances?.includes("一走→二塁")) {
                 advanceText.push("一走二塁");
@@ -5751,8 +5831,9 @@
             }
             if (context.advances?.length) {
                 parts.push(context.advances.map((advance) => {
-                    if (typeof advance === "string" && advance.startsWith("打者走者二塁セーフ:")) {
-                        return "打者走者二塁セーフ（" + advance.split(":").slice(1).join(":") + "）";
+                    if (typeof advance === "string" && /^打者走者(?:二塁|三塁)セーフ:|^打者走者生還:/.test(advance)) {
+                        const baseText = advance.split(":")[0];
+                        return baseText + "（" + advance.split(":").slice(1).join(":") + "）";
                     }
                     return advance;
                 }).join(" / "));
@@ -6248,10 +6329,11 @@
             const notes = [];
             const advances = state.runnerContext?.advances || [];
             advances.forEach((advance) => {
-                if (typeof advance === "string" && advance.startsWith("打者走者二塁セーフ:")) {
+                if (typeof advance === "string" && /^打者走者(?:二塁|三塁)セーフ:|^打者走者生還:/.test(advance)) {
+                    const baseText = advance.split(":")[0];
                     notes.push({
                         kind: "advance",
-                        base: 2,
+                        base: baseText.includes("三塁") ? 3 : baseText.includes("生還") ? 4 : 2,
                         label: advance.split(":").slice(1).join(":").trim()
                     });
                 }
