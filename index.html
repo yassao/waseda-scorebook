@@ -2634,7 +2634,12 @@
                 };
             }
             if (text?.type === "score") {
-                return { kind: "score", label: "●" };
+                return {
+                    kind: "score",
+                    label: "●",
+                    advanceLabel: text.label || "",
+                    color: getScoreTextColor(text.label || "")
+                };
             }
             if (text?.type === "out") {
                 return {
@@ -2659,6 +2664,19 @@
                 return { kind: "score", label: "●" };
             }
             return text || "";
+        }
+
+        function getAdvanceNotePosition(base) {
+            if (base === 3) {
+                return { x: 72, y: 24 };
+            }
+            if (base >= 4) {
+                return { x: 72, y: 166 };
+            }
+            if (base === 1) {
+                return { x: 178, y: 166 };
+            }
+            return { x: 178, y: 24 };
         }
 
         function getScoreTextColor(text) {
@@ -2708,10 +2726,14 @@
                 }
                 if (event?.kind === "score") {
                     parts.push('<text x="125" y="106" text-anchor="middle" font-size="24" font-weight="700" fill="' + SCORE_COLORS.red + '">●</text>');
+                    if (event.advanceLabel) {
+                        const position = getAdvanceNotePosition(4);
+                        parts.push('<text x="' + position.x + '" y="' + position.y + '" text-anchor="middle" font-size="13" font-weight="700" fill="' + (event.color || SCORE_COLORS.ink) + '">' + event.advanceLabel + '</text>');
+                    }
                     return;
                 }
                 if (event?.kind === "advance") {
-                    const position = event.base === 3 ? { x: 72, y: 24 } : { x: 178, y: 24 };
+                    const position = getAdvanceNotePosition(event.base);
                     parts.push('<text x="' + position.x + '" y="' + position.y + '" text-anchor="middle" font-size="13" font-weight="700" fill="' + (event.color || SCORE_COLORS.ink) + '">' + event.label + '</text>');
                     return;
                 }
@@ -2732,6 +2754,53 @@
             });
 
             return parts.join("");
+        }
+
+        function getNormalBatterBaseFromSnapshot(snapshot) {
+            const playCode = snapshot?.selectedHitType && snapshot.selectedHitType !== "none"
+                ? snapshot.selectedHitType
+                : snapshot?.result;
+            if (playCode === "HR") {
+                return 4;
+            }
+            if (playCode === "3B") {
+                return 3;
+            }
+            if (playCode === "2B") {
+                return 2;
+            }
+            if (["1B", "G", "BH", "B", "HP", "IB", "IF"].includes(playCode)) {
+                return 1;
+            }
+            return 0;
+        }
+
+        function getBatterReachedBaseFromSnapshot(snapshot) {
+            let reachedBase = getNormalBatterBaseFromSnapshot(snapshot);
+            getRunnerStatusEvents(snapshot).forEach((event) => {
+                if (event?.type === "advance") {
+                    reachedBase = Math.max(reachedBase, Number(event.base) || 0);
+                } else if (event?.type === "score" || event === "生還") {
+                    reachedBase = Math.max(reachedBase, 4);
+                } else if (event === "3塁") {
+                    reachedBase = Math.max(reachedBase, 3);
+                } else if (event === "2塁") {
+                    reachedBase = Math.max(reachedBase, 2);
+                } else if (event === "1塁") {
+                    reachedBase = Math.max(reachedBase, 1);
+                }
+            });
+            return reachedBase;
+        }
+
+        function getBatterAdvanceLinePaths(base) {
+            const allPaths = [
+                "M 125 185 L 215 95",
+                "M 215 95 L 125 5",
+                "M 125 5 L 35 95",
+                "M 35 95 L 125 185"
+            ];
+            return allPaths.slice(0, Math.max(0, Math.min(4, Number(base) || 0)));
         }
 
         function getRunnerOutNotePosition(label) {
@@ -3189,19 +3258,7 @@
                 : "";
             const resultColor = getSnapshotResultColor(snapshot);
             const prefixText = getSnapshotPrefixText(snapshot);
-            const hitLinePaths = {
-                "1B": ["M 125 185 L 215 95"],
-                "G": ["M 125 185 L 215 95"],
-                "BH": ["M 125 185 L 215 95"],
-                "B": ["M 125 185 L 215 95"],
-                "HP": ["M 125 185 L 215 95"],
-                "IB": ["M 125 185 L 215 95"],
-                "IF": ["M 125 185 L 215 95"],
-                "2B": ["M 125 185 L 215 95", "M 215 95 L 125 5"],
-                "3B": ["M 125 185 L 215 95", "M 215 95 L 125 5", "M 125 5 L 35 95"],
-                "HR": ["M 125 185 L 215 95", "M 215 95 L 125 5", "M 125 5 L 35 95", "M 35 95 L 125 185"]
-            };
-            const paths = hitLinePaths[snapshot.selectedHitType] || hitLinePaths[snapshot.result] || [];
+            const paths = getBatterAdvanceLinePaths(getBatterReachedBaseFromSnapshot(snapshot));
             const pitchCount = Math.min((snapshot.pitches || []).length, 9);
 
             const pitchMarks = (snapshot.pitches || []).slice(0, 9).map((pitch, index) => {
@@ -4477,6 +4534,9 @@
 
         function buildBatterExtraAdvanceLabel(type, fielder, sequence) {
             if (type === "fielding") {
+                if (Array.isArray(sequence) && sequence.length >= 2) {
+                    return sequence[0] + "E-" + sequence.slice(1).join("-");
+                }
                 return (sequence?.[0] || fielder || "?") + "E";
             }
             if (type === "throw") {
@@ -6332,7 +6392,7 @@
                 if (typeof advance === "string" && /^打者走者(?:二塁|三塁)セーフ:|^打者走者生還:/.test(advance)) {
                     const baseText = advance.split(":")[0];
                     notes.push({
-                        kind: "advance",
+                        kind: baseText.includes("生還") ? "score" : "advance",
                         base: baseText.includes("三塁") ? 3 : baseText.includes("生還") ? 4 : 2,
                         label: advance.split(":").slice(1).join(":").trim()
                     });
@@ -6352,14 +6412,25 @@
                 if (!note.label) {
                     return;
                 }
-                const position = note.base === 3 ? { x: 72, y: 24 } : { x: 178, y: 24 };
+                if (note.kind === "score") {
+                    const score = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    score.setAttribute("x", "125");
+                    score.setAttribute("y", "106");
+                    score.setAttribute("text-anchor", "middle");
+                    score.setAttribute("font-size", "24");
+                    score.setAttribute("font-weight", "700");
+                    score.setAttribute("fill", SCORE_COLORS.red);
+                    score.textContent = "●";
+                    notesDisplay.appendChild(score);
+                }
+                const position = getAdvanceNotePosition(note.base);
                 const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 text.setAttribute("x", String(position.x));
                 text.setAttribute("y", String(position.y));
                 text.setAttribute("text-anchor", "middle");
                 text.setAttribute("font-size", "13");
                 text.setAttribute("font-weight", "700");
-                text.setAttribute("fill", "#111");
+                text.setAttribute("fill", getScoreTextColor(note.label));
                 text.textContent = note.label;
                 notesDisplay.appendChild(text);
             });
@@ -6559,16 +6630,22 @@
                 "M 35 95 L 125 185"
             ];
 
-            let visibleCount = 0;
-            if (state.selectedHitType === "1B" || state.selectedHitType === "G" || state.selectedHitType === "BH" || ["B", "HP", "IB", "IF"].includes(state.result)) {
-                visibleCount = 1;
-            } else if (state.selectedHitType === "2B") {
-                visibleCount = 2;
-            } else if (state.selectedHitType === "3B") {
-                visibleCount = 3;
-            } else if (state.selectedHitType === "HR") {
-                visibleCount = 4;
-            }
+            let visibleCount = getNormalBatterBaseFromSnapshot(state);
+            (state.runnerContext?.advances || []).forEach((advance) => {
+                if (typeof advance !== "string") {
+                    return;
+                }
+                const baseText = advance.split(":")[0];
+                if (baseText.includes("生還")) {
+                    visibleCount = Math.max(visibleCount, 4);
+                } else if (baseText.includes("三塁")) {
+                    visibleCount = Math.max(visibleCount, 3);
+                } else if (baseText.includes("二塁")) {
+                    visibleCount = Math.max(visibleCount, 2);
+                } else if (baseText.includes("一塁")) {
+                    visibleCount = Math.max(visibleCount, 1);
+                }
+            });
 
             segments.forEach((segment, index) => {
                 segment.setAttribute("d", paths[index]);
