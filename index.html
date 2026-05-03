@@ -741,24 +741,34 @@
         }
 
         .runner-gui-title {
-            display: flex;
-            align-items: baseline;
+            display: grid;
+            grid-template-columns: auto minmax(96px, 1fr) auto;
+            align-items: center;
             justify-content: space-between;
-            gap: 8px;
+            gap: 5px;
             font-size: 12px;
             font-weight: 800;
             color: #334155;
+        }
+
+        .runner-gui-title > span {
+            white-space: nowrap;
         }
 
         .runner-gui-title-actions {
             display: inline-flex;
             align-items: center;
             gap: 4px;
+            margin-left: auto;
         }
 
         .runner-gui-title small {
             font-size: 10px;
             color: var(--muted);
+        }
+
+        .runner-gui-title-actions small {
+            display: none;
         }
 
         .runner-gui-steps {
@@ -800,6 +810,13 @@
             gap: 5px;
         }
 
+        .runner-source-tabs.is-title-tabs {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 3px;
+            max-width: 124px;
+        }
+
         .runner-source-tab {
             min-height: 34px;
             padding: 5px 4px;
@@ -808,10 +825,33 @@
             line-height: 1.15;
         }
 
+        .runner-source-tabs.is-title-tabs .runner-source-tab {
+            min-height: 28px;
+            padding: 3px 2px;
+            font-size: 8px;
+            border-radius: 8px;
+        }
+
+        .runner-source-tab small {
+            display: block;
+            font-size: 7px;
+            line-height: 1;
+            opacity: 0.72;
+        }
+
         .runner-source-tab.is-active {
             background: #e8f6ec;
             border-color: var(--sheet-green);
             color: var(--sheet-green);
+        }
+
+        .runner-source-tab:disabled,
+        .runner-source-tab.is-disabled {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #94a3b8;
+            cursor: not-allowed;
+            opacity: 0.72;
         }
 
         .runner-source-select-hidden {
@@ -1314,6 +1354,11 @@
                     <div class="runner-gui">
                         <div class="runner-gui-title">
                             <span>走者結果</span>
+                            <div id="runnerSourceTabs" class="runner-source-tabs is-title-tabs" role="tablist" aria-label="対象走者">
+                                <button type="button" class="runner-source-tab" data-runner-source="r1" onclick="setRunnerGuiSourceGlobal('r1')">一走<small>空</small></button>
+                                <button type="button" class="runner-source-tab" data-runner-source="r2" onclick="setRunnerGuiSourceGlobal('r2')">二走<small>空</small></button>
+                                <button type="button" class="runner-source-tab" data-runner-source="r3" onclick="setRunnerGuiSourceGlobal('r3')">三走<small>空</small></button>
+                            </div>
                             <div class="runner-gui-title-actions">
                                 <small>標準進塁と違う時だけ</small>
                                 <button type="button" class="icon-btn" onclick="addRunnerGuiStep()" aria-label="走者結果を追加">＋</button>
@@ -4197,11 +4242,6 @@
             row.className = "runner-gui-step";
             row.innerHTML = [
                 '<div class="runner-gui-controls">',
-                '<div class="runner-source-tabs" role="tablist" aria-label="対象走者">',
-                '<button type="button" class="runner-source-tab is-active" data-runner-source="r1" onclick="setRunnerGuiSource(this, \'r1\')">一走</button>',
-                '<button type="button" class="runner-source-tab" data-runner-source="r2" onclick="setRunnerGuiSource(this, \'r2\')">二走</button>',
-                '<button type="button" class="runner-source-tab" data-runner-source="r3" onclick="setRunnerGuiSource(this, \'r3\')">三走</button>',
-                '</div>',
                 '<select class="runnerGuiSource runner-source-select-hidden" aria-label="対象走者">',
                 '<option value="r1" selected>一走</option>',
                 '<option value="r2">二走</option>',
@@ -4270,22 +4310,41 @@
                 r2: "二走: " + getRunnerRefLabel(state.baseRunners[1]),
                 r3: "三走: " + getRunnerRefLabel(state.baseRunners[2])
             };
+            const shortLabels = {
+                r1: "一走",
+                r2: "二走",
+                r3: "三走"
+            };
+            const availableSources = ["r1", "r2", "r3"].filter((source) => {
+                const baseIndex = getRunnerSourceBaseIndex(source);
+                return Boolean(state.baseRunners[baseIndex]);
+            });
+            const firstAvailableSource = availableSources[0] || "r1";
             document.querySelectorAll(".runner-gui-step").forEach((step) => {
                 const select = step.querySelector(".runnerGuiSource");
                 if (!select) {
                     return;
                 }
-                const currentValue = ["r1", "r2", "r3"].includes(select.value) ? select.value : "r1";
+                const selectedValue = ["r1", "r2", "r3"].includes(select.value) ? select.value : "r1";
+                const currentValue = availableSources.includes(selectedValue) ? selectedValue : firstAvailableSource;
                 Array.from(select.options).forEach((option) => {
                     option.textContent = labels[option.value] || option.textContent;
+                    option.disabled = !availableSources.includes(option.value);
                 });
                 select.value = currentValue;
-                step.querySelectorAll(".runner-source-tab").forEach((button) => {
-                    const source = button.dataset.runnerSource;
-                    const label = labels[source] || button.textContent;
-                    button.innerHTML = label.replace(": ", "<br>");
-                    button.classList.toggle("is-active", source === currentValue);
-                });
+            });
+
+            const primarySelect = document.querySelector(".runner-gui-step .runnerGuiSource");
+            const activeSource = primarySelect?.value || firstAvailableSource;
+            document.querySelectorAll("#runnerSourceTabs .runner-source-tab").forEach((button) => {
+                const source = button.dataset.runnerSource;
+                const baseIndex = getRunnerSourceBaseIndex(source);
+                const runnerLabel = getRunnerRefLabel(state.baseRunners[baseIndex]);
+                const isAvailable = availableSources.includes(source);
+                button.innerHTML = (shortLabels[source] || source) + "<small>" + runnerLabel + "</small>";
+                button.disabled = !isAvailable;
+                button.classList.toggle("is-disabled", !isAvailable);
+                button.classList.toggle("is-active", isAvailable && source === activeSource);
             });
         }
 
@@ -4293,6 +4352,20 @@
             const step = getRunnerGuiStepFromControl(control);
             const select = step?.querySelector(".runnerGuiSource");
             if (!select || !["r1", "r2", "r3"].includes(source)) {
+                return;
+            }
+            select.value = source;
+            updateRunnerGuiOptions();
+        }
+
+        function setRunnerGuiSourceGlobal(source) {
+            const baseIndex = getRunnerSourceBaseIndex(source);
+            if (baseIndex < 0 || !state.baseRunners[baseIndex]) {
+                return;
+            }
+            const step = document.querySelector(".runner-gui-step");
+            const select = step?.querySelector(".runnerGuiSource");
+            if (!select) {
                 return;
             }
             select.value = source;
