@@ -1010,6 +1010,73 @@
             border-radius: 12px;
             font-size: 18px;
             font-weight: 900;
+            touch-action: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+        }
+
+        .play-part-number-pad button.is-gesture-active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(214, 151, 0, 0.18);
+        }
+
+        .number-direction-menu {
+            display: none;
+            position: fixed;
+            z-index: 120;
+            width: 190px;
+            height: 190px;
+            pointer-events: none;
+        }
+
+        .number-direction-menu.is-open {
+            display: block;
+        }
+
+        .number-direction-option {
+            position: absolute;
+            min-width: 58px;
+            min-height: 42px;
+            padding: 7px 8px;
+            border: 2px solid var(--border);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.96);
+            color: #172331;
+            font-size: 13px;
+            font-weight: 900;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+            pointer-events: auto;
+        }
+
+        .number-direction-option.is-active {
+            background: #fff7ed;
+            border-color: var(--accent);
+            color: #9a3412;
+        }
+
+        .number-direction-option[data-direction="up"] {
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+        }
+
+        .number-direction-option[data-direction="down"] {
+            left: 50%;
+            bottom: 0;
+            transform: translateX(-50%);
+        }
+
+        .number-direction-option[data-direction="left"] {
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .number-direction-option[data-direction="right"] {
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
         }
 
         .play-part-popup-back {
@@ -4568,7 +4635,14 @@
         const playPartPopupState = {
             row: null,
             timer: null,
-            suppressClick: false
+            suppressClick: false,
+            numberTimer: null,
+            numberSuppressClick: false,
+            number: "",
+            direction: "none",
+            startX: 0,
+            startY: 0,
+            button: null
         };
 
         function getPrimaryPlayPartRow() {
@@ -4740,14 +4814,166 @@
             renderPlayPartNumberPad(row);
         }
 
+        function setPlayPartDirection(direction) {
+            const row = playPartPopupState.row;
+            const directionInput = row?.querySelector(".play-part-direction");
+            if (directionInput) {
+                directionInput.value = direction || "none";
+            }
+        }
+
+        function appendPlayPartNumberWithDirection(value, direction) {
+            appendPlayPartNumber(value);
+            setPlayPartDirection(direction);
+            applyPlayParts();
+            renderPlayPartNumberPad(playPartPopupState.row);
+        }
+
+        function getDirectionLabel(direction) {
+            const labels = {
+                down: "前",
+                left: "左",
+                right: "右",
+                up: "上"
+            };
+            return labels[direction] || "なし";
+        }
+
         function clearPlayPartNumberPad() {
             const row = playPartPopupState.row;
             const input = row?.querySelector(".play-part-sequence");
             if (input) {
                 input.value = "";
+                setPlayPartDirection("none");
                 applyPlayParts();
                 renderPlayPartNumberPad(row);
             }
+        }
+
+        function ensureNumberDirectionMenu() {
+            let menu = document.getElementById("numberDirectionMenu");
+            if (menu) {
+                return menu;
+            }
+            menu = document.createElement("div");
+            menu.id = "numberDirectionMenu";
+            menu.className = "number-direction-menu";
+            menu.innerHTML = [
+                '<button type="button" class="number-direction-option" data-direction="up" onclick="chooseNumberDirectionOption(event, this)">上</button>',
+                '<button type="button" class="number-direction-option" data-direction="down" onclick="chooseNumberDirectionOption(event, this)">前</button>',
+                '<button type="button" class="number-direction-option" data-direction="left" onclick="chooseNumberDirectionOption(event, this)">左</button>',
+                '<button type="button" class="number-direction-option" data-direction="right" onclick="chooseNumberDirectionOption(event, this)">右</button>'
+            ].join("");
+            document.body.appendChild(menu);
+            return menu;
+        }
+
+        function hideNumberDirectionMenu() {
+            document.getElementById("numberDirectionMenu")?.classList.remove("is-open");
+            document.querySelectorAll(".number-direction-option.is-active").forEach((button) => {
+                button.classList.remove("is-active");
+            });
+            playPartPopupState.number = "";
+            playPartPopupState.direction = "none";
+            playPartPopupState.button?.classList.remove("is-gesture-active");
+            playPartPopupState.button = null;
+        }
+
+        function showNumberDirectionMenu(button, number) {
+            const menu = ensureNumberDirectionMenu();
+            const rect = button.getBoundingClientRect();
+            const size = 190;
+            const left = Math.max(8, Math.min(window.innerWidth - size - 8, rect.left + rect.width / 2 - size / 2));
+            const top = Math.max(8, Math.min(window.innerHeight - size - 8, rect.top + rect.height / 2 - size / 2));
+            menu.style.left = left + "px";
+            menu.style.top = top + "px";
+            menu.classList.add("is-open");
+            playPartPopupState.number = number;
+            playPartPopupState.direction = "none";
+        }
+
+        function updateNumberDirectionFromPointer(event) {
+            const dx = event.clientX - playPartPopupState.startX;
+            const dy = event.clientY - playPartPopupState.startY;
+            const distance = Math.hypot(dx, dy);
+            let direction = "none";
+            if (distance >= 26) {
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    direction = dx < 0 ? "left" : "right";
+                } else {
+                    direction = dy < 0 ? "up" : "down";
+                }
+            }
+            playPartPopupState.direction = direction;
+            document.querySelectorAll(".number-direction-option").forEach((button) => {
+                button.classList.toggle("is-active", button.dataset.direction === direction);
+            });
+        }
+
+        function startNumberDirectionPress(event, number) {
+            if (event.pointerType === "mouse" && event.button !== 0) {
+                return;
+            }
+            playPartPopupState.startX = event.clientX;
+            playPartPopupState.startY = event.clientY;
+            playPartPopupState.button = event.currentTarget;
+            event.currentTarget.setPointerCapture?.(event.pointerId);
+            event.currentTarget.classList.add("is-gesture-active");
+            clearTimeout(playPartPopupState.numberTimer);
+            playPartPopupState.numberTimer = setTimeout(() => {
+                playPartPopupState.numberSuppressClick = true;
+                showNumberDirectionMenu(event.currentTarget, number);
+            }, 320);
+        }
+
+        function moveNumberDirectionPress(event) {
+            if (document.getElementById("numberDirectionMenu")?.classList.contains("is-open")) {
+                updateNumberDirectionFromPointer(event);
+            }
+        }
+
+        function endNumberDirectionPress(event, number) {
+            clearTimeout(playPartPopupState.numberTimer);
+            const menuOpen = document.getElementById("numberDirectionMenu")?.classList.contains("is-open");
+            if (menuOpen) {
+                event.preventDefault();
+                const direction = playPartPopupState.direction;
+                if (direction && direction !== "none") {
+                    appendPlayPartNumberWithDirection(number, direction);
+                }
+                hideNumberDirectionMenu();
+            } else {
+                event.currentTarget?.classList.remove("is-gesture-active");
+            }
+            event.currentTarget?.releasePointerCapture?.(event.pointerId);
+            setTimeout(() => {
+                playPartPopupState.numberSuppressClick = false;
+            }, 250);
+        }
+
+        function cancelNumberDirectionPress(event) {
+            clearTimeout(playPartPopupState.numberTimer);
+            event.currentTarget?.classList.remove("is-gesture-active");
+            event.currentTarget?.releasePointerCapture?.(event.pointerId);
+            hideNumberDirectionMenu();
+        }
+
+        function chooseNumberButton(event, number) {
+            if (playPartPopupState.numberSuppressClick) {
+                event.preventDefault();
+                return;
+            }
+            appendPlayPartNumber(number);
+        }
+
+        function chooseNumberDirectionOption(event, button) {
+            event.preventDefault();
+            const direction = button.dataset.direction || "none";
+            const number = playPartPopupState.number;
+            if (number) {
+                appendPlayPartNumberWithDirection(number, direction);
+            }
+            hideNumberDirectionMenu();
         }
 
         function renderPlayPartNumberPad(row) {
@@ -4756,13 +4982,14 @@
             const content = row.querySelector(".play-part-content")?.value || "";
             const label = getPlayPartContentLabel(category, content, row.dataset.role === "additional");
             const sequenceText = row.querySelector(".play-part-sequence")?.value || "";
+            const directionText = getDirectionLabel(row.querySelector(".play-part-direction")?.value || "none");
             popup.innerHTML = [
                 '<button type="button" class="play-part-popup-back" onclick="renderPlayPartCategoryPopup(playPartPopupState.row)">← 結果を選び直す</button>',
                 '<div class="play-part-popup-title">' + label + '</div>',
-                '<div class="play-part-popup-section">野手/連携: ' + (sequenceText || "未入力") + '</div>',
+                '<div class="play-part-popup-section">野手/連携: ' + (sequenceText || "未入力") + ' / 方向: ' + directionText + '</div>',
                 '<div class="play-part-number-pad">',
                 ...["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((number) =>
-                    '<button type="button" onclick=\'appendPlayPartNumber(' + JSON.stringify(number) + ')\'>' + number + '</button>'
+                    '<button type="button" onpointerdown=\'startNumberDirectionPress(event,' + JSON.stringify(number) + ')\' onpointermove="moveNumberDirectionPress(event)" onpointerup=\'endNumberDirectionPress(event,' + JSON.stringify(number) + ')\' onpointercancel="cancelNumberDirectionPress(event)" onpointerleave="moveNumberDirectionPress(event)" onclick=\'chooseNumberButton(event,' + JSON.stringify(number) + ')\'>' + number + '</button>'
                 ),
                 '</div>',
                 '<div class="play-part-popup-grid" style="margin-top: 8px;">',
@@ -4792,15 +5019,24 @@
         }
 
         function showPlayPartPopup() {
-            document.getElementById("playPartPopup")?.classList.add("is-open");
-            document.getElementById("playPartPopup")?.setAttribute("aria-hidden", "false");
-            document.getElementById("playPartPopupBackdrop")?.classList.add("is-open");
+            const popup = document.getElementById("playPartPopup");
+            const backdrop = document.getElementById("playPartPopupBackdrop");
+            if (backdrop && backdrop.parentElement !== document.body) {
+                document.body.appendChild(backdrop);
+            }
+            if (popup && popup.parentElement !== document.body) {
+                document.body.appendChild(popup);
+            }
+            popup?.classList.add("is-open");
+            popup?.setAttribute("aria-hidden", "false");
+            backdrop?.classList.add("is-open");
         }
 
         function closePlayPartPopup() {
             document.getElementById("playPartPopup")?.classList.remove("is-open");
             document.getElementById("playPartPopup")?.setAttribute("aria-hidden", "true");
             document.getElementById("playPartPopupBackdrop")?.classList.remove("is-open");
+            hideNumberDirectionMenu();
             playPartPopupState.row = null;
         }
 
@@ -4821,6 +5057,7 @@
                 createPlayPartContentOptions(resolvedCategory, value, isAdditionalRow),
                 '</select>',
                 '<input class="play-part-sequence" type="text" inputmode="text" placeholder="野手/連携 例: 8, 63, 643" oninput="applyPlayParts()" aria-label="野手と連携">',
+                '<input class="play-part-direction visually-hidden-control" type="hidden" value="none">',
                 '<button class="play-part-remove" onclick="removePlayPartRow(this)" aria-label="打者結果の行を削除">−</button>'
             ].join("");
             container.appendChild(row);
@@ -4912,9 +5149,10 @@
                     const category = row.querySelector(".play-part-category").value;
                     const value = row.querySelector(".play-part-content").value;
                     const sequenceText = row.querySelector(".play-part-sequence")?.value || "";
+                    const direction = row.querySelector(".play-part-direction")?.value || "none";
                     const option = getPlayPartConfig(category, row.dataset.role === "additional")?.options.find((entry) => entry.value === value);
                     return category && value && option
-                        ? { category, value, label: option.label, sequenceText, role: row.dataset.role || "main" }
+                        ? { category, value, label: option.label, sequenceText, direction, role: row.dataset.role || "main" }
                         : null;
                 })
                 .filter(Boolean);
@@ -5456,10 +5694,16 @@
                 if (sequence.length > 0 && !sequenceIsAdditionalEvent) {
                     parsed.fieldSequence = sequence;
                     parsed.fielder = sequence[0];
+                    if (part.direction && part.direction !== "none") {
+                        parsed.direction = part.direction;
+                    }
                 } else if (part.fielder && !sequenceIsAdditionalEvent) {
                     parsed.fielder = part.fielder;
                     if (!parsed.fieldSequence) {
                         parsed.fieldSequence = [part.fielder];
+                    }
+                    if (part.direction && part.direction !== "none") {
+                        parsed.direction = part.direction;
                     }
                 }
 
