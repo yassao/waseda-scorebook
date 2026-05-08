@@ -82,7 +82,8 @@
             flex-shrink: 0;
         }
 
-        .history-btn {
+        .history-btn,
+        .header-help-btn {
             width: 34px;
             min-height: 34px;
             padding: 0;
@@ -94,6 +95,11 @@
             font-weight: 800;
             line-height: 1;
             box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+        }
+
+        .header-help-btn {
+            background: #e8f1f8;
+            color: #334155;
         }
 
         .history-btn:disabled {
@@ -1383,6 +1389,7 @@
             <div class="history-actions" aria-label="履歴操作">
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
+                <button class="header-help-btn" onclick="showPlayBuilderHelp()" aria-label="ヘルプ">?</button>
             </div>
         </header>
 
@@ -1467,7 +1474,6 @@
                         <div class="play-builder-title">
                             <span>打者結果</span>
                             <div class="play-builder-actions">
-                                <button class="icon-btn" onclick="showPlayBuilderHelp()" aria-label="打者結果の説明">i</button>
                                 <button class="small-btn" onclick="addPlayPartRow()">＋</button>
                             </div>
                         </div>
@@ -2361,6 +2367,8 @@
             const sheet = state.scoreSheets[half] || createEmptyScoreSheet();
             const labels = getInningLabels(half);
             const scores = Array.from({ length: MAX_INNINGS }, () => 0);
+            const recorded = Array.from({ length: MAX_INNINGS }, () => false);
+            const hasData = Array.from({ length: MAX_INNINGS }, () => false);
             const seenRuns = new Set();
 
             const addRun = (inning, key) => {
@@ -2373,6 +2381,7 @@
                 }
                 seenRuns.add(key);
                 scores[inningNumber - 1] += 1;
+                recorded[inningNumber - 1] = true;
             };
 
             for (let row = 0; row < 9; row += 1) {
@@ -2382,6 +2391,13 @@
                         continue;
                     }
                     const inning = labels[col] || (col + 1);
+                    const inningIndex = inning - 1;
+                    if (inningIndex >= 0 && inningIndex < MAX_INNINGS) {
+                        hasData[inningIndex] = true;
+                        if (romanToOutCount(snapshot.outScore) >= 3) {
+                            recorded[inningIndex] = true;
+                        }
+                    }
                     getRunnerStatusEvents(snapshot).forEach((event, eventIndex) => {
                         if (event?.type === "score") {
                             const scoreHalf = event.scoredHalf || half;
@@ -2400,7 +2416,12 @@
                 }
             }
 
-            return scores;
+            const lastInningWithData = hasData.reduce((last, value, index) => value ? index : last, -1);
+            for (let index = 0; index < lastInningWithData; index += 1) {
+                recorded[index] = true;
+            }
+
+            return { scores, recorded };
         }
 
         function renderLineScoreBoard() {
@@ -2410,21 +2431,28 @@
             }
 
             const innings = Array.from({ length: MAX_INNINGS }, (_, index) => index + 1);
-            const topScores = calculateLineScore("top");
-            const bottomScores = calculateLineScore("bottom");
-            const buildRow = (label, scores, isHeader = false) => {
+            const topLine = calculateLineScore("top");
+            const bottomLine = calculateLineScore("bottom");
+            const buildRow = (label, line, isHeader = false) => {
+                const scores = line.scores || [];
+                const recorded = line.recorded || [];
                 const cells = [
                     '<div class="line-score-cell">' + label + '</div>',
-                    ...innings.map((inning) => '<div class="line-score-cell">' + (isHeader ? inning : scores[inning - 1]) + '</div>'),
+                    ...innings.map((inning) => {
+                        const value = isHeader
+                            ? inning
+                            : (recorded[inning - 1] ? scores[inning - 1] : "");
+                        return '<div class="line-score-cell">' + value + '</div>';
+                    }),
                     '<div class="line-score-cell">' + (isHeader ? "計" : scores.reduce((sum, score) => sum + score, 0)) + '</div>'
                 ];
                 return '<div class="line-score-row">' + cells.join("") + '</div>';
             };
 
             board.innerHTML = [
-                buildRow("回", innings, true),
-                buildRow(state.teamNames.top || "先攻", topScores),
-                buildRow(state.teamNames.bottom || "後攻", bottomScores)
+                buildRow("回", { scores: innings, recorded: innings.map(() => true) }, true),
+                buildRow(state.teamNames.top || "先攻", topLine),
+                buildRow(state.teamNames.bottom || "後攻", bottomLine)
             ].join("");
         }
 
