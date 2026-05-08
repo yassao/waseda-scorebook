@@ -132,13 +132,6 @@
             overflow: hidden;
         }
 
-        .scorebox-title {
-            margin: 0 0 4px;
-            font-size: 10px;
-            font-weight: 800;
-            color: #334155;
-        }
-
         .scorebox-svg {
             width: 100%;
             max-width: 148px;
@@ -146,61 +139,68 @@
             margin: 0;
         }
 
-        .runner-preview-panel {
-            display: none;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid #e2e8f0;
+        .base-runner-preview-stack {
+            display: grid;
+            gap: 6px;
+            margin-bottom: 8px;
         }
 
-        .runner-preview-panel.is-visible {
-            display: block;
+        .base-runner-preview-item {
+            display: grid;
+            grid-template-columns: 26px minmax(0, 1fr);
+            align-items: center;
+            gap: 5px;
+            padding: 5px;
+            border: 1px solid #dbe4ec;
+            border-radius: 10px;
+            background: #f8fafc;
         }
 
-        .scorebox-container.has-runner-preview .pitch-quick {
-            display: none;
-        }
-
-        .scorebox-container.has-runner-preview .status-line {
-            margin-top: 5px;
-        }
-
-        .runner-preview-label {
-            margin-bottom: 4px;
+        .base-runner-preview-label {
             font-size: 9px;
             font-weight: 800;
             color: #475569;
+            text-align: center;
         }
 
-        .runner-preview-card {
-            width: 92px;
-            max-width: 100%;
+        .base-runner-preview-card {
+            width: 78px;
             aspect-ratio: 210 / 180;
         }
 
-        .runner-preview-card .sheet-cell-svg {
+        .base-runner-preview-card .sheet-cell-svg {
             width: 100%;
             height: 100%;
             display: block;
         }
 
-        .runner-preview-empty {
+        .base-runner-preview-empty {
             font-size: 9px;
             color: var(--muted);
             line-height: 1.35;
+            text-align: center;
+            padding: 2px 0 6px;
+        }
+
+        .pitch-input-panel {
+            display: grid;
+            gap: 6px;
+            padding: 6px;
+            margin-bottom: 6px;
+            border: 1px solid #dbe4ec;
+            border-radius: 12px;
+            background: #f8fafc;
         }
 
         .status-line {
-            margin-top: 8px;
             display: flex;
             justify-content: flex-start;
             gap: 10px;
-            font-size: 16px;
+            font-size: 13px;
             color: var(--muted);
         }
 
         .pitch-quick {
-            margin-top: 8px;
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 6px;
@@ -344,12 +344,19 @@
             -webkit-overflow-scrolling: touch;
         }
 
-        .scorebox-action {
-            margin-top: 8px;
+        .global-apply-row {
+            flex-shrink: 0;
+            padding: 8px 16px 0;
         }
 
-        .scorebox-action .small-btn {
+        .global-apply-btn {
             width: 100%;
+            min-height: 42px;
+            border-color: var(--teal);
+            background: #0f766e;
+            color: white;
+            font-weight: 900;
+            letter-spacing: 0.02em;
         }
 
         .control-panel-wrapper {
@@ -1440,16 +1447,28 @@
                 max-width: 104px;
             }
 
-            .scorebox-title {
-                font-size: 9px;
+            .base-runner-preview-stack {
+                gap: 4px;
+                margin-bottom: 5px;
             }
 
-            .runner-preview-card {
-                width: 76px;
+            .base-runner-preview-item {
+                grid-template-columns: 22px minmax(0, 1fr);
+                gap: 3px;
+                padding: 3px;
+                border-radius: 8px;
+            }
+
+            .base-runner-preview-card {
+                width: 66px;
+            }
+
+            .base-runner-preview-label,
+            .base-runner-preview-empty {
+                font-size: 8px;
             }
 
             .status-line {
-                margin-top: 4px;
                 font-size: 9px;
                 gap: 6px;
             }
@@ -1573,7 +1592,7 @@
 
         <div class="top-workspace">
             <div class="scorebox-container">
-                <div class="scorebox-title">打者プレビュー</div>
+                <div id="baseRunnerPreviewStack" class="base-runner-preview-stack" aria-live="polite"></div>
                 <svg id="scoreboxSvg" class="scorebox-svg" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg" aria-label="スコアボックス">
                     <defs>
                         <marker id="previewAdvanceArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -1617,41 +1636,35 @@
                         <text id="rbiText" x="58" y="140" text-anchor="middle" font-size="24" font-weight="700" fill="#111"></text>
                     </g>
                 </svg>
-
-                <div id="runnerPreviewPanel" class="runner-preview-panel" aria-live="polite">
-                    <div id="runnerPreviewLabel" class="runner-preview-label">走者追記</div>
-                    <div id="runnerPreviewCard" class="runner-preview-card"></div>
-                </div>
-                <div class="status-line">
-                    <span id="countStatus">B 0</span>
-                    <span id="strikeStatus">S 0</span>
-                    <span id="outStatus">O -</span>
-                    <span id="autoJudgeStatus">自動判定待ち</span>
-                </div>
-                <div class="pitch-quick">
-                    <button class="pitch-main-btn" onclick="addPitch('ball')">B</button>
-                    <button id="strikeQuickBtn" class="pitch-main-btn" onclick="handleStrikeButtonClick(event)" onpointerdown="startStrikeSwipe(event)" onpointermove="moveStrikeSwipe(event)" onpointerup="endStrikeSwipe(event)" onpointercancel="cancelStrikeSwipe(event)" onpointerleave="moveStrikeSwipe(event)">S</button>
-                    <div id="strikeSwipeMenu" class="pitch-swipe-menu" aria-hidden="true">
-                        <button class="pitch-swipe-option" data-pitch="calledStrike" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">見逃し<br>ストライク</button>
-                        <button class="pitch-swipe-option" data-pitch="swingStrike" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">空振り<br>ストライク</button>
-                        <button class="pitch-swipe-option" data-pitch="foul" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">ファール</button>
-                        <button class="pitch-swipe-option" data-pitch="buntFoul" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">バント<br>ファール</button>
-                        <button class="pitch-swipe-option" data-pitch="buntSwing" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">バント<br>空振り</button>
-                        <div class="pitch-swipe-hint">長押ししたまま動かして、離すと選択</div>
-                    </div>
-                </div>
-                <div id="playPartPopupBackdrop" class="play-part-popup-backdrop" onclick="closePlayPartPopup()"></div>
-                <div id="playPartPopup" class="play-part-popup" aria-hidden="true"></div>
-                <div class="scorebox-action">
-                    <button class="small-btn" onclick="applyNaturalLanguage()">スコアブックに反映</button>
-                </div>
             </div>
 
             <section class="nl-quick-panel">
                 <div class="nl-panel is-compact">
+                    <div class="pitch-input-panel">
+                        <div class="status-line">
+                            <span id="countStatus">B 0</span>
+                            <span id="strikeStatus">S 0</span>
+                            <span id="outStatus">O -</span>
+                            <span id="autoJudgeStatus">自動判定待ち</span>
+                        </div>
+                        <div class="pitch-quick">
+                            <button class="pitch-main-btn" onclick="addPitch('ball')">B</button>
+                            <button id="strikeQuickBtn" class="pitch-main-btn" onclick="handleStrikeButtonClick(event)" onpointerdown="startStrikeSwipe(event)" onpointermove="moveStrikeSwipe(event)" onpointerup="endStrikeSwipe(event)" onpointercancel="cancelStrikeSwipe(event)" onpointerleave="moveStrikeSwipe(event)">S</button>
+                            <div id="strikeSwipeMenu" class="pitch-swipe-menu" aria-hidden="true">
+                                <button class="pitch-swipe-option" data-pitch="calledStrike" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">見逃し<br>ストライク</button>
+                                <button class="pitch-swipe-option" data-pitch="swingStrike" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">空振り<br>ストライク</button>
+                                <button class="pitch-swipe-option" data-pitch="foul" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">ファール</button>
+                                <button class="pitch-swipe-option" data-pitch="buntFoul" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">バント<br>ファール</button>
+                                <button class="pitch-swipe-option" data-pitch="buntSwing" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">バント<br>空振り</button>
+                                <div class="pitch-swipe-hint">長押ししたまま動かして、離すと選択</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="playPartPopupBackdrop" class="play-part-popup-backdrop" onclick="closePlayPartPopup()"></div>
+                    <div id="playPartPopup" class="play-part-popup" aria-hidden="true"></div>
                     <div class="play-builder">
                         <div class="play-builder-title">
-                            <span>打者結果</span>
+                            <span>打球結果</span>
                             <div class="play-builder-actions">
                                 <button class="small-btn" onclick="addPlayPartRow()">＋</button>
                             </div>
@@ -1757,6 +1770,9 @@
                     </div>
                 </div>
             </section>
+        </div>
+        <div class="global-apply-row">
+            <button class="small-btn global-apply-btn" onclick="applyNaturalLanguage()">スコアブックに反映</button>
         </div>
 
         <div class="control-panel-wrapper">
@@ -4560,7 +4576,7 @@
             const isAdditionalRow = row.dataset.role === "additional";
             const groups = getPlayPartOptionGroups(isAdditionalRow, row.querySelector(".play-part-category")?.value || "");
             popup.innerHTML = [
-                '<div class="play-part-popup-title">' + (isAdditionalRow ? "追加項目を選択" : "打者結果の分類を選択") + '</div>',
+                '<div class="play-part-popup-title">打球結果</div>',
                 '<div class="play-part-popup-grid">',
                 ...Object.entries(groups).map(([value, config]) =>
                     '<button type="button" class="play-part-popup-option is-primary" onclick=\'choosePlayPartCategory(' + JSON.stringify(value) + ')\'>' + config.label + '</button>'
@@ -4580,7 +4596,7 @@
             }
             popup.innerHTML = [
                 '<button type="button" class="play-part-popup-back" onclick="renderPlayPartCategoryPopup(playPartPopupState.row)">← 分類に戻る</button>',
-                '<div class="play-part-popup-title">' + config.label + 'の内容を選択</div>',
+                '<div class="play-part-popup-title">打球結果</div>',
                 '<div class="play-part-popup-grid">',
                 ...config.options.map((option) =>
                     '<button type="button" class="play-part-popup-option" onclick=\'choosePlayPartContent(' + JSON.stringify(option.value) + ')\'>' + option.label + '</button>'
@@ -7484,23 +7500,34 @@
         }
 
         function updateRunnerPreviewPanel() {
-            const panel = document.getElementById("runnerPreviewPanel");
-            const label = document.getElementById("runnerPreviewLabel");
-            const card = document.getElementById("runnerPreviewCard");
-            if (!panel || !label || !card) {
+            const stack = document.getElementById("baseRunnerPreviewStack");
+            if (!stack) {
                 return;
             }
-            const entry = getRunnerPreviewEntry();
-            if (!entry) {
-                panel.classList.remove("is-visible");
-                panel.closest(".scorebox-container")?.classList.remove("has-runner-preview");
-                card.innerHTML = "";
+            const previewEntry = getRunnerPreviewEntry();
+            const items = state.baseRunners
+                .map((runnerRef, baseIndex) => ({ runnerRef, baseIndex }))
+                .filter((item) => Boolean(item.runnerRef));
+
+            if (!items.length) {
+                stack.innerHTML = "";
                 return;
             }
-            panel.classList.add("is-visible");
-            panel.closest(".scorebox-container")?.classList.add("has-runner-preview");
-            label.textContent = "走者追記: " + entry.source.name + " " + getRunnerRefLabel(entry.runnerRef);
-            card.innerHTML = generateSheetCellSvg(buildRunnerPreviewSnapshot(entry));
+
+            stack.innerHTML = items.map((item) => {
+                const isPreviewTarget = previewEntry
+                    && previewEntry.runnerRef?.row === item.runnerRef.row
+                    && previewEntry.runnerRef?.col === item.runnerRef.col;
+                const snapshot = isPreviewTarget
+                    ? buildRunnerPreviewSnapshot(previewEntry)
+                    : getSnapshotByRef(item.runnerRef);
+                return [
+                    '<div class="base-runner-preview-item">',
+                    '<div class="base-runner-preview-label">' + (item.baseIndex + 1) + '塁<br>' + getRunnerRefLabel(item.runnerRef) + '</div>',
+                    '<div class="base-runner-preview-card">' + generateSheetCellSvg(snapshot) + '</div>',
+                    '</div>'
+                ].join("");
+            }).join("");
         }
 
         function getPitchMarkSvgMarkup(pitch, x, y, scale, note) {
