@@ -1045,7 +1045,7 @@
         .number-direction-menu {
             display: none;
             position: fixed;
-            z-index: 120;
+            z-index: 10000;
             width: 190px;
             height: 190px;
             pointer-events: none;
@@ -4906,11 +4906,16 @@
             });
             playPartPopupState.number = "";
             playPartPopupState.direction = "none";
+            playPartPopupState.numberMenuOpen = false;
+            playPartPopupState.touchLongPress = false;
             playPartPopupState.button?.classList.remove("is-gesture-active");
             playPartPopupState.button = null;
         }
 
         function showNumberDirectionMenu(button, number) {
+            if (!button) {
+                return;
+            }
             const menu = ensureNumberDirectionMenu();
             const rect = button.getBoundingClientRect();
             const size = 190;
@@ -4921,6 +4926,7 @@
             menu.classList.add("is-open");
             playPartPopupState.number = number;
             playPartPopupState.direction = "none";
+            playPartPopupState.numberMenuOpen = true;
         }
 
         function updateNumberDirectionFromPointer(event) {
@@ -4946,37 +4952,50 @@
         }
 
         function startNumberDirectionPress(event, number) {
+            if (event.pointerType === "touch") {
+                return;
+            }
             if (event.pointerType === "mouse" && event.button !== 0) {
                 return;
             }
+            const button = event.currentTarget;
             playPartPopupState.startX = event.clientX;
             playPartPopupState.startY = event.clientY;
-            playPartPopupState.button = event.currentTarget;
-            event.currentTarget.setPointerCapture?.(event.pointerId);
-            event.currentTarget.classList.add("is-gesture-active");
+            playPartPopupState.button = button;
+            button.setPointerCapture?.(event.pointerId);
+            button.classList.add("is-gesture-active");
             clearTimeout(playPartPopupState.numberTimer);
             playPartPopupState.numberTimer = setTimeout(() => {
                 playPartPopupState.numberSuppressClick = true;
-                showNumberDirectionMenu(event.currentTarget, number);
+                showNumberDirectionMenu(button, number);
             }, 320);
         }
 
         function moveNumberDirectionPress(event) {
+            if (event.pointerType === "touch") {
+                return;
+            }
             if (document.getElementById("numberDirectionMenu")?.classList.contains("is-open")) {
                 updateNumberDirectionFromPointer(event);
             }
         }
 
         function endNumberDirectionPress(event, number) {
+            if (event.pointerType === "touch") {
+                return;
+            }
             clearTimeout(playPartPopupState.numberTimer);
             const menuOpen = document.getElementById("numberDirectionMenu")?.classList.contains("is-open");
             if (menuOpen) {
                 event.preventDefault();
+                playPartPopupState.numberSuppressClick = true;
                 const direction = playPartPopupState.direction;
                 if (direction && direction !== "none") {
                     appendPlayPartNumberWithDirection(number, direction);
+                    hideNumberDirectionMenu();
+                } else {
+                    event.currentTarget?.classList.remove("is-gesture-active");
                 }
-                hideNumberDirectionMenu();
             } else {
                 event.currentTarget?.classList.remove("is-gesture-active");
             }
@@ -4987,10 +5006,75 @@
         }
 
         function cancelNumberDirectionPress(event) {
+            if (event.pointerType === "touch") {
+                return;
+            }
             clearTimeout(playPartPopupState.numberTimer);
             event.currentTarget?.classList.remove("is-gesture-active");
             event.currentTarget?.releasePointerCapture?.(event.pointerId);
             hideNumberDirectionMenu();
+        }
+
+        function startNumberDirectionMouse(event, number) {
+            if (event.button !== 0) {
+                return;
+            }
+            const button = event.currentTarget;
+            playPartPopupState.startX = event.clientX;
+            playPartPopupState.startY = event.clientY;
+            playPartPopupState.button = button;
+            button.classList.add("is-gesture-active");
+            clearTimeout(playPartPopupState.numberTimer);
+            playPartPopupState.numberTimer = setTimeout(() => {
+                playPartPopupState.numberSuppressClick = true;
+                showNumberDirectionMenu(button, number);
+            }, 320);
+        }
+
+        function moveNumberDirectionMouse(event) {
+            if (document.getElementById("numberDirectionMenu")?.classList.contains("is-open")) {
+                updateNumberDirectionFromPointer(event);
+            }
+        }
+
+        function endNumberDirectionMouse(event, number) {
+            clearTimeout(playPartPopupState.numberTimer);
+            const menuOpen = document.getElementById("numberDirectionMenu")?.classList.contains("is-open");
+            if (menuOpen) {
+                event.preventDefault();
+                playPartPopupState.numberSuppressClick = true;
+                const direction = playPartPopupState.direction;
+                if (direction && direction !== "none") {
+                    appendPlayPartNumberWithDirection(number, direction);
+                    hideNumberDirectionMenu();
+                } else {
+                    event.currentTarget?.classList.remove("is-gesture-active");
+                }
+            } else {
+                event.currentTarget?.classList.remove("is-gesture-active");
+            }
+            setTimeout(() => {
+                playPartPopupState.numberSuppressClick = false;
+            }, 250);
+        }
+
+        function cancelNumberDirectionMouse(event) {
+            clearTimeout(playPartPopupState.numberTimer);
+            event.currentTarget?.classList.remove("is-gesture-active");
+        }
+
+        function openNumberDirectionContextMenu(event, number) {
+            event.preventDefault();
+            clearTimeout(playPartPopupState.numberTimer);
+            playPartPopupState.startX = event.clientX;
+            playPartPopupState.startY = event.clientY;
+            playPartPopupState.button = event.currentTarget;
+            playPartPopupState.numberSuppressClick = true;
+            event.currentTarget.classList.add("is-gesture-active");
+            showNumberDirectionMenu(event.currentTarget, number);
+            setTimeout(() => {
+                playPartPopupState.numberSuppressClick = false;
+            }, 250);
         }
 
         function getTouchPoint(event) {
@@ -5002,16 +5086,19 @@
             if (!point) {
                 return;
             }
+            event.preventDefault();
+            const button = event.currentTarget;
             playPartPopupState.startX = point.clientX;
             playPartPopupState.startY = point.clientY;
-            playPartPopupState.button = event.currentTarget;
+            playPartPopupState.button = button;
             playPartPopupState.touchLongPress = false;
-            event.currentTarget.classList.add("is-gesture-active");
+            playPartPopupState.numberSuppressClick = true;
+            button.classList.add("is-gesture-active");
             clearTimeout(playPartPopupState.numberTimer);
             playPartPopupState.numberTimer = setTimeout(() => {
                 playPartPopupState.numberSuppressClick = true;
                 playPartPopupState.touchLongPress = true;
-                showNumberDirectionMenu(event.currentTarget, number);
+                showNumberDirectionMenu(button, number);
             }, 320);
         }
 
@@ -5020,10 +5107,10 @@
             if (!point) {
                 return;
             }
+            event.preventDefault();
             const dx = point.clientX - playPartPopupState.startX;
             const dy = point.clientY - playPartPopupState.startY;
             if (document.getElementById("numberDirectionMenu")?.classList.contains("is-open")) {
-                event.preventDefault();
                 updateNumberDirectionByDelta(dx, dy);
                 return;
             }
@@ -5034,17 +5121,22 @@
         }
 
         function endNumberDirectionTouch(event, number) {
+            event.preventDefault();
             clearTimeout(playPartPopupState.numberTimer);
             const menuOpen = document.getElementById("numberDirectionMenu")?.classList.contains("is-open");
             if (menuOpen) {
-                event.preventDefault();
                 const direction = playPartPopupState.direction;
                 if (direction && direction !== "none") {
                     appendPlayPartNumberWithDirection(number, direction);
+                    hideNumberDirectionMenu();
+                } else {
+                    event.currentTarget?.classList.remove("is-gesture-active");
                 }
-                hideNumberDirectionMenu();
             } else {
                 event.currentTarget?.classList.remove("is-gesture-active");
+                if (!playPartPopupState.touchLongPress) {
+                    appendPlayPartNumber(number);
+                }
             }
             setTimeout(() => {
                 playPartPopupState.numberSuppressClick = false;
@@ -5053,6 +5145,7 @@
         }
 
         function cancelNumberDirectionTouch(event) {
+            event.preventDefault();
             clearTimeout(playPartPopupState.numberTimer);
             event.currentTarget?.classList.remove("is-gesture-active");
             hideNumberDirectionMenu();
@@ -5087,9 +5180,10 @@
                 renderPlayPartPopupHeader(label),
                 '<button type="button" class="play-part-popup-back" onclick="renderPlayPartCategoryPopup(playPartPopupState.row)">← 結果を選び直す</button>',
                 '<div class="play-part-popup-section">野手/連携: ' + (sequenceText || "未入力") + ' / 方向: ' + directionText + '</div>',
+                '<div class="play-part-popup-section">数字をタップで入力、長押しで 前・左・右・上 を選択できます。</div>',
                 '<div class="play-part-number-pad">',
                 ...["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((number) =>
-                    '<button type="button" onpointerdown=\'startNumberDirectionPress(event,' + JSON.stringify(number) + ')\' onpointermove="moveNumberDirectionPress(event)" onpointerup=\'endNumberDirectionPress(event,' + JSON.stringify(number) + ')\' onpointercancel="cancelNumberDirectionPress(event)" onpointerleave="moveNumberDirectionPress(event)" ontouchstart=\'startNumberDirectionTouch(event,' + JSON.stringify(number) + ')\' ontouchmove="moveNumberDirectionTouch(event)" ontouchend=\'endNumberDirectionTouch(event,' + JSON.stringify(number) + ')\' ontouchcancel="cancelNumberDirectionTouch(event)" onclick=\'chooseNumberButton(event,' + JSON.stringify(number) + ')\'>' + number + '</button>'
+                    '<button type="button" onmousedown=\'startNumberDirectionMouse(event,' + JSON.stringify(number) + ')\' onmousemove="moveNumberDirectionMouse(event)" onmouseup=\'endNumberDirectionMouse(event,' + JSON.stringify(number) + ')\' onmouseleave="cancelNumberDirectionMouse(event)" oncontextmenu=\'openNumberDirectionContextMenu(event,' + JSON.stringify(number) + ')\' ontouchstart=\'startNumberDirectionTouch(event,' + JSON.stringify(number) + ')\' ontouchmove="moveNumberDirectionTouch(event)" ontouchend=\'endNumberDirectionTouch(event,' + JSON.stringify(number) + ')\' ontouchcancel="cancelNumberDirectionTouch(event)" onclick=\'chooseNumberButton(event,' + JSON.stringify(number) + ')\'>' + number + '</button>'
                 ),
                 '</div>',
                 '<div class="play-part-popup-grid" style="margin-top: 8px;">',
