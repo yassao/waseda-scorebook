@@ -803,6 +803,16 @@
             color: #334155;
         }
 
+        .play-builder-title-button {
+            flex: 1;
+            min-height: 30px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            text-align: left;
+            background: #fff;
+        }
+
         .play-builder-actions {
             display: flex;
             align-items: center;
@@ -817,9 +827,13 @@
 
         .play-part-row {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+            grid-template-columns: minmax(0, 1fr) 44px;
             gap: 6px;
             align-items: center;
+        }
+
+        .play-part-row.is-main {
+            display: none;
         }
 
         .play-part-row .play-part-category {
@@ -846,6 +860,11 @@
             -webkit-user-select: none;
         }
 
+        .play-part-result-trigger {
+            min-height: 34px;
+            font-size: 12px;
+        }
+
         .play-part-category-trigger.is-gesture-active {
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(214, 151, 0, 0.18);
@@ -857,28 +876,16 @@
         }
 
         .play-part-content-trigger {
-            grid-column: 2;
-            grid-row: 1;
-            min-width: 0;
-            width: 100%;
-            padding: 7px 8px;
-            border: 2px solid var(--border);
-            border-radius: 10px;
-            background: #fff;
-            color: #172331;
-            font-size: 11px;
-            font-weight: 800;
-            text-align: left;
+            display: none;
         }
 
         .play-part-row .play-part-sequence {
-            grid-column: 1 / 3;
-            grid-row: 2;
+            display: none;
         }
 
         .play-part-row .play-part-remove {
-            grid-column: 3;
-            grid-row: 1 / 3;
+            grid-column: 2;
+            grid-row: 1;
         }
 
         .play-part-row select,
@@ -940,6 +947,8 @@
             width: min(330px, calc(100vw - 24px));
             max-height: min(70dvh, 480px);
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
             padding: 12px;
             border: 2px solid var(--border);
             border-radius: 18px;
@@ -979,6 +988,28 @@
         .play-part-popup-option.is-primary {
             background: #ecfdf5;
             border-color: #86efac;
+        }
+
+        .play-part-popup-section {
+            margin: 10px 0 6px;
+            font-size: 11px;
+            font-weight: 800;
+            color: #64748b;
+        }
+
+        .play-part-number-pad {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .play-part-number-pad button {
+            min-height: 46px;
+            padding: 8px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 900;
         }
 
         .play-part-popup-back {
@@ -1501,7 +1532,15 @@
 
             .play-part-row {
                 gap: 4px;
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 42px;
+                grid-template-columns: minmax(0, 1fr) 42px;
+            }
+
+            .play-part-popup {
+                left: 12px !important;
+                right: 12px !important;
+                top: calc(12px + env(safe-area-inset-top)) !important;
+                width: auto !important;
+                max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
             }
 
             .play-part-row select,
@@ -1664,7 +1703,7 @@
                     <div id="playPartPopup" class="play-part-popup" aria-hidden="true"></div>
                     <div class="play-builder">
                         <div class="play-builder-title">
-                            <span>打球結果</span>
+                            <button type="button" class="play-builder-title-button" onclick="openPrimaryPlayPartPopup(event)">打球結果</button>
                             <div class="play-builder-actions">
                                 <button class="small-btn" onclick="addPlayPartRow()">＋</button>
                             </div>
@@ -4490,6 +4529,17 @@
             return config?.options.find((option) => option.value === value)?.label || "内容";
         }
 
+        function findPlayPartOptionByValue(value, isAdditionalRow = false) {
+            const groups = getPlayPartOptionGroups(isAdditionalRow, "");
+            for (const [category, config] of Object.entries(groups)) {
+                const option = config.options.find((entry) => entry.value === value);
+                if (option) {
+                    return { category, config, option };
+                }
+            }
+            return null;
+        }
+
         function updatePlayPartRowLabels(row) {
             if (!row) {
                 return;
@@ -4499,7 +4549,15 @@
             const isAdditionalRow = row.dataset.role === "additional";
             const trigger = row.querySelector(".play-part-category-trigger");
             if (trigger) {
-                trigger.textContent = getPlayPartCategoryLabel(category, isAdditionalRow);
+                const contentLabel = content ? getPlayPartContentLabel(category, content, isAdditionalRow) : "";
+                trigger.textContent = contentLabel || (isAdditionalRow ? "追加結果" : "打球結果");
+            }
+            if (!isAdditionalRow) {
+                const titleButton = document.querySelector(".play-builder-title-button");
+                if (titleButton) {
+                    const contentLabel = content ? getPlayPartContentLabel(category, content, false) : "";
+                    titleButton.textContent = contentLabel || "打球結果";
+                }
             }
             const contentTrigger = row.querySelector(".play-part-content-trigger");
             if (contentTrigger) {
@@ -4512,6 +4570,22 @@
             timer: null,
             suppressClick: false
         };
+
+        function getPrimaryPlayPartRow() {
+            return document.querySelector("#playParts .play-part-row");
+        }
+
+        function openPrimaryPlayPartPopup(event) {
+            const row = getPrimaryPlayPartRow();
+            if (!row) {
+                return;
+            }
+            event?.preventDefault?.();
+            playPartPopupState.row = row;
+            renderPlayPartCategoryPopup(row);
+            positionPlayPartPopupNear(event.currentTarget);
+            showPlayPartPopup();
+        }
 
         function startPlayPartCategoryPress(event) {
             if (event.pointerType === "mouse" && event.button !== 0) {
@@ -4575,14 +4649,20 @@
             const popup = document.getElementById("playPartPopup");
             const isAdditionalRow = row.dataset.role === "additional";
             const groups = getPlayPartOptionGroups(isAdditionalRow, row.querySelector(".play-part-category")?.value || "");
-            popup.innerHTML = [
-                '<div class="play-part-popup-title">打球結果</div>',
-                '<div class="play-part-popup-grid">',
-                ...Object.entries(groups).map(([value, config]) =>
-                    '<button type="button" class="play-part-popup-option is-primary" onclick=\'choosePlayPartCategory(' + JSON.stringify(value) + ')\'>' + config.label + '</button>'
-                ),
-                '</div>'
-            ].join("");
+            const pieces = ['<div class="play-part-popup-title">打球結果</div>'];
+            Object.entries(groups).forEach(([category, config]) => {
+                pieces.push('<div class="play-part-popup-section">' + config.label + '</div>');
+                pieces.push('<div class="play-part-popup-grid">');
+                config.options.forEach((option) => {
+                    pieces.push(
+                        '<button type="button" class="play-part-popup-option" onclick=\'choosePlayPartResult(' +
+                        JSON.stringify(category) + ',' + JSON.stringify(option.value) +
+                        ')\'>' + option.label + '</button>'
+                    );
+                });
+                pieces.push('</div>');
+            });
+            popup.innerHTML = pieces.join("");
         }
 
         function renderPlayPartContentPopup(row) {
@@ -4599,7 +4679,7 @@
                 '<div class="play-part-popup-title">打球結果</div>',
                 '<div class="play-part-popup-grid">',
                 ...config.options.map((option) =>
-                    '<button type="button" class="play-part-popup-option" onclick=\'choosePlayPartContent(' + JSON.stringify(option.value) + ')\'>' + option.label + '</button>'
+                    '<button type="button" class="play-part-popup-option" onclick=\'choosePlayPartResult(' + JSON.stringify(category) + ',' + JSON.stringify(option.value) + ')\'>' + option.label + '</button>'
                 ),
                 '</div>'
             ].join("");
@@ -4619,6 +4699,21 @@
             applyPlayParts();
         }
 
+        function choosePlayPartResult(category, value) {
+            const row = playPartPopupState.row;
+            if (!row) {
+                return;
+            }
+            const categorySelect = row.querySelector(".play-part-category");
+            const contentSelect = row.querySelector(".play-part-content");
+            categorySelect.value = category;
+            contentSelect.innerHTML = createPlayPartContentOptions(category, value, row.dataset.role === "additional");
+            contentSelect.value = value;
+            updatePlayPartRowLabels(row);
+            applyPlayParts();
+            renderPlayPartNumberPad(row);
+        }
+
         function choosePlayPartContent(value) {
             const row = playPartPopupState.row;
             if (!row) {
@@ -4631,10 +4726,64 @@
             closePlayPartPopup();
         }
 
+        function appendPlayPartNumber(value) {
+            const row = playPartPopupState.row;
+            if (!row) {
+                return;
+            }
+            const input = row.querySelector(".play-part-sequence");
+            if (!input) {
+                return;
+            }
+            input.value = (input.value || "") + value;
+            applyPlayParts();
+            renderPlayPartNumberPad(row);
+        }
+
+        function clearPlayPartNumberPad() {
+            const row = playPartPopupState.row;
+            const input = row?.querySelector(".play-part-sequence");
+            if (input) {
+                input.value = "";
+                applyPlayParts();
+                renderPlayPartNumberPad(row);
+            }
+        }
+
+        function renderPlayPartNumberPad(row) {
+            const popup = document.getElementById("playPartPopup");
+            const category = row.querySelector(".play-part-category")?.value || "";
+            const content = row.querySelector(".play-part-content")?.value || "";
+            const label = getPlayPartContentLabel(category, content, row.dataset.role === "additional");
+            const sequenceText = row.querySelector(".play-part-sequence")?.value || "";
+            popup.innerHTML = [
+                '<button type="button" class="play-part-popup-back" onclick="renderPlayPartCategoryPopup(playPartPopupState.row)">← 結果を選び直す</button>',
+                '<div class="play-part-popup-title">' + label + '</div>',
+                '<div class="play-part-popup-section">野手/連携: ' + (sequenceText || "未入力") + '</div>',
+                '<div class="play-part-number-pad">',
+                ...["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((number) =>
+                    '<button type="button" onclick=\'appendPlayPartNumber(' + JSON.stringify(number) + ')\'>' + number + '</button>'
+                ),
+                '</div>',
+                '<div class="play-part-popup-grid" style="margin-top: 8px;">',
+                '<button type="button" class="play-part-popup-option" onclick="clearPlayPartNumberPad()">消す</button>',
+                '<button type="button" class="play-part-popup-option is-primary" onclick="closePlayPartPopup()">決定</button>',
+                '</div>'
+            ].join("");
+        }
+
         function positionPlayPartPopupNear(anchor) {
             const popup = document.getElementById("playPartPopup");
             const rect = anchor.getBoundingClientRect();
             const width = Math.min(330, window.innerWidth - 24);
+            if (window.innerWidth <= 480) {
+                popup.style.width = "auto";
+                popup.style.left = "12px";
+                popup.style.right = "12px";
+                popup.style.top = "calc(12px + env(safe-area-inset-top))";
+                return;
+            }
+            popup.style.right = "";
             popup.style.width = width + "px";
             const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.left + rect.width / 2 - width / 2));
             const top = Math.max(12, Math.min(window.innerHeight - 180, rect.bottom + 8));
@@ -4660,10 +4809,10 @@
             const isAdditionalRow = container.children.length > 0;
             const resolvedCategory = category || (isAdditionalRow ? "advance" : "");
             const row = document.createElement("div");
-            row.className = "play-part-row";
+            row.className = "play-part-row " + (isAdditionalRow ? "is-additional" : "is-main");
             row.dataset.role = isAdditionalRow ? "additional" : "main";
             row.innerHTML = [
-                '<button type="button" class="play-part-category-trigger" onpointerdown="startPlayPartCategoryPress(event)" onpointerup="endPlayPartCategoryPress(event)" onpointercancel="cancelPlayPartCategoryPress(event)" onclick="openPlayPartCategoryPopup(event, this)">分類</button>',
+                '<button type="button" class="play-part-category-trigger play-part-result-trigger" onpointerdown="startPlayPartCategoryPress(event)" onpointerup="endPlayPartCategoryPress(event)" onpointercancel="cancelPlayPartCategoryPress(event)" onclick="openPlayPartCategoryPopup(event, this)">打球結果</button>',
                 '<select class="play-part-category visually-hidden-control" onchange="updatePlayPartContent(this)" tabindex="-1" aria-hidden="true">',
                 createPlayPartCategoryOptions(resolvedCategory, isAdditionalRow),
                 '</select>',
