@@ -56,6 +56,10 @@
             padding: 10px 16px 8px;
             color: #12202c;
             flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
         }
 
         .app-header h1 {
@@ -70,6 +74,33 @@
             letter-spacing: 0.08em;
             opacity: 0.7;
             vertical-align: super;
+        }
+
+        .history-actions {
+            display: inline-flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .history-btn {
+            width: 34px;
+            min-height: 34px;
+            padding: 0;
+            border-radius: 999px;
+            border: 2px solid var(--border);
+            background: #fff;
+            color: #12202c;
+            font-size: 18px;
+            font-weight: 800;
+            line-height: 1;
+            box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+        }
+
+        .history-btn:disabled {
+            color: #cbd5e1;
+            border-color: #dbe4ec;
+            background: #f8fafc;
+            box-shadow: none;
         }
 
         .top-workspace {
@@ -914,6 +945,17 @@
             grid-row: 2;
         }
 
+        .runner-gui-step:not(.is-detail-open) .runnerGuiReason,
+        .runner-gui-step:not(.is-detail-open) .runner-steal-detail {
+            display: none;
+        }
+
+        .runner-gui-detail-toggle {
+            grid-column: 1;
+            grid-row: 6;
+            min-height: 32px;
+        }
+
         .runner-steal-detail {
             grid-column: 1;
         }
@@ -945,7 +987,7 @@
         .runner-diamond {
             position: relative;
             grid-column: 2;
-            grid-row: 1 / span 5;
+            grid-row: 1 / span 6;
             display: grid;
             grid-template-columns: repeat(3, 34px);
             grid-template-rows: repeat(3, 34px);
@@ -1001,6 +1043,14 @@
         .runner-out-btn {
             grid-column: 1;
             grid-row: 5;
+        }
+
+        .runner-gui-step:not(.is-detail-open) .runner-out-btn {
+            grid-row: 2;
+        }
+
+        .runner-gui-step:not(.is-detail-open) .runner-gui-detail-toggle {
+            grid-row: 3;
         }
 
         .runner-gui-status {
@@ -1177,6 +1227,12 @@
                 font-size: 8px;
             }
 
+            .history-btn {
+                width: 30px;
+                min-height: 30px;
+                font-size: 16px;
+            }
+
             .top-workspace {
                 grid-template-columns: minmax(0, 1fr) 126px;
                 padding: 0 12px;
@@ -1324,6 +1380,10 @@
     <div class="container">
         <header class="app-header">
             <h1>スコアブック <small>by CuViu</small></h1>
+            <div class="history-actions" aria-label="履歴操作">
+                <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
+                <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
+            </div>
         </header>
 
         <div class="top-workspace">
@@ -1417,7 +1477,7 @@
                     </div>
                     <div class="runner-gui">
                         <div class="runner-gui-title">
-                            <span>走者結果</span>
+                            <span>標準以外の走者補正</span>
                             <div id="runnerSourceTabs" class="runner-source-tabs is-title-tabs" role="tablist" aria-label="対象走者">
                                 <button type="button" class="runner-source-tab" data-runner-source="r1" onclick="setRunnerGuiSourceGlobal('r1')">一走<small>空</small></button>
                                 <button type="button" class="runner-source-tab" data-runner-source="r2" onclick="setRunnerGuiSourceGlobal('r2')">二走<small>空</small></button>
@@ -1429,7 +1489,7 @@
                             </div>
                         </div>
                         <div id="runnerGuiSteps" class="runner-gui-steps"></div>
-                        <div id="runnerGuiStatus" class="runner-gui-status">走者の移動は元の打者セルへ追記します。</div>
+                        <div id="runnerGuiStatus" class="runner-gui-status">標準進塁と違う走者だけ、到達塁を押します。</div>
                         <div id="runnerLiveStatus" class="runner-live-status" aria-label="現在の塁上走者"></div>
                     </div>
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
@@ -1816,6 +1876,7 @@
         };
 
         const gameHistory = [];
+        const redoHistory = [];
 
         let naturalLanguageParseTimer = null;
         let sheetCellPressTimer = null;
@@ -2191,9 +2252,11 @@
             if (gameHistory.length > 10) {
                 gameHistory.shift();
             }
+            redoHistory.length = 0;
+            updateHistoryButtons();
         }
 
-        function restoreGameHistorySnapshot(snapshot) {
+        function restoreGameHistorySnapshot(snapshot, message = "戻しました") {
             if (!snapshot) {
                 return;
             }
@@ -2223,16 +2286,56 @@
             renderLineScoreBoard();
             updateGameFlowDisplay();
             updateRunnerGuiOptions();
-            updateRunnerGuiStatus("戻しました");
+            updateRunnerGuiStatus(message);
+            updateHistoryButtons();
         }
 
         function undoGameAction() {
             const snapshot = gameHistory.pop();
             if (!snapshot) {
                 updateRunnerGuiStatus("戻せる履歴がありません");
+                updateHistoryButtons();
                 return;
             }
-            restoreGameHistorySnapshot(snapshot);
+            redoHistory.push(captureGameHistorySnapshot());
+            if (redoHistory.length > 10) {
+                redoHistory.shift();
+            }
+            restoreGameHistorySnapshot(snapshot, "戻しました");
+        }
+
+        function redoGameAction() {
+            const snapshot = redoHistory.pop();
+            if (!snapshot) {
+                updateRunnerGuiStatus("やり直せる履歴がありません");
+                updateHistoryButtons();
+                return;
+            }
+            gameHistory.push(captureGameHistorySnapshot());
+            if (gameHistory.length > 10) {
+                gameHistory.shift();
+            }
+            restoreGameHistorySnapshot(snapshot, "やり直しました");
+        }
+
+        function updateHistoryButtons() {
+            const undoButton = document.getElementById("undoHistoryBtn");
+            const redoButton = document.getElementById("redoHistoryBtn");
+            if (undoButton) {
+                undoButton.disabled = gameHistory.length === 0;
+            }
+            if (redoButton) {
+                redoButton.disabled = redoHistory.length === 0;
+            }
+        }
+
+        function toggleRunnerGuiDetail(button) {
+            const row = button.closest(".runner-gui-step");
+            if (!row) {
+                return;
+            }
+            const isOpen = row.classList.toggle("is-detail-open");
+            button.textContent = isOpen ? "閉じる" : "詳細";
         }
 
         function setBaseRunners(runners) {
@@ -4355,6 +4458,7 @@
                 '<option value="thrower">送球E</option>',
                 '<option value="receiver">捕球E</option>',
                 '</select>',
+                '<button type="button" class="runner-gui-detail-toggle" onclick="toggleRunnerGuiDetail(this)">詳細</button>',
                 '<div class="runner-diamond" aria-label="到達塁">',
                 '<button class="runner-base-btn second" onclick="applyRunnerGuiAction(this, \'2\')">2</button>',
                 '<button class="runner-base-btn third" onclick="applyRunnerGuiAction(this, \'3\')">3</button>',
@@ -7348,6 +7452,7 @@
             updateRunnerGuiOptions();
             updateRunnerGuiStatus();
             updateRunnerLiveStatus();
+            updateHistoryButtons();
 
             requestAnimationFrame(updateResultDecoration);
         }
