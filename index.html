@@ -218,6 +218,19 @@
 
         .pitch-main-btn {
             width: 100%;
+            touch-action: manipulation;
+            user-select: none;
+        }
+
+        #strikeQuickBtn {
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+        }
+
+        .pitch-main-btn.is-gesture-active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(214, 151, 0, 0.18);
         }
 
         .pitch-detail-toggle {
@@ -245,6 +258,53 @@
 
         .pitch-detail-panel.is-open {
             display: grid;
+        }
+
+        .pitch-swipe-menu {
+            display: none;
+            position: fixed;
+            z-index: 70;
+            width: min(270px, calc(100vw - 24px));
+            padding: 10px;
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            background: rgba(248, 250, 252, 0.96);
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.26);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            touch-action: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+        }
+
+        .pitch-swipe-menu.is-open {
+            display: grid;
+        }
+
+        .pitch-swipe-option {
+            min-height: 48px;
+            border: 2px solid #dbe4ec;
+            border-radius: 12px;
+            background: #fff8bc;
+            color: #1f2937;
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .pitch-swipe-option.is-selected {
+            border-color: #2563eb;
+            background: #dbeafe;
+            color: #0f172a;
+            transform: scale(1.03);
+        }
+
+        .pitch-swipe-hint {
+            grid-column: 1 / -1;
+            font-size: 11px;
+            color: var(--muted);
+            text-align: center;
         }
 
         .pitch-detail-backdrop {
@@ -1452,7 +1512,7 @@
                 </div>
                 <div class="pitch-quick">
                     <button class="pitch-main-btn" onclick="addPitch('ball')">B</button>
-                    <button class="pitch-main-btn" onclick="addPitch('calledStrike')">S</button>
+                    <button id="strikeQuickBtn" class="pitch-main-btn" onclick="handleStrikeButtonClick(event)" onpointerdown="startStrikeSwipe(event)" onpointermove="moveStrikeSwipe(event)" onpointerup="endStrikeSwipe(event)" onpointercancel="cancelStrikeSwipe(event)" onpointerleave="moveStrikeSwipe(event)">S</button>
                     <button id="pitchDetailToggle" class="pitch-main-btn pitch-detail-toggle" onclick="togglePitchDetails()">詳細</button>
                     <div id="pitchDetailBackdrop" class="pitch-detail-backdrop" onclick="togglePitchDetails(false)"></div>
                     <div id="pitchDetailPanel" class="pitch-detail-panel">
@@ -1461,6 +1521,14 @@
                         <button onclick="addPitch('foul')">ファール</button>
                         <button onclick="addPitch('buntFoul')">バントF</button>
                         <button onclick="addPitch('buntSwing')">バント空振</button>
+                    </div>
+                    <div id="strikeSwipeMenu" class="pitch-swipe-menu" aria-hidden="true">
+                        <button class="pitch-swipe-option" data-pitch="calledStrike">見逃し<br>ストライク</button>
+                        <button class="pitch-swipe-option" data-pitch="swingStrike">空振り<br>ストライク</button>
+                        <button class="pitch-swipe-option" data-pitch="foul">ファール</button>
+                        <button class="pitch-swipe-option" data-pitch="buntFoul">バント<br>ファール</button>
+                        <button class="pitch-swipe-option" data-pitch="buntSwing">バント<br>空振り</button>
+                        <div class="pitch-swipe-hint">長押ししたまま動かして、離すと選択</div>
                     </div>
                 </div>
                 <div class="scorebox-action">
@@ -6595,6 +6663,134 @@
             panel.classList.toggle("is-open", shouldOpen);
             button.classList.toggle("is-active", shouldOpen);
             backdrop.classList.toggle("is-open", shouldOpen);
+        }
+
+        const strikeSwipeState = {
+            timer: null,
+            open: false,
+            pointerId: null,
+            highlightedPitch: "calledStrike",
+            suppressClick: false
+        };
+
+        function handleStrikeButtonClick(event) {
+            if (strikeSwipeState.suppressClick) {
+                event.preventDefault();
+                return;
+            }
+            addPitch("calledStrike");
+        }
+
+        function startStrikeSwipe(event) {
+            if (event.pointerType === "mouse" && event.button !== 0) {
+                return;
+            }
+            const button = event.currentTarget;
+            strikeSwipeState.pointerId = event.pointerId;
+            strikeSwipeState.highlightedPitch = "calledStrike";
+            button.classList.add("is-gesture-active");
+            button.setPointerCapture?.(event.pointerId);
+            clearTimeout(strikeSwipeState.timer);
+            strikeSwipeState.timer = setTimeout(() => {
+                openStrikeSwipeMenu(button);
+            }, 320);
+        }
+
+        function moveStrikeSwipe(event) {
+            if (!strikeSwipeState.open || event.pointerId !== strikeSwipeState.pointerId) {
+                return;
+            }
+            event.preventDefault();
+            updateStrikeSwipeHighlight(event.clientX, event.clientY);
+        }
+
+        function endStrikeSwipe(event) {
+            const wasOpen = strikeSwipeState.open;
+            const button = event.currentTarget;
+            clearTimeout(strikeSwipeState.timer);
+            button.classList.remove("is-gesture-active");
+            button.releasePointerCapture?.(event.pointerId);
+            strikeSwipeState.pointerId = null;
+
+            if (!wasOpen) {
+                return;
+            }
+
+            event.preventDefault();
+            const pitch = strikeSwipeState.highlightedPitch || "calledStrike";
+            closeStrikeSwipeMenu();
+            strikeSwipeState.suppressClick = true;
+            addPitch(pitch);
+            setTimeout(() => {
+                strikeSwipeState.suppressClick = false;
+            }, 350);
+        }
+
+        function cancelStrikeSwipe(event) {
+            clearTimeout(strikeSwipeState.timer);
+            event.currentTarget?.classList.remove("is-gesture-active");
+            closeStrikeSwipeMenu();
+            strikeSwipeState.pointerId = null;
+        }
+
+        function openStrikeSwipeMenu(button) {
+            const menu = document.getElementById("strikeSwipeMenu");
+            if (!menu) {
+                return;
+            }
+            const rect = button.getBoundingClientRect();
+            const width = Math.min(270, window.innerWidth - 24);
+            const estimatedHeight = 210;
+            const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.left + rect.width / 2 - width / 2));
+            let top = rect.top - estimatedHeight - 10;
+            if (top < 12) {
+                top = Math.min(window.innerHeight - estimatedHeight - 12, rect.bottom + 10);
+            }
+            menu.style.width = width + "px";
+            menu.style.left = left + "px";
+            menu.style.top = Math.max(12, top) + "px";
+            menu.classList.add("is-open");
+            menu.setAttribute("aria-hidden", "false");
+            strikeSwipeState.open = true;
+            setStrikeSwipeHighlight("calledStrike");
+        }
+
+        function closeStrikeSwipeMenu() {
+            const menu = document.getElementById("strikeSwipeMenu");
+            if (menu) {
+                menu.classList.remove("is-open");
+                menu.setAttribute("aria-hidden", "true");
+            }
+            strikeSwipeState.open = false;
+        }
+
+        function setStrikeSwipeHighlight(pitch) {
+            strikeSwipeState.highlightedPitch = pitch;
+            document.querySelectorAll(".pitch-swipe-option").forEach((option) => {
+                option.classList.toggle("is-selected", option.dataset.pitch === pitch);
+            });
+        }
+
+        function updateStrikeSwipeHighlight(clientX, clientY) {
+            const options = Array.from(document.querySelectorAll(".pitch-swipe-option"));
+            if (options.length === 0) {
+                return;
+            }
+
+            let nearest = options[0];
+            let nearestDistance = Number.POSITIVE_INFINITY;
+            options.forEach((option) => {
+                const rect = option.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                const distance = Math.hypot(clientX - centerX, clientY - centerY);
+                if (distance < nearestDistance) {
+                    nearest = option;
+                    nearestDistance = distance;
+                }
+            });
+
+            setStrikeSwipeHighlight(nearest.dataset.pitch || "calledStrike");
         }
 
         function openManualDetails() {
