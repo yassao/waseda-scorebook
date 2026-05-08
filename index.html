@@ -215,7 +215,7 @@
         }
 
         .pitch-detail-toggle {
-            grid-column: 2;
+            grid-column: 1 / -1;
             grid-row: 2;
             width: 100%;
         }
@@ -1446,7 +1446,6 @@
                 <div class="pitch-quick">
                     <button class="pitch-main-btn" onclick="addPitch('ball')">B</button>
                     <button class="pitch-main-btn" onclick="addPitch('calledStrike')">S</button>
-                    <button class="pitch-main-btn" onclick="undoPitch()">Undo</button>
                     <button id="pitchDetailToggle" class="pitch-main-btn pitch-detail-toggle" onclick="togglePitchDetails()">詳細</button>
                     <div id="pitchDetailBackdrop" class="pitch-detail-backdrop" onclick="togglePitchDetails(false)"></div>
                     <div id="pitchDetailPanel" class="pitch-detail-panel">
@@ -1458,7 +1457,6 @@
                     </div>
                 </div>
                 <div class="scorebox-action">
-                    <button class="small-btn" onclick="undoGameAction()">戻る</button>
                     <button class="small-btn" onclick="applyNaturalLanguage()">スコアブックに反映</button>
                 </div>
             </div>
@@ -2276,12 +2274,7 @@
                 battingOrderSelect.value = state.battingOrder;
             }
 
-            const currentSnapshot = state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol];
-            if (currentSnapshot) {
-                applyAtBatSnapshot(currentSnapshot);
-            } else {
-                updateDisplay();
-            }
+            updateDisplay();
             renderScoreSheet();
             renderLineScoreBoard();
             updateGameFlowDisplay();
@@ -6643,6 +6636,7 @@
         }
 
         function addPitch(symbol) {
+            pushGameHistory();
             state.pitches.push(symbol);
             state.pitchNotes.push("");
             recomputePitchState();
@@ -6657,6 +6651,7 @@
             if (state.pitches.length === 0) {
                 return;
             }
+            pushGameHistory();
             state.pitches.pop();
             state.pitchNotes.pop();
             recomputePitchState();
