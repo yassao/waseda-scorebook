@@ -203,7 +203,6 @@
             margin-top: 8px;
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            grid-template-rows: auto auto;
             gap: 6px;
             align-items: start;
         }
@@ -237,6 +236,18 @@
             grid-column: 1 / -1;
             grid-row: 2;
             width: 100%;
+        }
+
+        .visually-hidden-control {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
         }
 
         .pitch-detail-panel {
@@ -809,9 +820,48 @@
             grid-row: 1;
         }
 
+        .play-part-category-trigger {
+            grid-column: 1;
+            grid-row: 1;
+            min-width: 0;
+            width: 100%;
+            padding: 7px 8px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+            color: #172331;
+            font-size: 11px;
+            font-weight: 800;
+            text-align: left;
+            touch-action: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+        }
+
+        .play-part-category-trigger.is-gesture-active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(214, 151, 0, 0.18);
+        }
+
         .play-part-row .play-part-content {
             grid-column: 2;
             grid-row: 1;
+        }
+
+        .play-part-content-trigger {
+            grid-column: 2;
+            grid-row: 1;
+            min-width: 0;
+            width: 100%;
+            padding: 7px 8px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+            color: #172331;
+            font-size: 11px;
+            font-weight: 800;
+            text-align: left;
         }
 
         .play-part-row .play-part-sequence {
@@ -862,6 +912,74 @@
             border-radius: 10px;
             font-size: 10px;
             line-height: 1;
+        }
+
+        .play-part-popup-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 80;
+            background: rgba(15, 23, 42, 0.18);
+        }
+
+        .play-part-popup-backdrop.is-open {
+            display: block;
+        }
+
+        .play-part-popup {
+            display: none;
+            position: fixed;
+            z-index: 90;
+            width: min(330px, calc(100vw - 24px));
+            max-height: min(70dvh, 480px);
+            overflow-y: auto;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 18px;
+            background: rgba(248, 250, 252, 0.98);
+            box-shadow: 0 22px 50px rgba(15, 23, 42, 0.28);
+        }
+
+        .play-part-popup.is-open {
+            display: block;
+        }
+
+        .play-part-popup-title {
+            font-size: 13px;
+            font-weight: 800;
+            color: #334155;
+            margin-bottom: 8px;
+        }
+
+        .play-part-popup-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .play-part-popup-option {
+            min-height: 48px;
+            padding: 9px 8px;
+            border: 2px solid #dbe4ec;
+            border-radius: 12px;
+            background: #fff;
+            color: #172331;
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .play-part-popup-option.is-primary {
+            background: #ecfdf5;
+            border-color: #86efac;
+        }
+
+        .play-part-popup-back {
+            margin-bottom: 8px;
+            min-height: 34px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-size: 12px;
         }
 
         .play-builder-note {
@@ -1513,15 +1631,6 @@
                 <div class="pitch-quick">
                     <button class="pitch-main-btn" onclick="addPitch('ball')">B</button>
                     <button id="strikeQuickBtn" class="pitch-main-btn" onclick="handleStrikeButtonClick(event)" onpointerdown="startStrikeSwipe(event)" onpointermove="moveStrikeSwipe(event)" onpointerup="endStrikeSwipe(event)" onpointercancel="cancelStrikeSwipe(event)" onpointerleave="moveStrikeSwipe(event)">S</button>
-                    <button id="pitchDetailToggle" class="pitch-main-btn pitch-detail-toggle" onclick="togglePitchDetails()">詳細</button>
-                    <div id="pitchDetailBackdrop" class="pitch-detail-backdrop" onclick="togglePitchDetails(false)"></div>
-                    <div id="pitchDetailPanel" class="pitch-detail-panel">
-                        <button onclick="addPitch('calledStrike')">見逃し</button>
-                        <button onclick="addPitch('swingStrike')">空振り</button>
-                        <button onclick="addPitch('foul')">ファール</button>
-                        <button onclick="addPitch('buntFoul')">バントF</button>
-                        <button onclick="addPitch('buntSwing')">バント空振</button>
-                    </div>
                     <div id="strikeSwipeMenu" class="pitch-swipe-menu" aria-hidden="true">
                         <button class="pitch-swipe-option" data-pitch="calledStrike" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">見逃し<br>ストライク</button>
                         <button class="pitch-swipe-option" data-pitch="swingStrike" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">空振り<br>ストライク</button>
@@ -1531,6 +1640,8 @@
                         <div class="pitch-swipe-hint">長押ししたまま動かして、離すと選択</div>
                     </div>
                 </div>
+                <div id="playPartPopupBackdrop" class="play-part-popup-backdrop" onclick="closePlayPartPopup()"></div>
+                <div id="playPartPopup" class="play-part-popup" aria-hidden="true"></div>
                 <div class="scorebox-action">
                     <button class="small-btn" onclick="applyNaturalLanguage()">スコアブックに反映</button>
                 </div>
@@ -4354,6 +4465,180 @@
             ].join("");
         }
 
+        function getPlayPartCategoryLabel(category, isAdditionalRow = false) {
+            return getPlayPartConfig(category, isAdditionalRow)?.label || "分類";
+        }
+
+        function getPlayPartContentLabel(category, value, isAdditionalRow = false) {
+            const config = getPlayPartConfig(category, isAdditionalRow);
+            return config?.options.find((option) => option.value === value)?.label || "内容";
+        }
+
+        function updatePlayPartRowLabels(row) {
+            if (!row) {
+                return;
+            }
+            const category = row.querySelector(".play-part-category")?.value || "";
+            const content = row.querySelector(".play-part-content")?.value || "";
+            const isAdditionalRow = row.dataset.role === "additional";
+            const trigger = row.querySelector(".play-part-category-trigger");
+            if (trigger) {
+                trigger.textContent = getPlayPartCategoryLabel(category, isAdditionalRow);
+            }
+            const contentTrigger = row.querySelector(".play-part-content-trigger");
+            if (contentTrigger) {
+                contentTrigger.textContent = getPlayPartContentLabel(category, content, isAdditionalRow);
+            }
+        }
+
+        const playPartPopupState = {
+            row: null,
+            timer: null,
+            suppressClick: false
+        };
+
+        function startPlayPartCategoryPress(event) {
+            if (event.pointerType === "mouse" && event.button !== 0) {
+                return;
+            }
+            const button = event.currentTarget;
+            button.classList.add("is-gesture-active");
+            clearTimeout(playPartPopupState.timer);
+            playPartPopupState.timer = setTimeout(() => {
+                playPartPopupState.suppressClick = true;
+                openPlayPartCategoryPopup(event, button);
+            }, 320);
+        }
+
+        function endPlayPartCategoryPress(event) {
+            clearTimeout(playPartPopupState.timer);
+            event.currentTarget?.classList.remove("is-gesture-active");
+            setTimeout(() => {
+                playPartPopupState.suppressClick = false;
+            }, 250);
+        }
+
+        function cancelPlayPartCategoryPress(event) {
+            clearTimeout(playPartPopupState.timer);
+            event.currentTarget?.classList.remove("is-gesture-active");
+        }
+
+        function openPlayPartCategoryPopup(event, button) {
+            event?.preventDefault?.();
+            if (playPartPopupState.suppressClick && event?.type === "click") {
+                return;
+            }
+            const row = button.closest(".play-part-row");
+            if (!row) {
+                return;
+            }
+            playPartPopupState.row = row;
+            renderPlayPartCategoryPopup(row);
+            positionPlayPartPopupNear(button);
+            showPlayPartPopup();
+        }
+
+        function openPlayPartContentPopup(event, button) {
+            event?.preventDefault?.();
+            const row = button.closest(".play-part-row");
+            if (!row) {
+                return;
+            }
+            const category = row.querySelector(".play-part-category")?.value || "";
+            if (!category) {
+                openPlayPartCategoryPopup(event, row.querySelector(".play-part-category-trigger"));
+                return;
+            }
+            playPartPopupState.row = row;
+            renderPlayPartContentPopup(row);
+            positionPlayPartPopupNear(button);
+            showPlayPartPopup();
+        }
+
+        function renderPlayPartCategoryPopup(row) {
+            const popup = document.getElementById("playPartPopup");
+            const isAdditionalRow = row.dataset.role === "additional";
+            const groups = getPlayPartOptionGroups(isAdditionalRow, row.querySelector(".play-part-category")?.value || "");
+            popup.innerHTML = [
+                '<div class="play-part-popup-title">' + (isAdditionalRow ? "追加項目を選択" : "打者結果の分類を選択") + '</div>',
+                '<div class="play-part-popup-grid">',
+                ...Object.entries(groups).map(([value, config]) =>
+                    '<button type="button" class="play-part-popup-option is-primary" onclick=\'choosePlayPartCategory(' + JSON.stringify(value) + ')\'>' + config.label + '</button>'
+                ),
+                '</div>'
+            ].join("");
+        }
+
+        function renderPlayPartContentPopup(row) {
+            const popup = document.getElementById("playPartPopup");
+            const isAdditionalRow = row.dataset.role === "additional";
+            const category = row.querySelector(".play-part-category")?.value || "";
+            const config = getPlayPartConfig(category, isAdditionalRow);
+            if (!config) {
+                renderPlayPartCategoryPopup(row);
+                return;
+            }
+            popup.innerHTML = [
+                '<button type="button" class="play-part-popup-back" onclick="renderPlayPartCategoryPopup(playPartPopupState.row)">← 分類に戻る</button>',
+                '<div class="play-part-popup-title">' + config.label + 'の内容を選択</div>',
+                '<div class="play-part-popup-grid">',
+                ...config.options.map((option) =>
+                    '<button type="button" class="play-part-popup-option" onclick=\'choosePlayPartContent(' + JSON.stringify(option.value) + ')\'>' + option.label + '</button>'
+                ),
+                '</div>'
+            ].join("");
+        }
+
+        function choosePlayPartCategory(category) {
+            const row = playPartPopupState.row;
+            if (!row) {
+                return;
+            }
+            const categorySelect = row.querySelector(".play-part-category");
+            const contentSelect = row.querySelector(".play-part-content");
+            categorySelect.value = category;
+            contentSelect.innerHTML = createPlayPartContentOptions(category, "", row.dataset.role === "additional");
+            updatePlayPartRowLabels(row);
+            renderPlayPartContentPopup(row);
+            applyPlayParts();
+        }
+
+        function choosePlayPartContent(value) {
+            const row = playPartPopupState.row;
+            if (!row) {
+                return;
+            }
+            const contentSelect = row.querySelector(".play-part-content");
+            contentSelect.value = value;
+            updatePlayPartRowLabels(row);
+            applyPlayParts();
+            closePlayPartPopup();
+        }
+
+        function positionPlayPartPopupNear(anchor) {
+            const popup = document.getElementById("playPartPopup");
+            const rect = anchor.getBoundingClientRect();
+            const width = Math.min(330, window.innerWidth - 24);
+            popup.style.width = width + "px";
+            const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.left + rect.width / 2 - width / 2));
+            const top = Math.max(12, Math.min(window.innerHeight - 180, rect.bottom + 8));
+            popup.style.left = left + "px";
+            popup.style.top = top + "px";
+        }
+
+        function showPlayPartPopup() {
+            document.getElementById("playPartPopup")?.classList.add("is-open");
+            document.getElementById("playPartPopup")?.setAttribute("aria-hidden", "false");
+            document.getElementById("playPartPopupBackdrop")?.classList.add("is-open");
+        }
+
+        function closePlayPartPopup() {
+            document.getElementById("playPartPopup")?.classList.remove("is-open");
+            document.getElementById("playPartPopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("playPartPopupBackdrop")?.classList.remove("is-open");
+            playPartPopupState.row = null;
+        }
+
         function addPlayPartRow(category = "", value = "") {
             const container = document.getElementById("playParts");
             const isAdditionalRow = container.children.length > 0;
@@ -4362,16 +4647,19 @@
             row.className = "play-part-row";
             row.dataset.role = isAdditionalRow ? "additional" : "main";
             row.innerHTML = [
-                '<select class="play-part-category" onchange="updatePlayPartContent(this)">',
+                '<button type="button" class="play-part-category-trigger" onpointerdown="startPlayPartCategoryPress(event)" onpointerup="endPlayPartCategoryPress(event)" onpointercancel="cancelPlayPartCategoryPress(event)" onclick="openPlayPartCategoryPopup(event, this)">分類</button>',
+                '<select class="play-part-category visually-hidden-control" onchange="updatePlayPartContent(this)" tabindex="-1" aria-hidden="true">',
                 createPlayPartCategoryOptions(resolvedCategory, isAdditionalRow),
                 '</select>',
-                '<select class="play-part-content" onchange="applyPlayParts()">',
+                '<button type="button" class="play-part-content-trigger" onclick="openPlayPartContentPopup(event, this)">内容</button>',
+                '<select class="play-part-content visually-hidden-control" onchange="applyPlayParts()" tabindex="-1" aria-hidden="true">',
                 createPlayPartContentOptions(resolvedCategory, value, isAdditionalRow),
                 '</select>',
                 '<input class="play-part-sequence" type="text" inputmode="text" placeholder="野手/連携 例: 8, 63, 643" oninput="applyPlayParts()" aria-label="野手と連携">',
                 '<button class="play-part-remove" onclick="removePlayPartRow(this)" aria-label="打者結果の行を削除">−</button>'
             ].join("");
             container.appendChild(row);
+            updatePlayPartRowLabels(row);
         }
 
         function togglePlayPartDetail(button) {
@@ -4449,6 +4737,7 @@
             const row = select.closest(".play-part-row");
             const content = row.querySelector(".play-part-content");
             content.innerHTML = createPlayPartContentOptions(select.value, "", row?.dataset.role === "additional");
+            updatePlayPartRowLabels(row);
             applyPlayParts();
         }
 
@@ -6656,6 +6945,9 @@
             const panel = document.getElementById("pitchDetailPanel");
             const button = document.getElementById("pitchDetailToggle");
             const backdrop = document.getElementById("pitchDetailBackdrop");
+            if (!panel || !button || !backdrop) {
+                return;
+            }
             const shouldOpen = typeof forceOpen === "boolean"
                 ? forceOpen
                 : !panel.classList.contains("is-open");
