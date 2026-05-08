@@ -967,6 +967,27 @@
             margin-bottom: 8px;
         }
 
+        .play-part-popup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .play-part-popup-header .play-part-popup-title {
+            margin-bottom: 0;
+        }
+
+        .play-part-popup-close {
+            min-height: 34px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 900;
+            background: #fff;
+        }
+
         .play-part-popup-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4642,6 +4663,7 @@
             direction: "none",
             startX: 0,
             startY: 0,
+            touchLongPress: false,
             button: null
         };
 
@@ -4723,7 +4745,7 @@
             const popup = document.getElementById("playPartPopup");
             const isAdditionalRow = row.dataset.role === "additional";
             const groups = getPlayPartOptionGroups(isAdditionalRow, row.querySelector(".play-part-category")?.value || "");
-            const pieces = ['<div class="play-part-popup-title">打球結果</div>'];
+            const pieces = [renderPlayPartPopupHeader("打球結果")];
             Object.entries(groups).forEach(([category, config]) => {
                 pieces.push('<div class="play-part-popup-section">' + config.label + '</div>');
                 pieces.push('<div class="play-part-popup-grid">');
@@ -4749,8 +4771,8 @@
                 return;
             }
             popup.innerHTML = [
+                renderPlayPartPopupHeader("打球結果"),
                 '<button type="button" class="play-part-popup-back" onclick="renderPlayPartCategoryPopup(playPartPopupState.row)">← 分類に戻る</button>',
-                '<div class="play-part-popup-title">打球結果</div>',
                 '<div class="play-part-popup-grid">',
                 ...config.options.map((option) =>
                     '<button type="button" class="play-part-popup-option" onclick=\'choosePlayPartResult(' + JSON.stringify(category) + ',' + JSON.stringify(option.value) + ')\'>' + option.label + '</button>'
@@ -4798,6 +4820,15 @@
             updatePlayPartRowLabels(row);
             applyPlayParts();
             closePlayPartPopup();
+        }
+
+        function renderPlayPartPopupHeader(title) {
+            return [
+                '<div class="play-part-popup-header">',
+                '<div class="play-part-popup-title">' + title + '</div>',
+                '<button type="button" class="play-part-popup-close" onclick="closePlayPartPopup()">閉じる</button>',
+                '</div>'
+            ].join("");
         }
 
         function appendPlayPartNumber(value) {
@@ -4895,6 +4926,10 @@
         function updateNumberDirectionFromPointer(event) {
             const dx = event.clientX - playPartPopupState.startX;
             const dy = event.clientY - playPartPopupState.startY;
+            updateNumberDirectionByDelta(dx, dy);
+        }
+
+        function updateNumberDirectionByDelta(dx, dy) {
             const distance = Math.hypot(dx, dy);
             let direction = "none";
             if (distance >= 26) {
@@ -4958,6 +4993,71 @@
             hideNumberDirectionMenu();
         }
 
+        function getTouchPoint(event) {
+            return event.touches?.[0] || event.changedTouches?.[0] || null;
+        }
+
+        function startNumberDirectionTouch(event, number) {
+            const point = getTouchPoint(event);
+            if (!point) {
+                return;
+            }
+            playPartPopupState.startX = point.clientX;
+            playPartPopupState.startY = point.clientY;
+            playPartPopupState.button = event.currentTarget;
+            playPartPopupState.touchLongPress = false;
+            event.currentTarget.classList.add("is-gesture-active");
+            clearTimeout(playPartPopupState.numberTimer);
+            playPartPopupState.numberTimer = setTimeout(() => {
+                playPartPopupState.numberSuppressClick = true;
+                playPartPopupState.touchLongPress = true;
+                showNumberDirectionMenu(event.currentTarget, number);
+            }, 320);
+        }
+
+        function moveNumberDirectionTouch(event) {
+            const point = getTouchPoint(event);
+            if (!point) {
+                return;
+            }
+            const dx = point.clientX - playPartPopupState.startX;
+            const dy = point.clientY - playPartPopupState.startY;
+            if (document.getElementById("numberDirectionMenu")?.classList.contains("is-open")) {
+                event.preventDefault();
+                updateNumberDirectionByDelta(dx, dy);
+                return;
+            }
+            if (Math.hypot(dx, dy) > 12) {
+                clearTimeout(playPartPopupState.numberTimer);
+                event.currentTarget?.classList.remove("is-gesture-active");
+            }
+        }
+
+        function endNumberDirectionTouch(event, number) {
+            clearTimeout(playPartPopupState.numberTimer);
+            const menuOpen = document.getElementById("numberDirectionMenu")?.classList.contains("is-open");
+            if (menuOpen) {
+                event.preventDefault();
+                const direction = playPartPopupState.direction;
+                if (direction && direction !== "none") {
+                    appendPlayPartNumberWithDirection(number, direction);
+                }
+                hideNumberDirectionMenu();
+            } else {
+                event.currentTarget?.classList.remove("is-gesture-active");
+            }
+            setTimeout(() => {
+                playPartPopupState.numberSuppressClick = false;
+                playPartPopupState.touchLongPress = false;
+            }, 250);
+        }
+
+        function cancelNumberDirectionTouch(event) {
+            clearTimeout(playPartPopupState.numberTimer);
+            event.currentTarget?.classList.remove("is-gesture-active");
+            hideNumberDirectionMenu();
+        }
+
         function chooseNumberButton(event, number) {
             if (playPartPopupState.numberSuppressClick) {
                 event.preventDefault();
@@ -4984,12 +5084,12 @@
             const sequenceText = row.querySelector(".play-part-sequence")?.value || "";
             const directionText = getDirectionLabel(row.querySelector(".play-part-direction")?.value || "none");
             popup.innerHTML = [
+                renderPlayPartPopupHeader(label),
                 '<button type="button" class="play-part-popup-back" onclick="renderPlayPartCategoryPopup(playPartPopupState.row)">← 結果を選び直す</button>',
-                '<div class="play-part-popup-title">' + label + '</div>',
                 '<div class="play-part-popup-section">野手/連携: ' + (sequenceText || "未入力") + ' / 方向: ' + directionText + '</div>',
                 '<div class="play-part-number-pad">',
                 ...["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((number) =>
-                    '<button type="button" onpointerdown=\'startNumberDirectionPress(event,' + JSON.stringify(number) + ')\' onpointermove="moveNumberDirectionPress(event)" onpointerup=\'endNumberDirectionPress(event,' + JSON.stringify(number) + ')\' onpointercancel="cancelNumberDirectionPress(event)" onpointerleave="moveNumberDirectionPress(event)" onclick=\'chooseNumberButton(event,' + JSON.stringify(number) + ')\'>' + number + '</button>'
+                    '<button type="button" onpointerdown=\'startNumberDirectionPress(event,' + JSON.stringify(number) + ')\' onpointermove="moveNumberDirectionPress(event)" onpointerup=\'endNumberDirectionPress(event,' + JSON.stringify(number) + ')\' onpointercancel="cancelNumberDirectionPress(event)" onpointerleave="moveNumberDirectionPress(event)" ontouchstart=\'startNumberDirectionTouch(event,' + JSON.stringify(number) + ')\' ontouchmove="moveNumberDirectionTouch(event)" ontouchend=\'endNumberDirectionTouch(event,' + JSON.stringify(number) + ')\' ontouchcancel="cancelNumberDirectionTouch(event)" onclick=\'chooseNumberButton(event,' + JSON.stringify(number) + ')\'>' + number + '</button>'
                 ),
                 '</div>',
                 '<div class="play-part-popup-grid" style="margin-top: 8px;">',
