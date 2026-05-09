@@ -2130,19 +2130,19 @@
                     </div>
                     <div class="runner-gui">
                         <div class="runner-gui-title">
-                            <span>標準以外の走者補正</span>
+                        <span>走者到達塁の補正</span>
                             <div id="runnerSourceTabs" class="runner-source-tabs is-title-tabs" role="tablist" aria-label="対象走者">
                                 <button type="button" class="runner-source-tab" data-runner-source="r1" onclick="setRunnerGuiSourceGlobal('r1')">一走<small>空</small></button>
                                 <button type="button" class="runner-source-tab" data-runner-source="r2" onclick="setRunnerGuiSourceGlobal('r2')">二走<small>空</small></button>
                                 <button type="button" class="runner-source-tab" data-runner-source="r3" onclick="setRunnerGuiSourceGlobal('r3')">三走<small>空</small></button>
                             </div>
                             <div class="runner-gui-title-actions">
-                                <small>標準進塁と違う時だけ</small>
+                                <small>必要な時だけ</small>
                                 <button type="button" class="icon-btn" onclick="addRunnerGuiStep()" aria-label="走者結果を追加">＋</button>
                             </div>
                         </div>
                         <div id="runnerGuiSteps" class="runner-gui-steps"></div>
-                        <div id="runnerGuiStatus" class="runner-gui-status">標準進塁と違う走者だけ、到達塁を押します。</div>
+                        <div id="runnerGuiStatus" class="runner-gui-status">プレビューを見て、必要な走者だけ最終到達塁を押します。</div>
                         <div id="runnerLiveStatus" class="runner-live-status" aria-label="現在の塁上走者"></div>
                     </div>
                     <div id="runnerActionPopupBackdrop" class="runner-action-popup-backdrop" onclick="closeRunnerActionPopup()"></div>
@@ -5676,7 +5676,7 @@
                 "打者結果の1行目は、打者が打った結果を入力します。",
                 "＋で追加した行は、1行目に付随する進塁やアウトだけを入力します。",
                 "例: 1ヒット1エラーは「出塁: 安打」＋「進塁: 送球エラーで打者二塁」。",
-                "標準進塁と違う走者の移動やアウトは、下の「走者結果」で追記します。",
+                "標準進塁と違う走者の移動やアウトは、走者プレビューをタップして最終到達塁を指定します。",
                 "野手/連携は 8、63、643 のようにハイフンなしで入力できます。"
             ].join("\\n"));
         }
@@ -5816,7 +5816,7 @@
                 '<option value="r3">三走</option>',
                 '</select>',
                 '<select class="runnerGuiReason" aria-label="移動理由">',
-                '<option value="next">打者結果で進塁</option>',
+                '<option value="next">最終到達塁</option>',
                 '<option value="steal">盗塁</option>',
                 '<option value="wp">暴投</option>',
                 '<option value="pb">捕逸</option>',
@@ -5890,7 +5890,7 @@
                 '<option value="r3"' + (source === "r3" ? " selected" : "") + '>三走</option>',
                 '</select>',
                 '<select class="runnerGuiReason runner-popup-hidden-select" aria-label="移動理由">',
-                '<option value="next">打者結果で進塁</option>',
+                '<option value="next">最終到達塁</option>',
                 '<option value="steal">盗塁</option>',
                 '<option value="wp">暴投</option>',
                 '<option value="pb">捕逸</option>',
@@ -5911,7 +5911,7 @@
                 '<div class="runner-choice-section">',
                 '<div class="runner-choice-title">理由</div>',
                 '<div class="runner-choice-grid">',
-                '<button type="button" class="runner-choice-btn is-active" data-runner-reason="next" onclick="setRunnerPopupReason(this, \'next\')">打球結果</button>',
+                '<button type="button" class="runner-choice-btn is-active" data-runner-reason="next" onclick="setRunnerPopupReason(this, \'next\')">最終到達塁</button>',
                 '<button type="button" class="runner-choice-btn" data-runner-reason="steal" onclick="setRunnerPopupReason(this, \'steal\')">盗塁</button>',
                 '<button type="button" class="runner-choice-btn" data-runner-reason="wp" onclick="setRunnerPopupReason(this, \'wp\')">暴投</button>',
                 '<button type="button" class="runner-choice-btn" data-runner-reason="pb" onclick="setRunnerPopupReason(this, \'pb\')">捕逸</button>',
@@ -6185,7 +6185,7 @@
             const source = step?.querySelector(".runnerGuiSource")?.value || "r1";
             const reason = step?.querySelector(".runnerGuiReason")?.value || "next";
             const isRunnerPreviewPopup = Boolean(control.closest("#runnerActionPopup"));
-            if ((isRunnerPreviewPopup || reason !== "next") && applyExistingRunnerGuiAction(source, action, reason, step)) {
+            if (reason !== "next" && applyExistingRunnerGuiAction(source, action, reason, step)) {
                 return;
             }
 
@@ -8620,6 +8620,108 @@
             return null;
         }
 
+        function getRunnerKey(ref) {
+            return ref ? ref.row + ":" + ref.col : "";
+        }
+
+        function getNormalPlayCodeForPreview() {
+            return state.selectedHitType && state.selectedHitType !== "none"
+                ? state.selectedHitType
+                : state.result;
+        }
+
+        function removeProjectedRunner(projected, runnerRef) {
+            const key = getRunnerKey(runnerRef);
+            if (!key) {
+                return;
+            }
+            for (let baseIndex = 0; baseIndex < projected.length; baseIndex += 1) {
+                if (getRunnerKey(projected[baseIndex]?.runnerRef) === key) {
+                    projected[baseIndex] = null;
+                }
+            }
+        }
+
+        function placeProjectedRunner(projected, runnerRef, sourceBaseIndex, targetBaseIndex) {
+            if (!runnerRef || targetBaseIndex < 0 || targetBaseIndex > 2) {
+                return;
+            }
+            removeProjectedRunner(projected, runnerRef);
+            projected[targetBaseIndex] = {
+                runnerRef: { ...runnerRef },
+                baseIndex: targetBaseIndex,
+                sourceBaseIndex
+            };
+        }
+
+        function applyStandardRunnerProjection(projected) {
+            const playCode = getNormalPlayCodeForPreview();
+            if (playCode === "1B" || playCode === "G" || playCode === "BH" || playCode === "H" || playCode === "T") {
+                projected[2] = projected[1] ? { ...projected[1], baseIndex: 2 } : null;
+                projected[1] = projected[0] ? { ...projected[0], baseIndex: 1 } : null;
+                projected[0] = null;
+            } else if (playCode === "2B" || playCode === "GR") {
+                projected[2] = projected[0] ? { ...projected[0], baseIndex: 2 } : null;
+                projected[1] = null;
+                projected[0] = null;
+            } else if (playCode === "3B" || playCode === "HR" || playCode === "RH") {
+                projected[0] = null;
+                projected[1] = null;
+                projected[2] = null;
+            } else if (["B", "HP", "IB", "IF"].includes(playCode)) {
+                if (projected[1] && projected[0]) {
+                    projected[2] = { ...projected[1], baseIndex: 2 };
+                }
+                if (projected[0]) {
+                    projected[1] = { ...projected[0], baseIndex: 1 };
+                }
+                projected[0] = null;
+            }
+        }
+
+        function applyRunnerContextProjection(projected) {
+            const originalRunners = state.baseRunners;
+            const advanceMap = {
+                "一走→二塁": { sourceBaseIndex: 0, targetBaseIndex: 1 },
+                "一走→三塁": { sourceBaseIndex: 0, targetBaseIndex: 2 },
+                "二走→三塁": { sourceBaseIndex: 1, targetBaseIndex: 2 }
+            };
+            (state.runnerContext?.advances || []).forEach((advance) => {
+                if (typeof advance !== "string") {
+                    return;
+                }
+                const baseText = advance.split(":")[0];
+                if (baseText.includes("生還")) {
+                    const sourceBaseIndex = baseText.startsWith("一走") ? 0 : baseText.startsWith("二走") ? 1 : baseText.startsWith("三走") ? 2 : -1;
+                    if (sourceBaseIndex >= 0) {
+                        removeProjectedRunner(projected, originalRunners[sourceBaseIndex]);
+                    }
+                    return;
+                }
+                const config = advanceMap[baseText];
+                if (!config) {
+                    return;
+                }
+                placeProjectedRunner(
+                    projected,
+                    originalRunners[config.sourceBaseIndex],
+                    config.sourceBaseIndex,
+                    config.targetBaseIndex
+                );
+            });
+        }
+
+        function getProjectedRunnerPreviewItems() {
+            const projected = state.baseRunners.map((runnerRef, baseIndex) => runnerRef
+                ? { runnerRef: { ...runnerRef }, baseIndex, sourceBaseIndex: baseIndex }
+                : null);
+            applyStandardRunnerProjection(projected);
+            applyRunnerContextProjection(projected);
+            return projected
+                .filter(Boolean)
+                .sort((a, b) => (a.runnerRef.col - b.runnerRef.col) || (a.runnerRef.row - b.runnerRef.row));
+        }
+
         function buildRunnerPreviewSnapshot(entry) {
             const originalSnapshot = getSnapshotByRef(entry.runnerRef);
             const snapshot = originalSnapshot
@@ -8652,14 +8754,13 @@
                 return;
             }
             const previewEntry = getRunnerPreviewEntry();
-            const activeItems = state.baseRunners
-                .map((runnerRef, baseIndex) => ({ runnerRef, baseIndex }))
-                .filter((item) => Boolean(item.runnerRef));
+            const activeItems = getProjectedRunnerPreviewItems();
             const activeKeys = new Set(activeItems.map((item) => item.runnerRef.row + ":" + item.runnerRef.col));
             const retiredItems = (state.retiredRunnerPreviews || [])
                 .filter((item) => item.runnerRef && !activeKeys.has(item.runnerRef.row + ":" + item.runnerRef.col))
                 .map((item) => ({ ...item, retired: true }));
-            const items = [...activeItems, ...retiredItems];
+            const items = [...activeItems, ...retiredItems]
+                .sort((a, b) => (a.runnerRef.col - b.runnerRef.col) || (a.runnerRef.row - b.runnerRef.row));
 
             if (!items.length) {
                 stack.innerHTML = "";
@@ -8678,7 +8779,7 @@
                 const labelPrefix = item.retired ? "アウト<br>" : (item.baseIndex + 1) + "塁<br>";
                 const card = item.retired
                     ? '<div class="' + cardClass + '" aria-label="アウト済み走者">' + generateSheetCellSvg(snapshot) + '</div>'
-                    : '<button type="button" class="' + cardClass + '" onclick="openRunnerActionPopup(\'r' + (item.baseIndex + 1) + '\')" aria-label="' + (item.baseIndex + 1) + '塁走者を操作">' + generateSheetCellSvg(snapshot) + '</button>';
+                    : '<button type="button" class="' + cardClass + '" onclick="openRunnerActionPopup(\'r' + ((item.sourceBaseIndex ?? item.baseIndex) + 1) + '\')" aria-label="' + (item.baseIndex + 1) + '塁走者を操作">' + generateSheetCellSvg(snapshot) + '</button>';
                 return [
                     '<div class="' + itemClass + '">',
                     '<div class="base-runner-preview-label">' + labelPrefix + getRunnerRefLabel(item.runnerRef) + '</div>',
