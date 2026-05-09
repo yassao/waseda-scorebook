@@ -1776,7 +1776,8 @@
 
         .runner-action-popup .runnerGuiReason,
         .runner-action-popup .runnerGuiThrowTarget,
-        .runner-action-popup .runnerGuiErrorTarget {
+        .runner-action-popup .runnerGuiErrorTarget,
+        .runner-action-popup .runnerGuiErrorFielder {
             grid-column: 1;
             grid-row: auto;
             display: block;
@@ -1817,6 +1818,7 @@
         .runner-action-popup .runner-choice-btn.is-active {
             border-color: var(--accent);
             background: #fff8e6;
+            color: #172331;
             box-shadow: 0 0 0 3px rgba(214, 151, 0, 0.16);
         }
 
@@ -1833,6 +1835,66 @@
             grid-column: auto;
             grid-row: auto;
             width: 100%;
+        }
+
+        .runner-error-fielder-section {
+            display: none;
+        }
+
+        .runner-error-fielder-section.is-open {
+            display: grid;
+        }
+
+        .runner-error-fielder-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .runner-action-popup .runner-error-fielder-btn {
+            min-height: 40px;
+            padding: 7px;
+            border-radius: 12px;
+            background: #fff;
+            color: #172331;
+            font-size: 14px;
+            font-weight: 900;
+        }
+
+        .runner-action-popup .runner-error-fielder-btn.is-active {
+            border-color: var(--accent);
+            background: #fff8e6;
+            color: #172331;
+            box-shadow: 0 0 0 3px rgba(214, 151, 0, 0.16);
+        }
+
+        .tweet-comment-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+            width: min(640px, 100%);
+            margin: 0 auto 8px;
+        }
+
+        .tweet-comment-input {
+            min-height: 44px;
+            padding: 9px 12px;
+            border: 2px solid #d7e1ea;
+            border-radius: 14px;
+            background: #fff;
+            color: #172331;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .tweet-draft-btn {
+            min-height: 44px;
+            padding: 8px 14px;
+            border-radius: 14px;
+            font-size: 13px;
+            font-weight: 900;
+            white-space: nowrap;
         }
 
         .nl-actions {
@@ -2261,7 +2323,7 @@
                             </div>
                         </div>
                         <div id="runnerGuiSteps" class="runner-gui-steps"></div>
-                        <div id="runnerGuiStatus" class="runner-gui-status">プレビューを見て、必要な走者だけ最終到達塁を押します。</div>
+                        <div id="runnerGuiStatus" class="runner-gui-status">プレビューを見て、必要な走者だけ最終到達塁を補正します。</div>
                         <div id="runnerLiveStatus" class="runner-live-status" aria-label="現在の塁上走者"></div>
                     </div>
                     <div id="runnerActionPopupBackdrop" class="runner-action-popup-backdrop" onclick="closeRunnerActionPopup()"></div>
@@ -2348,6 +2410,10 @@
             </section>
         </div>
         <div class="global-apply-row">
+            <div class="tweet-comment-row">
+                <input id="atBatCommentInput" class="tweet-comment-input" type="text" placeholder="一言コメント（例: ナイスバッティング）" oninput="updateAtBatComment(this.value)">
+                <button class="small-btn tweet-draft-btn" onclick="showTweetDraft()">ツイート文</button>
+            </div>
             <button class="small-btn global-apply-btn" onclick="applyNaturalLanguage()">次の打者に移る</button>
         </div>
 
@@ -2633,6 +2699,7 @@
             runnerContext: null,
             baseRunners: [null, null, null],
             currentConfidence: 1,
+            atBatComment: "",
             activeHalf: "top",
             teamNames: {
                 top: "先攻",
@@ -3034,6 +3101,7 @@
                     runnerContextText: state.runnerContextText,
                     runnerContext: deepClone(state.runnerContext),
                     currentConfidence: state.currentConfidence,
+                    atBatComment: state.atBatComment,
                     activeHalf: state.activeHalf,
                     teamNames: deepClone(state.teamNames),
                     playerNames: deepClone(state.playerNames),
@@ -3076,6 +3144,10 @@
             const naturalInput = document.getElementById("naturalLanguageInput");
             if (naturalInput) {
                 naturalInput.value = snapshot.naturalText || "";
+            }
+            const commentInput = document.getElementById("atBatCommentInput");
+            if (commentInput) {
+                commentInput.value = state.atBatComment || "";
             }
             const battingOrderSelect = document.getElementById("battingOrderSelect");
             if (battingOrderSelect) {
@@ -3428,7 +3500,8 @@
                 runnerContext: deepClone(state.runnerContext),
                 runnerStatusText: "",
                 runnerStatusEvents: [],
-                confidence: state.currentConfidence
+                confidence: state.currentConfidence,
+                atBatComment: state.atBatComment
             };
         }
 
@@ -3480,7 +3553,8 @@
                 baseCover: snapshot.baseCover || "none",
                 runnerContextText: snapshot.runnerContextText || "",
                 runnerContext: snapshot.runnerContext || null,
-                confidence: snapshot.confidence || 1
+                confidence: snapshot.confidence || 1,
+                atBatComment: snapshot.atBatComment || ""
             };
         }
 
@@ -3559,9 +3633,14 @@
             state.runnerContextText = snapshot.runnerContextText || "";
             state.runnerContext = deepClone(snapshot.runnerContext || null);
             state.currentConfidence = snapshot.confidence || 1;
+            state.atBatComment = snapshot.atBatComment || "";
 
             document.getElementById("fielderSelect").value = state.selectedFielder;
             document.getElementById("battingOrderSelect").value = state.battingOrder;
+            const commentInput = document.getElementById("atBatCommentInput");
+            if (commentInput) {
+                commentInput.value = state.atBatComment;
+            }
         }
 
         function createBuiltInNaturalLanguageRules() {
@@ -5990,7 +6069,7 @@
                 "打者結果の1行目は、打者が打った結果を入力します。",
                 "＋で追加した行は、1行目に付随する進塁やアウトだけを入力します。",
                 "例: 1ヒット1エラーは「出塁: 安打」＋「進塁: 送球エラーで打者二塁」。",
-                "標準進塁と違う走者の移動やアウトは、走者プレビューをタップして最終到達塁を指定します。",
+                "標準進塁と違う走者の移動やアウトは、走者プレビューをタップして最終到達塁を補正します。",
                 "野手/連携は 8、63、643 のようにハイフンなしで入力できます。"
             ].join("\\n"));
         }
@@ -6130,7 +6209,7 @@
                 '<option value="r3">三走</option>',
                 '</select>',
                 '<select class="runnerGuiReason" aria-label="移動理由">',
-                '<option value="next">最終到達塁</option>',
+                '<option value="next">打球</option>',
                 '<option value="steal">盗塁</option>',
                 '<option value="wp">暴投</option>',
                 '<option value="pb">捕逸</option>',
@@ -6147,6 +6226,18 @@
                 '<select class="runnerGuiErrorTarget runner-steal-detail" aria-label="盗塁時のE対象">',
                 '<option value="thrower">送球E</option>',
                 '<option value="receiver">捕球E</option>',
+                '</select>',
+                '<select class="runnerGuiErrorFielder runner-steal-detail" aria-label="失策した守備位置">',
+                '<option value="?">失策者 ?</option>',
+                '<option value="1">1 投手</option>',
+                '<option value="2">2 捕手</option>',
+                '<option value="3">3 一塁手</option>',
+                '<option value="4">4 二塁手</option>',
+                '<option value="5">5 三塁手</option>',
+                '<option value="6">6 遊撃手</option>',
+                '<option value="7">7 左翼手</option>',
+                '<option value="8">8 中堅手</option>',
+                '<option value="9">9 右翼手</option>',
                 '</select>',
                 '<button type="button" class="runner-gui-detail-toggle" onclick="toggleRunnerGuiDetail(this)">詳細</button>',
                 '<div class="runner-diamond" aria-label="到達塁">',
@@ -6204,7 +6295,7 @@
                 '<option value="r3"' + (source === "r3" ? " selected" : "") + '>三走</option>',
                 '</select>',
                 '<select class="runnerGuiReason runner-popup-hidden-select" aria-label="移動理由">',
-                '<option value="next">最終到達塁</option>',
+                '<option value="next">打球</option>',
                 '<option value="steal">盗塁</option>',
                 '<option value="wp">暴投</option>',
                 '<option value="pb">捕逸</option>',
@@ -6222,10 +6313,22 @@
                 '<option value="thrower">送球E</option>',
                 '<option value="receiver">捕球E</option>',
                 '</select>',
+                '<select class="runnerGuiErrorFielder runner-popup-hidden-select" aria-label="失策した守備位置">',
+                '<option value="?">失策者 ?</option>',
+                '<option value="1">1 投手</option>',
+                '<option value="2">2 捕手</option>',
+                '<option value="3">3 一塁手</option>',
+                '<option value="4">4 二塁手</option>',
+                '<option value="5">5 三塁手</option>',
+                '<option value="6">6 遊撃手</option>',
+                '<option value="7">7 左翼手</option>',
+                '<option value="8">8 中堅手</option>',
+                '<option value="9">9 右翼手</option>',
+                '</select>',
                 '<div class="runner-choice-section">',
                 '<div class="runner-choice-title">理由</div>',
                 '<div class="runner-choice-grid">',
-                '<button type="button" class="runner-choice-btn is-active" data-runner-reason="next" onclick="setRunnerPopupReason(this, \'next\')">最終到達塁</button>',
+                '<button type="button" class="runner-choice-btn is-active" data-runner-reason="next" onclick="setRunnerPopupReason(this, \'next\')">打球</button>',
                 '<button type="button" class="runner-choice-btn" data-runner-reason="steal" onclick="setRunnerPopupReason(this, \'steal\')">盗塁</button>',
                 '<button type="button" class="runner-choice-btn" data-runner-reason="wp" onclick="setRunnerPopupReason(this, \'wp\')">暴投</button>',
                 '<button type="button" class="runner-choice-btn" data-runner-reason="pb" onclick="setRunnerPopupReason(this, \'pb\')">捕逸</button>',
@@ -6233,8 +6336,22 @@
                 '<button type="button" class="runner-choice-btn" data-runner-reason="error" onclick="setRunnerPopupReason(this, \'error\')">失策</button>',
                 '</div>',
                 '</div>',
+                '<div class="runner-choice-section runner-error-fielder-section" id="runnerErrorFielderSection">',
+                '<div class="runner-choice-title">失策した守備位置</div>',
+                '<div class="runner-error-fielder-grid">',
+                '<button type="button" class="runner-error-fielder-btn" data-fielder="1" onclick="setRunnerPopupErrorFielder(this, \'1\')">1</button>',
+                '<button type="button" class="runner-error-fielder-btn" data-fielder="2" onclick="setRunnerPopupErrorFielder(this, \'2\')">2</button>',
+                '<button type="button" class="runner-error-fielder-btn" data-fielder="3" onclick="setRunnerPopupErrorFielder(this, \'3\')">3</button>',
+                '<button type="button" class="runner-error-fielder-btn" data-fielder="4" onclick="setRunnerPopupErrorFielder(this, \'4\')">4</button>',
+                '<button type="button" class="runner-error-fielder-btn" data-fielder="5" onclick="setRunnerPopupErrorFielder(this, \'5\')">5</button>',
+                '<button type="button" class="runner-error-fielder-btn" data-fielder="6" onclick="setRunnerPopupErrorFielder(this, \'6\')">6</button>',
+                '<button type="button" class="runner-error-fielder-btn" data-fielder="7" onclick="setRunnerPopupErrorFielder(this, \'7\')">7</button>',
+                '<button type="button" class="runner-error-fielder-btn" data-fielder="8" onclick="setRunnerPopupErrorFielder(this, \'8\')">8</button>',
+                '<button type="button" class="runner-error-fielder-btn" data-fielder="9" onclick="setRunnerPopupErrorFielder(this, \'9\')">9</button>',
+                '</div>',
+                '</div>',
                 '<div class="runner-choice-section">',
-                '<div class="runner-choice-title">到達塁 / アウト</div>',
+                '<div class="runner-choice-title">最終到達塁</div>',
                 '<div class="runner-diamond" aria-label="到達塁">',
                 '<button class="runner-base-btn second" onclick="applyRunnerPopupAction(this, \'2\')">2</button>',
                 '<button class="runner-base-btn third" onclick="applyRunnerPopupAction(this, \'3\')">3</button>',
@@ -6274,6 +6391,21 @@
                 select.value = reason;
             }
             popup.querySelectorAll(".runner-choice-btn[data-runner-reason]").forEach((choice) => {
+                choice.classList.toggle("is-active", choice === button);
+            });
+            popup.querySelector("#runnerErrorFielderSection")?.classList.toggle("is-open", reason === "error");
+        }
+
+        function setRunnerPopupErrorFielder(button, fielder) {
+            const popup = button.closest("#runnerActionPopup");
+            if (!popup) {
+                return;
+            }
+            const select = popup.querySelector(".runnerGuiErrorFielder");
+            if (select) {
+                select.value = fielder;
+            }
+            popup.querySelectorAll(".runner-error-fielder-btn").forEach((choice) => {
                 choice.classList.toggle("is-active", choice === button);
             });
         }
@@ -6381,6 +6513,11 @@
             return step?.querySelector(".runnerGuiErrorTarget")?.value || "thrower";
         }
 
+        function getRunnerGuiErrorFielder(step = null) {
+            const selected = step?.querySelector(".runnerGuiErrorFielder")?.value || "?";
+            return /^[1-9]$/.test(selected) ? selected : "?";
+        }
+
         function buildStealErrorLabel(source, action, step = null) {
             const target = getRunnerGuiThrowTarget(source, action, step);
             return getRunnerGuiErrorTarget(step) === "receiver"
@@ -6407,7 +6544,8 @@
                 return "BK";
             }
             if (reason === "error") {
-                return "E";
+                const fielder = getRunnerGuiErrorFielder(step);
+                return fielder === "?" ? "?E" : fielder + "E";
             }
             if (action === "score") {
                 return null;
@@ -6561,6 +6699,51 @@
             status.textContent = state.runnerContextText && state.runnerContextText !== "なし"
                 ? "追記済み: " + state.runnerContextText
                 : "走者の移動は元の打者セルへ追記します。";
+        }
+
+        function updateAtBatComment(value) {
+            state.atBatComment = value || "";
+        }
+
+        function getAtBatTweetResultText() {
+            const inputText = document.getElementById("naturalLanguageInput")?.value.trim();
+            if (inputText) {
+                return inputText;
+            }
+            const displayed = getDisplayedResult();
+            const resultNames = {
+                "1B": "安打",
+                "2B": "二塁打",
+                "3B": "三塁打",
+                HR: "本塁打",
+                K: "三振",
+                B: "四球",
+                HP: "死球",
+                OUT: "アウト",
+                G: "内野安打",
+                BH: "バントヒット",
+                Fc: "野手選択"
+            };
+            const resultLabel = resultNames[state.result] || resultNames[state.selectedHitType] || displayed;
+            const fielder = state.selectedFielder && state.selectedFielder !== "?"
+                ? state.selectedFielder + " " + (fielderNames[state.selectedFielder] || "")
+                : "";
+            return [fielder, resultLabel || displayed].filter(Boolean).join(" ");
+        }
+
+        function showTweetDraft() {
+            state.atBatComment = document.getElementById("atBatCommentInput")?.value.trim() || "";
+            const halfLabel = state.activeHalf === "top" ? "表" : "裏";
+            const inningLabel = getColumnInningLabel(state.selectedSheetCol, state.activeHalf) || (state.selectedSheetCol + 1);
+            const batterLabel = state.battingOrder + "番";
+            const resultText = getAtBatTweetResultText() || "打席結果";
+            const lines = [
+                state.atBatComment,
+                inningLabel + "回" + halfLabel + " " + batterLabel,
+                resultText
+            ].filter(Boolean);
+            const draft = lines.join("\n");
+            window.alert(draft || "一言コメントや打席結果を入力すると、ツイート文の下書きを表示します。");
         }
 
         function parsePlayPartSequence(text) {
@@ -9702,10 +9885,15 @@
             state.runnerContextText = "";
             state.runnerContext = null;
             state.currentConfidence = 1;
+            state.atBatComment = "";
 
             document.getElementById("fielderSelect").value = "";
             document.getElementById("battingOrderSelect").value = state.battingOrder;
             document.getElementById("extraResultSelect").value = "";
+            const commentInput = document.getElementById("atBatCommentInput");
+            if (commentInput) {
+                commentInput.value = "";
+            }
             previewExtraResult();
             updateDisplay();
         }
