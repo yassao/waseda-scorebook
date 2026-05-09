@@ -4404,6 +4404,18 @@
             return -1;
         }
 
+        function advanceTrailingRunnersAfterForceOut(runners, retiredBaseIndex) {
+            if (retiredBaseIndex < 1) {
+                return;
+            }
+            for (let baseIndex = retiredBaseIndex - 1; baseIndex >= 0; baseIndex -= 1) {
+                if (!runners[baseIndex] || runners[baseIndex + 1]) {
+                    continue;
+                }
+                moveRunnerToBase(runners, baseIndex, baseIndex + 1);
+            }
+        }
+
         function applyRunnerContextOverrides(runners, snapshot, batterRef, originalRunners = []) {
             const context = snapshot.runnerContext;
             if (!context) {
@@ -4555,6 +4567,7 @@
                 const runnerBaseIndex = resolveDoublePlayRunnerBaseIndex(snapshot, runners);
                 if (runnerBaseIndex >= 0) {
                     removeRunnerFromBase(runners, runnerBaseIndex, runnerNote, runnerOutScore);
+                    advanceTrailingRunnersAfterForceOut(runners, runnerBaseIndex);
                 }
             } else if (snapshot.modifiers?.sacrificeBunt && snapshot.outScore) {
                 if (runners[1]) {
@@ -9214,6 +9227,29 @@
             };
         }
 
+        function removeProjectedRunnerAtBase(projected, baseIndex) {
+            if (baseIndex < 0 || baseIndex > 2) {
+                return;
+            }
+            projected[baseIndex] = null;
+        }
+
+        function advanceProjectedTrailingRunnersAfterForceOut(projected, retiredBaseIndex) {
+            if (retiredBaseIndex < 1) {
+                return;
+            }
+            for (let baseIndex = retiredBaseIndex - 1; baseIndex >= 0; baseIndex -= 1) {
+                if (!projected[baseIndex] || projected[baseIndex + 1]) {
+                    continue;
+                }
+                projected[baseIndex + 1] = {
+                    ...projected[baseIndex],
+                    baseIndex: baseIndex + 1
+                };
+                projected[baseIndex] = null;
+            }
+        }
+
         function applyStandardRunnerProjection(projected) {
             const playCode = getNormalPlayCodeForPreview();
             if (playCode === "1B" || playCode === "G" || playCode === "BH" || playCode === "H" || playCode === "T") {
@@ -9236,6 +9272,12 @@
                     projected[1] = { ...projected[0], baseIndex: 1 };
                 }
                 projected[0] = null;
+            } else if (state.modifiers?.doublePlay && state.outScore) {
+                const runnerBaseIndex = resolveDoublePlayRunnerBaseIndex(captureAtBatSnapshot(), projected.map((item) => item?.runnerRef || null));
+                if (runnerBaseIndex >= 0) {
+                    removeProjectedRunnerAtBase(projected, runnerBaseIndex);
+                    advanceProjectedTrailingRunnersAfterForceOut(projected, runnerBaseIndex);
+                }
             }
         }
 
