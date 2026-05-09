@@ -166,12 +166,28 @@
         .base-runner-preview-card {
             width: 78px;
             aspect-ratio: 210 / 180;
+            padding: 0;
+            border: 2px solid transparent;
+            border-radius: 10px;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
         }
 
         .base-runner-preview-card .sheet-cell-svg {
             width: 100%;
             height: 100%;
             display: block;
+        }
+
+        .base-runner-preview-card:active {
+            transform: scale(0.97);
+        }
+
+        .base-runner-preview-card:hover,
+        .base-runner-preview-card:focus-visible {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(214, 151, 0, 0.15);
         }
 
         .base-runner-preview-empty {
@@ -1042,12 +1058,53 @@
             box-shadow: 0 0 0 3px rgba(214, 151, 0, 0.18);
         }
 
+        .fielder-number-pad {
+            display: grid;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .fielder-number-pad-row {
+            display: grid;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .fielder-number-pad-row.outfield {
+            grid-template-columns: repeat(3, minmax(54px, 1fr));
+        }
+
+        .fielder-number-pad-row.infield {
+            grid-template-columns: repeat(4, minmax(48px, 1fr));
+        }
+
+        .fielder-number-pad-row.battery {
+            grid-template-columns: minmax(64px, 96px);
+        }
+
+        .fielder-number-pad button {
+            min-height: 48px;
+            padding: 8px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 900;
+            touch-action: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+        }
+
+        .fielder-number-pad button.is-gesture-active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(214, 151, 0, 0.18);
+        }
+
         .number-direction-menu {
             display: none;
             position: fixed;
             z-index: 10000;
-            width: 190px;
-            height: 190px;
+            width: 150px;
+            height: 150px;
             pointer-events: none;
         }
 
@@ -1058,13 +1115,13 @@
         .number-direction-option {
             position: absolute;
             min-width: 58px;
-            min-height: 42px;
-            padding: 7px 8px;
+            min-height: 48px;
+            padding: 9px 10px;
             border: 2px solid var(--border);
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.96);
             color: #172331;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 900;
             box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
             pointer-events: auto;
@@ -1124,7 +1181,7 @@
         }
 
         .runner-gui {
-            display: grid;
+            display: none;
             gap: 6px;
             padding: 8px;
             border: 1px solid #d8e1e8;
@@ -1387,6 +1444,110 @@
             font-size: 12px;
             font-weight: 700;
             text-align: center;
+        }
+
+        .runner-action-popup-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 82;
+            background: rgba(15, 23, 42, 0.2);
+        }
+
+        .runner-action-popup-backdrop.is-open {
+            display: block;
+        }
+
+        .runner-action-popup {
+            display: none;
+            position: fixed;
+            left: 12px;
+            right: 12px;
+            top: calc(16px + env(safe-area-inset-top));
+            z-index: 92;
+            max-width: 420px;
+            max-height: min(78dvh, 560px);
+            margin: 0 auto;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 18px;
+            background: rgba(248, 250, 252, 0.98);
+            box-shadow: 0 22px 50px rgba(15, 23, 42, 0.28);
+        }
+
+        .runner-action-popup.is-open {
+            display: block;
+        }
+
+        .runner-action-popup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .runner-action-popup-title {
+            font-size: 15px;
+            font-weight: 900;
+            color: #172331;
+        }
+
+        .runner-action-popup-close {
+            min-height: 34px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 900;
+            background: #fff;
+        }
+
+        .runner-action-popup select,
+        .runner-action-popup button {
+            min-width: 0;
+            min-height: 40px;
+            padding: 8px 10px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: #fff;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .runner-action-popup .runner-gui-step {
+            display: grid;
+            grid-template-columns: minmax(130px, 1fr) auto;
+            gap: 8px;
+            padding: 8px;
+            border: 1px solid #d8e1e8;
+            background: #fff;
+        }
+
+        .runner-action-popup .runner-gui-controls {
+            display: grid;
+            grid-template-columns: minmax(120px, 1fr) auto;
+            gap: 8px;
+            grid-column: 1 / 3;
+        }
+
+        .runner-action-popup .runner-diamond {
+            grid-column: 2;
+            grid-row: 1 / span 5;
+        }
+
+        .runner-action-popup .runnerGuiReason,
+        .runner-action-popup .runnerGuiThrowTarget,
+        .runner-action-popup .runnerGuiErrorTarget {
+            grid-column: 1;
+            grid-row: auto;
+            display: block;
+        }
+
+        .runner-action-popup .runner-out-btn {
+            grid-column: 1;
+            grid-row: auto;
         }
 
         .nl-actions {
@@ -1815,6 +1976,8 @@
                         <div id="runnerGuiStatus" class="runner-gui-status">標準進塁と違う走者だけ、到達塁を押します。</div>
                         <div id="runnerLiveStatus" class="runner-live-status" aria-label="現在の塁上走者"></div>
                     </div>
+                    <div id="runnerActionPopupBackdrop" class="runner-action-popup-backdrop" onclick="closeRunnerActionPopup()"></div>
+                    <div id="runnerActionPopup" class="runner-action-popup" aria-hidden="true"></div>
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
                     <div class="nl-actions compact">
                         <button id="nlCorrectionToggle" class="small-btn" onclick="toggleCorrectionEditor()">解釈結果を手動修正</button>
@@ -4918,7 +5081,7 @@
             }
             const menu = ensureNumberDirectionMenu();
             const rect = button.getBoundingClientRect();
-            const size = 190;
+            const size = 150;
             const left = Math.max(8, Math.min(window.innerWidth - size - 8, rect.left + rect.width / 2 - size / 2));
             const top = Math.max(8, Math.min(window.innerHeight - size - 8, rect.top + rect.height / 2 - size / 2));
             menu.style.left = left + "px";
@@ -5169,6 +5332,10 @@
             hideNumberDirectionMenu();
         }
 
+        function renderFielderNumberButton(number) {
+            return '<button type="button" onmousedown=\'startNumberDirectionMouse(event,' + JSON.stringify(number) + ')\' onmousemove="moveNumberDirectionMouse(event)" onmouseup=\'endNumberDirectionMouse(event,' + JSON.stringify(number) + ')\' onmouseleave="cancelNumberDirectionMouse(event)" oncontextmenu=\'openNumberDirectionContextMenu(event,' + JSON.stringify(number) + ')\' ontouchstart=\'startNumberDirectionTouch(event,' + JSON.stringify(number) + ')\' ontouchmove="moveNumberDirectionTouch(event)" ontouchend=\'endNumberDirectionTouch(event,' + JSON.stringify(number) + ')\' ontouchcancel="cancelNumberDirectionTouch(event)" onclick=\'chooseNumberButton(event,' + JSON.stringify(number) + ')\'>' + number + '</button>';
+        }
+
         function renderPlayPartNumberPad(row) {
             const popup = document.getElementById("playPartPopup");
             const category = row.querySelector(".play-part-category")?.value || "";
@@ -5181,10 +5348,11 @@
                 '<button type="button" class="play-part-popup-back" onclick="renderPlayPartCategoryPopup(playPartPopupState.row)">← 結果を選び直す</button>',
                 '<div class="play-part-popup-section">野手/連携: ' + (sequenceText || "未入力") + ' / 方向: ' + directionText + '</div>',
                 '<div class="play-part-popup-section">数字をタップで入力、長押しで 前・左・右・上 を選択できます。</div>',
-                '<div class="play-part-number-pad">',
-                ...["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((number) =>
-                    '<button type="button" onmousedown=\'startNumberDirectionMouse(event,' + JSON.stringify(number) + ')\' onmousemove="moveNumberDirectionMouse(event)" onmouseup=\'endNumberDirectionMouse(event,' + JSON.stringify(number) + ')\' onmouseleave="cancelNumberDirectionMouse(event)" oncontextmenu=\'openNumberDirectionContextMenu(event,' + JSON.stringify(number) + ')\' ontouchstart=\'startNumberDirectionTouch(event,' + JSON.stringify(number) + ')\' ontouchmove="moveNumberDirectionTouch(event)" ontouchend=\'endNumberDirectionTouch(event,' + JSON.stringify(number) + ')\' ontouchcancel="cancelNumberDirectionTouch(event)" onclick=\'chooseNumberButton(event,' + JSON.stringify(number) + ')\'>' + number + '</button>'
-                ),
+                '<div class="fielder-number-pad">',
+                '<div class="fielder-number-pad-row outfield">' + ["7", "8", "9"].map(renderFielderNumberButton).join("") + '</div>',
+                '<div class="fielder-number-pad-row infield">' + ["5", "6", "4", "3"].map(renderFielderNumberButton).join("") + '</div>',
+                '<div class="fielder-number-pad-row battery">' + renderFielderNumberButton("1") + '</div>',
+                '<div class="fielder-number-pad-row battery">' + renderFielderNumberButton("2") + '</div>',
                 '</div>',
                 '<div class="play-part-popup-grid" style="margin-top: 8px;">',
                 '<button type="button" class="play-part-popup-option" onclick="clearPlayPartNumberPad()">消す</button>',
@@ -5457,6 +5625,76 @@
 
         function addRunnerGuiStep() {
             createRunnerGuiStep();
+        }
+
+        function openRunnerActionPopup(source) {
+            const baseIndex = getRunnerSourceBaseIndex(source);
+            if (baseIndex < 0 || !state.baseRunners[baseIndex]) {
+                return;
+            }
+            const popup = document.getElementById("runnerActionPopup");
+            const backdrop = document.getElementById("runnerActionPopupBackdrop");
+            if (!popup || !backdrop) {
+                return;
+            }
+            const runnerLabel = getRunnerRefLabel(state.baseRunners[baseIndex]);
+            popup.innerHTML = [
+                '<div class="runner-action-popup-header">',
+                '<div class="runner-action-popup-title">' + (baseIndex + 1) + '塁走者 ' + runnerLabel + '</div>',
+                '<button type="button" class="runner-action-popup-close" onclick="closeRunnerActionPopup()">閉じる</button>',
+                '</div>',
+                '<div class="runner-gui-step is-detail-open">',
+                '<div class="runner-gui-controls">',
+                '<select class="runnerGuiSource runner-source-select-hidden" aria-label="対象走者">',
+                '<option value="r1"' + (source === "r1" ? " selected" : "") + '>一走</option>',
+                '<option value="r2"' + (source === "r2" ? " selected" : "") + '>二走</option>',
+                '<option value="r3"' + (source === "r3" ? " selected" : "") + '>三走</option>',
+                '</select>',
+                '<select class="runnerGuiReason" aria-label="移動理由">',
+                '<option value="next">打者結果で進塁</option>',
+                '<option value="steal">盗塁</option>',
+                '<option value="wp">暴投</option>',
+                '<option value="pb">捕逸</option>',
+                '<option value="bk">ボーク</option>',
+                '<option value="error">失策</option>',
+                '</select>',
+                '<select class="runnerGuiThrowTarget runner-steal-detail" aria-label="盗塁送球先">',
+                '<option value="auto">送球先 自動</option>',
+                '<option value="4">二塁手 4</option>',
+                '<option value="5">三塁手 5</option>',
+                '<option value="6">遊撃手 6</option>',
+                '<option value="2">捕手 2</option>',
+                '</select>',
+                '<select class="runnerGuiErrorTarget runner-steal-detail" aria-label="盗塁時のE対象">',
+                '<option value="thrower">送球E</option>',
+                '<option value="receiver">捕球E</option>',
+                '</select>',
+                '<div class="runner-diamond" aria-label="到達塁">',
+                '<button class="runner-base-btn second" onclick="applyRunnerPopupAction(this, \'2\')">2</button>',
+                '<button class="runner-base-btn third" onclick="applyRunnerPopupAction(this, \'3\')">3</button>',
+                '<button class="runner-base-btn first" onclick="applyRunnerPopupAction(this, \'1\')">1</button>',
+                '<button class="runner-base-btn home" onclick="applyRunnerPopupAction(this, \'score\')">本</button>',
+                '</div>',
+                '<button class="runner-out-btn" onclick="applyRunnerPopupAction(this, \'out\')">アウト</button>',
+                '</div>',
+                '</div>',
+                '<div class="runner-gui-status" style="margin-top:8px;">到達塁、またはアウトを選びます。</div>'
+            ].join("");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            backdrop.classList.add("is-open");
+            updateRunnerGuiOptions();
+        }
+
+        function closeRunnerActionPopup() {
+            document.getElementById("runnerActionPopup")?.classList.remove("is-open");
+            document.getElementById("runnerActionPopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("runnerActionPopupBackdrop")?.classList.remove("is-open");
+        }
+
+        function applyRunnerPopupAction(control, action) {
+            applyRunnerGuiAction(control, action);
+            closeRunnerActionPopup();
         }
 
         function removeRunnerGuiStep(button) {
@@ -8111,7 +8349,7 @@
                 return [
                     '<div class="base-runner-preview-item">',
                     '<div class="base-runner-preview-label">' + (item.baseIndex + 1) + '塁<br>' + getRunnerRefLabel(item.runnerRef) + '</div>',
-                    '<div class="base-runner-preview-card">' + generateSheetCellSvg(snapshot) + '</div>',
+                    '<button type="button" class="base-runner-preview-card" onclick="openRunnerActionPopup(\'r' + (item.baseIndex + 1) + '\')" aria-label="' + (item.baseIndex + 1) + '塁走者を操作">' + generateSheetCellSvg(snapshot) + '</button>',
                     '</div>'
                 ].join("");
             }).join("");
