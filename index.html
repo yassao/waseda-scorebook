@@ -190,6 +190,27 @@
             box-shadow: 0 0 0 3px rgba(214, 151, 0, 0.15);
         }
 
+        .base-runner-preview-item.is-retired {
+            background: #eef2f7;
+            opacity: 0.76;
+        }
+
+        .base-runner-preview-item.is-retired .base-runner-preview-label {
+            color: #64748b;
+        }
+
+        .base-runner-preview-card.is-retired {
+            cursor: default;
+            filter: grayscale(0.75);
+            opacity: 0.8;
+        }
+
+        .base-runner-preview-card.is-retired:hover,
+        .base-runner-preview-card.is-retired:focus-visible {
+            border-color: transparent;
+            box-shadow: none;
+        }
+
         .base-runner-preview-empty {
             font-size: 9px;
             color: var(--muted);
@@ -595,6 +616,47 @@
             color: #1f5c2e;
             font-size: 13px;
             font-weight: 700;
+        }
+
+        .game-info-details {
+            margin: 0 0 8px;
+            border: 1px solid #d8e1e8;
+            border-radius: 12px;
+            background: #f8fafc;
+            overflow: hidden;
+        }
+
+        .game-info-details summary {
+            min-height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 12px;
+            color: #1f5c2e;
+            font-size: 14px;
+            font-weight: 900;
+            cursor: pointer;
+            list-style: none;
+        }
+
+        .game-info-details summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .game-info-details summary::after {
+            content: "開く";
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .game-info-details[open] summary::after {
+            content: "閉じる";
+        }
+
+        .game-info-body {
+            padding: 0 10px 10px;
         }
 
         .line-score-board {
@@ -2069,14 +2131,19 @@
             <div class="control-panel">
                 <section class="section">
                     <div class="sheet-panel">
-                        <div class="game-flow-bar" aria-label="試合進行">
-                            <input id="topTeamName" class="team-name-input" value="先攻" aria-label="先攻チーム名" onchange="updateTeamName('top', this.value)">
-                            <input id="bottomTeamName" class="team-name-input" value="後攻" aria-label="後攻チーム名" onchange="updateTeamName('bottom', this.value)">
-                            <button id="topHalfBtn" class="half-switch" onclick="activateHalf('top')">先攻</button>
-                            <button id="bottomHalfBtn" class="half-switch" onclick="activateHalf('bottom')">後攻</button>
-                            <div id="inningStatus" class="inning-status">1回表 先攻</div>
-                        </div>
-                        <div id="lineScoreBoard" class="line-score-board" aria-label="点数板"></div>
+                        <details class="game-info-details">
+                            <summary>試合進行・点数板</summary>
+                            <div class="game-info-body">
+                                <div class="game-flow-bar" aria-label="試合進行">
+                                    <input id="topTeamName" class="team-name-input" value="先攻" aria-label="先攻チーム名" onchange="updateTeamName('top', this.value)">
+                                    <input id="bottomTeamName" class="team-name-input" value="後攻" aria-label="後攻チーム名" onchange="updateTeamName('bottom', this.value)">
+                                    <button id="topHalfBtn" class="half-switch" onclick="activateHalf('top')">先攻</button>
+                                    <button id="bottomHalfBtn" class="half-switch" onclick="activateHalf('bottom')">後攻</button>
+                                    <div id="inningStatus" class="inning-status">1回表 先攻</div>
+                                </div>
+                                <div id="lineScoreBoard" class="line-score-board" aria-label="点数板"></div>
+                            </div>
+                        </details>
                         <div id="sheetMeta" class="sheet-meta"></div>
                         <div id="sheetViewport" class="sheet-viewport">
                             <div id="sheetGrid" class="sheet-grid"></div>
@@ -2353,6 +2420,11 @@
                 top: [null, null, null],
                 bottom: [null, null, null]
             },
+            retiredRunnerPreviewsByHalf: {
+                top: [],
+                bottom: []
+            },
+            retiredRunnerPreviews: [],
             selectionsByHalf: {
                 top: { row: 0, col: 0 },
                 bottom: { row: 0, col: 0 }
@@ -2694,8 +2766,12 @@
             if (!state.baseRunnersByHalf[state.activeHalf]) {
                 state.baseRunnersByHalf[state.activeHalf] = [null, null, null];
             }
+            if (!state.retiredRunnerPreviewsByHalf[state.activeHalf]) {
+                state.retiredRunnerPreviewsByHalf[state.activeHalf] = [];
+            }
             state.scoreSheet = state.scoreSheets[state.activeHalf];
             state.baseRunners = state.baseRunnersByHalf[state.activeHalf];
+            state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[state.activeHalf];
         }
 
         function captureGameHistorySnapshot() {
@@ -2725,6 +2801,7 @@
                     scoreSheets: deepClone(state.scoreSheets),
                     inningLabelsByHalf: deepClone(state.inningLabelsByHalf),
                     baseRunnersByHalf: deepClone(state.baseRunnersByHalf),
+                    retiredRunnerPreviewsByHalf: deepClone(state.retiredRunnerPreviewsByHalf),
                     selectionsByHalf: deepClone(state.selectionsByHalf),
                     selectedSheetRow: state.selectedSheetRow,
                     selectedSheetCol: state.selectedSheetCol,
@@ -2825,6 +2902,25 @@
         function setBaseRunners(runners) {
             state.baseRunners = runners;
             state.baseRunnersByHalf[state.activeHalf] = runners;
+        }
+
+        function rememberRetiredRunnerPreview(runnerRef, baseIndex, label, outScore) {
+            if (!runnerRef) {
+                return;
+            }
+            if (!state.retiredRunnerPreviewsByHalf[state.activeHalf]) {
+                state.retiredRunnerPreviewsByHalf[state.activeHalf] = [];
+            }
+            const previews = state.retiredRunnerPreviewsByHalf[state.activeHalf]
+                .filter((item) => !(item.runnerRef?.row === runnerRef.row && item.runnerRef?.col === runnerRef.col));
+            previews.push({
+                runnerRef: { ...runnerRef },
+                baseIndex,
+                label: label || "アウト",
+                outScore: outScore || "Ⅰ"
+            });
+            state.retiredRunnerPreviewsByHalf[state.activeHalf] = previews.slice(-3);
+            state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[state.activeHalf];
         }
 
         function updateGameFlowDisplay() {
@@ -3696,6 +3792,7 @@
                 by: currentBatterNumberForRunnerEvent(),
                 doublePlay: Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]?.modifiers?.doublePlay)
             });
+            rememberRetiredRunnerPreview(runnerRef, baseIndex, label, outScore);
         }
 
         function resolveForceOutLabel(snapshot, outLabel) {
@@ -5637,6 +5734,12 @@
             if (!popup || !backdrop) {
                 return;
             }
+            if (backdrop.parentElement !== document.body) {
+                document.body.appendChild(backdrop);
+            }
+            if (popup.parentElement !== document.body) {
+                document.body.appendChild(popup);
+            }
             const runnerLabel = getRunnerRefLabel(state.baseRunners[baseIndex]);
             popup.innerHTML = [
                 '<div class="runner-action-popup-header">',
@@ -5917,7 +6020,8 @@
             const step = getRunnerGuiStepFromControl(control);
             const source = step?.querySelector(".runnerGuiSource")?.value || "r1";
             const reason = step?.querySelector(".runnerGuiReason")?.value || "next";
-            if (reason !== "next" && applyExistingRunnerGuiAction(source, action, reason, step)) {
+            const isRunnerPreviewPopup = Boolean(control.closest("#runnerActionPopup"));
+            if ((isRunnerPreviewPopup || reason !== "next") && applyExistingRunnerGuiAction(source, action, reason, step)) {
                 return;
             }
 
@@ -8330,9 +8434,14 @@
                 return;
             }
             const previewEntry = getRunnerPreviewEntry();
-            const items = state.baseRunners
+            const activeItems = state.baseRunners
                 .map((runnerRef, baseIndex) => ({ runnerRef, baseIndex }))
                 .filter((item) => Boolean(item.runnerRef));
+            const activeKeys = new Set(activeItems.map((item) => item.runnerRef.row + ":" + item.runnerRef.col));
+            const retiredItems = (state.retiredRunnerPreviews || [])
+                .filter((item) => item.runnerRef && !activeKeys.has(item.runnerRef.row + ":" + item.runnerRef.col))
+                .map((item) => ({ ...item, retired: true }));
+            const items = [...activeItems, ...retiredItems];
 
             if (!items.length) {
                 stack.innerHTML = "";
@@ -8346,10 +8455,16 @@
                 const snapshot = isPreviewTarget
                     ? buildRunnerPreviewSnapshot(previewEntry)
                     : getSnapshotByRef(item.runnerRef);
+                const itemClass = "base-runner-preview-item" + (item.retired ? " is-retired" : "");
+                const cardClass = "base-runner-preview-card" + (item.retired ? " is-retired" : "");
+                const labelPrefix = item.retired ? "アウト<br>" : (item.baseIndex + 1) + "塁<br>";
+                const card = item.retired
+                    ? '<div class="' + cardClass + '" aria-label="アウト済み走者">' + generateSheetCellSvg(snapshot) + '</div>'
+                    : '<button type="button" class="' + cardClass + '" onclick="openRunnerActionPopup(\'r' + (item.baseIndex + 1) + '\')" aria-label="' + (item.baseIndex + 1) + '塁走者を操作">' + generateSheetCellSvg(snapshot) + '</button>';
                 return [
-                    '<div class="base-runner-preview-item">',
-                    '<div class="base-runner-preview-label">' + (item.baseIndex + 1) + '塁<br>' + getRunnerRefLabel(item.runnerRef) + '</div>',
-                    '<button type="button" class="base-runner-preview-card" onclick="openRunnerActionPopup(\'r' + (item.baseIndex + 1) + '\')" aria-label="' + (item.baseIndex + 1) + '塁走者を操作">' + generateSheetCellSvg(snapshot) + '</button>',
+                    '<div class="' + itemClass + '">',
+                    '<div class="base-runner-preview-label">' + labelPrefix + getRunnerRefLabel(item.runnerRef) + '</div>',
+                    card,
                     '</div>'
                 ].join("");
             }).join("");
@@ -9045,6 +9160,10 @@
         state.baseRunnersByHalf = {
             top: [null, null, null],
             bottom: [null, null, null]
+        };
+        state.retiredRunnerPreviewsByHalf = {
+            top: [],
+            bottom: []
         };
         syncActiveHalfRefs();
         initializeResultOptions();
