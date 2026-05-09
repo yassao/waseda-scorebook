@@ -3243,6 +3243,87 @@
             return copy;
         }
 
+        function hasCurrentAtBatInput() {
+            return Boolean(
+                state.pitches.length > 0
+                || state.result
+                || state.outScore
+                || state.selectedFielder
+                || (state.selectedDirection && state.selectedDirection !== "none")
+                || (state.selectedBallType && state.selectedBallType !== "none")
+                || (state.selectedHitType && state.selectedHitType !== "none")
+                || state.hasRbi
+                || Object.values(state.modifiers || {}).some(Boolean)
+                || (state.fieldSequence || []).length > 0
+                || state.errorMode !== "none"
+                || state.baseCover !== "none"
+                || state.runnerContextText
+                || state.runnerContext
+            );
+        }
+
+        function getComparableSnapshotFields(snapshot) {
+            if (!snapshot) {
+                return null;
+            }
+            return {
+                pitches: snapshot.pitches || [],
+                pitchNotes: snapshot.pitchNotes || [],
+                result: snapshot.result || "",
+                outScore: snapshot.outScore || "",
+                strikes: snapshot.strikes || 0,
+                balls: snapshot.balls || 0,
+                selectedFielder: snapshot.selectedFielder || "",
+                selectedDirection: snapshot.selectedDirection || "none",
+                selectedBallType: snapshot.selectedBallType || "none",
+                selectedHitType: snapshot.selectedHitType || "none",
+                hasRbi: Boolean(snapshot.hasRbi),
+                modifiers: snapshot.modifiers || {},
+                fieldSequence: snapshot.fieldSequence || [],
+                errorMode: snapshot.errorMode || "none",
+                baseCover: snapshot.baseCover || "none",
+                runnerContextText: snapshot.runnerContextText || "",
+                runnerContext: snapshot.runnerContext || null,
+                confidence: snapshot.confidence || 1
+            };
+        }
+
+        function isCurrentStateDifferentFromSnapshot(snapshot) {
+            if (!snapshot) {
+                return hasCurrentAtBatInput();
+            }
+            return JSON.stringify(getComparableSnapshotFields(captureAtBatSnapshot()))
+                !== JSON.stringify(getComparableSnapshotFields(snapshot));
+        }
+
+        function getLiveCurrentSheetSnapshot(row, col) {
+            if (row !== state.selectedSheetRow || col !== state.selectedSheetCol || !hasCurrentAtBatInput()) {
+                return null;
+            }
+            const savedSnapshot = state.scoreSheet[row]?.[col] || null;
+            if (savedSnapshot && !isCurrentStateDifferentFromSnapshot(savedSnapshot)) {
+                return null;
+            }
+            const liveSnapshot = captureAtBatSnapshot();
+            liveSnapshot.outScore = resolveSnapshotOutScore(row, col, liveSnapshot);
+            return liveSnapshot;
+        }
+
+        function appendRunnerEventPreview(snapshot, event) {
+            if (!snapshot || !event) {
+                return snapshot;
+            }
+            const copy = deepClone(snapshot);
+            const events = getRunnerStatusEvents(copy).map((item) => deepClone(item));
+            const eventKey = JSON.stringify(event);
+            if (!events.some((item) => JSON.stringify(item) === eventKey)) {
+                events.push(event);
+            }
+            copy.runnerStatusEvents = events;
+            copy.runnerStatusText = events[events.length - 1] || "";
+            return copy;
+        }
+
         function isBatterSafeFielderChoice(snapshot) {
             return snapshot?.result === "Fc"
                 && Array.isArray(snapshot?.runnerContext?.outsOnBases)
@@ -4538,7 +4619,17 @@
                         confirmClearSheetCell(row, col);
                     };
 
-                    const snapshot = state.scoreSheet[row][col];
+                    let snapshot = state.scoreSheet[row][col];
+                    const liveRunnerEvent = snapshot
+                        ? getLiveProjectedRunnerEventForRef({ row, col })
+                        : null;
+                    if (liveRunnerEvent) {
+                        snapshot = appendRunnerEventPreview(snapshot, liveRunnerEvent);
+                    }
+                    const liveCurrentSnapshot = getLiveCurrentSheetSnapshot(row, col);
+                    if (liveCurrentSnapshot) {
+                        snapshot = liveCurrentSnapshot;
+                    }
                     button.innerHTML = generateSheetCellSvg(snapshot);
 
                     grid.appendChild(button);
@@ -8722,6 +8813,24 @@
                 .sort((a, b) => (a.runnerRef.col - b.runnerRef.col) || (a.runnerRef.row - b.runnerRef.row));
         }
 
+        function getLiveProjectedRunnerEventForRef(ref) {
+            if (!ref || !hasCurrentAtBatInput()) {
+                return null;
+            }
+            const item = getProjectedRunnerPreviewItems().find((candidate) =>
+                candidate.runnerRef?.row === ref.row && candidate.runnerRef?.col === ref.col
+            );
+            if (!item || !Number.isInteger(item.sourceBaseIndex) || item.baseIndex === item.sourceBaseIndex) {
+                return null;
+            }
+            return {
+                type: "advance",
+                base: item.baseIndex + 1,
+                by: currentBatterNumberForRunnerEvent(),
+                label: null
+            };
+        }
+
         function buildRunnerPreviewSnapshot(entry) {
             const originalSnapshot = getSnapshotByRef(entry.runnerRef);
             const snapshot = originalSnapshot
@@ -9342,6 +9451,7 @@
             updateRunnerGuiStatus();
             updateRunnerLiveStatus();
             updateHistoryButtons();
+            renderScoreSheet();
 
             requestAnimationFrame(updateResultDecoration);
         }
