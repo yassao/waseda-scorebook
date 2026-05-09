@@ -55,12 +55,12 @@
         }
 
         .app-header {
-            padding: 10px 16px 8px;
+            padding: 4px 16px 4px;
             color: #12202c;
             flex-shrink: 0;
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: flex-end;
             gap: 12px;
         }
 
@@ -126,8 +126,8 @@
             gap: 12px;
             padding: 0 16px;
             align-items: stretch;
-            height: min(46dvh, 350px);
-            max-height: min(46dvh, 350px);
+            height: min(42dvh, 320px);
+            max-height: min(42dvh, 320px);
             min-height: 0;
         }
 
@@ -389,17 +389,17 @@
 
         .interpretation-details {
             border: 1px solid #d8e1e8;
-            border-radius: 12px;
+            border-radius: 10px;
             background: #f8fafc;
             overflow: hidden;
         }
 
         .interpretation-details summary {
-            min-height: 34px;
+            min-height: 28px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 7px 10px;
+            padding: 5px 9px;
             color: #334155;
             font-size: 12px;
             font-weight: 900;
@@ -423,7 +423,7 @@
         }
 
         .interpretation-details .nl-preview {
-            margin: 0 8px 8px;
+            margin: 0 6px 6px;
         }
 
         .nl-quick-panel {
@@ -442,7 +442,7 @@
 
         .global-apply-row {
             flex-shrink: 0;
-            padding: 8px 16px 0;
+            padding: 5px 16px 0;
         }
 
         .global-apply-btn {
@@ -630,6 +630,14 @@
             border-radius: 0;
             background: transparent;
             border: none;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+        }
+
+        .sheet-meta,
+        .sheet-viewport {
+            grid-column: 1 / -1;
         }
 
         .game-flow-bar {
@@ -678,22 +686,26 @@
         }
 
         .game-info-details {
-            margin: 0 0 8px;
+            margin: 0;
             border: 1px solid #d8e1e8;
-            border-radius: 12px;
+            border-radius: 10px;
             background: #f8fafc;
             overflow: hidden;
         }
 
+        .game-info-details[open] {
+            grid-column: 1 / -1;
+        }
+
         .game-info-details summary {
-            min-height: 38px;
+            min-height: 30px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 10px;
-            padding: 8px 12px;
+            gap: 6px;
+            padding: 5px 9px;
             color: #1f5c2e;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 900;
             cursor: pointer;
             list-style: none;
@@ -706,7 +718,7 @@
         .game-info-details summary::after {
             content: "開く";
             color: #64748b;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 800;
         }
 
@@ -715,7 +727,7 @@
         }
 
         .game-info-body {
-            padding: 0 10px 10px;
+            padding: 0 8px 8px;
         }
 
         .player-roster-editor {
@@ -1014,20 +1026,20 @@
         .nl-panel {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 6px;
         }
 
         .nl-panel.is-compact {
-            gap: 8px;
+            gap: 5px;
             height: 100%;
             min-height: 0;
         }
 
         .nl-input {
             width: 100%;
-            min-height: 44px;
-            height: 46px;
-            padding: 8px 11px;
+            min-height: 36px;
+            height: 38px;
+            padding: 6px 10px;
             border: 1.5px solid #d7e1ea;
             border-radius: 12px;
             font: inherit;
@@ -1046,7 +1058,7 @@
 
         .play-builder {
             display: grid;
-            gap: 6px;
+            gap: 4px;
             padding: 0;
             border: 0;
             border-radius: 0;
@@ -1881,19 +1893,19 @@
             grid-template-columns: minmax(0, 1fr);
             align-items: center;
             width: min(640px, 100%);
-            margin: 0 auto 8px;
+            margin: 0 auto 4px;
             position: relative;
         }
 
         .tweet-comment-input {
-            min-height: 48px;
-            max-height: 96px;
-            padding: 9px 50px 9px 12px;
+            min-height: 38px;
+            max-height: 72px;
+            padding: 7px 46px 7px 11px;
             border: 2px solid #d7e1ea;
             border-radius: 14px;
             background: #fff;
             color: #172331;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
             resize: vertical;
             line-height: 1.35;
@@ -1909,8 +1921,8 @@
             right: 7px;
             top: 50%;
             transform: translateY(-50%);
-            min-height: 34px;
-            width: 34px;
+            min-height: 30px;
+            width: 30px;
             padding: 0;
             border-radius: 999px;
             font-size: 18px;
@@ -1959,18 +1971,18 @@
         }
 
         .nl-preview {
-            padding: 12px 14px;
-            border-radius: 12px;
+            padding: 8px 10px;
+            border-radius: 10px;
             background: #f8fafb;
             border: 1px solid #d8e1e8;
             color: #334155;
             font-size: 14px;
-            line-height: 1.6;
-            min-height: 72px;
+            line-height: 1.45;
+            min-height: 48px;
         }
 
         .nl-preview.compact {
-            min-height: 48px;
+            min-height: 34px;
             font-size: 12px;
         }
 
@@ -2079,6 +2091,10 @@
         }
 
         @media (max-width: 480px) {
+            .app-header {
+                padding: 3px 12px;
+            }
+
             .app-header h1 {
                 font-size: 22px;
             }
@@ -2096,9 +2112,9 @@
             .top-workspace {
                 grid-template-columns: minmax(0, 1fr) 126px;
                 padding: 0 12px;
-                gap: 10px;
-                height: min(48dvh, 340px);
-                max-height: min(48dvh, 340px);
+                gap: 8px;
+                height: min(42dvh, 300px);
+                max-height: min(42dvh, 300px);
             }
 
             .scorebox-container {
@@ -2216,15 +2232,15 @@
             }
 
             .nl-input {
-                height: 42px;
-                min-height: 42px;
-                font-size: 13px;
+                height: 36px;
+                min-height: 36px;
+                font-size: 12px;
             }
 
             .nl-preview.compact {
-                min-height: 40px;
+                min-height: 30px;
                 font-size: 10px;
-                padding: 8px 10px;
+                padding: 6px 8px;
             }
 
             .button-grid-3 {
@@ -2262,7 +2278,6 @@
 <body>
     <div class="container">
         <header class="app-header">
-            <h1>スコアブック <small>by CuViu</small></h1>
             <div class="history-actions" aria-label="履歴操作">
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
