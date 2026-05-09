@@ -1025,16 +1025,23 @@
 
         .nl-input {
             width: 100%;
-            min-height: 68px;
-            height: 68px;
-            padding: 10px 12px;
-            border: 2px solid var(--border);
+            min-height: 44px;
+            height: 46px;
+            padding: 8px 11px;
+            border: 1.5px solid #d7e1ea;
             border-radius: 12px;
             font: inherit;
-            font-size: 18px;
+            font-size: 14px;
             line-height: 1.45;
             resize: none;
-            background: #fff;
+            background: rgba(255, 255, 255, 0.82);
+            color: #334155;
+        }
+
+        .nl-input::placeholder {
+            color: #9aa6b2;
+            font-weight: 700;
+            opacity: 1;
         }
 
         .play-builder {
@@ -1892,6 +1899,11 @@
             line-height: 1.35;
         }
 
+        .tweet-comment-input::placeholder {
+            color: #9aa6b2;
+            opacity: 1;
+        }
+
         .tweet-draft-btn {
             position: absolute;
             right: 7px;
@@ -2204,8 +2216,9 @@
             }
 
             .nl-input {
-                height: 64px;
-                font-size: 15px;
+                height: 42px;
+                min-height: 42px;
+                font-size: 13px;
             }
 
             .nl-preview.compact {
@@ -2358,7 +2371,7 @@
                     </div>
                     <div id="runnerActionPopupBackdrop" class="runner-action-popup-backdrop" onclick="closeRunnerActionPopup()"></div>
                     <div id="runnerActionPopup" class="runner-action-popup" aria-hidden="true"></div>
-                    <textarea id="naturalLanguageInput" class="nl-input" placeholder=""></textarea>
+                    <textarea id="naturalLanguageInput" class="nl-input" placeholder="テキスト入力（オプション）"></textarea>
                     <details id="interpretationDetails" class="interpretation-details">
                         <summary>解釈結果</summary>
                         <div id="naturalLanguagePreview" class="nl-preview compact">ここに解釈結果を表示します。</div>
