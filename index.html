@@ -311,7 +311,7 @@
         .pitch-swipe-menu {
             display: none;
             position: fixed;
-            z-index: 70;
+            z-index: 110;
             width: min(270px, calc(100vw - 24px));
             padding: 10px;
             border: 2px solid var(--border);
@@ -359,12 +359,51 @@
             display: none;
             position: fixed;
             inset: 0;
-            z-index: 40;
+            z-index: 100;
             background: rgba(15, 23, 42, 0.2);
         }
 
         .pitch-detail-backdrop.is-open {
             display: block;
+        }
+
+        .interpretation-details {
+            border: 1px solid #d8e1e8;
+            border-radius: 12px;
+            background: #f8fafc;
+            overflow: hidden;
+        }
+
+        .interpretation-details summary {
+            min-height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 10px;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 900;
+            cursor: pointer;
+            list-style: none;
+        }
+
+        .interpretation-details summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .interpretation-details summary::after {
+            content: "開く";
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .interpretation-details[open] summary::after {
+            content: "閉じる";
+        }
+
+        .interpretation-details .nl-preview {
+            margin: 0 8px 8px;
         }
 
         .nl-quick-panel {
@@ -850,8 +889,8 @@
 
         .nl-input {
             width: 100%;
-            min-height: 92px;
-            height: 92px;
+            min-height: 68px;
+            height: 68px;
             padding: 10px 12px;
             border: 2px solid var(--border);
             border-radius: 12px;
@@ -1889,7 +1928,7 @@
             }
 
             .nl-input {
-                height: 88px;
+                height: 64px;
                 font-size: 15px;
             }
 
@@ -2043,10 +2082,11 @@
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
                     <div class="nl-actions compact">
                         <button id="nlCorrectionToggle" class="small-btn" onclick="toggleCorrectionEditor()">解釈結果を手動修正</button>
-                        <button class="small-btn" onclick="openManualDetails()">手動詳細入力</button>
-                        <button class="small-btn" onclick="toggleInterpretationDetails()">解釈結果</button>
                     </div>
-                    <div id="naturalLanguagePreview" class="nl-preview compact nl-preview-details">ここに解釈結果を表示します。</div>
+                    <details id="interpretationDetails" class="interpretation-details">
+                        <summary>解釈結果</summary>
+                        <div id="naturalLanguagePreview" class="nl-preview compact">ここに解釈結果を表示します。</div>
+                    </details>
                     <div id="nlCorrectionPanel" class="nl-correction-panel">
                         <div class="nl-corrections">
                             <div class="nl-field">
@@ -6519,6 +6559,23 @@
             return shortNames[fielder] || "";
         }
 
+        function getPlayPartDirectionPhrase(parsed) {
+            const direction = parsed?.direction || "none";
+            if (direction === "down") {
+                return "前";
+            }
+            if (direction === "up") {
+                return "オーバー";
+            }
+            if (direction === "left") {
+                return "左";
+            }
+            if (direction === "right") {
+                return "右";
+            }
+            return "";
+        }
+
         function getPlayPartSequencePhrase(parsed) {
             return Array.isArray(parsed?.fieldSequence) && parsed.fieldSequence.length >= 2
                 ? parsed.fieldSequence.join("-")
@@ -6527,6 +6584,7 @@
 
         function buildNaturalTextFromPlayParts(parts, parsed) {
             const fielderPhrase = getPlayPartFielderPhrase(parsed);
+            const directionPhrase = getPlayPartDirectionPhrase(parsed);
             const sequencePhrase = getPlayPartSequencePhrase(parsed);
             const labels = parts.map((part) => part.label);
             let mainText = labels.join(" + ");
@@ -6541,15 +6599,15 @@
                 if (parsed.result === "OUT" && sequencePhrase) {
                     // 送球順がある時は 6-3 / 6-4-3 を優先して表示する。
                 } else if (parsed.result === "G") {
-                    mainText = fielderPhrase + "内野安打";
+                    mainText = fielderPhrase + directionPhrase + "内野安打";
                 } else if (parsed.result === "1B") {
-                    mainText = fielderPhrase + "前安打";
+                    mainText = fielderPhrase + (directionPhrase || "前") + "安打";
                 } else if (parsed.result === "2B") {
-                    mainText = fielderPhrase + "二塁打";
+                    mainText = fielderPhrase + directionPhrase + "二塁打";
                 } else if (parsed.result === "3B") {
-                    mainText = fielderPhrase + "三塁打";
+                    mainText = fielderPhrase + directionPhrase + "三塁打";
                 } else if (parsed.result === "HR") {
-                    mainText = fielderPhrase + "本塁打";
+                    mainText = fielderPhrase + directionPhrase + "本塁打";
                 } else if (parsed.result === "OUT" && parsed.ballType !== "none") {
                     mainText = fielderPhrase + labels.join(" + ");
                 } else if (parsed.result === "Fc" && parsed.errorMode) {
@@ -6603,20 +6661,21 @@
         }
 
         function toggleInterpretationDetails(force) {
+            const details = document.getElementById("interpretationDetails");
             const preview = document.getElementById("naturalLanguagePreview");
-            if (!preview) {
+            if (!preview || !details) {
                 return;
             }
             const shouldOpen = typeof force === "boolean"
                 ? force
-                : !preview.classList.contains("is-open");
+                : !details.open;
             const manualEditor = document.getElementById("manualEditor");
             if (manualEditor && shouldOpen) {
                 manualEditor.open = false;
             }
-            preview.classList.toggle("is-open", shouldOpen);
+            details.open = shouldOpen;
             if (shouldOpen) {
-                preview.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                details.scrollIntoView({ behavior: "smooth", block: "nearest" });
             }
         }
 
@@ -7084,6 +7143,35 @@
             }
             if (normalizedText.includes("二盗")) {
                 return { result: "S", runnerContext: detectRunnerContext(normalizedText), note: normalizedText, confidence: 0.9, source: "shorthand" };
+            }
+
+            const directionalExtraBaseMatch = normalizedText.match(/^(レフト|センター|ライト|左|中|右)(前|オーバー|左|右|線)?(?:への?)?(二塁打|2塁打|ツーベース|三塁打|3塁打|スリーベース)$/);
+            if (directionalExtraBaseMatch) {
+                const fielderWordMap = {
+                    レフト: "7",
+                    センター: "8",
+                    ライト: "9",
+                    左: "7",
+                    中: "8",
+                    右: "9"
+                };
+                const directionWordMap = {
+                    前: "down",
+                    オーバー: "up",
+                    左: "left",
+                    右: "right",
+                    線: directionalExtraBaseMatch[1] === "ライト" || directionalExtraBaseMatch[1] === "右" ? "right" : "left"
+                };
+                const hitText = directionalExtraBaseMatch[3];
+                return {
+                    fielder: fielderWordMap[directionalExtraBaseMatch[1]],
+                    direction: directionWordMap[directionalExtraBaseMatch[2]] || "none",
+                    result: hitText.includes("三") || hitText.includes("3") || hitText.includes("スリー") ? "3B" : "2B",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText,
+                    confidence: 0.96,
+                    source: "shorthand"
+                };
             }
 
             const sequencePlayMatch = normalizedText.match(/([1-9](?:-[1-9]){1,3})/);
@@ -8063,6 +8151,9 @@
             const menu = document.getElementById("strikeSwipeMenu");
             if (!menu) {
                 return;
+            }
+            if (menu.parentElement !== document.body) {
+                document.body.appendChild(menu);
             }
             const rect = button.getBoundingClientRect();
             const width = Math.min(270, window.innerWidth - 24);
