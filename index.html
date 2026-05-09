@@ -222,11 +222,11 @@
         .pitch-input-panel {
             display: grid;
             gap: 6px;
-            padding: 6px;
-            margin-bottom: 6px;
-            border: 1px solid #dbe4ec;
-            border-radius: 12px;
-            background: #f8fafc;
+            padding: 0;
+            margin-bottom: 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
         }
 
         .status-line {
@@ -248,7 +248,8 @@
         .pitch-detail-panel button {
             min-height: 34px;
             padding: 7px 8px;
-            font-size: 12px;
+            font-size: 16px;
+            font-weight: 900;
             border-radius: 10px;
         }
 
@@ -365,6 +366,10 @@
 
         .pitch-detail-backdrop.is-open {
             display: block;
+        }
+
+        #autoJudgeStatus {
+            display: none;
         }
 
         .interpretation-details {
@@ -904,10 +909,10 @@
         .play-builder {
             display: grid;
             gap: 6px;
-            padding: 8px;
-            border: 1px solid #d8e1e8;
-            border-radius: 12px;
-            background: #f8fafb;
+            padding: 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
         }
 
         .play-builder-title {
@@ -922,11 +927,12 @@
 
         .play-builder-title-button {
             flex: 1;
-            min-height: 30px;
-            padding: 6px 10px;
+            min-height: 34px;
+            padding: 7px 10px;
             border-radius: 10px;
-            font-size: 12px;
-            text-align: left;
+            font-size: 16px;
+            font-weight: 900;
+            text-align: center;
             background: #fff;
         }
 
@@ -1651,6 +1657,54 @@
             grid-row: auto;
         }
 
+        .runner-choice-section {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .runner-choice-title {
+            color: #334155;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .runner-choice-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .runner-action-popup .runner-choice-btn {
+            min-height: 42px;
+            padding: 8px;
+            border-radius: 12px;
+            background: #fff;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .runner-action-popup .runner-choice-btn.is-active {
+            border-color: var(--accent);
+            background: #fff8e6;
+            box-shadow: 0 0 0 3px rgba(214, 151, 0, 0.16);
+        }
+
+        .runner-action-popup .runner-popup-hidden-select {
+            display: none;
+        }
+
+        .runner-action-popup .runner-choice-section .runner-diamond {
+            grid-column: auto;
+            grid-row: auto;
+        }
+
+        .runner-action-popup .runner-choice-section .runner-out-btn {
+            grid-column: auto;
+            grid-row: auto;
+            width: 100%;
+        }
+
         .nl-actions {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2079,10 +2133,7 @@
                     </div>
                     <div id="runnerActionPopupBackdrop" class="runner-action-popup-backdrop" onclick="closeRunnerActionPopup()"></div>
                     <div id="runnerActionPopup" class="runner-action-popup" aria-hidden="true"></div>
-                    <textarea id="naturalLanguageInput" class="nl-input" placeholder="例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打 / 見逃し三振"></textarea>
-                    <div class="nl-actions compact">
-                        <button id="nlCorrectionToggle" class="small-btn" onclick="toggleCorrectionEditor()">解釈結果を手動修正</button>
-                    </div>
+                    <textarea id="naturalLanguageInput" class="nl-input" placeholder=""></textarea>
                     <details id="interpretationDetails" class="interpretation-details">
                         <summary>解釈結果</summary>
                         <div id="naturalLanguagePreview" class="nl-preview compact">ここに解釈結果を表示します。</div>
@@ -5788,12 +5839,12 @@
                 '</div>',
                 '<div class="runner-gui-step is-detail-open">',
                 '<div class="runner-gui-controls">',
-                '<select class="runnerGuiSource runner-source-select-hidden" aria-label="対象走者">',
+                '<select class="runnerGuiSource runner-popup-hidden-select" aria-label="対象走者">',
                 '<option value="r1"' + (source === "r1" ? " selected" : "") + '>一走</option>',
                 '<option value="r2"' + (source === "r2" ? " selected" : "") + '>二走</option>',
                 '<option value="r3"' + (source === "r3" ? " selected" : "") + '>三走</option>',
                 '</select>',
-                '<select class="runnerGuiReason" aria-label="移動理由">',
+                '<select class="runnerGuiReason runner-popup-hidden-select" aria-label="移動理由">',
                 '<option value="next">打者結果で進塁</option>',
                 '<option value="steal">盗塁</option>',
                 '<option value="wp">暴投</option>',
@@ -5801,17 +5852,30 @@
                 '<option value="bk">ボーク</option>',
                 '<option value="error">失策</option>',
                 '</select>',
-                '<select class="runnerGuiThrowTarget runner-steal-detail" aria-label="盗塁送球先">',
+                '<select class="runnerGuiThrowTarget runner-steal-detail runner-popup-hidden-select" aria-label="盗塁送球先">',
                 '<option value="auto">送球先 自動</option>',
                 '<option value="4">二塁手 4</option>',
                 '<option value="5">三塁手 5</option>',
                 '<option value="6">遊撃手 6</option>',
                 '<option value="2">捕手 2</option>',
                 '</select>',
-                '<select class="runnerGuiErrorTarget runner-steal-detail" aria-label="盗塁時のE対象">',
+                '<select class="runnerGuiErrorTarget runner-steal-detail runner-popup-hidden-select" aria-label="盗塁時のE対象">',
                 '<option value="thrower">送球E</option>',
                 '<option value="receiver">捕球E</option>',
                 '</select>',
+                '<div class="runner-choice-section">',
+                '<div class="runner-choice-title">理由</div>',
+                '<div class="runner-choice-grid">',
+                '<button type="button" class="runner-choice-btn is-active" data-runner-reason="next" onclick="setRunnerPopupReason(this, \'next\')">打球結果</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-reason="steal" onclick="setRunnerPopupReason(this, \'steal\')">盗塁</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-reason="wp" onclick="setRunnerPopupReason(this, \'wp\')">暴投</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-reason="pb" onclick="setRunnerPopupReason(this, \'pb\')">捕逸</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-reason="bk" onclick="setRunnerPopupReason(this, \'bk\')">ボーク</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-reason="error" onclick="setRunnerPopupReason(this, \'error\')">失策</button>',
+                '</div>',
+                '</div>',
+                '<div class="runner-choice-section">',
+                '<div class="runner-choice-title">到達塁 / アウト</div>',
                 '<div class="runner-diamond" aria-label="到達塁">',
                 '<button class="runner-base-btn second" onclick="applyRunnerPopupAction(this, \'2\')">2</button>',
                 '<button class="runner-base-btn third" onclick="applyRunnerPopupAction(this, \'3\')">3</button>',
@@ -5819,6 +5883,7 @@
                 '<button class="runner-base-btn home" onclick="applyRunnerPopupAction(this, \'score\')">本</button>',
                 '</div>',
                 '<button class="runner-out-btn" onclick="applyRunnerPopupAction(this, \'out\')">アウト</button>',
+                '</div>',
                 '</div>',
                 '</div>',
                 '<div class="runner-gui-status" style="margin-top:8px;">到達塁、またはアウトを選びます。</div>'
@@ -5838,6 +5903,20 @@
         function applyRunnerPopupAction(control, action) {
             applyRunnerGuiAction(control, action);
             closeRunnerActionPopup();
+        }
+
+        function setRunnerPopupReason(button, reason) {
+            const popup = button.closest("#runnerActionPopup");
+            if (!popup) {
+                return;
+            }
+            const select = popup.querySelector(".runnerGuiReason");
+            if (select) {
+                select.value = reason;
+            }
+            popup.querySelectorAll(".runner-choice-btn[data-runner-reason]").forEach((choice) => {
+                choice.classList.toggle("is-active", choice === button);
+            });
         }
 
         function removeRunnerGuiStep(button) {
