@@ -855,6 +855,7 @@
         }
 
         .sheet-cell {
+            position: relative;
             cursor: pointer;
             flex-direction: row;
             gap: 0;
@@ -1870,31 +1871,60 @@
 
         .tweet-comment-row {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 8px;
+            grid-template-columns: minmax(0, 1fr);
             align-items: center;
             width: min(640px, 100%);
             margin: 0 auto 8px;
+            position: relative;
         }
 
         .tweet-comment-input {
-            min-height: 44px;
-            padding: 9px 12px;
+            min-height: 48px;
+            max-height: 96px;
+            padding: 9px 50px 9px 12px;
             border: 2px solid #d7e1ea;
             border-radius: 14px;
             background: #fff;
             color: #172331;
             font-size: 14px;
             font-weight: 700;
+            resize: vertical;
+            line-height: 1.35;
         }
 
         .tweet-draft-btn {
-            min-height: 44px;
-            padding: 8px 14px;
-            border-radius: 14px;
-            font-size: 13px;
+            position: absolute;
+            right: 7px;
+            top: 50%;
+            transform: translateY(-50%);
+            min-height: 34px;
+            width: 34px;
+            padding: 0;
+            border-radius: 999px;
+            font-size: 18px;
             font-weight: 900;
-            white-space: nowrap;
+            line-height: 1;
+        }
+
+        .sheet-comment-bubble {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            z-index: 2;
+            width: 18px;
+            height: 16px;
+            padding: 0;
+            min-height: 0;
+            border: 1px solid #334155;
+            border-radius: 9px 9px 9px 2px;
+            background: #fffdf5;
+            color: #334155;
+            font-size: 11px;
+            font-weight: 900;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .nl-actions {
@@ -2411,8 +2441,8 @@
         </div>
         <div class="global-apply-row">
             <div class="tweet-comment-row">
-                <input id="atBatCommentInput" class="tweet-comment-input" type="text" placeholder="一言コメント（例: ナイスバッティング）" oninput="updateAtBatComment(this.value)">
-                <button class="small-btn tweet-draft-btn" onclick="showTweetDraft()">ツイート文</button>
+                <textarea id="atBatCommentInput" class="tweet-comment-input" placeholder="つぶやき" rows="2" oninput="updateAtBatComment(this.value)"></textarea>
+                <button class="small-btn tweet-draft-btn" onclick="registerAtBatComment()" aria-label="つぶやきを登録">↑</button>
             </div>
             <button class="small-btn global-apply-btn" onclick="applyNaturalLanguage()">次の打者に移る</button>
         </div>
@@ -3528,6 +3558,7 @@
                 || state.baseCover !== "none"
                 || state.runnerContextText
                 || state.runnerContext
+                || state.atBatComment
             );
         }
 
@@ -4743,6 +4774,14 @@
                     '<rect x="35" y="5" width="180" height="180" fill="url(#sheet-hatch-' + snapshot.battingOrder + '-' + displayedResult.replace(/[^A-Za-z0-9]/g, "") + ')" opacity="0.65"></rect>'
                 ].join("")
                 : "";
+            const commentBubble = snapshot.atBatComment
+                ? [
+                    '<g class="comment-bubble-mark" aria-hidden="true">',
+                    '<path d="M 186 14 Q 186 8 192 8 L 208 8 Q 214 8 214 14 L 214 24 Q 214 30 208 30 L 199 30 L 191 37 L 193 30 L 192 30 Q 186 30 186 24 Z" fill="#fffdf5" stroke="#334155" stroke-width="1.5"/>',
+                    '<text x="200" y="25" text-anchor="middle" font-size="14" font-weight="900" fill="#334155">…</text>',
+                    '</g>'
+                ].join("")
+                : "";
 
             return [
                 '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
@@ -4771,6 +4810,7 @@
                     ? '<text x="178" y="178" text-anchor="middle" font-size="10" font-weight="700" fill="' + SCORE_COLORS.ink + '">' + fcContinuation + '</text>'
                     : "",
                 landingDot,
+                commentBubble,
                 '</svg>'
             ].join("");
         }
@@ -4911,7 +4951,7 @@
                     if (row === state.selectedSheetRow && col === state.selectedSheetCol) {
                         button.classList.add("is-active");
                     }
-                    button.onclick = () => selectSheetCell(row, col);
+                    button.onclick = (event) => handleSheetCellClick(event, row, col);
                     button.onpointerdown = () => startSheetCellPress(row, col);
                     button.onpointerup = cancelSheetCellPress;
                     button.onpointerleave = cancelSheetCellPress;
@@ -4966,6 +5006,32 @@
             renderScoreSheet();
             updateDisplay();
             document.querySelector(".scorebox-container")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        function isSheetCommentHit(event, snapshot) {
+            if (!snapshot?.atBatComment || !event?.currentTarget) {
+                return false;
+            }
+            const rect = event.currentTarget.getBoundingClientRect();
+            return event.clientX >= rect.right - 28 && event.clientY <= rect.top + 28;
+        }
+
+        function showAtBatCommentPopup(snapshot) {
+            const comment = String(snapshot?.atBatComment || "").trim();
+            if (!comment) {
+                return;
+            }
+            window.alert(comment);
+        }
+
+        function handleSheetCellClick(event, row, col) {
+            const snapshot = state.scoreSheet[row]?.[col] || getLiveCurrentSheetSnapshot(row, col);
+            if (isSheetCommentHit(event, snapshot)) {
+                suppressSheetCellClick = false;
+                showAtBatCommentPopup(snapshot);
+                return;
+            }
+            selectSheetCell(row, col);
         }
 
         function startSheetCellPress(row, col) {
@@ -6705,45 +6771,15 @@
             state.atBatComment = value || "";
         }
 
-        function getAtBatTweetResultText() {
-            const inputText = document.getElementById("naturalLanguageInput")?.value.trim();
-            if (inputText) {
-                return inputText;
-            }
-            const displayed = getDisplayedResult();
-            const resultNames = {
-                "1B": "安打",
-                "2B": "二塁打",
-                "3B": "三塁打",
-                HR: "本塁打",
-                K: "三振",
-                B: "四球",
-                HP: "死球",
-                OUT: "アウト",
-                G: "内野安打",
-                BH: "バントヒット",
-                Fc: "野手選択"
-            };
-            const resultLabel = resultNames[state.result] || resultNames[state.selectedHitType] || displayed;
-            const fielder = state.selectedFielder && state.selectedFielder !== "?"
-                ? state.selectedFielder + " " + (fielderNames[state.selectedFielder] || "")
-                : "";
-            return [fielder, resultLabel || displayed].filter(Boolean).join(" ");
-        }
-
-        function showTweetDraft() {
+        function registerAtBatComment() {
             state.atBatComment = document.getElementById("atBatCommentInput")?.value.trim() || "";
-            const halfLabel = state.activeHalf === "top" ? "表" : "裏";
-            const inningLabel = getColumnInningLabel(state.selectedSheetCol, state.activeHalf) || (state.selectedSheetCol + 1);
-            const batterLabel = state.battingOrder + "番";
-            const resultText = getAtBatTweetResultText() || "打席結果";
-            const lines = [
-                state.atBatComment,
-                inningLabel + "回" + halfLabel + " " + batterLabel,
-                resultText
-            ].filter(Boolean);
-            const draft = lines.join("\n");
-            window.alert(draft || "一言コメントや打席結果を入力すると、ツイート文の下書きを表示します。");
+            const existingSnapshot = state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol];
+            if (existingSnapshot) {
+                pushGameHistory();
+                existingSnapshot.atBatComment = state.atBatComment;
+            }
+            renderScoreSheet();
+            updateDisplay();
         }
 
         function parsePlayPartSequence(text) {
@@ -9240,7 +9276,7 @@
         function buildRunnerPreviewSnapshot(entry) {
             const originalSnapshot = getSnapshotByRef(entry.runnerRef);
             const snapshot = originalSnapshot
-                ? createSnapshotPreviewCopy(originalSnapshot)
+                ? deepClone(originalSnapshot)
                 : {
                     pitches: [],
                     pitchNotes: [],
@@ -9258,9 +9294,7 @@
                     baseCover: "none",
                     confidence: 1
                 };
-            snapshot.runnerStatusEvents = [entry.event];
-            snapshot.runnerStatusText = entry.event;
-            return snapshot;
+            return appendRunnerEventPreview(snapshot, entry.event) || snapshot;
         }
 
         function updateRunnerPreviewPanel() {
