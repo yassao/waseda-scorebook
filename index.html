@@ -18,7 +18,9 @@
             --muted: #6b7280;
             --border: #233142;
             --sheet-green: #1f5c2e;
-            --sheet-label-w: 34px;
+            --sheet-order-w: 30px;
+            --sheet-name-w: 74px;
+            --sheet-number-w: 28px;
             --sheet-cell-w: 58px;
             --sheet-cell-h: 52px;
             --sheet-header-h: 28px;
@@ -734,8 +736,9 @@
 
         .player-roster-grid {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: auto minmax(0, 1fr) 64px;
             gap: 6px;
+            align-items: center;
         }
 
         .player-name-field {
@@ -749,6 +752,13 @@
             font: inherit;
             font-size: 12px;
             font-weight: 700;
+        }
+
+        .player-roster-order {
+            color: var(--sheet-green);
+            font-size: 12px;
+            font-weight: 900;
+            text-align: right;
         }
 
         .line-score-board {
@@ -806,7 +816,7 @@
 
         .sheet-grid {
             display: grid;
-            grid-template-columns: var(--sheet-label-w) repeat(12, var(--sheet-cell-w));
+            grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(12, var(--sheet-cell-w));
             gap: 0;
             border-left: 1px solid var(--sheet-green);
             border-top: 1px solid var(--sheet-green);
@@ -868,6 +878,78 @@
         .sheet-header:first-child {
             left: 0;
             z-index: 4;
+        }
+
+        .sheet-order-col {
+            left: 0;
+            width: var(--sheet-order-w);
+            min-width: var(--sheet-order-w);
+        }
+
+        .sheet-name-col {
+            left: var(--sheet-order-w);
+            width: var(--sheet-name-w);
+            min-width: var(--sheet-name-w);
+        }
+
+        .sheet-number-col {
+            left: calc(var(--sheet-order-w) + var(--sheet-name-w));
+            width: var(--sheet-number-w);
+            min-width: var(--sheet-number-w);
+        }
+
+        .sheet-order-col,
+        .sheet-name-col,
+        .sheet-number-col {
+            position: sticky;
+            z-index: 4;
+        }
+
+        .sheet-header.sheet-order-col,
+        .sheet-header.sheet-name-col,
+        .sheet-header.sheet-number-col {
+            top: 0;
+            z-index: 6;
+        }
+
+        .sheet-roster-cell {
+            align-items: stretch;
+            justify-content: stretch;
+            color: #22313f;
+            overflow: hidden;
+        }
+
+        .sheet-roster-slots {
+            display: grid;
+            grid-template-rows: repeat(3, 1fr);
+            width: 100%;
+            height: 100%;
+        }
+
+        .sheet-roster-slot {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+            padding: 0 2px;
+            border-bottom: 1px dotted rgba(31, 92, 46, 0.55);
+            color: #22313f;
+            font-size: calc(var(--sheet-font) * 0.92);
+            font-weight: 700;
+            line-height: 1.1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sheet-roster-slot:last-child {
+            border-bottom: none;
+        }
+
+        .sheet-jersey-cell {
+            color: #22313f;
+            font-size: calc(var(--sheet-font) * 0.95);
+            font-weight: 800;
         }
 
         .sheet-cell.is-active {
@@ -2061,7 +2143,9 @@
             }
 
             :root {
-                --sheet-label-w: 30px;
+                --sheet-order-w: 28px;
+                --sheet-name-w: 68px;
+                --sheet-number-w: 26px;
                 --sheet-cell-w: 50px;
                 --sheet-cell-h: 46px;
                 --sheet-header-h: 24px;
@@ -2264,7 +2348,7 @@
             </section>
         </div>
         <div class="global-apply-row">
-            <button class="small-btn global-apply-btn" onclick="applyNaturalLanguage()">スコアブックに反映</button>
+            <button class="small-btn global-apply-btn" onclick="applyNaturalLanguage()">次の打者に移る</button>
         </div>
 
         <div class="control-panel-wrapper">
@@ -2555,6 +2639,10 @@
                 bottom: "後攻"
             },
             playerNames: {
+                top: Array.from({ length: 9 }, () => ""),
+                bottom: Array.from({ length: 9 }, () => "")
+            },
+            playerNumbers: {
                 top: Array.from({ length: 9 }, () => ""),
                 bottom: Array.from({ length: 9 }, () => "")
             },
@@ -2949,6 +3037,7 @@
                     activeHalf: state.activeHalf,
                     teamNames: deepClone(state.teamNames),
                     playerNames: deepClone(state.playerNames),
+                    playerNumbers: deepClone(state.playerNumbers),
                     scoreSheets: deepClone(state.scoreSheets),
                     inningLabelsByHalf: deepClone(state.inningLabelsByHalf),
                     baseRunnersByHalf: deepClone(state.baseRunnersByHalf),
@@ -3236,6 +3325,18 @@
                 state.playerNames[half] = Array.from({ length: 9 }, () => "");
             }
             state.playerNames[half][index] = value.trim();
+            renderScoreSheet();
+        }
+
+        function updatePlayerNumber(half, index, value) {
+            if (!["top", "bottom"].includes(half) || index < 0 || index >= 9) {
+                return;
+            }
+            if (!state.playerNumbers[half]) {
+                state.playerNumbers[half] = Array.from({ length: 9 }, () => "");
+            }
+            state.playerNumbers[half][index] = value.trim();
+            renderScoreSheet();
         }
 
         function renderPlayerRosterEditor() {
@@ -3246,9 +3347,14 @@
             container.innerHTML = ["top", "bottom"].map((half) => {
                 const teamLabel = state.teamNames[half] || (half === "top" ? "先攻" : "後攻");
                 const names = state.playerNames[half] || Array.from({ length: 9 }, () => "");
+                const numbers = state.playerNumbers[half] || Array.from({ length: 9 }, () => "");
                 const inputs = names.map((name, index) => {
                     const order = index + 1;
-                    return `<input class="player-name-field" value="${escapeHtml(name)}" placeholder="${order}番" aria-label="${escapeHtml(teamLabel)} ${order}番選手名" onchange="updatePlayerName('${half}', ${index}, this.value)">`;
+                    return [
+                        `<div class="player-roster-order">${order}番</div>`,
+                        `<input class="player-name-field" value="${escapeHtml(name)}" placeholder="名前" aria-label="${escapeHtml(teamLabel)} ${order}番選手名" onchange="updatePlayerName('${half}', ${index}, this.value)">`,
+                        `<input class="player-name-field" value="${escapeHtml(numbers[index] || "")}" placeholder="背" inputmode="numeric" aria-label="${escapeHtml(teamLabel)} ${order}番背番号" onchange="updatePlayerNumber('${half}', ${index}, this.value)">`
+                    ].join("");
                 }).join("");
                 return [
                     '<div class="player-roster-team">',
@@ -4607,14 +4713,18 @@
             const zoom = Math.max(0.5, Math.min(2, state.sheetZoom || 1));
             state.sheetZoom = zoom;
             const compact = window.matchMedia("(max-width: 480px)").matches;
-            const baseLabelW = compact ? 30 : 34;
+            const baseOrderW = compact ? 28 : 30;
+            const baseNameW = compact ? 68 : 74;
+            const baseNumberW = compact ? 26 : 28;
             const baseCellW = compact ? 50 : 58;
             const baseCellH = compact ? 46 : 52;
             const baseHeaderH = compact ? 24 : 28;
             const baseFont = compact ? 8 : 9;
 
             root.style.setProperty("--sheet-zoom", String(zoom));
-            root.style.setProperty("--sheet-label-w", Math.round(baseLabelW * zoom) + "px");
+            root.style.setProperty("--sheet-order-w", Math.round(baseOrderW * zoom) + "px");
+            root.style.setProperty("--sheet-name-w", Math.round(baseNameW * zoom) + "px");
+            root.style.setProperty("--sheet-number-w", Math.round(baseNumberW * zoom) + "px");
             root.style.setProperty("--sheet-cell-w", Math.round(baseCellW * zoom) + "px");
             root.style.setProperty("--sheet-cell-h", Math.round(baseCellH * zoom) + "px");
             root.style.setProperty("--sheet-header-h", Math.round(baseHeaderH * zoom) + "px");
@@ -4674,10 +4784,16 @@
             }
 
             grid.innerHTML = "";
-            const corner = document.createElement("div");
-            corner.className = "sheet-header";
-            corner.textContent = "打順";
-            grid.appendChild(corner);
+            [
+                { text: "打順", className: "sheet-header sheet-order-col" },
+                { text: "名前", className: "sheet-header sheet-name-col" },
+                { text: "背", className: "sheet-header sheet-number-col" }
+            ].forEach((headerConfig) => {
+                const header = document.createElement("div");
+                header.className = headerConfig.className;
+                header.textContent = headerConfig.text;
+                grid.appendChild(header);
+            });
 
             const inningLabels = getInningLabels();
             for (let inning = 1; inning <= MAX_INNINGS; inning += 1) {
@@ -4689,9 +4805,26 @@
 
             for (let row = 0; row < 9; row += 1) {
                 const label = document.createElement("div");
-                label.className = "sheet-label";
+                label.className = "sheet-label sheet-order-col";
                 label.textContent = (row + 1) + "番";
                 grid.appendChild(label);
+
+                const roster = document.createElement("div");
+                roster.className = "sheet-label sheet-name-col sheet-roster-cell";
+                const playerName = state.playerNames[state.activeHalf]?.[row] || "";
+                roster.innerHTML = [
+                    '<div class="sheet-roster-slots">',
+                    '<div class="sheet-roster-slot">' + escapeHtml(playerName) + '</div>',
+                    '<div class="sheet-roster-slot"></div>',
+                    '<div class="sheet-roster-slot"></div>',
+                    '</div>'
+                ].join("");
+                grid.appendChild(roster);
+
+                const number = document.createElement("div");
+                number.className = "sheet-label sheet-number-col sheet-jersey-cell";
+                number.textContent = state.playerNumbers[state.activeHalf]?.[row] || "";
+                grid.appendChild(number);
 
                 for (let col = 0; col < MAX_INNINGS; col += 1) {
                     const button = document.createElement("button");
