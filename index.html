@@ -716,6 +716,41 @@
             padding: 0 10px 10px;
         }
 
+        .player-roster-editor {
+            display: grid;
+            gap: 12px;
+        }
+
+        .player-roster-team {
+            display: grid;
+            gap: 6px;
+        }
+
+        .player-roster-team-title {
+            color: #22313f;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .player-roster-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+        }
+
+        .player-name-field {
+            min-height: 34px;
+            width: 100%;
+            padding: 6px 8px;
+            border: 1.5px solid #d7e1e8;
+            border-radius: 9px;
+            background: #fff;
+            color: #22313f;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
         .line-score-board {
             width: max-content;
             max-width: 100%;
@@ -2042,7 +2077,7 @@
             <div class="history-actions" aria-label="履歴操作">
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
-                <button id="workspaceToggleBtn" class="workspace-toggle-btn" onclick="toggleTopWorkspace()" aria-label="入力欄を開閉">入力欄</button>
+                <button id="workspaceToggleBtn" class="workspace-toggle-btn" onclick="toggleTopWorkspace()" aria-label="入力とスコアブックを切替">スコアブック</button>
                 <button class="header-help-btn" onclick="showPlayBuilderHelp()" aria-label="ヘルプ">?</button>
             </div>
         </header>
@@ -2247,6 +2282,12 @@
                                     <div id="inningStatus" class="inning-status">1回表 先攻</div>
                                 </div>
                                 <div id="lineScoreBoard" class="line-score-board" aria-label="点数板"></div>
+                            </div>
+                        </details>
+                        <details class="game-info-details player-roster-details">
+                            <summary>選手名登録</summary>
+                            <div class="game-info-body">
+                                <div id="playerRosterEditor" class="player-roster-editor"></div>
                             </div>
                         </details>
                         <div id="sheetMeta" class="sheet-meta"></div>
@@ -2512,6 +2553,10 @@
             teamNames: {
                 top: "先攻",
                 bottom: "後攻"
+            },
+            playerNames: {
+                top: Array.from({ length: 9 }, () => ""),
+                bottom: Array.from({ length: 9 }, () => "")
             },
             scoreSheets: {
                 top: null,
@@ -2903,6 +2948,7 @@
                     currentConfidence: state.currentConfidence,
                     activeHalf: state.activeHalf,
                     teamNames: deepClone(state.teamNames),
+                    playerNames: deepClone(state.playerNames),
                     scoreSheets: deepClone(state.scoreSheets),
                     inningLabelsByHalf: deepClone(state.inningLabelsByHalf),
                     baseRunnersByHalf: deepClone(state.baseRunnersByHalf),
@@ -2953,6 +2999,7 @@
             updateGameFlowDisplay();
             updateRunnerGuiOptions();
             updateRunnerGuiStatus(message);
+            renderPlayerRosterEditor();
             updateHistoryButtons();
         }
 
@@ -2999,7 +3046,7 @@
                 applyButton.style.display = shouldCollapse ? "none" : "";
             }
             if (button) {
-                button.textContent = shouldCollapse ? "入力表示" : "入力欄";
+                button.textContent = shouldCollapse ? "入力" : "スコアブック";
                 button.setAttribute("aria-pressed", shouldCollapse ? "true" : "false");
             }
         }
@@ -3169,6 +3216,49 @@
             state.teamNames[half] = value.trim() || (half === "top" ? "先攻" : "後攻");
             updateGameFlowDisplay();
             renderLineScoreBoard();
+            renderPlayerRosterEditor();
+        }
+
+        function escapeHtml(value) {
+            return String(value || "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        function updatePlayerName(half, index, value) {
+            if (!["top", "bottom"].includes(half) || index < 0 || index >= 9) {
+                return;
+            }
+            if (!state.playerNames[half]) {
+                state.playerNames[half] = Array.from({ length: 9 }, () => "");
+            }
+            state.playerNames[half][index] = value.trim();
+        }
+
+        function renderPlayerRosterEditor() {
+            const container = document.getElementById("playerRosterEditor");
+            if (!container) {
+                return;
+            }
+            container.innerHTML = ["top", "bottom"].map((half) => {
+                const teamLabel = state.teamNames[half] || (half === "top" ? "先攻" : "後攻");
+                const names = state.playerNames[half] || Array.from({ length: 9 }, () => "");
+                const inputs = names.map((name, index) => {
+                    const order = index + 1;
+                    return `<input class="player-name-field" value="${escapeHtml(name)}" placeholder="${order}番" aria-label="${escapeHtml(teamLabel)} ${order}番選手名" onchange="updatePlayerName('${half}', ${index}, this.value)">`;
+                }).join("");
+                return [
+                    '<div class="player-roster-team">',
+                    '<div class="player-roster-team-title">' + escapeHtml(teamLabel) + '</div>',
+                    '<div class="player-roster-grid">',
+                    inputs,
+                    '</div>',
+                    '</div>'
+                ].join("");
+            }).join("");
         }
 
         function activateHalf(half, row = null, col = null, options = {}) {
@@ -8882,7 +8972,10 @@
                     && previewEntry.runnerRef?.col === item.runnerRef.col;
                 const snapshot = isPreviewTarget
                     ? buildRunnerPreviewSnapshot(previewEntry)
-                    : getSnapshotByRef(item.runnerRef);
+                    : appendRunnerEventPreview(
+                        getSnapshotByRef(item.runnerRef),
+                        getLiveProjectedRunnerEventForRef(item.runnerRef)
+                    );
                 const itemClass = "base-runner-preview-item" + (item.retired ? " is-retired" : "");
                 const cardClass = "base-runner-preview-card" + (item.retired ? " is-retired" : "");
                 const labelPrefix = item.retired ? "アウト<br>" : (item.baseIndex + 1) + "塁<br>";
@@ -9602,6 +9695,7 @@
         updateSheetZoom();
         initializeSheetPinchZoom();
         document.getElementById("naturalLanguageInput").addEventListener("input", scheduleNaturalLanguageParse);
+        renderPlayerRosterEditor();
         renderScoreSheet();
         updateDisplay();
         updateGameFlowDisplay();
