@@ -83,6 +83,7 @@
         }
 
         .history-btn,
+        .workspace-toggle-btn,
         .header-help-btn {
             width: 34px;
             min-height: 34px;
@@ -102,6 +103,14 @@
             color: #334155;
         }
 
+        .workspace-toggle-btn {
+            width: auto;
+            padding: 0 10px;
+            font-size: 12px;
+            border-radius: 999px;
+            background: #fff;
+        }
+
         .history-btn:disabled {
             color: #cbd5e1;
             border-color: #dbe4ec;
@@ -118,6 +127,10 @@
             height: min(46dvh, 350px);
             max-height: min(46dvh, 350px);
             min-height: 0;
+        }
+
+        .top-workspace.is-collapsed {
+            display: none;
         }
 
         .scorebox-container {
@@ -2029,6 +2042,7 @@
             <div class="history-actions" aria-label="履歴操作">
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
+                <button id="workspaceToggleBtn" class="workspace-toggle-btn" onclick="toggleTopWorkspace()" aria-label="入力欄を開閉">入力欄</button>
                 <button class="header-help-btn" onclick="showPlayBuilderHelp()" aria-label="ヘルプ">?</button>
             </div>
         </header>
@@ -2970,6 +2984,26 @@
             restoreGameHistorySnapshot(snapshot, "やり直しました");
         }
 
+        function toggleTopWorkspace(force) {
+            const workspace = document.querySelector(".top-workspace");
+            const button = document.getElementById("workspaceToggleBtn");
+            const applyButton = document.querySelector(".global-apply-btn");
+            if (!workspace) {
+                return;
+            }
+            const shouldCollapse = typeof force === "boolean"
+                ? force
+                : !workspace.classList.contains("is-collapsed");
+            workspace.classList.toggle("is-collapsed", shouldCollapse);
+            if (applyButton) {
+                applyButton.style.display = shouldCollapse ? "none" : "";
+            }
+            if (button) {
+                button.textContent = shouldCollapse ? "入力表示" : "入力欄";
+                button.setAttribute("aria-pressed", shouldCollapse ? "true" : "false");
+            }
+        }
+
         function updateHistoryButtons() {
             const undoButton = document.getElementById("undoHistoryBtn");
             const redoButton = document.getElementById("redoHistoryBtn");
@@ -3469,6 +3503,17 @@
                 return "Ⅰ";
             }
             return "";
+        }
+
+        function getCurrentOutScoreForDisplay() {
+            if (!romanToOutCount(state.outScore)) {
+                return state.outScore;
+            }
+            return resolveSnapshotOutScore(
+                state.selectedSheetRow,
+                state.selectedSheetCol,
+                captureAtBatSnapshot()
+            );
         }
 
         function getPreviousOutCountForCell(row, col) {
@@ -4591,11 +4636,11 @@
             if (state.scoreSheet[nextRow]?.[nextCol]) {
                 nextCol = findOrCreateColumnForNextBatter(state.selectedSheetCol, nextRow);
             }
-            selectSheetCell(nextRow, nextCol);
-            resetState();
             state.selectedSheetRow = nextRow;
             state.selectedSheetCol = nextCol;
             state.battingOrder = String(nextRow + 1);
+            resetState();
+            document.getElementById("naturalLanguageInput").value = "";
             document.getElementById("battingOrderSelect").value = state.battingOrder;
             saveActiveSelection();
             renderScoreSheet();
@@ -7496,12 +7541,15 @@
         function toggleCorrectionEditor(forceOpen) {
             const panel = document.getElementById("nlCorrectionPanel");
             const button = document.getElementById("nlCorrectionToggle");
+            if (!panel) {
+                return;
+            }
             const shouldOpen = typeof forceOpen === "boolean"
                 ? forceOpen
                 : !panel.classList.contains("is-open");
 
             panel.classList.toggle("is-open", shouldOpen);
-            button.classList.toggle("is-active", shouldOpen);
+            button?.classList.toggle("is-active", shouldOpen);
         }
 
         function syncCorrectionControls(parsed) {
@@ -9056,7 +9104,7 @@
         }
 
         function updateInningEndSlash() {
-            document.getElementById("inningEndSlash").setAttribute("visibility", state.outScore === "Ⅲ" ? "visible" : "hidden");
+            document.getElementById("inningEndSlash").setAttribute("visibility", getCurrentOutScoreForDisplay() === "Ⅲ" ? "visible" : "hidden");
         }
 
         function updateStatusText() {
@@ -9075,7 +9123,7 @@
 
             document.getElementById("countStatus").textContent = "B " + state.balls;
             document.getElementById("strikeStatus").textContent = "S " + state.strikes;
-            document.getElementById("outStatus").textContent = "O " + (state.outScore || "-");
+            document.getElementById("outStatus").textContent = "O " + (getCurrentOutScoreForDisplay() || "-");
 
             let autoJudgeText = "自動判定待ち";
             if (state.result === "K") {
@@ -9157,7 +9205,7 @@
                 "打順/打点: " + state.battingOrder + "番 / " + (state.hasRbi ? "あり" : "なし"),
                 "方向: " + directionMap[state.selectedDirection],
                 "投球: " + (state.pitches.length > 0 ? state.pitches.join(" / ") : "なし"),
-                "中央表示: " + (state.outScore || "未入力")
+                "中央表示: " + (getCurrentOutScoreForDisplay() || "未入力")
             ];
 
             document.getElementById("summaryCard").innerHTML = summary.join("<br>");
@@ -9168,9 +9216,10 @@
             updateRunnerNotesDisplay();
             updateRunnerPreviewPanel();
 
+            const displayedOutScore = getCurrentOutScoreForDisplay();
             const outDisplay = document.getElementById("outCountDisplay");
-            outDisplay.textContent = state.outScore;
-            outDisplay.setAttribute("fill", getOutScoreColor(state.outScore));
+            outDisplay.textContent = displayedOutScore;
+            outDisplay.setAttribute("fill", getOutScoreColor(displayedOutScore));
 
             const resultDisplay = document.getElementById("resultDisplay");
             const displayedResult = getDisplayedResult();
