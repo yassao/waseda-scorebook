@@ -3018,8 +3018,8 @@
                     { value: "fielding_error_onbase", label: "打球処理エラー" },
                     { value: "throw_error_onbase", label: "送球エラー" },
                     { value: "receive_error_onbase", label: "捕球エラー" },
-                    { value: "fc_onbase", label: "野選出塁" },
-                    { value: "force_2_batter_safe", label: "Fc（二塁封殺・打者一塁セーフ）" },
+                    { value: "force_fc", label: "封殺＆Fc" },
+                    { value: "fc_all_safe", label: "Fcオールセーフ" },
                     { value: "dropped_third", label: "振り逃げ" }
                 ]
             },
@@ -4699,10 +4699,19 @@
                     setRunnerStatusForRef(batterRef, { type: "out", label: sheetLabel, by: currentBatterNumberForRunnerEvent() });
                 } else if (outLabel === "二盗死" || outLabel === "二塁封殺" || outLabel === "二塁アウト" || /^2-[46]T$/.test(outLabel)) {
                     removeRunnerFromBase(runners, 0, sheetLabel, scoreOnRunner);
+                    if (outLabel === "二塁封殺") {
+                        advanceTrailingRunnersAfterForceOut(runners, 0);
+                    }
                 } else if (outLabel === "三盗死" || outLabel === "三塁封殺" || outLabel === "三塁アウト" || outLabel === "2-5T") {
                     removeRunnerFromBase(runners, 1, sheetLabel, scoreOnRunner);
+                    if (outLabel === "三塁封殺") {
+                        advanceTrailingRunnersAfterForceOut(runners, 1);
+                    }
                 } else if (outLabel === "本塁アウト" || outLabel === "本塁封殺" || outLabel === "2T") {
                     removeRunnerFromBase(runners, 2, sheetLabel, scoreOnRunner);
+                    if (outLabel === "本塁封殺") {
+                        advanceTrailingRunnersAfterForceOut(runners, 2);
+                    }
                 }
             });
 
@@ -7163,6 +7172,31 @@
             }
         }
 
+        function getForceOutLabelFromSequence(sequence) {
+            const firstReceiver = Array.isArray(sequence) ? sequence[1] : "";
+            const forceBaseByReceiver = {
+                "2": "本塁封殺",
+                "5": "三塁封殺",
+                "4": "二塁封殺",
+                "6": "二塁封殺",
+                "3": "一塁封殺"
+            };
+            return forceBaseByReceiver[firstReceiver] || "二塁封殺";
+        }
+
+        function addForcedAdvanceEntries(parsed) {
+            const runners = Array.isArray(state.baseRunners) ? state.baseRunners : [];
+            if (runners[2]) {
+                parsed.runnerContext.advances.push("三走生還");
+            }
+            if (runners[1]) {
+                parsed.runnerContext.advances.push("二走→三塁");
+            }
+            if (runners[0]) {
+                parsed.runnerContext.advances.push("一走→二塁");
+            }
+        }
+
         function buildParsedInputFromPlayParts(parts) {
             if (!parts.length) {
                 return null;
@@ -7288,6 +7322,18 @@
                     case "fc_onbase":
                         parsed.result = parsed.result || "Fc";
                         parsed.runnerContext.advances.push("一走→二塁");
+                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        break;
+                    case "force_fc":
+                        parsed.result = parsed.result || "Fc";
+                        parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
+                        parsed.runnerContext.outsOnBases.push(getForceOutLabelFromSequence(sequence));
+                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        break;
+                    case "fc_all_safe":
+                        parsed.result = parsed.result || "Fc";
+                        parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
+                        addForcedAdvanceEntries(parsed);
                         parsed.runnerContext.advances.push("打者走者一塁セーフ");
                         break;
                     case "dropped_third":
