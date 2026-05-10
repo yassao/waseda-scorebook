@@ -2475,7 +2475,6 @@
                         <text id="rbiText" x="58" y="140" text-anchor="middle" font-size="24" font-weight="700" fill="#111"></text>
                     </g>
                 </svg>
-                <div id="gameMiniStatus" class="game-mini-status" aria-label="試合状況"></div>
             </div>
 
             <section class="nl-quick-panel">
@@ -2535,6 +2534,7 @@
                         <summary>解釈結果</summary>
                         <div id="naturalLanguagePreview" class="nl-preview compact">ここに解釈結果を表示します。</div>
                     </details>
+                    <div id="gameMiniStatus" class="game-mini-status" aria-label="試合状況"></div>
                     <div id="nlCorrectionPanel" class="nl-correction-panel">
                         <div class="nl-corrections">
                             <div class="nl-field">
@@ -2613,7 +2613,7 @@
         </div>
         <div class="global-apply-row">
             <div class="tweet-comment-row">
-                <div id="commentTargetLabel" class="tweet-target-label">今の打者</div>
+                <div id="commentTargetLabel" class="tweet-target-label">対象: 1回 1番</div>
                 <textarea id="atBatCommentInput" class="tweet-comment-input" placeholder="つぶやき" rows="2" oninput="updateAtBatComment(this.value)"></textarea>
                 <button class="small-btn tweet-draft-btn" onclick="registerAtBatComment()" aria-label="つぶやきを登録">↑</button>
             </div>
@@ -3630,8 +3630,7 @@
             }
             const inning = getColumnInningLabel();
             const order = state.selectedSheetRow + 1;
-            const hasSavedSnapshot = Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]);
-            label.textContent = (hasSavedSnapshot ? "保存済みを編集: " : "今の打者: ") + order + "番 " + inning + "回";
+            label.textContent = "対象: " + inning + "回 " + order + "番";
         }
 
         function updateTeamName(half, value) {
