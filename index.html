@@ -965,6 +965,42 @@
             width: max-content;
         }
 
+        .sheet-grid.is-dual-view {
+            display: block;
+            border: 0;
+            background: transparent;
+        }
+
+        .dual-sheet-block {
+            width: max-content;
+            margin-bottom: 14px;
+        }
+
+        .dual-sheet-title {
+            position: sticky;
+            left: 0;
+            z-index: 3;
+            display: inline-block;
+            margin: 0 0 4px;
+            padding: 3px 9px;
+            border: 1px solid var(--sheet-green);
+            border-radius: 999px;
+            background: #f7fbf6;
+            color: var(--sheet-green);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .dual-sheet-grid {
+            display: grid;
+            grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(12, var(--sheet-cell-w));
+            gap: 0;
+            width: max-content;
+            border-left: 1px solid var(--sheet-green);
+            border-top: 1px solid var(--sheet-green);
+            background: #fff;
+        }
+
         .sheet-header,
         .sheet-label,
         .sheet-cell {
@@ -3432,6 +3468,8 @@
                 button.textContent = shouldCollapse ? "入力" : "スコアブック";
                 button.setAttribute("aria-pressed", shouldCollapse ? "true" : "false");
             }
+            document.body.classList.toggle("scorebook-view-mode", shouldCollapse);
+            renderScoreSheet();
         }
 
         function updateHistoryButtons() {
@@ -5170,13 +5208,10 @@
             }, { passive: true });
         }
 
-        function renderScoreSheet() {
-            const grid = document.getElementById("sheetGrid");
-            if (!grid) {
-                return;
-            }
-
-            grid.innerHTML = "";
+        function renderScoreSheetHalf(target, half, interactive) {
+            const sheet = state.scoreSheets[half] || createEmptyScoreSheet();
+            const previousSheet = state.scoreSheet;
+            state.scoreSheet = sheet;
             [
                 { text: "打順", className: "sheet-header sheet-order-col" },
                 { text: "名前", className: "sheet-header sheet-name-col" },
@@ -5185,26 +5220,26 @@
                 const header = document.createElement("div");
                 header.className = headerConfig.className;
                 header.textContent = headerConfig.text;
-                grid.appendChild(header);
+                target.appendChild(header);
             });
 
-            const inningLabels = getInningLabels();
+            const inningLabels = getInningLabels(half);
             for (let inning = 1; inning <= MAX_INNINGS; inning += 1) {
                 const header = document.createElement("div");
                 header.className = "sheet-header";
                 header.textContent = String(inningLabels[inning - 1] || inning);
-                grid.appendChild(header);
+                target.appendChild(header);
             }
 
             for (let row = 0; row < 9; row += 1) {
                 const label = document.createElement("div");
                 label.className = "sheet-label sheet-order-col";
                 label.textContent = (row + 1) + "番";
-                grid.appendChild(label);
+                target.appendChild(label);
 
                 const roster = document.createElement("div");
                 roster.className = "sheet-label sheet-name-col sheet-roster-cell";
-                const playerName = state.playerNames[state.activeHalf]?.[row] || "";
+                const playerName = state.playerNames[half]?.[row] || "";
                 roster.innerHTML = [
                     '<div class="sheet-roster-slots">',
                     '<div class="sheet-roster-slot">' + escapeHtml(playerName) + '</div>',
@@ -5212,45 +5247,84 @@
                     '<div class="sheet-roster-slot"></div>',
                     '</div>'
                 ].join("");
-                grid.appendChild(roster);
+                target.appendChild(roster);
 
                 const number = document.createElement("div");
                 number.className = "sheet-label sheet-number-col sheet-jersey-cell";
-                number.textContent = state.playerNumbers[state.activeHalf]?.[row] || "";
-                grid.appendChild(number);
+                number.textContent = state.playerNumbers[half]?.[row] || "";
+                target.appendChild(number);
 
                 for (let col = 0; col < MAX_INNINGS; col += 1) {
                     const button = document.createElement("button");
                     button.className = "sheet-cell";
-                    if (row === state.selectedSheetRow && col === state.selectedSheetCol) {
+                    const isActiveHalf = half === state.activeHalf;
+                    if (interactive && isActiveHalf && row === state.selectedSheetRow && col === state.selectedSheetCol) {
                         button.classList.add("is-active");
                     }
-                    button.onclick = (event) => handleSheetCellClick(event, row, col);
-                    button.onpointerdown = () => startSheetCellPress(row, col);
-                    button.onpointerup = cancelSheetCellPress;
-                    button.onpointerleave = cancelSheetCellPress;
-                    button.onpointercancel = cancelSheetCellPress;
-                    button.oncontextmenu = (event) => {
-                        event.preventDefault();
-                        confirmClearSheetCell(row, col);
-                    };
+                    if (interactive && isActiveHalf) {
+                        button.onclick = (event) => handleSheetCellClick(event, row, col);
+                        button.onpointerdown = () => startSheetCellPress(row, col);
+                        button.onpointerup = cancelSheetCellPress;
+                        button.onpointerleave = cancelSheetCellPress;
+                        button.onpointercancel = cancelSheetCellPress;
+                        button.oncontextmenu = (event) => {
+                            event.preventDefault();
+                            confirmClearSheetCell(row, col);
+                        };
+                    } else {
+                        button.type = "button";
+                        button.disabled = !isActiveHalf;
+                    }
 
-                    let snapshot = state.scoreSheet[row][col];
-                    const liveRunnerEvent = snapshot
+                    let snapshot = sheet[row][col];
+                    const liveRunnerEvent = interactive && isActiveHalf && snapshot
                         ? getLiveProjectedRunnerEventForRef({ row, col })
                         : null;
                     if (liveRunnerEvent) {
                         snapshot = appendRunnerEventPreview(snapshot, liveRunnerEvent);
                     }
-                    const liveCurrentSnapshot = getLiveCurrentSheetSnapshot(row, col);
+                    const liveCurrentSnapshot = interactive && isActiveHalf ? getLiveCurrentSheetSnapshot(row, col) : null;
                     if (liveCurrentSnapshot) {
                         snapshot = liveCurrentSnapshot;
                     }
                     button.innerHTML = generateSheetCellSvg(snapshot);
 
-                    grid.appendChild(button);
+                    target.appendChild(button);
                 }
             }
+            state.scoreSheet = previousSheet;
+        }
+
+        function renderScoreSheet() {
+            const grid = document.getElementById("sheetGrid");
+            if (!grid) {
+                return;
+            }
+
+            grid.innerHTML = "";
+            const dualView = document.body.classList.contains("scorebook-view-mode");
+            grid.classList.toggle("is-dual-view", dualView);
+
+            if (dualView) {
+                ["top", "bottom"].forEach((half) => {
+                    const block = document.createElement("div");
+                    block.className = "dual-sheet-block";
+                    const title = document.createElement("div");
+                    title.className = "dual-sheet-title";
+                    title.textContent = (half === "top" ? "先攻" : "後攻") + " " + (state.teamNames[half] || "");
+                    const halfGrid = document.createElement("div");
+                    halfGrid.className = "dual-sheet-grid";
+                    block.appendChild(title);
+                    block.appendChild(halfGrid);
+                    grid.appendChild(block);
+                    renderScoreSheetHalf(halfGrid, half, false);
+                });
+                updateSheetMeta();
+                updateGameFlowDisplay();
+                return;
+            }
+
+            renderScoreSheetHalf(grid, state.activeHalf, true);
 
             updateSheetMeta();
             updateGameFlowDisplay();
@@ -9656,12 +9730,85 @@
             });
         }
 
+        function getBatterSafeBaseFromRunnerContext() {
+            if (!hasCurrentAtBatInput()) {
+                return 0;
+            }
+            let targetBase = 0;
+            (state.runnerContext?.advances || []).forEach((advance) => {
+                const baseText = typeof advance === "string" ? advance.split(":")[0] : "";
+                if (!baseText.startsWith("打者走者")) {
+                    return;
+                }
+                if (baseText.includes("一塁")) {
+                    targetBase = Math.max(targetBase, 1);
+                } else if (baseText.includes("二塁")) {
+                    targetBase = Math.max(targetBase, 2);
+                } else if (baseText.includes("三塁")) {
+                    targetBase = Math.max(targetBase, 3);
+                }
+            });
+            return targetBase;
+        }
+
+        function getLiveRunnerOutPreviewItems() {
+            if (!hasCurrentAtBatInput()) {
+                return [];
+            }
+            const baseIndexByOutLabel = {
+                "二塁封殺": 0,
+                "二塁アウト": 0,
+                "二盗死": 0,
+                "三塁封殺": 1,
+                "三塁アウト": 1,
+                "三盗死": 1,
+                "本塁封殺": 2,
+                "本塁アウト": 2
+            };
+            return (state.runnerContext?.outsOnBases || [])
+                .map((outLabel) => {
+                    const label = String(outLabel || "");
+                    let baseIndex = baseIndexByOutLabel[label];
+                    if (baseIndex === undefined) {
+                        if (/^2-[46]T$/.test(label)) {
+                            baseIndex = 0;
+                        } else if (label === "2-5T") {
+                            baseIndex = 1;
+                        } else if (label === "2T") {
+                            baseIndex = 2;
+                        }
+                    }
+                    const runnerRef = Number.isInteger(baseIndex) ? state.baseRunners[baseIndex] : null;
+                    if (!runnerRef) {
+                        return null;
+                    }
+                    return {
+                        runnerRef: { ...runnerRef },
+                        baseIndex,
+                        label,
+                        outScore: getNextOutScoreForRunnerGui(),
+                        retired: true,
+                        live: true
+                    };
+                })
+                .filter(Boolean);
+        }
+
         function getProjectedRunnerPreviewItems() {
             const projected = state.baseRunners.map((runnerRef, baseIndex) => runnerRef
                 ? { runnerRef: { ...runnerRef }, baseIndex, sourceBaseIndex: baseIndex }
                 : null);
             applyStandardRunnerProjection(projected);
             applyRunnerContextProjection(projected);
+            const batterSafeBase = getBatterSafeBaseFromRunnerContext();
+            if (batterSafeBase >= 1 && batterSafeBase <= 3) {
+                placeProjectedRunner(
+                    projected,
+                    getSheetRef(state.selectedSheetRow, state.selectedSheetCol),
+                    batterSafeBase - 1,
+                    batterSafeBase - 1
+                );
+            }
             return projected
                 .filter(Boolean)
                 .sort((a, b) => (a.runnerRef.col - b.runnerRef.col) || (a.runnerRef.row - b.runnerRef.row));
@@ -9717,10 +9864,12 @@
             const previewEntry = getRunnerPreviewEntry();
             const activeItems = getProjectedRunnerPreviewItems();
             const activeKeys = new Set(activeItems.map((item) => item.runnerRef.row + ":" + item.runnerRef.col));
+            const liveRetiredItems = getLiveRunnerOutPreviewItems()
+                .filter((item) => !activeKeys.has(item.runnerRef.row + ":" + item.runnerRef.col));
             const retiredItems = (state.retiredRunnerPreviews || [])
                 .filter((item) => item.runnerRef && !activeKeys.has(item.runnerRef.row + ":" + item.runnerRef.col))
                 .map((item) => ({ ...item, retired: true }));
-            const items = [...activeItems, ...retiredItems]
+            const items = [...activeItems, ...liveRetiredItems, ...retiredItems]
                 .sort((a, b) => (a.runnerRef.col - b.runnerRef.col) || (a.runnerRef.row - b.runnerRef.row));
 
             if (!items.length) {
@@ -9732,12 +9881,17 @@
                 const isPreviewTarget = previewEntry
                     && previewEntry.runnerRef?.row === item.runnerRef.row
                     && previewEntry.runnerRef?.col === item.runnerRef.col;
-                const snapshot = isPreviewTarget
-                    ? buildRunnerPreviewSnapshot(previewEntry)
-                    : appendRunnerEventPreview(
+                const snapshot = item.retired && item.live
+                    ? appendRunnerEventPreview(
                         getSnapshotByRef(item.runnerRef),
-                        getLiveProjectedRunnerEventForRef(item.runnerRef)
-                    );
+                        { type: "out", label: item.label || "アウト", by: currentBatterNumberForRunnerEvent() }
+                    )
+                    : isPreviewTarget
+                        ? buildRunnerPreviewSnapshot(previewEntry)
+                        : appendRunnerEventPreview(
+                            getSnapshotByRef(item.runnerRef),
+                            getLiveProjectedRunnerEventForRef(item.runnerRef)
+                        );
                 const itemClass = "base-runner-preview-item" + (item.retired ? " is-retired" : "");
                 const cardClass = "base-runner-preview-card" + (item.retired ? " is-retired" : "");
                 const labelPrefix = item.retired ? "アウト<br>" : (item.baseIndex + 1) + "塁<br>";
