@@ -5564,6 +5564,27 @@
         }
 
         function parseNikkanSportsRow(text) {
+            const tabParts = (text || "").split(/\t+/).map((part) => part.trim());
+            const tabAverageIndex = tabParts.findIndex((token) => /^(?:\.\d{3}|---|--)$/.test(token));
+            if (tabAverageIndex >= 0 && tabAverageIndex + 2 < tabParts.length) {
+                const inningCells = tabParts
+                    .slice(tabAverageIndex + 2, tabAverageIndex + 2 + MAX_INNINGS)
+                    .map((token) => token || "……");
+                while (inningCells.length < 9) {
+                    inningCells.push("……");
+                }
+                const hasResultCell = inningCells.some((token) => {
+                    const parsed = buildParsedInput(token);
+                    return parsed && parsed.result;
+                });
+                if (hasResultCell) {
+                    return {
+                        raw: (text || "").replace(/\s+/g, " ").trim(),
+                        inningCells
+                    };
+                }
+            }
+
             const normalized = (text || "").replace(/\s+/g, " ").trim();
             if (!normalized) {
                 return null;
@@ -5579,6 +5600,100 @@
                 raw: normalized,
                 inningCells
             };
+        }
+
+        function isNikkanStarterDefense(defense) {
+            return /^[\(（].*[\)）]$/.test((defense || "").trim());
+        }
+
+        function isNikkanStatsHeader(line) {
+            return /打数/.test(line) && /安打/.test(line) && /打点/.test(line) && /(?:通算率|打率)/.test(line);
+        }
+
+        function parseNikkanRosterLine(line) {
+            const normalized = (line || "").trim();
+            if (!normalized || /^【.*】$/.test(normalized) || /守備/.test(normalized) || /選手名/.test(normalized)) {
+                return null;
+            }
+            const parts = normalized.split(/\t+/).map((part) => part.trim()).filter(Boolean);
+            if (parts.length >= 2) {
+                return {
+                    defense: parts[0],
+                    name: parts.slice(1).join("")
+                };
+            }
+            const match = normalized.match(/^([\(（]?[投捕一二三遊左右中走打指DHＰP]+[\)）]?)[\s　]+(.+)$/);
+            if (!match) {
+                return null;
+            }
+            return {
+                defense: match[1],
+                name: match[2].trim()
+            };
+        }
+
+        function combineNikkanBattingOrderRows(group) {
+            const inningCells = Array.from({ length: MAX_INNINGS }, (_, inningIndex) => {
+                const hit = group
+                    .map((entry) => entry.parsed?.inningCells[inningIndex] || "")
+                    .find((cell) => {
+                        const parsed = buildParsedInput(cell);
+                        return parsed && parsed.result;
+                    });
+                return hit || "……";
+            });
+            const names = group.map((entry) => entry.roster?.name).filter(Boolean);
+            return {
+                raw: group.map((entry) => entry.parsed?.raw).filter(Boolean).join(" / "),
+                inningCells,
+                playerName: names.join("/"),
+                rosterGroup: group.map((entry) => entry.roster).filter(Boolean)
+            };
+        }
+
+        function parseNikkanSportsBoardRows(input) {
+            const lines = (input || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+            const headerIndex = lines.findIndex((line) => isNikkanStatsHeader(line));
+            if (headerIndex < 0) {
+                return lines
+                    .map((line) => ({ line, parsed: parseNikkanSportsRow(line) }))
+                    .filter((entry) => entry.parsed)
+                    .map((entry) => entry.parsed);
+            }
+
+            const rosterEntries = lines.slice(0, headerIndex)
+                .map((line) => parseNikkanRosterLine(line))
+                .filter(Boolean);
+            const statEntries = lines.slice(headerIndex + 1)
+                .map((line) => ({ line, parsed: parseNikkanSportsRow(line) }));
+
+            const pairedRows = statEntries.map((entry, index) => ({
+                parsed: entry.parsed,
+                roster: rosterEntries[index] || null
+            }));
+
+            const groups = [];
+            let currentGroup = null;
+            pairedRows.forEach((entry) => {
+                const startsOrder = isNikkanStarterDefense(entry.roster?.defense);
+                if (startsOrder && groups.length < 9) {
+                    currentGroup = [entry];
+                    groups.push(currentGroup);
+                    return;
+                }
+                if (currentGroup) {
+                    currentGroup.push(entry);
+                }
+            });
+
+            if (groups.length >= 9) {
+                return groups.slice(0, 9).map((group) => combineNikkanBattingOrderRows(group));
+            }
+
+            return statEntries.filter((entry) => entry.parsed).map((entry, index) => ({
+                ...entry.parsed,
+                playerName: rosterEntries[index]?.name || ""
+            }));
         }
 
         function fillSheetCellFromParsed(row, col, parsed) {
@@ -5661,10 +5776,7 @@
                 return;
             }
 
-            const lines = input.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-            const parsedRows = lines
-                .map((line) => ({ line, parsed: parseNikkanSportsRow(line) }))
-                .filter((entry) => entry.parsed);
+            const parsedRows = parseNikkanSportsBoardRows(input);
 
             if (parsedRows.length === 0) {
                 preview.textContent = "有効な打者行を見つけられませんでした。表全体か、打者行を複数行で貼ってください。";
@@ -5677,11 +5789,14 @@
             let importedCells = 0;
             let lowConfidenceCells = 0;
 
-            parsedRows.slice(0, maxRows).forEach((entry, rowOffset) => {
+            parsedRows.slice(0, maxRows).forEach((parsedRow, rowOffset) => {
                 const targetRow = startRow + rowOffset;
                 let rowImported = false;
+                if (parsedRow.playerName) {
+                    state.playerNames[state.activeHalf][targetRow] = parsedRow.playerName;
+                }
 
-                entry.parsed.inningCells.forEach((cellText, inningIndex) => {
+                parsedRow.inningCells.forEach((cellText, inningIndex) => {
                     const parsed = buildParsedInput(cellText);
                     if (!parsed || !parsed.result) {
                         return;
