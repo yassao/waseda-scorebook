@@ -2210,6 +2210,7 @@
         }
 
         .manual-editor {
+            display: none;
             margin-bottom: 22px;
             border-radius: 14px;
             background: #f8fafb;
@@ -3032,6 +3033,24 @@
                     { value: "sac_bunt", label: "犠打" },
                     { value: "sac_fly", label: "犠飛" },
                     { value: "double_play", label: "併殺" }
+                ]
+            },
+            other: {
+                label: "その他",
+                options: [
+                    { value: "other_wild_pitch", label: "暴投" },
+                    { value: "other_passed_ball", label: "捕逸" },
+                    { value: "other_balk", label: "ボーク" },
+                    { value: "other_stolen_base", label: "盗塁" },
+                    { value: "other_caught_stealing", label: "盗塁刺" },
+                    { value: "other_pickoff", label: "牽制" },
+                    { value: "other_tag_out", label: "タッグアウト" },
+                    { value: "other_bunt_hit", label: "バントヒット" },
+                    { value: "other_texas_hit", label: "テキサスヒット" },
+                    { value: "other_hard_hit", label: "強襲安打" },
+                    { value: "other_interference", label: "打撃妨害" },
+                    { value: "other_obstruction", label: "走塁妨害" },
+                    { value: "other_offensive_interference", label: "守備妨害" }
                 ]
             }
         };
@@ -7306,6 +7325,48 @@
                         parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
                         parsed.modifiers.doublePlay = true;
                         parsed.outScore = "Ⅱ";
+                        break;
+                    case "other_wild_pitch":
+                        parsed.result = parsed.result || "W";
+                        break;
+                    case "other_passed_ball":
+                        parsed.result = parsed.result || "P";
+                        break;
+                    case "other_balk":
+                        parsed.result = parsed.result || "BK";
+                        break;
+                    case "other_stolen_base":
+                        parsed.result = parsed.result || "S";
+                        break;
+                    case "other_caught_stealing":
+                        parsed.result = parsed.result || "CS";
+                        break;
+                    case "other_pickoff":
+                        parsed.result = parsed.result || "PO";
+                        break;
+                    case "other_tag_out":
+                        parsed.result = parsed.result || "TO";
+                        break;
+                    case "other_bunt_hit":
+                        parsed.result = parsed.result || "BH";
+                        parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
+                        parsed.direction = parsed.direction === "?" ? "down" : parsed.direction;
+                        break;
+                    case "other_texas_hit":
+                        parsed.result = parsed.result || "T";
+                        parsed.ballType = parsed.ballType === "none" ? "fly" : parsed.ballType;
+                        break;
+                    case "other_hard_hit":
+                        parsed.result = parsed.result || "H";
+                        break;
+                    case "other_interference":
+                        parsed.result = parsed.result || "IF";
+                        break;
+                    case "other_obstruction":
+                        parsed.result = parsed.result || "OB";
+                        break;
+                    case "other_offensive_interference":
+                        parsed.result = parsed.result || "x";
                         break;
                     case "r1_to_2":
                     case "wp_advance":
