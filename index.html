@@ -2757,10 +2757,10 @@
                             <div class="nl-panel">
                                 <textarea id="twitterImportInput" class="nl-input import-textarea" placeholder="実況ポストをまとめて貼り付け。前回イニングの続きから取り込む想定で準備中です。"></textarea>
                                 <div class="nl-actions">
-                                    <button onclick="previewTwitterImport()">前回イニングの続きから確認</button>
+                                    <button onclick="importTwitterGameText()">現在の続きから取り込み</button>
                                     <button onclick="clearTwitterImportInput()">内容クリア</button>
                                 </div>
-                                <div id="twitterImportPreview" class="nl-preview">Twitter/X形式は準備中です。各打者行の原文は将来、吹き出しコメントとして保存する予定です。</div>
+                                <div id="twitterImportPreview" class="nl-preview">実況ポストを貼り付けると、現在の回・打順の続きから推定で取り込みます。原文は吹き出しコメントとして残します。</div>
                             </div>
                         </section>
                     </div>
@@ -6038,6 +6038,126 @@
             ].join("<br>");
         }
 
+        function parseTwitterBatterLine(line) {
+            const normalized = (line || "").trim();
+            if (!normalized || /^P(?:交代)?/.test(normalized) || /^\d+番から/.test(normalized) || /^\d+回/.test(normalized) || /.+\d+-\d+.+/.test(normalized)) {
+                return null;
+            }
+            const match = normalized.match(/^(.+?)[\s　]+(.+)$/);
+            if (!match) {
+                return null;
+            }
+            const playerName = match[1].replace(/→[A-ZＡ-Ｚ]?H?/, "").trim();
+            const body = match[2].trim();
+            if (!playerName || !body || /^(守備|シート|代走|守備タイム)/.test(playerName)) {
+                return null;
+            }
+            return { playerName, body, raw: normalized };
+        }
+
+        function extractTwitterMainPlayText(body) {
+            const chunks = (body || "").split(/[\s　]+/).map((chunk) => chunk.trim()).filter(Boolean);
+            for (let index = chunks.length - 1; index >= 0; index -= 1) {
+                const parsed = buildParsedInput(chunks[index]);
+                if (parsed?.result) {
+                    return chunks[index];
+                }
+            }
+            return body;
+        }
+
+        function detectTwitterRunnerContext(body) {
+            const context = createEmptyRunnerContext();
+            const text = normalizeBaseballDigits(body || "");
+            if (/(?:2|二塁|二走)(?:→|-)?[1-9].*牽制アウト|2→[1-9].*牽制アウト/.test(text)) {
+                addUniqueContextEntry(context.outsOnBases, "二塁アウト");
+            }
+            if (/(?:1|一塁|一走)(?:→|-)?[1-9].*牽制アウト|1→[1-9].*牽制アウト/.test(text)) {
+                addUniqueContextEntry(context.outsOnBases, "二塁アウト");
+            }
+            if (/(?:3|三塁|三走)(?:→|-)?[1-9].*牽制アウト|3→[1-9].*牽制アウト/.test(text)) {
+                addUniqueContextEntry(context.outsOnBases, "本塁アウト");
+            }
+            const naturalContext = detectRunnerContext(normalizeNaturalLanguageKey(body));
+            if (naturalContext) {
+                (naturalContext.advances || []).forEach((entry) => addUniqueContextEntry(context.advances, entry));
+                (naturalContext.outsOnBases || []).forEach((entry) => addUniqueContextEntry(context.outsOnBases, entry));
+                context.scores += naturalContext.scores || 0;
+                context.occupancy = naturalContext.occupancy || context.occupancy;
+                context.outCountText = naturalContext.outCountText || context.outCountText;
+            }
+            return compactRunnerContext(context);
+        }
+
+        function mergeParsedRunnerContext(baseContext, extraContext) {
+            if (!extraContext) {
+                return baseContext || null;
+            }
+            const merged = baseContext ? deepClone(baseContext) : createEmptyRunnerContext();
+            (extraContext.advances || []).forEach((entry) => addUniqueContextEntry(merged.advances, entry));
+            (extraContext.outsOnBases || []).forEach((entry) => addUniqueContextEntry(merged.outsOnBases, entry));
+            merged.scores += extraContext.scores || 0;
+            merged.occupancy = extraContext.occupancy || merged.occupancy;
+            merged.outCountText = extraContext.outCountText || merged.outCountText;
+            return compactRunnerContext(merged);
+        }
+
+        function importTwitterGameText() {
+            const input = document.getElementById("twitterImportInput");
+            const preview = document.getElementById("twitterImportPreview");
+            const text = (input?.value || "").trim();
+            if (!text) {
+                preview.textContent = "実況ポストを貼り付けてください。";
+                return;
+            }
+            const entries = text
+                .split(/\r?\n/)
+                .map((line) => parseTwitterBatterLine(line))
+                .filter(Boolean);
+            if (!entries.length) {
+                preview.textContent = "打者行を見つけられませんでした。例: 黄　初球フェンス直撃2ベース！";
+                return;
+            }
+
+            pushGameHistory();
+            let imported = 0;
+            let skipped = 0;
+            entries.forEach((entry) => {
+                const mainPlayText = extractTwitterMainPlayText(entry.body);
+                const parsed = buildParsedInput(mainPlayText) || buildParsedInput(entry.body);
+                if (!parsed?.result) {
+                    skipped += 1;
+                    return;
+                }
+                const targetRow = state.selectedSheetRow;
+                const targetCol = state.selectedSheetCol;
+                if (!state.playerNames[state.activeHalf][targetRow]) {
+                    state.playerNames[state.activeHalf][targetRow] = entry.playerName;
+                }
+                const runnerContext = detectTwitterRunnerContext(entry.body);
+                parsed.runnerContext = mergeParsedRunnerContext(parsed.runnerContext, runnerContext);
+                const estimated = estimateNikkanBoardContext(parsed, state.baseRunners, getMaxOutCountForActiveInning());
+                applyParsedInput(estimated);
+                state.atBatComment = entry.raw;
+                const naturalInput = document.getElementById("naturalLanguageInput");
+                if (naturalInput) {
+                    naturalInput.value = mainPlayText;
+                }
+                const snapshot = saveCurrentToSheet();
+                imported += 1;
+                advanceAfterSave(snapshot);
+            });
+
+            renderScoreSheet();
+            updateDisplay();
+            preview.innerHTML = [
+                "X / Twitter取り込み完了:",
+                "反映打席: " + imported,
+                "未解釈: " + skipped,
+                "原文は各打席の吹き出しコメントに保存しました。"
+            ].join("<br>");
+        }
+
         function setBattingOrder() {
             state.battingOrder = document.getElementById("battingOrderSelect").value;
             updateDisplay();
@@ -8233,6 +8353,25 @@
                     runnerContext: dynamicRunnerContext,
                     note: normalized,
                     confidence: 0.88,
+                    source: "keyword"
+                };
+            }
+
+            const extraBaseKeywordMatch = normalized.match(/(三塁打|3塁打|3(?:ベ|べ)(?:ー?ス)?|スリーベース|二塁打|2塁打|2(?:ベ|べ)(?:ー?ス)?|ツーベース)/);
+            if (extraBaseKeywordMatch
+                && !normalized.includes("1B2S")
+                && !normalized.includes("2B2S")
+                && !normalized.includes("3B2S")) {
+                const hitText = extraBaseKeywordMatch[1];
+                return {
+                    fielder: dynamicFielder || "?",
+                    direction: dynamicDirection !== "none" ? dynamicDirection : "?",
+                    ballType: dynamicBallType,
+                    result: /三|3|スリー/.test(hitText) ? "3B" : "2B",
+                    modifiers: dynamicModifiers,
+                    runnerContext: dynamicRunnerContext,
+                    note: normalized,
+                    confidence: dynamicFielder ? 0.86 : 0.72,
                     source: "keyword"
                 };
             }
