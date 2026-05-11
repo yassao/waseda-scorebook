@@ -2758,6 +2758,7 @@
                                 <textarea id="twitterImportInput" class="nl-input import-textarea" placeholder="実況ポストをまとめて貼り付け。前回イニングの続きから取り込む想定で準備中です。"></textarea>
                                 <div class="nl-actions">
                                     <button onclick="importTwitterGameText()">現在の続きから取り込み</button>
+                                    <button onclick="generateTwitterFormatPrompt()">AI変換プロンプト生成</button>
                                     <button onclick="clearTwitterImportInput()">内容クリア</button>
                                 </div>
                                 <div id="twitterImportPreview" class="nl-preview">実況ポストを貼り付けると、現在の回・打順の続きから推定で取り込みます。原文は吹き出しコメントとして残します。</div>
@@ -5320,23 +5321,11 @@
                 for (let col = 0; col < MAX_INNINGS; col += 1) {
                     const button = document.createElement("button");
                     button.className = "sheet-cell";
+                    button.type = "button";
                     const isActiveHalf = half === state.activeHalf;
+                    const canEditCell = interactive && isActiveHalf;
                     if (interactive && isActiveHalf && row === state.selectedSheetRow && col === state.selectedSheetCol) {
                         button.classList.add("is-active");
-                    }
-                    if (interactive && isActiveHalf) {
-                        button.onclick = (event) => handleSheetCellClick(event, row, col);
-                        button.onpointerdown = () => startSheetCellPress(row, col);
-                        button.onpointerup = cancelSheetCellPress;
-                        button.onpointerleave = cancelSheetCellPress;
-                        button.onpointercancel = cancelSheetCellPress;
-                        button.oncontextmenu = (event) => {
-                            event.preventDefault();
-                            confirmClearSheetCell(row, col);
-                        };
-                    } else {
-                        button.type = "button";
-                        button.disabled = !isActiveHalf;
                     }
 
                     let snapshot = sheet[row][col];
@@ -5351,6 +5340,21 @@
                         snapshot = liveCurrentSnapshot;
                     }
                     button.innerHTML = generateSheetCellSvg(snapshot);
+                    const hasComment = Boolean(snapshot?.atBatComment);
+                    button.disabled = !canEditCell && !hasComment;
+                    if (canEditCell) {
+                        button.onclick = (event) => handleSheetCellClick(event, row, col);
+                        button.onpointerdown = () => startSheetCellPress(row, col);
+                        button.onpointerup = cancelSheetCellPress;
+                        button.onpointerleave = cancelSheetCellPress;
+                        button.onpointercancel = cancelSheetCellPress;
+                        button.oncontextmenu = (event) => {
+                            event.preventDefault();
+                            confirmClearSheetCell(row, col);
+                        };
+                    } else if (hasComment) {
+                        button.onclick = () => showAtBatCommentPopup(snapshot);
+                    }
 
                     target.appendChild(button);
                 }
@@ -6017,6 +6021,42 @@
             }
             if (preview) {
                 preview.textContent = "内容をクリアしました。次の実況ポストを貼り付けできます。";
+            }
+        }
+
+        function generateTwitterFormatPrompt() {
+            const input = document.getElementById("twitterImportInput");
+            const preview = document.getElementById("twitterImportPreview");
+            const rawText = (input?.value || "").trim();
+            const prompt = [
+                "以下の野球実況テキストを、早稲田式スコアブックアプリへ貼り付けやすい形式に整形してください。",
+                "",
+                "ルール:",
+                "1. 1打者につき1行にしてください。",
+                "2. 行頭は「選手名　結果」の形にしてください。選手名と結果の間は全角スペースを1つ入れてください。",
+                "3. 結果はできるだけ短い野球表記にしてください。例: 中安、右線二塁打、左本、空三振、見三振、四球、死球、投犠打、三邪、遊ゴロ、463併殺、ギ野。",
+                "4. 走者の動きが分かる場合は同じ行に追記してください。例: 一走三塁、二走生還、三走生還、二盗、二盗死、2→6牽制アウト、①。",
+                "5. 球速や好捕などの情景コメントは削らず、結果の後ろに短く残してください。このアプリでは原文も吹き出しコメントとして保存します。",
+                "6. 投手交代、守備交代、得点表示だけの行は、打者行とは別に残すか、判断できなければそのまま残してください。",
+                "",
+                "出力例:",
+                "黄　中越二塁打　初球フェンス直撃",
+                "中澤　二飛　2→6牽制アウト",
+                "小田倉　空三振　130km/h変化球",
+                "",
+                "変換対象:",
+                rawText || "（ここに実況テキストを貼り付け）"
+            ].join("\n");
+
+            if (preview) {
+                preview.innerHTML = [
+                    "<div>以下のプロンプトをChatGPTなどに貼ると、このアプリに読み込ませやすい形へ整形できます。</div>",
+                    '<textarea class="nl-input import-textarea" readonly onclick="this.select()">' + escapeHtml(prompt) + "</textarea>",
+                    "<div class=\"import-help\">素のまま取り込んで誤りが多いときの補助用です。変換結果を上の入力欄へ貼り直して取り込んでください。</div>"
+                ].join("");
+            }
+            if (navigator.clipboard?.writeText) {
+                navigator.clipboard.writeText(prompt).catch(() => {});
             }
         }
 
