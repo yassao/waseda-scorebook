@@ -1220,6 +1220,13 @@
             opacity: 1;
         }
 
+        .import-textarea {
+            min-height: 170px;
+            height: 170px;
+            resize: vertical;
+            font-size: 13px;
+        }
+
         .play-builder {
             display: grid;
             gap: 4px;
@@ -2417,6 +2424,12 @@
                 font-size: 12px;
             }
 
+            .import-textarea {
+                height: 160px;
+                min-height: 160px;
+                font-size: 12px;
+            }
+
             .nl-preview.compact {
                 min-height: 24px;
                 font-size: 10px;
@@ -2691,25 +2704,15 @@
                     <summary>☰ オプション</summary>
                     <div class="options-body">
                         <section class="section">
-                            <div class="section-title">日刊スポーツ 1行インポート</div>
-                            <div class="nl-panel">
-                                <textarea id="nikkanRowInput" class="nl-input" placeholder="例: (左) キャベッジ (左) 4 2 0 .304 4 二ゴ 右安 死球 …… …… 左2 …… 二ゴ ……"></textarea>
-                                <div class="nl-actions">
-                                    <button onclick="importNikkanSportsRow()">選択打順に取り込む</button>
-                                </div>
-                                <div id="nikkanImportPreview" class="nl-preview">現在選択中の打順へ、1回〜9回をまとめて取り込みます。</div>
-                            </div>
-                        </section>
-
-                        <section class="section">
                             <div class="section-title">日刊スポーツ 全体インポート</div>
                             <div class="nl-panel">
-                                <textarea id="nikkanBoardInput" class="nl-input" placeholder="日刊スポーツの打者成績表を複数行まとめて貼り付け"></textarea>
+                                <textarea id="nikkanBoardInput" class="nl-input import-textarea" placeholder="日刊スポーツの打者成績表を複数行まとめて貼り付け"></textarea>
                                 <div class="nl-actions">
                                     <button onclick="importNikkanSportsBoard()">選択打順から一括取り込み</button>
                                     <button onclick="importNikkanSportsBoard(true)">1番から自動配置</button>
+                                    <button onclick="clearNikkanSportsBoardInput()">内容クリア</button>
                                 </div>
-                                <div id="nikkanBoardPreview" class="nl-preview">選択中の打順を先頭にして、複数行を 1番ずつ下へ流し込みます。延長は12回まで対応します。</div>
+                                <div id="nikkanBoardPreview" class="nl-preview">日刊スポーツの打者成績表をまとめて貼り付けます。アウト・走者・得点は推定で反映します。</div>
                                 <div class="import-help">低確度のセルはシート上でグレーハッチ表示にします。あとでタップして修正できます。</div>
                             </div>
                         </section>
@@ -5724,48 +5727,73 @@
             document.getElementById("battingOrderSelect").value = state.battingOrder;
         }
 
-        function importNikkanSportsRow() {
-            const input = document.getElementById("nikkanRowInput").value.trim();
-            const preview = document.getElementById("nikkanImportPreview");
-            const parsedRow = parseNikkanSportsRow(input);
+        function fillSheetCellFromParsedWithRunners(row, col, parsed, runners) {
+            const preservedSelection = {
+                row: state.selectedSheetRow,
+                col: state.selectedSheetCol,
+                battingOrder: state.battingOrder,
+                baseRunners: deepClone(state.baseRunners)
+            };
+            const preservedSnapshot = captureAtBatSnapshot();
 
-            if (!parsedRow) {
-                preview.textContent = "1行の分解に失敗しました。日刊スポーツの1行をそのまま貼ってください。";
-                return;
+            state.selectedSheetRow = row;
+            state.selectedSheetCol = col;
+            state.battingOrder = String(row + 1);
+            document.getElementById("battingOrderSelect").value = state.battingOrder;
+            setBaseRunners(deepClone(runners));
+
+            applyParsedInput(parsed);
+            const snapshot = captureAtBatSnapshot();
+            snapshot.confidence = parsed.confidence || 1;
+            snapshot.source = parsed.source || "import";
+            state.scoreSheet[row][col] = snapshot;
+            updateBaseRunnersForSnapshot(row, col, snapshot);
+            const nextRunners = deepClone(state.baseRunners);
+
+            state.selectedSheetRow = preservedSelection.row;
+            state.selectedSheetCol = preservedSelection.col;
+            state.battingOrder = preservedSelection.battingOrder;
+            setBaseRunners(preservedSelection.baseRunners);
+            applyAtBatSnapshot(preservedSnapshot);
+            document.getElementById("battingOrderSelect").value = state.battingOrder;
+
+            return nextRunners;
+        }
+
+        function getImportedParsedOuts(parsed) {
+            if (!parsed || !parsed.result) {
+                return 0;
             }
+            let outs = 0;
+            if (parsed.result === "K" || parsed.result === "OUT") {
+                outs += parsed.modifiers?.doublePlay ? 2 : 1;
+            }
+            if (Array.isArray(parsed.runnerContext?.outsOnBases)) {
+                outs += parsed.runnerContext.outsOnBases.length;
+            }
+            return Math.min(3, outs);
+        }
 
-            let importedCount = 0;
+        function estimateNikkanBoardContext(parsed, inningRunners, outCount) {
+            const copy = cloneParsedInput(parsed);
+            const outs = getImportedParsedOuts(copy);
+            if (outs > 0) {
+                copy.outScore = outCountToRoman(Math.min(3, outCount + outs)) || copy.outScore;
+            }
+            copy.confidence = Math.min(copy.confidence || 1, 0.82);
+            return copy;
+        }
 
-            parsedRow.inningCells.forEach((cellText, index) => {
-                const parsed = buildParsedInput(cellText);
-                if (!parsed || !parsed.result) {
-                    return;
-                }
-
-                const previousRow = state.selectedSheetRow;
-                const previousCol = state.selectedSheetCol;
-
-                state.selectedSheetRow = previousRow;
-                state.selectedSheetCol = index;
-                state.battingOrder = String(previousRow + 1);
-                document.getElementById("battingOrderSelect").value = state.battingOrder;
-
-                fillSheetCellFromParsed(previousRow, index, parsed);
-                importedCount += 1;
-
-                state.selectedSheetRow = previousRow;
-                state.selectedSheetCol = previousCol;
-            });
-
-            renderScoreSheet();
-            updateDisplay();
-
-            preview.innerHTML = [
-                "取り込み完了:",
-                "打順: " + (state.selectedSheetRow + 1) + "番",
-                "反映数: " + importedCount + "打席",
-                "セル: " + parsedRow.inningCells.join(" | ")
-            ].join("<br>");
+        function clearNikkanSportsBoardInput() {
+            const input = document.getElementById("nikkanBoardInput");
+            const preview = document.getElementById("nikkanBoardPreview");
+            if (input) {
+                input.value = "";
+                input.focus();
+            }
+            if (preview) {
+                preview.textContent = "内容をクリアしました。次のチームの表を貼り付けできます。";
+            }
         }
 
         function importNikkanSportsBoard(startFromTop = false) {
@@ -5788,6 +5816,8 @@
             let importedRows = 0;
             let importedCells = 0;
             let lowConfidenceCells = 0;
+            const inningRunners = Array.from({ length: MAX_INNINGS }, () => [null, null, null]);
+            const inningOuts = Array.from({ length: MAX_INNINGS }, () => 0);
 
             parsedRows.slice(0, maxRows).forEach((parsedRow, rowOffset) => {
                 const targetRow = startRow + rowOffset;
@@ -5801,10 +5831,15 @@
                     if (!parsed || !parsed.result) {
                         return;
                     }
-                    fillSheetCellFromParsed(targetRow, inningIndex, parsed);
+                    const importParsed = estimateNikkanBoardContext(parsed, inningRunners[inningIndex], inningOuts[inningIndex]);
+                    inningRunners[inningIndex] = fillSheetCellFromParsedWithRunners(targetRow, inningIndex, importParsed, inningRunners[inningIndex]);
+                    inningOuts[inningIndex] = Math.min(3, inningOuts[inningIndex] + getImportedParsedOuts(importParsed));
+                    if (inningOuts[inningIndex] >= 3) {
+                        inningRunners[inningIndex] = [null, null, null];
+                    }
                     importedCells += 1;
                     rowImported = true;
-                    if ((parsed.confidence || 1) < 0.7) {
+                    if ((importParsed.confidence || 1) < 0.7) {
                         lowConfidenceCells += 1;
                     }
                 });
@@ -8342,6 +8377,42 @@
             }
             if (normalizedText.includes("二盗")) {
                 return { result: "S", runnerContext: detectRunnerContext(normalizedText), note: normalizedText, confidence: 0.9, source: "shorthand" };
+            }
+
+            const shortDoublePlayMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])併$/);
+            if (shortDoublePlayMatch) {
+                const fielder = SHORT_FIELDER_MAP[shortDoublePlayMatch[1]];
+                const defaultSecond = ({ "1": "6", "3": "6", "4": "6", "5": "4", "6": "4" }[fielder] || "4");
+                return {
+                    fielder,
+                    ballType: "ground",
+                    result: "OUT",
+                    fieldSequence: [fielder, defaultSecond, "3"],
+                    outScore: "Ⅱ",
+                    modifiers: { doublePlay: true },
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText,
+                    confidence: 0.8,
+                    source: "shorthand"
+                };
+            }
+
+            const shortErrorMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])失$/);
+            if (shortErrorMatch) {
+                const fielder = SHORT_FIELDER_MAP[shortErrorMatch[1]];
+                return {
+                    fielder,
+                    ballType: /^[1-6]$/.test(fielder) ? "ground" : "none",
+                    result: "Fc",
+                    errorMode: "fielder",
+                    runnerContext: {
+                        ...createEmptyRunnerContext(),
+                        advances: ["打者走者一塁セーフ"]
+                    },
+                    note: normalizedText,
+                    confidence: 0.72,
+                    source: "shorthand"
+                };
             }
 
             const directionalExtraBaseMatch = normalizedText.match(/^(レフト|センター|ライト|左|中|右)(前|オーバー|左|右|線)?(?:への?)?(二塁打|2塁打|ツーベース|三塁打|3塁打|スリーベース)$/);
