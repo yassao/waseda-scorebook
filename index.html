@@ -2252,6 +2252,38 @@
             padding: 14px;
         }
 
+        .options-nav {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .options-nav button {
+            min-height: 44px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            border: 2px solid #d8e1e8;
+            background: #fff;
+            color: #22313f;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .options-nav button.is-active {
+            border-color: #0f766e;
+            background: #e6f6f3;
+            color: #0f4f4a;
+        }
+
+        .options-panel {
+            display: none;
+        }
+
+        .options-panel.is-active {
+            display: block;
+        }
+
         .manual-editor {
             display: none;
             margin-bottom: 22px;
@@ -2703,7 +2735,11 @@
                 <details class="options-menu">
                     <summary>☰ オプション</summary>
                     <div class="options-body">
-                        <section class="section">
+                        <div class="options-nav" role="tablist" aria-label="インポート機能">
+                            <button id="optionNavNikkan" type="button" class="is-active" onclick="showOptionPanel('nikkan')">日刊スポーツ<br>インポート</button>
+                            <button id="optionNavX" type="button" onclick="showOptionPanel('x')">X / Twitter<br>インポート</button>
+                        </div>
+                        <section id="optionPanelNikkan" class="section options-panel is-active">
                             <div class="section-title">日刊スポーツ 全体インポート</div>
                             <div class="nl-panel">
                                 <textarea id="nikkanBoardInput" class="nl-input import-textarea" placeholder="日刊スポーツの打者成績表を複数行まとめて貼り付け"></textarea>
@@ -2714,6 +2750,13 @@
                                 </div>
                                 <div id="nikkanBoardPreview" class="nl-preview">日刊スポーツの打者成績表をまとめて貼り付けます。アウト・走者・得点は推定で反映します。</div>
                                 <div class="import-help">低確度のセルはシート上でグレーハッチ表示にします。あとでタップして修正できます。</div>
+                            </div>
+                        </section>
+                        <section id="optionPanelX" class="section options-panel">
+                            <div class="section-title">X / Twitter インポート</div>
+                            <div class="nl-panel">
+                                <textarea class="nl-input import-textarea" placeholder="今後、Xのポストや実況テキストを貼り付けて取り込めるようにします。" disabled></textarea>
+                                <div class="nl-preview">準備中です。まずは日刊スポーツ形式の取り込みを安定させます。</div>
                             </div>
                         </section>
                     </div>
@@ -3732,6 +3775,18 @@
             }
             state.playerNumbers[half][index] = value.trim();
             renderScoreSheet();
+        }
+
+        function splitRosterNameSlots(playerName) {
+            const names = String(playerName || "")
+                .split("/")
+                .map((name) => name.trim())
+                .filter(Boolean);
+            return [
+                names[0] || "",
+                names[1] || "",
+                names.slice(2).join("/") || ""
+            ];
         }
 
         function renderPlayerRosterEditor() {
@@ -5243,11 +5298,12 @@
                 const roster = document.createElement("div");
                 roster.className = "sheet-label sheet-name-col sheet-roster-cell";
                 const playerName = state.playerNames[half]?.[row] || "";
+                const nameSlots = splitRosterNameSlots(playerName);
                 roster.innerHTML = [
                     '<div class="sheet-roster-slots">',
-                    '<div class="sheet-roster-slot">' + escapeHtml(playerName) + '</div>',
-                    '<div class="sheet-roster-slot"></div>',
-                    '<div class="sheet-roster-slot"></div>',
+                    '<div class="sheet-roster-slot">' + escapeHtml(nameSlots[0]) + '</div>',
+                    '<div class="sheet-roster-slot">' + escapeHtml(nameSlots[1]) + '</div>',
+                    '<div class="sheet-roster-slot">' + escapeHtml(nameSlots[2]) + '</div>',
                     '</div>'
                 ].join("");
                 target.appendChild(roster);
@@ -5794,6 +5850,24 @@
             if (preview) {
                 preview.textContent = "内容をクリアしました。次のチームの表を貼り付けできます。";
             }
+        }
+
+        function showOptionPanel(panelName) {
+            const normalized = panelName === "x" ? "x" : "nikkan";
+            const panels = {
+                nikkan: document.getElementById("optionPanelNikkan"),
+                x: document.getElementById("optionPanelX")
+            };
+            const buttons = {
+                nikkan: document.getElementById("optionNavNikkan"),
+                x: document.getElementById("optionNavX")
+            };
+            Object.entries(panels).forEach(([key, panel]) => {
+                panel?.classList.toggle("is-active", key === normalized);
+            });
+            Object.entries(buttons).forEach(([key, button]) => {
+                button?.classList.toggle("is-active", key === normalized);
+            });
         }
 
         function importNikkanSportsBoard(startFromTop = false) {
