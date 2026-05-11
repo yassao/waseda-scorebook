@@ -2744,9 +2744,9 @@
                             <div class="nl-panel">
                                 <textarea id="nikkanBoardInput" class="nl-input import-textarea" placeholder="日刊スポーツの打者成績表を複数行まとめて貼り付け"></textarea>
                                 <div class="nl-actions">
-                                    <button onclick="importNikkanSportsBoard()">選択打順から一括取り込み</button>
-                                    <button onclick="importNikkanSportsBoard(true)">1番から自動配置</button>
+                                    <button onclick="importNikkanSportsBoardForHalf('top')">先攻チーム取り込み</button>
                                     <button onclick="clearNikkanSportsBoardInput()">内容クリア</button>
+                                    <button onclick="importNikkanSportsBoardForHalf('bottom')">後攻チーム取り込み</button>
                                 </div>
                                 <div id="nikkanBoardPreview" class="nl-preview">日刊スポーツの打者成績表をまとめて貼り付けます。アウト・走者・得点は推定で反映します。</div>
                                 <div class="import-help">低確度のセルはシート上でグレーハッチ表示にします。あとでタップして修正できます。</div>
@@ -2755,8 +2755,12 @@
                         <section id="optionPanelX" class="section options-panel">
                             <div class="section-title">X / Twitter インポート</div>
                             <div class="nl-panel">
-                                <textarea class="nl-input import-textarea" placeholder="今後、Xのポストや実況テキストを貼り付けて取り込めるようにします。" disabled></textarea>
-                                <div class="nl-preview">準備中です。まずは日刊スポーツ形式の取り込みを安定させます。</div>
+                                <textarea id="twitterImportInput" class="nl-input import-textarea" placeholder="実況ポストをまとめて貼り付け。前回イニングの続きから取り込む想定で準備中です。"></textarea>
+                                <div class="nl-actions">
+                                    <button onclick="previewTwitterImport()">前回イニングの続きから確認</button>
+                                    <button onclick="clearTwitterImportInput()">内容クリア</button>
+                                </div>
+                                <div id="twitterImportPreview" class="nl-preview">Twitter/X形式は準備中です。各打者行の原文は将来、吹き出しコメントとして保存する予定です。</div>
                             </div>
                         </section>
                     </div>
@@ -5438,6 +5442,29 @@
                 showAtBatCommentPopup(snapshot);
                 return;
             }
+            if (snapshot && state.scoreSheet[row]?.[col] && (row !== state.selectedSheetRow || col !== state.selectedSheetCol)) {
+                const choice = window.prompt(
+                    (getColumnInningLabel(col) + "回 " + (row + 1) + "番のマスを編集します。\n") +
+                    "1: 打撃結果を編集\n" +
+                    "2: 走塁結果を編集（対象走者としてプレビューに表示）\n" +
+                    "3: つぶやきを見る",
+                    "1"
+                );
+                if (choice === "3") {
+                    showAtBatCommentPopup(snapshot);
+                    return;
+                }
+                selectSheetCell(row, col);
+                if (choice === "2") {
+                    const label = getColumnInningLabel(col) + "回 " + (row + 1) + "番";
+                    const commentLabel = document.getElementById("commentTargetLabel");
+                    if (commentLabel) {
+                        commentLabel.textContent = "対象: " + label + "（走塁編集）";
+                    }
+                    window.alert("このマスを走塁結果の修正対象として開きました。右側の走者プレビューから、到達塁・アウト・得点などを修正してください。");
+                }
+                return;
+            }
             selectSheetCell(row, col);
         }
 
@@ -5969,6 +5996,45 @@
                 "反映セル数: " + importedCells,
                 "低確度セル: " + lowConfidenceCells + "件",
                 startFromTop ? "配置: 1番から自動" : "配置: 選択打順から"
+            ].join("<br>");
+        }
+
+        function importNikkanSportsBoardForHalf(half) {
+            if (!["top", "bottom"].includes(half)) {
+                return;
+            }
+            pushGameHistory();
+            activateHalf(half, 0, 0, { skipSave: true });
+            importNikkanSportsBoard(true);
+        }
+
+        function clearTwitterImportInput() {
+            const input = document.getElementById("twitterImportInput");
+            const preview = document.getElementById("twitterImportPreview");
+            if (input) {
+                input.value = "";
+                input.focus();
+            }
+            if (preview) {
+                preview.textContent = "内容をクリアしました。次の実況ポストを貼り付けできます。";
+            }
+        }
+
+        function previewTwitterImport() {
+            const input = document.getElementById("twitterImportInput");
+            const preview = document.getElementById("twitterImportPreview");
+            const text = (input?.value || "").trim();
+            if (!text) {
+                preview.textContent = "実況ポストを貼り付けてください。";
+                return;
+            }
+            const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+            const batterLikeLines = lines.filter((line) => /　|\s/.test(line) && !/^\d+回|^P|^\d+番から|.*\d+-\d+/.test(line));
+            preview.innerHTML = [
+                "Twitter/Xインポート準備:",
+                "行数: " + lines.length,
+                "打者行候補: " + batterLikeLines.length,
+                "現時点では確認のみです。次の段階で、各打者行をスコアと吹き出しコメントへ反映します。"
             ].join("<br>");
         }
 
@@ -8487,6 +8553,25 @@
             }
             if (normalizedText.includes("二盗")) {
                 return { result: "S", runnerContext: detectRunnerContext(normalizedText), note: normalizedText, confidence: 0.9, source: "shorthand" };
+            }
+
+            const sacBuntFielderChoiceMatch = normalizedText.match(/^(?:([一二三遊投捕左右中1-9])?ギ野|([一二三遊投捕左右中1-9])犠野)$/);
+            if (sacBuntFielderChoiceMatch) {
+                const fielderToken = sacBuntFielderChoiceMatch[1] || sacBuntFielderChoiceMatch[2] || "?";
+                const fielder = SHORT_FIELDER_MAP[fielderToken] || "?";
+                return {
+                    fielder,
+                    ballType: "ground",
+                    result: "Fc",
+                    modifiers: { sacrificeBunt: true },
+                    runnerContext: {
+                        ...createEmptyRunnerContext(),
+                        advances: ["打者走者一塁セーフ"]
+                    },
+                    note: normalizedText,
+                    confidence: fielder === "?" ? 0.68 : 0.82,
+                    source: "shorthand"
+                };
             }
 
             const shortDoublePlayMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])併$/);
