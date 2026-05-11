@@ -5568,7 +5568,7 @@
             if (/^(?:\.{3,}|…+|・+|ー+|－+)$/.test(token)) {
                 return true;
             }
-            return /[一二三遊投捕左右中123456789１２３４５６７８９安飛振球死本ゴ盗犠直併失野選]/.test(token);
+            return /[一二三遊投捕左右中123456789１２３４５６７８９安飛振球死本ゴ盗犠直併失野選邪ギ]/.test(token);
         }
 
         function findNikkanInningStartIndex(tokens) {
@@ -5691,6 +5691,24 @@
             };
         }
 
+        function parseNikkanCombinedRosterLine(line) {
+            const normalized = (line || "").trim();
+            if (!normalized || /^計(?:\t|\s|$)/.test(normalized)) {
+                return null;
+            }
+            const parts = normalized.split(/\t+/).map((part) => part.trim());
+            const averageIndex = parts.findIndex((token) => /^(?:\.\d{3}|---|--)$/.test(token));
+            if (averageIndex < 0 || parts.length < 2) {
+                return null;
+            }
+            const defense = parts[0] || "";
+            const name = parts[1] || "";
+            if (!defense || !name || /^[0-9０-９]+$/.test(name) || /^(?:打数|守備|選手名)$/.test(defense) || /^計$/.test(defense)) {
+                return null;
+            }
+            return { defense, name };
+        }
+
         function combineNikkanBattingOrderRows(group) {
             const inningCells = Array.from({ length: MAX_INNINGS }, (_, inningIndex) => {
                 const hit = group
@@ -5724,11 +5742,15 @@
                 .map((line) => parseNikkanRosterLine(line))
                 .filter(Boolean);
             const statEntries = lines.slice(headerIndex + 1)
-                .map((line) => ({ line, parsed: parseNikkanSportsRow(line) }));
+                .map((line) => ({
+                    line,
+                    parsed: parseNikkanSportsRow(line),
+                    combinedRoster: parseNikkanCombinedRosterLine(line)
+                }));
 
             const pairedRows = statEntries.map((entry, index) => ({
                 parsed: entry.parsed,
-                roster: rosterEntries[index] || null
+                roster: entry.combinedRoster || rosterEntries[index] || null
             }));
 
             const groups = [];
@@ -5751,7 +5773,7 @@
 
             return statEntries.filter((entry) => entry.parsed).map((entry, index) => ({
                 ...entry.parsed,
-                playerName: rosterEntries[index]?.name || ""
+                playerName: entry.combinedRoster?.name || rosterEntries[index]?.name || ""
             }));
         }
 
@@ -5893,18 +5915,27 @@
             const inningRunners = Array.from({ length: MAX_INNINGS }, () => [null, null, null]);
             const inningOuts = Array.from({ length: MAX_INNINGS }, () => 0);
 
-            parsedRows.slice(0, maxRows).forEach((parsedRow, rowOffset) => {
+            const importRows = parsedRows.slice(0, maxRows);
+            importRows.forEach((parsedRow, rowOffset) => {
                 const targetRow = startRow + rowOffset;
-                let rowImported = false;
                 if (parsedRow.playerName) {
                     state.playerNames[state.activeHalf][targetRow] = parsedRow.playerName;
                 }
+            });
 
-                parsedRow.inningCells.forEach((cellText, inningIndex) => {
+            const importedRowOffsets = new Set();
+            let nextOrderOffset = 0;
+            for (let inningIndex = 0; inningIndex < MAX_INNINGS; inningIndex += 1) {
+                let lastProcessedOffset = null;
+                for (let step = 0; step < importRows.length; step += 1) {
+                    const rowOffset = (nextOrderOffset + step) % importRows.length;
+                    const parsedRow = importRows[rowOffset];
+                    const cellText = parsedRow.inningCells[inningIndex];
                     const parsed = buildParsedInput(cellText);
                     if (!parsed || !parsed.result) {
-                        return;
+                        continue;
                     }
+                    const targetRow = startRow + rowOffset;
                     const importParsed = estimateNikkanBoardContext(parsed, inningRunners[inningIndex], inningOuts[inningIndex]);
                     inningRunners[inningIndex] = fillSheetCellFromParsedWithRunners(targetRow, inningIndex, importParsed, inningRunners[inningIndex]);
                     inningOuts[inningIndex] = Math.min(3, inningOuts[inningIndex] + getImportedParsedOuts(importParsed));
@@ -5912,16 +5943,21 @@
                         inningRunners[inningIndex] = [null, null, null];
                     }
                     importedCells += 1;
-                    rowImported = true;
+                    importedRowOffsets.add(rowOffset);
+                    lastProcessedOffset = rowOffset;
                     if ((importParsed.confidence || 1) < 0.7) {
                         lowConfidenceCells += 1;
                     }
-                });
-
-                if (rowImported) {
-                    importedRows += 1;
+                    if (inningOuts[inningIndex] >= 3) {
+                        nextOrderOffset = (rowOffset + 1) % importRows.length;
+                        break;
+                    }
                 }
-            });
+                if (inningOuts[inningIndex] < 3 && lastProcessedOffset !== null) {
+                    nextOrderOffset = (lastProcessedOffset + 1) % importRows.length;
+                }
+            }
+            importedRows = importedRowOffsets.size;
 
             renderScoreSheet();
             updateDisplay();
@@ -8541,7 +8577,7 @@
                 };
             }
 
-            const foulFlyMatch = normalizedText.match(/^([投捕一二三遊左右中1-9])邪飛$/);
+            const foulFlyMatch = normalizedText.match(/^([投捕一二三遊左右中1-9])邪(?:飛)?$/);
             if (foulFlyMatch) {
                 return {
                     fielder: SHORT_FIELDER_MAP[foulFlyMatch[1]],
@@ -8705,7 +8741,7 @@
                 };
             }
 
-            const sacBuntMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])犠打$/);
+            const sacBuntMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])(?:犠打|犠|ギ)$/);
             if (sacBuntMatch) {
                 return {
                     fielder: SHORT_FIELDER_MAP[sacBuntMatch[1]],
