@@ -2328,6 +2328,44 @@
             padding: 14px;
         }
 
+        .options-menu[open] {
+            overflow: visible;
+        }
+
+        .options-menu[open] .options-body {
+            position: fixed;
+            inset: 0;
+            z-index: 20000;
+            overflow-y: auto;
+            padding: max(18px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+            background: rgba(248, 250, 251, 0.98);
+        }
+
+        .options-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .options-header-title {
+            font-size: 18px;
+            font-weight: 900;
+            color: #22313f;
+        }
+
+        .options-close-btn {
+            min-height: 44px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 2px solid var(--border);
+            background: #fff;
+            color: #22313f;
+            font-size: 14px;
+            font-weight: 900;
+        }
+
         .options-nav {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2813,6 +2851,10 @@
                 <details class="options-menu">
                     <summary>☰ オプション</summary>
                     <div class="options-body">
+                        <div class="options-header">
+                            <div class="options-header-title">インポート / オプション</div>
+                            <button type="button" class="options-close-btn" onclick="this.closest('details').removeAttribute('open')">閉じる</button>
+                        </div>
                         <div class="options-nav" role="tablist" aria-label="インポート機能">
                             <button id="optionNavNikkan" type="button" class="is-active" onclick="showOptionPanel('nikkan')">日刊スポーツ<br>インポート</button>
                             <button id="optionNavX" type="button" onclick="showOptionPanel('x')">X / Twitter<br>インポート</button>
@@ -2833,13 +2875,13 @@
                         <section id="optionPanelX" class="section options-panel">
                             <div class="section-title">X / Twitter インポート</div>
                             <div class="nl-panel">
-                                <textarea id="twitterImportInput" class="nl-input import-textarea" placeholder="実況ポストをまとめて貼り付け。前回イニングの続きから取り込む想定で準備中です。"></textarea>
+                                <textarea id="twitterImportInput" class="nl-input import-textarea" placeholder="1イニング分だけ貼り付け。例: 打者名　中安　コメント"></textarea>
                                 <div class="nl-actions">
                                     <button onclick="importTwitterGameText()">現在の続きから取り込み</button>
                                     <button onclick="generateTwitterFormatPrompt()">AI変換プロンプト生成</button>
                                     <button onclick="clearTwitterImportInput()">内容クリア</button>
                                 </div>
-                                <div id="twitterImportPreview" class="nl-preview">実況ポストを貼り付けると、現在の回・打順の続きから推定で取り込みます。原文は吹き出しコメントとして残します。</div>
+                                <div id="twitterImportPreview" class="nl-preview">X / Twitter取り込みは1イニング分ずつ貼り付けてください。現在の回・打順の続きから推定で取り込み、原文は吹き出しコメントとして残します。</div>
                             </div>
                         </section>
                     </div>
@@ -3021,11 +3063,6 @@
                         </section>
                     </div>
                 </details>
-
-                <section class="section">
-                    <div class="section-title">現在の状態</div>
-                    <div id="summaryCard" class="summary-card"></div>
-                </section>
 
                 <button class="btn-reset" onclick="resetState()">リセット</button>
 
@@ -3300,6 +3337,53 @@
             return (text || "")
                 .replace(/[１２３４５６７８９]/g, (char) => String("１２３４５６７８９".indexOf(char) + 1))
                 .replace(/－|ー|−/g, "-");
+        }
+
+        function includesFirstBaseSafe(text) {
+            const normalized = normalizeBaseballDigits(text || "").replace(/\s+/g, "");
+            return /(一塁|1塁|ファースト)(?:は|も)?セーフ/.test(normalized);
+        }
+
+        function extractFieldSequenceFromText(text) {
+            const normalized = normalizeBaseballDigits(text || "");
+            const sequenceMatch = normalized.match(/([1-9](?:[-ー－−‐‑‒–—―][1-9]){1,3})/);
+            if (sequenceMatch) {
+                return sequenceMatch[1]
+                    .replace(/[-ー－−‐‑‒–—―]/g, "-")
+                    .split("-");
+            }
+            const compactMatch = normalized.match(/([1-9]{2,4})/);
+            return compactMatch ? compactMatch[1].split("") : null;
+        }
+
+        function forceOutContextFromSequence(fieldSequence) {
+            const context = createEmptyRunnerContext();
+            const forceBaseFielder = Array.isArray(fieldSequence) ? fieldSequence[1] : null;
+            if (forceBaseFielder === "2") {
+                addUniqueContextEntry(context.outsOnBases, "本塁アウト");
+            } else if (forceBaseFielder === "5") {
+                addUniqueContextEntry(context.outsOnBases, "三塁アウト");
+            } else if (forceBaseFielder === "4" || forceBaseFielder === "6") {
+                addUniqueContextEntry(context.outsOnBases, "二塁アウト");
+            }
+            addUniqueContextEntry(context.advances, "打者走者一塁セーフ");
+            return compactRunnerContext(context);
+        }
+
+        function buildForceOutFcParsed(text, fieldSequence = null, baseContext = null) {
+            const sequence = fieldSequence || extractFieldSequenceFromText(text) || ["?"];
+            return {
+                fielder: sequence[0] || "?",
+                direction: "none",
+                ballType: "ground",
+                result: "Fc",
+                fieldSequence: sequence,
+                modifiers: {},
+                runnerContext: mergeParsedRunnerContext(baseContext || detectRunnerContext(text), forceOutContextFromSequence(sequence)),
+                note: text,
+                confidence: sequence[0] === "?" ? 0.72 : 0.92,
+                source: "rule"
+            };
         }
 
         function preprocessNaturalLanguageInput(text) {
@@ -6201,6 +6285,7 @@
                 "",
                 "最重要:",
                 "出力は「整形後テキスト」だけにしてください。説明、質問、補足、前置き、後書きは絶対に書かないでください。",
+                "変換対象は必ず1イニング分だけです。複数イニングの内容が混ざっている場合は、対象の1イニングだけを整形し、別イニングは出力しないでください。",
                 "必ず1打者ごとに改行してください。複数打者を1行にまとめないでください。空行も入れないでください。",
                 "各行は必ず次の形式だけにしてください。",
                 "[名前]　[打撃結果]　[コメント]",
@@ -6210,13 +6295,14 @@
                 "1. 1打者につき必ず1行にしてください。改行を省略しないでください。",
                 "2. 行頭は「名前　打撃結果　コメント」の形にしてください。区切りは全角スペースを1つ入れてください。",
                 "3. 結果はできるだけ短い野球表記にしてください。例: 中安、右線二塁打、左本、空三振、見三振、四球、死球、投犠打、三邪、遊ゴロ、463併殺、ギ野。",
-                "4. 走者の動きが分かる場合は同じ行に追記してください。例: 一走三塁、二走生還、三走生還、二盗、二盗死、2→6牽制アウト、①。",
+                "4. 走者の動きが分かる場合は同じ行に追記してください。例: 一走三塁、二走生還、三走生還、二盗、二盗死、2→6牽制アウト、①、一塁はセーフ。",
                 "5. 球速や好捕などの情景コメントは削らず、結果の後ろに短く残してください。",
-                "6. 投手交代、守備交代、得点表示だけの行は、打者行とは別に残すか、判断できなければそのまま残してください。",
+                "6. 投手交代、守備交代、得点表示だけの行は、打者行とは別に残すか、判断できなければそのまま残してください。ただし別イニングの見出しは出力しないでください。",
                 "7. 出力には箇条書き記号、番号、表、説明文を入れないでください。整形後の行だけを返してください。",
                 "8. 「原文も吹き出しコメントとして保存します」など、この指示文に含まれる説明文を出力に混ぜないでください。",
                 "9. 最後に「次を整理しますか？」などの質問を付けないでください。",
                 "10. 改行が最重要です。出力行数は打者行数と同じにしてください。",
+                "11. 例: 「463併殺 一塁はセーフ」のように一塁セーフが明記されている場合は、併殺ではなく「463 Fc 一塁はセーフ」のように、打者走者が一塁に残ることが分かる表現にしてください。",
                 "",
                 "出力例（この3行だけのように返してください）:",
                 "```text",
@@ -6331,6 +6417,15 @@
                 preview.textContent = "実況ポストを貼り付けてください。";
                 return;
             }
+            const inningHeaders = Array.from(new Set((text.match(/[0-9０-９]+回[表裏]/g) || []).map((header) => normalizeBaseballDigits(header))));
+            if (inningHeaders.length > 1) {
+                preview.innerHTML = [
+                    "X / Twitter取り込みは1イニング分ずつ貼り付けてください。",
+                    "検出した見出し: " + inningHeaders.join(" / "),
+                    "まず1つのイニングだけを残して、もう一度取り込んでください。"
+                ].join("<br>");
+                return;
+            }
             const entries = text
                 .split(/\r?\n/)
                 .map((line) => parseTwitterBatterLine(line))
@@ -6345,7 +6440,10 @@
             let skipped = 0;
             entries.forEach((entry) => {
                 const mainPlayText = extractTwitterMainPlayText(entry.body);
-                const parsed = buildParsedInput(mainPlayText) || buildParsedInput(entry.body);
+                let parsed = buildParsedInput(mainPlayText) || buildParsedInput(entry.body);
+                if (parsed?.modifiers?.doublePlay && includesFirstBaseSafe(entry.body)) {
+                    parsed = buildForceOutFcParsed(entry.body, parsed.fieldSequence, parsed.runnerContext);
+                }
                 if (!parsed?.result) {
                     skipped += 1;
                     return;
@@ -8687,6 +8785,10 @@
                 };
             }
 
+            if ((normalized.includes("ダブルプレー") || normalized.includes("併殺")) && includesFirstBaseSafe(normalized)) {
+                return buildForceOutFcParsed(normalized, extractFieldSequenceFromText(normalized), dynamicRunnerContext);
+            }
+
             if (normalized.includes("ダブルプレー") || normalized.includes("併殺")) {
                 return {
                     fielder: dynamicFielder || "?",
@@ -8887,6 +8989,9 @@
                         .replace(/[-ー－−‐‑‒–—―]/g, "-")
                         .split("-")
                     : compactSequenceDoublePlayMatch[1].split("");
+                if (includesFirstBaseSafe(normalizedText)) {
+                    return buildForceOutFcParsed(normalizedText, fieldSequence, detectRunnerContext(normalizedText));
+                }
                 return {
                     fielder: fieldSequence[0],
                     ballType: "ground",
@@ -11095,6 +11200,10 @@
         }
 
         function updateSummaryCard() {
+            const summaryCard = document.getElementById("summaryCard");
+            if (!summaryCard) {
+                return;
+            }
             const ballTypeMap = {
                 none: "なし",
                 ground: "ゴロ",
@@ -11168,7 +11277,7 @@
                 "中央表示: " + (getCurrentOutScoreForDisplay() || "未入力")
             ];
 
-            document.getElementById("summaryCard").innerHTML = summary.join("<br>");
+            summaryCard.innerHTML = summary.join("<br>");
         }
 
         function updateDisplay() {
