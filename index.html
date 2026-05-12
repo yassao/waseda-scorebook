@@ -2059,6 +2059,82 @@
             box-shadow: 0 0 0 3px rgba(214, 151, 0, 0.16);
         }
 
+        .comment-popup-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.32);
+            z-index: 11990;
+            display: none;
+        }
+
+        .comment-popup-backdrop.is-open {
+            display: block;
+        }
+
+        .comment-popup {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: min(560px, calc(100vw - 28px));
+            max-height: calc(100vh - 48px);
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.98);
+            border: 3px solid #243447;
+            border-radius: 20px;
+            box-shadow: 0 22px 60px rgba(15, 23, 42, 0.25);
+            padding: 18px;
+            z-index: 12000;
+            display: none;
+        }
+
+        .comment-popup.is-open {
+            display: block;
+        }
+
+        .comment-popup-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: #243447;
+            margin-bottom: 10px;
+        }
+
+        .comment-popup-body {
+            white-space: pre-wrap;
+            color: #1f2937;
+            font-size: 16px;
+            line-height: 1.6;
+            border: 1px solid #d7e1ea;
+            border-radius: 14px;
+            padding: 12px;
+            background: #f8fafc;
+            min-height: 72px;
+        }
+
+        .comment-popup textarea {
+            width: 100%;
+            min-height: 140px;
+            border: 2px solid #243447;
+            border-radius: 14px;
+            padding: 12px;
+            font-size: 16px;
+            line-height: 1.5;
+            resize: vertical;
+        }
+
+        .comment-popup-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .comment-popup-actions button {
+            min-height: 52px;
+            font-size: 16px;
+            font-weight: 800;
+        }
+
         .tweet-comment-row {
             display: grid;
             grid-template-columns: minmax(0, 1fr);
@@ -2611,6 +2687,8 @@
                     </div>
                     <div id="runnerActionPopupBackdrop" class="runner-action-popup-backdrop" onclick="closeRunnerActionPopup()"></div>
                     <div id="runnerActionPopup" class="runner-action-popup" aria-hidden="true"></div>
+                    <div id="commentPopupBackdrop" class="comment-popup-backdrop" onclick="closeAtBatCommentPopup()"></div>
+                    <div id="commentPopup" class="comment-popup" aria-hidden="true"></div>
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="テキスト入力（オプション）"></textarea>
                     <details id="interpretationDetails" class="interpretation-details">
                         <summary>解釈結果</summary>
@@ -2659,8 +2737,8 @@
                                     <option value="B">四球</option>
                                     <option value="HP">死球</option>
                                     <option value="IB">敬遠</option>
-                                    <option value="W">暴投</option>
-                                    <option value="P">捕逸</option>
+                                    <option value="W">WP 暴投</option>
+                                    <option value="P">PB 捕逸</option>
                                     <option value="BK">ボーク</option>
                                     <option value="IF">打撃妨害</option>
                                     <option value="S">盗塁</option>
@@ -2904,8 +2982,8 @@
                                 <button onclick="setResult('BH')">BH バントH</button>
                                 <button onclick="setResult('H')">H 強襲安</button>
                                 <button onclick="setResult('T')">T テキサス</button>
-                                <button onclick="setResult('W')">W 暴投</button>
-                                <button onclick="setResult('P')">P 捕逸</button>
+                                <button onclick="setResult('W')">WP 暴投</button>
+                                <button onclick="setResult('P')">PB 捕逸</button>
                                 <button onclick="setResult('IF')">IF 打撃妨害</button>
                                 <button onclick="setResult('BK')">BK ボーク</button>
                                 <button onclick="setResult('S')">S 盗塁</button>
@@ -3081,7 +3159,7 @@
             "OB": "走塁妨害（obstruction）",
             "OI": "守備妨害（offensive interference）",
             "x": "守備妨害",
-            "P": "捕逸（passed ball）",
+            "P": "捕逸（passed ball / PB）",
             "PO": "牽制（pickoff）",
             "RH": "ランニングHR（inside-the-park home run）",
             "S": "盗塁（stolen base）",
@@ -3089,7 +3167,7 @@
             "TB": "タイブレークの走者",
             "TO": "タッチアウト（tag out）",
             "TP": "トリプルスチール（triple steal）",
-            "W": "ワイルドピッチ（wild pitch）"
+            "W": "暴投（wild pitch / WP）"
         };
 
         const PLAY_PART_OPTIONS = {
@@ -4395,6 +4473,16 @@
             return SCORE_COLORS.ink;
         }
 
+        function getVisibleResultCode(result) {
+            if (result === "W") {
+                return "WP";
+            }
+            if (result === "P") {
+                return "PB";
+            }
+            return result || "";
+        }
+
         function isStealOutLabel(label) {
             return /^2-[456]T$/.test(String(label || "")) || String(label || "").includes("盗死");
         }
@@ -4977,7 +5065,7 @@
                 return joined + (snapshot.baseCover && snapshot.baseCover !== "none" ? snapshot.baseCover : "");
             }
 
-            return snapshot.result || "";
+            return getVisibleResultCode(snapshot.result);
         }
 
         function getSnapshotResultColor(snapshot) {
@@ -5353,7 +5441,7 @@
                             confirmClearSheetCell(row, col);
                         };
                     } else if (hasComment) {
-                        button.onclick = () => showAtBatCommentPopup(snapshot);
+                        button.onclick = () => showAtBatCommentPopup(snapshot, half, row, col);
                     }
 
                     target.appendChild(button);
@@ -5431,19 +5519,99 @@
             return event.clientX >= rect.right - 28 && event.clientY <= rect.top + 28;
         }
 
-        function showAtBatCommentPopup(snapshot) {
+        let commentPopupTarget = null;
+
+        function showAtBatCommentPopup(snapshot, half = state.activeHalf, row = state.selectedSheetRow, col = state.selectedSheetCol) {
             const comment = String(snapshot?.atBatComment || "").trim();
             if (!comment) {
                 return;
             }
-            window.alert(comment);
+            commentPopupTarget = { snapshot, half, row, col };
+            renderAtBatCommentPopup(false);
+        }
+
+        function renderAtBatCommentPopup(isEditing) {
+            const popup = document.getElementById("commentPopup");
+            const backdrop = document.getElementById("commentPopupBackdrop");
+            if (!popup || !backdrop || !commentPopupTarget) {
+                return;
+            }
+            if (popup.parentElement !== document.body) {
+                document.body.appendChild(popup);
+            }
+            if (backdrop.parentElement !== document.body) {
+                document.body.appendChild(backdrop);
+            }
+            const { snapshot, half, row, col } = commentPopupTarget;
+            const label = (half === "top" ? "先攻 " : "後攻 ") + getColumnInningLabel(col) + "回 " + (row + 1) + "番";
+            const comment = String(snapshot?.atBatComment || "").trim();
+            const body = isEditing
+                ? '<textarea id="commentPopupTextarea">' + escapeHtml(comment) + '</textarea>'
+                : '<div class="comment-popup-body">' + escapeHtml(comment) + '</div>';
+            const actions = isEditing
+                ? [
+                    '<button type="button" onclick="closeAtBatCommentPopup()">キャンセル</button>',
+                    '<button type="button" class="btn-walk" onclick="saveAtBatCommentPopupEdit()">保存</button>'
+                ]
+                : [
+                    '<button type="button" onclick="closeAtBatCommentPopup()">OK</button>',
+                    '<button type="button" class="btn-hit" onclick="renderAtBatCommentPopup(true)">修正</button>'
+                ];
+            popup.innerHTML = [
+                '<div class="comment-popup-title">つぶやき: ' + escapeHtml(label) + '</div>',
+                body,
+                '<div class="comment-popup-actions">',
+                actions.join(""),
+                '</div>'
+            ].join("");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            backdrop.classList.add("is-open");
+        }
+
+        function saveAtBatCommentPopupEdit() {
+            if (!commentPopupTarget) {
+                return;
+            }
+            const textarea = document.getElementById("commentPopupTextarea");
+            const value = textarea ? textarea.value.trim() : "";
+            const { half, row, col, snapshot } = commentPopupTarget;
+            const sheet = state.scoreSheets[half];
+            if (sheet?.[row]?.[col]) {
+                sheet[row][col].atBatComment = value;
+                commentPopupTarget.snapshot = sheet[row][col];
+            } else if (snapshot) {
+                snapshot.atBatComment = value;
+            }
+            if (half === state.activeHalf && row === state.selectedSheetRow && col === state.selectedSheetCol) {
+                state.atBatComment = value;
+                const commentInput = document.getElementById("atBatCommentInput");
+                if (commentInput) {
+                    commentInput.value = value;
+                }
+            }
+            saveActiveSelection();
+            renderScoreSheet();
+            updateDisplay();
+            if (value) {
+                renderAtBatCommentPopup(false);
+            } else {
+                closeAtBatCommentPopup();
+            }
+        }
+
+        function closeAtBatCommentPopup() {
+            document.getElementById("commentPopup")?.classList.remove("is-open");
+            document.getElementById("commentPopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("commentPopupBackdrop")?.classList.remove("is-open");
+            commentPopupTarget = null;
         }
 
         function handleSheetCellClick(event, row, col) {
             const snapshot = state.scoreSheet[row]?.[col] || getLiveCurrentSheetSnapshot(row, col);
             if (isSheetCommentHit(event, snapshot)) {
                 suppressSheetCellClick = false;
-                showAtBatCommentPopup(snapshot);
+                showAtBatCommentPopup(snapshot, state.activeHalf, row, col);
                 return;
             }
             if (snapshot && state.scoreSheet[row]?.[col] && (row !== state.selectedSheetRow || col !== state.selectedSheetCol)) {
@@ -5455,7 +5623,7 @@
                     "1"
                 );
                 if (choice === "3") {
-                    showAtBatCommentPopup(snapshot);
+                    showAtBatCommentPopup(snapshot, state.activeHalf, row, col);
                     return;
                 }
                 selectSheetCell(row, col);
@@ -11100,7 +11268,7 @@
                 return joined + (state.baseCover !== "none" ? state.baseCover : "");
             }
 
-            return state.result;
+            return getVisibleResultCode(state.result);
         }
 
         function getResultColor() {
