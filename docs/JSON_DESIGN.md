@@ -15,6 +15,26 @@ Scorebook by CuViu の保存JSONは、早稲田式の見た目そのものでは
 
 ## 最小構造
 
+現在の実装では、まず安全な保存・復元を優先し、既存アプリ状態を `snapshot` として包んだ暫定JSONを採用している。
+将来、下記のイベント型JSONへ段階移行する。
+
+### 現行の暫定保存JSON
+
+```json
+{
+  "schemaVersion": 1,
+  "appVersion": "0.1.3",
+  "savedAt": "2026-05-14T12:00:00.000Z",
+  "snapshot": {
+    "state": {},
+    "naturalText": "",
+    "playPartsHtml": ""
+  }
+}
+```
+
+### 将来のイベント型JSON
+
 ```json
 {
   "schemaVersion": 1,
