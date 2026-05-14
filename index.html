@@ -697,6 +697,20 @@
             border-color: #45515d;
         }
 
+        .danger-action-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .btn-export {
+            width: 100%;
+            background: #eef7f5;
+            color: #0f4f4a;
+            border-color: #0f766e;
+        }
+
         .fielder-selector {
             display: flex;
             flex-direction: column;
@@ -2886,16 +2900,15 @@
                             </div>
                         </section>
                         <section id="optionPanelSave" class="section options-panel">
-                            <div class="section-title">試合データ 保存 / 読み込み</div>
+                            <div class="section-title">試合データ 読み込み / 自動保存</div>
                             <div class="nl-panel">
-                                <div id="gameSaveStatus" class="nl-preview">この端末には自動保存されます。JSONを書き出すとバックアップや別端末への移動に使えます。</div>
+                                <div id="gameSaveStatus" class="nl-preview">この端末には自動保存されます。JSON書き出しは画面下部のリセット横から行えます。</div>
                                 <div class="nl-actions">
-                                    <button onclick="exportGameJson()">JSONを書き出し</button>
                                     <button onclick="triggerImportGameJson()">JSONを読み込み</button>
                                     <button onclick="clearSavedGameData()">この端末の自動保存を削除</button>
                                 </div>
                                 <input id="gameJsonImportInput" class="sr-only" type="file" accept="application/json,.json" onchange="handleImportGameJson(event)">
-                                <div class="import-help">読み込み時は現在の試合データを置き換えます。必要なら先にJSONを書き出してください。</div>
+                                <div class="import-help">読み込み時は現在の試合データを置き換えます。必要なら先に画面下部からJSONを書き出してください。</div>
                             </div>
                         </section>
                     </div>
@@ -3078,7 +3091,10 @@
                     </div>
                 </details>
 
-                <button class="btn-reset" onclick="resetState()">リセット</button>
+                <div class="danger-action-row">
+                    <button class="btn-reset" onclick="resetState()">リセット</button>
+                    <button class="btn-export" onclick="exportGameJson()">JSON書き出し</button>
+                </div>
 
                 <p class="note">
                     今回の修正では、ゴロ / フライ / ライナーを文字ではなくSVG図形で描画しています。
@@ -3091,7 +3107,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.4";
+        const APP_VERSION = "0.1.5";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
 
