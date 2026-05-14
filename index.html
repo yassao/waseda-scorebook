@@ -164,6 +164,84 @@
             font-size: 13px;
         }
 
+        .saved-games-title {
+            margin-top: 18px;
+            color: #22313f;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .saved-game-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 8px;
+            max-height: 220px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .saved-game-list.compact {
+            max-height: 180px;
+        }
+
+        .saved-game-empty {
+            padding: 10px 12px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.45;
+            background: #f8fafc;
+        }
+
+        .saved-game-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #d8e4ec;
+            border-radius: 16px;
+            background: #ffffff;
+        }
+
+        .saved-game-title-text {
+            color: #172331;
+            font-size: 13px;
+            font-weight: 900;
+            line-height: 1.35;
+        }
+
+        .saved-game-meta {
+            margin-top: 2px;
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1.35;
+        }
+
+        .saved-game-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .saved-game-actions button {
+            min-height: 32px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .saved-game-actions .saved-game-delete {
+            border-color: #fecaca;
+            color: #b91c1c;
+            background: #fff7f7;
+        }
+
         .app-header {
             padding: 4px 16px 4px;
             color: #12202c;
@@ -809,7 +887,7 @@
 
         .danger-action-row {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 10px;
             margin-top: 12px;
         }
@@ -819,6 +897,13 @@
             background: #eef7f5;
             color: #0f4f4a;
             border-color: #0f766e;
+        }
+
+        .btn-save-return {
+            width: 100%;
+            background: #fff8e1;
+            color: #7a4b00;
+            border-color: var(--accent);
         }
 
         .fielder-selector {
@@ -2631,6 +2716,16 @@
                 grid-template-columns: repeat(2, minmax(0, max-content));
             }
 
+            .danger-action-row {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+
+            .danger-action-row button {
+                min-height: 38px;
+                font-size: 13px;
+            }
+
             .nl-quick-panel {
                 padding: 8px;
             }
@@ -2754,6 +2849,8 @@
                     <button type="button" onclick="startNewGameFromStart()">新規試合</button>
                     <button type="button" onclick="importGameJsonFromStart()">JSONを読み込む</button>
                 </div>
+                <div class="saved-games-title">保存済み試合</div>
+                <div id="savedGameList" class="saved-game-list"></div>
                 <button type="button" class="start-sub-action" onclick="hideStartScreen()">入力画面を表示</button>
             </div>
         </div>
@@ -3027,13 +3124,17 @@
                             </div>
                         </section>
                         <section id="optionPanelSave" class="section options-panel">
-                            <div class="section-title">試合データ 読み込み / 自動保存</div>
+                            <div class="section-title">試合データ 保存 / 読み込み</div>
                             <div class="nl-panel">
                                 <div id="gameSaveStatus" class="nl-preview">この端末には自動保存されます。JSON書き出しは画面下部のリセット横から行えます。</div>
                                 <div class="nl-actions">
+                                    <button onclick="saveCurrentGameToSlot()">現在の試合を保存</button>
                                     <button onclick="triggerImportGameJson()">JSONを読み込み</button>
+                                    <button onclick="showStartScreen()">トップ画面を開く</button>
                                     <button onclick="clearSavedGameData()">この端末の自動保存を削除</button>
                                 </div>
+                                <div class="saved-games-title">保存済み試合</div>
+                                <div id="optionsSavedGameList" class="saved-game-list compact"></div>
                                 <input id="gameJsonImportInput" class="sr-only" type="file" accept="application/json,.json" onchange="handleImportGameJson(event)">
                                 <div class="import-help">読み込み時は現在の試合データを置き換えます。必要なら先に画面下部からJSONを書き出してください。</div>
                             </div>
@@ -3220,6 +3321,7 @@
 
                 <div class="danger-action-row">
                     <button class="btn-reset" onclick="resetState()">リセット</button>
+                    <button class="btn-save-return" onclick="saveCurrentGameAndShowStart()">保存してトップへ</button>
                     <button class="btn-export" onclick="exportGameJson()">JSON書き出し</button>
                 </div>
 
@@ -3234,9 +3336,10 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.7";
+        const APP_VERSION = "0.1.8";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
+        const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
 
         const state = {
             pitches: [],
@@ -4088,6 +4191,177 @@
             return date.toLocaleString("ja-JP");
         }
 
+        function getSavedGameSlots() {
+            try {
+                const raw = localStorage.getItem(SAVED_GAMES_STORAGE_KEY);
+                if (!raw) {
+                    return [];
+                }
+                const slots = JSON.parse(raw);
+                if (!Array.isArray(slots)) {
+                    return [];
+                }
+                return slots.filter((slot) => slot && slot.id && slot.data);
+            } catch (error) {
+                console.warn("Read saved game slots failed", error);
+                return [];
+            }
+        }
+
+        function writeSavedGameSlots(slots) {
+            localStorage.setItem(SAVED_GAMES_STORAGE_KEY, JSON.stringify(slots));
+        }
+
+        function getSavedGameTeamLabel(data) {
+            const teams = data?.snapshot?.state?.teamNames || data?.teams;
+            if (teams?.top && teams?.bottom) {
+                return `${teams.top || "先攻"} vs ${teams.bottom || "後攻"}`;
+            }
+            if (Array.isArray(teams) && teams.length >= 2) {
+                return `${teams[0]?.name || "先攻"} vs ${teams[1]?.name || "後攻"}`;
+            }
+            return `${state.teamNames.top || "先攻"} vs ${state.teamNames.bottom || "後攻"}`;
+        }
+
+        function getSavedGameSummary(data) {
+            const score = data?.game?.score;
+            if (!score) {
+                return "スコア未集計";
+            }
+            const topTotal = Array.isArray(score.top)
+                ? score.top.reduce((sum, value) => sum + (Number(value) || 0), 0)
+                : 0;
+            const bottomTotal = Array.isArray(score.bottom)
+                ? score.bottom.reduce((sum, value) => sum + (Number(value) || 0), 0)
+                : 0;
+            return `${topTotal} - ${bottomTotal}`;
+        }
+
+        function createSavedGameSlot(data) {
+            const savedAt = data.savedAt || new Date().toISOString();
+            return {
+                id: "save_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7),
+                title: getSavedGameTeamLabel(data),
+                summary: getSavedGameSummary(data),
+                savedAt,
+                appVersion: data.appVersion || APP_VERSION,
+                schemaVersion: data.schemaVersion || DATA_SCHEMA_VERSION,
+                data
+            };
+        }
+
+        function renderSavedGameSlots() {
+            const slots = getSavedGameSlots();
+            const containers = [
+                document.getElementById("savedGameList"),
+                document.getElementById("optionsSavedGameList")
+            ].filter(Boolean);
+
+            containers.forEach((container) => {
+                if (!slots.length) {
+                    container.innerHTML = '<div class="saved-game-empty">手動保存した試合はまだありません。入力画面の「保存 / 読込 JSON」から現在の試合を保存できます。</div>';
+                    return;
+                }
+                container.innerHTML = slots.map((slot) => {
+                    const id = escapeHtml(slot.id);
+                    return `
+                        <div class="saved-game-card">
+                            <div>
+                                <div class="saved-game-title-text">${escapeHtml(slot.title || "無題の試合")}</div>
+                                <div class="saved-game-meta">${escapeHtml(slot.summary || "スコア未集計")} / ${escapeHtml(formatSavedGameDate(slot.savedAt))} / v${escapeHtml(slot.appVersion || "-")}</div>
+                            </div>
+                            <div class="saved-game-actions">
+                                <button type="button" onclick="loadSavedGameSlot('${id}')">開く</button>
+                                <button type="button" onclick="exportSavedGameSlot('${id}')">書出</button>
+                                <button type="button" class="saved-game-delete" onclick="deleteSavedGameSlot('${id}')">削除</button>
+                            </div>
+                        </div>
+                    `;
+                }).join("");
+            });
+        }
+
+        function saveCurrentGameToSlot() {
+            try {
+                const data = createGameSaveData();
+                const slots = [createSavedGameSlot(data), ...getSavedGameSlots()].slice(0, 30);
+                writeSavedGameSlots(slots);
+                setGameSaveStatus("保存済み試合に追加しました: " + getSavedGameTeamLabel(data));
+                renderSavedGameSlots();
+                updateStartScreenState();
+            } catch (error) {
+                console.warn("Manual save failed", error);
+                alert("試合データを保存できませんでした。端末の空き容量やブラウザ設定を確認してください。");
+            }
+        }
+
+        function saveCurrentGameAndShowStart() {
+            saveCurrentGameToSlot();
+            saveGameToLocalStorage();
+            showStartScreen();
+        }
+
+        function findSavedGameSlot(id) {
+            return getSavedGameSlots().find((slot) => slot.id === id) || null;
+        }
+
+        function loadSavedGameSlot(id) {
+            const slot = findSavedGameSlot(id);
+            if (!slot) {
+                alert("保存済み試合が見つかりませんでした。");
+                renderSavedGameSlots();
+                return;
+            }
+            if (!confirm(`保存済み試合「${slot.title || "無題の試合"}」を開きます。現在の画面は置き換わります。よろしいですか？`)) {
+                return;
+            }
+            restoreGameSaveData(slot.data, "保存済み試合を開きました");
+            setGameSaveStatus("保存済み試合を開きました: " + (slot.title || "無題の試合"));
+            hideStartScreen();
+        }
+
+        function deleteSavedGameSlot(id) {
+            const slot = findSavedGameSlot(id);
+            if (!slot) {
+                renderSavedGameSlots();
+                return;
+            }
+            if (!confirm(`保存済み試合「${slot.title || "無題の試合"}」を削除します。よろしいですか？`)) {
+                return;
+            }
+            writeSavedGameSlots(getSavedGameSlots().filter((item) => item.id !== id));
+            setGameSaveStatus("保存済み試合を削除しました。");
+            renderSavedGameSlots();
+            updateStartScreenState();
+        }
+
+        function downloadJsonData(data, filename) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function exportSavedGameSlot(id) {
+            const slot = findSavedGameSlot(id);
+            if (!slot) {
+                alert("保存済み試合が見つかりませんでした。");
+                renderSavedGameSlots();
+                return;
+            }
+            const stamp = (slot.savedAt || new Date().toISOString())
+                .replace(/[-:]/g, "")
+                .replace(/\..+$/, "")
+                .replace("T", "-");
+            downloadJsonData(slot.data, "cuviu-scorebook-saved-" + stamp + ".json");
+            setGameSaveStatus("保存済み試合を書き出しました。");
+        }
+
         function updateStartScreenState() {
             const status = document.getElementById("startSaveStatus");
             const continueButton = document.getElementById("startContinueBtn");
@@ -4115,6 +4389,7 @@
 
         function showStartScreen() {
             updateStartScreenState();
+            renderSavedGameSlots();
             document.getElementById("startScreen")?.classList.remove("is-hidden");
         }
 
@@ -4271,16 +4546,7 @@
         }
 
         function exportGameJson() {
-            const data = JSON.stringify(createGameSaveData(), null, 2);
-            const blob = new Blob([data], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = getGameExportFileName();
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
+            downloadJsonData(createGameSaveData(), getGameExportFileName());
             setGameSaveStatus("JSONを書き出しました。");
         }
 
@@ -6879,6 +7145,9 @@
             Object.entries(buttons).forEach(([key, button]) => {
                 button?.classList.toggle("is-active", key === normalized);
             });
+            if (normalized === "save") {
+                renderSavedGameSlots();
+            }
         }
 
         function importNikkanSportsBoard(startFromTop = false) {
