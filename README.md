@@ -100,6 +100,8 @@ zsh scripts/deploy-cuviu.sh
   早稲田式スコアブックの記号ルールと解釈方針
 - [docs/JSON_DESIGN.md](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/JSON_DESIGN.md)
   保存JSON、イベントログ、慶応式展開に向けたデータ設計
+- [docs/IMPLEMENTATION_PLAN.md](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/IMPLEMENTATION_PLAN.md)
+  6月末公開に向けた実装順序とフェーズ計画
 
 ## 現状の注意点
 
