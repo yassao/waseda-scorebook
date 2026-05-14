@@ -15,16 +15,25 @@ Scorebook by CuViu の保存JSONは、早稲田式の見た目そのものでは
 
 ## 最小構造
 
-現在の実装では、まず安全な保存・復元を優先し、既存アプリ状態を `snapshot` として包んだ暫定JSONを採用している。
-将来、下記のイベント型JSONへ段階移行する。
+現在の実装では、安全な保存・復元を優先するため、既存アプリ状態を `snapshot` として残している。
+そのうえで、将来の共有・PDF・慶応式表示へ移行しやすいように、`game` / `teams` / `plateAppearances` / `events` / `comments` も `event-draft-1` として同梱する。
 
-### 現行の暫定保存JSON
+読み込みは当面 `snapshot` を優先する。
+これにより、イベント型JSONの精度を上げている途中でも、既存ユーザーの保存データを壊さない。
+
+### 現行の互換保存JSON
 
 ```json
 {
   "schemaVersion": 1,
-  "appVersion": "0.1.3",
+  "appVersion": "0.1.7",
   "savedAt": "2026-05-14T12:00:00.000Z",
+  "modelVersion": "event-draft-1",
+  "game": {},
+  "teams": [],
+  "plateAppearances": [],
+  "events": [],
+  "comments": [],
   "snapshot": {
     "state": {},
     "naturalText": "",
@@ -34,6 +43,8 @@ Scorebook by CuViu の保存JSONは、早稲田式の見た目そのものでは
 ```
 
 ### 将来のイベント型JSON
+
+将来は `snapshot` に依存せず、下記のイベント型JSONだけから描画できる状態を目指す。
 
 ```json
 {
@@ -154,6 +165,8 @@ Scorebook by CuViu の保存JSONは、早稲田式の見た目そのものでは
 - 打者一巡で同一イニングに複数列が必要になった場合、同じ `inning` でも `inningColumn` を増やす。
 - `sequenceInInning` はアウトカウント付与や取り込み順のために使う。
 - `source` は `manual`、`x_import`、`nikkan_import`、`natural_language` など。
+- 現行の `event-draft-1` では、既存のスコアブックセルから抽出できる範囲を保存する。
+- 打者一巡時の完全な入力順、複雑な走者イベントの正規化は今後の改善対象。
 
 ## events
 
@@ -201,6 +214,14 @@ Scorebook by CuViu の保存JSONは、早稲田式の見た目そのものでは
 | `substitution` | 選手交代 |
 | `comment` | コメント |
 | `correction` | 後から修正 |
+
+### 現行 `event-draft-1` の扱い
+
+- 投球は `pitch` イベントとして保存する。
+- 打者結果は `batter_result` イベントとして保存する。
+- 走者進塁・走者アウトは、現時点では `runnerContext` と `runnerStatusEvents` を保持する。
+- コメントは `comments` に分離し、打席側の `commentIds` と紐づける。
+- 後から編集できる本格的なイベント正規化は、保存互換性を維持しながら段階的に進める。
 
 ## runner event examples
 

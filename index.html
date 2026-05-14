@@ -3234,7 +3234,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.6";
+        const APP_VERSION = "0.1.7";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
 
@@ -3799,11 +3799,256 @@
             updateHistoryButtons();
         }
 
+        function getTeamId(half) {
+            return half === "bottom" ? "team_bottom" : "team_top";
+        }
+
+        function getPlayerId(half, battingOrder, slotIndex = 0) {
+            return "p_" + (half === "bottom" ? "bottom" : "top") + "_" + battingOrder + "_" + String.fromCharCode(97 + slotIndex);
+        }
+
+        function mapPitchToEventType(symbol, note = "") {
+            const normalized = String(symbol || "");
+            const normalizedNote = String(note || "");
+            if (normalized === "●") {
+                return "ball";
+            }
+            if (normalized === "－") {
+                return normalizedNote.includes("バント") ? "foul_bunt" : "foul";
+            }
+            if (normalized === "○") {
+                return normalizedNote.includes("バント") ? "strike_bunt_swing" : "strike_swing";
+            }
+            if (normalized === "◎") {
+                return "strike_called";
+            }
+            return "unknown";
+        }
+
+        function getSnapshotBatterResultType(snapshot) {
+            const result = snapshot?.selectedHitType && snapshot.selectedHitType !== "none"
+                ? snapshot.selectedHitType
+                : snapshot?.result;
+            if (["1B", "2B", "3B", "HR", "G", "BH", "H", "T", "RH", "GR"].includes(result)) {
+                return "hit";
+            }
+            if (["B", "HP", "IB", "IF"].includes(result)) {
+                return "on_base";
+            }
+            if (result === "K") {
+                return "strikeout";
+            }
+            if (result === "Fc") {
+                return "fielder_choice";
+            }
+            if (snapshot?.modifiers?.sacrificeBunt) {
+                return "sacrifice_bunt";
+            }
+            if (snapshot?.modifiers?.sacrificeFly) {
+                return "sacrifice_fly";
+            }
+            if (result || snapshot?.selectedFielder) {
+                return "out";
+            }
+            return "unknown";
+        }
+
+        function buildBatterResultModel(snapshot) {
+            return {
+                type: getSnapshotBatterResultType(snapshot),
+                result: snapshot?.result || "",
+                hitType: snapshot?.selectedHitType || "none",
+                reachedBase: getBatterReachedBaseFromSnapshot(snapshot),
+                normalBase: getNormalBatterBaseFromSnapshot(snapshot),
+                fielder: snapshot?.selectedFielder || "",
+                direction: snapshot?.selectedDirection || "none",
+                ballType: snapshot?.selectedBallType || "none",
+                fieldSequence: [...(snapshot?.fieldSequence || [])],
+                errorMode: snapshot?.errorMode || "none",
+                baseCover: snapshot?.baseCover || "none",
+                modifiers: deepClone(snapshot?.modifiers || {})
+            };
+        }
+
+        function buildTeamsSaveModel() {
+            return ["top", "bottom"].map((half) => {
+                const names = state.playerNames[half] || Array.from({ length: 9 }, () => "");
+                const numbers = state.playerNumbers[half] || Array.from({ length: 9 }, () => "");
+                return {
+                    id: getTeamId(half),
+                    half,
+                    name: state.teamNames[half] || (half === "top" ? "先攻" : "後攻"),
+                    lineup: Array.from({ length: 9 }, (_, index) => {
+                        const battingOrder = index + 1;
+                        return {
+                            battingOrder,
+                            slots: splitRosterNameSlots(names[index]).map((name, slotIndex) => ({
+                                playerId: getPlayerId(half, battingOrder, slotIndex),
+                                name,
+                                number: slotIndex === 0 ? (numbers[index] || "") : "",
+                                position: "",
+                                hand: "",
+                                fromInning: 1,
+                                toInning: null
+                            }))
+                        };
+                    })
+                };
+            });
+        }
+
+        function buildEventDraftSaveModel() {
+            const plateAppearances = [];
+            const events = [];
+            const comments = [];
+            let plateAppearanceSerial = 1;
+            let eventSerial = 1;
+            let commentSerial = 1;
+
+            ["top", "bottom"].forEach((half) => {
+                const sheet = state.scoreSheets[half] || createEmptyScoreSheet();
+                const labels = getInningLabels(half);
+                const sequenceByInning = {};
+                const outsByInning = {};
+                for (let col = 0; col < MAX_INNINGS; col += 1) {
+                    const inning = labels[col] || (col + 1);
+                    const inningKey = half + ":" + inning + ":" + col;
+                    sequenceByInning[inningKey] = sequenceByInning[inningKey] || 0;
+                    outsByInning[inningKey] = outsByInning[inningKey] || 0;
+
+                    for (let row = 0; row < 9; row += 1) {
+                        const snapshot = sheet[row]?.[col];
+                        if (!snapshot) {
+                            continue;
+                        }
+                        const battingOrder = row + 1;
+                        const teamId = getTeamId(half);
+                        const paId = "pa_" + String(plateAppearanceSerial).padStart(5, "0");
+                        const outsBefore = outsByInning[inningKey] || 0;
+                        const outsAfter = Math.max(outsBefore, romanToOutCount(snapshot.outScore) || outsBefore);
+                        const pitchEvents = (snapshot.pitches || []).map((symbol, pitchIndex) => ({
+                            type: "pitch",
+                            id: "ev_" + String(eventSerial++).padStart(5, "0"),
+                            plateAppearanceId: paId,
+                            teamId,
+                            half,
+                            inning,
+                            inningColumn: col + 1,
+                            sequence: pitchIndex + 1,
+                            actor: {
+                                type: "batter",
+                                battingOrder,
+                                playerId: getPlayerId(half, battingOrder)
+                            },
+                            pitch: {
+                                type: mapPitchToEventType(symbol, snapshot.pitchNotes?.[pitchIndex]),
+                                symbol,
+                                note: snapshot.pitchNotes?.[pitchIndex] || ""
+                            }
+                        }));
+                        events.push(...pitchEvents);
+
+                        const batterResultEvent = {
+                            type: "batter_result",
+                            id: "ev_" + String(eventSerial++).padStart(5, "0"),
+                            plateAppearanceId: paId,
+                            teamId,
+                            half,
+                            inning,
+                            inningColumn: col + 1,
+                            sequence: pitchEvents.length + 1,
+                            actor: {
+                                type: "batter",
+                                battingOrder,
+                                playerId: getPlayerId(half, battingOrder)
+                            },
+                            batterResult: buildBatterResultModel(snapshot),
+                            outNumber: romanToOutCount(snapshot.outScore) || null,
+                            rawRunnerContext: deepClone(snapshot.runnerContext || null),
+                            runnerStatusEvents: deepClone(getRunnerStatusEvents(snapshot))
+                        };
+                        events.push(batterResultEvent);
+
+                        if (snapshot.atBatComment) {
+                            const commentId = "cm_" + String(commentSerial++).padStart(5, "0");
+                            comments.push({
+                                id: commentId,
+                                plateAppearanceId: paId,
+                                teamId,
+                                half,
+                                inning,
+                                inningColumn: col + 1,
+                                battingOrder,
+                                text: snapshot.atBatComment,
+                                source: snapshot.source || "manual"
+                            });
+                        }
+
+                        plateAppearances.push({
+                            id: paId,
+                            teamId,
+                            half,
+                            inning,
+                            inningColumn: col + 1,
+                            battingOrder,
+                            playerId: getPlayerId(half, battingOrder),
+                            sequenceInInning: ++sequenceByInning[inningKey],
+                            pitches: (snapshot.pitches || []).map((symbol, pitchIndex) => ({
+                                type: mapPitchToEventType(symbol, snapshot.pitchNotes?.[pitchIndex]),
+                                symbol,
+                                note: snapshot.pitchNotes?.[pitchIndex] || ""
+                            })),
+                            batterResult: buildBatterResultModel(snapshot),
+                            runnerContext: deepClone(snapshot.runnerContext || null),
+                            runnerStatusEvents: deepClone(getRunnerStatusEvents(snapshot)),
+                            outsBefore,
+                            outsAfter,
+                            runsScored: getRunnerStatusEvents(snapshot).filter((event) => event?.type === "score" || event === "生還").length,
+                            rbi: snapshot.hasRbi ? 1 : 0,
+                            rawText: snapshot.note || "",
+                            source: snapshot.source || "manual",
+                            commentIds: snapshot.atBatComment ? ["cm_" + String(commentSerial - 1).padStart(5, "0")] : []
+                        });
+                        plateAppearanceSerial += 1;
+                        outsByInning[inningKey] = outsAfter >= 3 ? 0 : outsAfter;
+                    }
+                }
+            });
+
+            const topLine = calculateLineScore("top");
+            const bottomLine = calculateLineScore("bottom");
+            return {
+                modelVersion: "event-draft-1",
+                game: {
+                    id: "game_local",
+                    date: new Date().toISOString().slice(0, 10),
+                    venue: "",
+                    title: "",
+                    topTeamId: "team_top",
+                    bottomTeamId: "team_bottom",
+                    currentHalf: state.activeHalf,
+                    currentInning: getColumnInningLabel(),
+                    currentBattingOrder: state.selectedSheetRow + 1,
+                    outs: getPreviousOutCountForCell(state.selectedSheetRow, state.selectedSheetCol),
+                    score: {
+                        top: topLine.scores,
+                        bottom: bottomLine.scores
+                    }
+                },
+                teams: buildTeamsSaveModel(),
+                plateAppearances,
+                events,
+                comments
+            };
+        }
+
         function createGameSaveData() {
+            const eventDraft = buildEventDraftSaveModel();
             return {
                 schemaVersion: DATA_SCHEMA_VERSION,
                 appVersion: APP_VERSION,
                 savedAt: new Date().toISOString(),
+                ...eventDraft,
                 snapshot: captureGameHistorySnapshot()
             };
         }
