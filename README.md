@@ -67,6 +67,29 @@ GitHub:
 3. `この打席を保存` でシートへ反映する
 4. `次の打席へ` で次セルへ進む
 
+## バージョン管理
+
+現在のバージョンは [docs/VERSION](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/VERSION) で管理します。  
+変更履歴は [docs/CHANGELOG.md](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/CHANGELOG.md) に1行要約つきで残します。
+
+小さな修正:
+
+```zsh
+zsh scripts/release_patch_scorebook.sh "変更内容の1行要約"
+```
+
+新機能:
+
+```zsh
+zsh scripts/release_minor_scorebook.sh "変更内容の1行要約"
+```
+
+公開サーバーへの反映:
+
+```zsh
+zsh scripts/deploy-cuviu.sh
+```
+
 ## 現状の注意点
 
 - 走者進塁の完全自動追跡はまだ途中
