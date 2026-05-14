@@ -90,6 +90,17 @@ zsh scripts/release_minor_scorebook.sh "変更内容の1行要約"
 zsh scripts/deploy-cuviu.sh
 ```
 
+## 仕様ノート
+
+公開用マニュアルとは別に、開発中の判断基準を以下に残します。
+
+- [docs/INPUT_POLICY.md](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/INPUT_POLICY.md)
+  入力UI、自然文入力、X/日刊スポーツ取り込み、つぶやきの方針
+- [docs/SCOREBOOK_RULES.md](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/SCOREBOOK_RULES.md)
+  早稲田式スコアブックの記号ルールと解釈方針
+- [docs/JSON_DESIGN.md](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/JSON_DESIGN.md)
+  保存JSON、イベントログ、慶応式展開に向けたデータ設計
+
 ## 現状の注意点
 
 - 走者進塁の完全自動追跡はまだ途中

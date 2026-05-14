@@ -1,3 +1,12 @@
+## v0.1.1 [2026-05-14] 入力方針と保存JSONの仕様ノートを追加
+
+**変更ファイル:**
+- README.md
+- docs/VERSION
+- index.html
+
+---
+
 # Scorebook by CuViu CHANGELOG
 
 ## v0.1.0 [2026-05-14] バージョン管理の開始
