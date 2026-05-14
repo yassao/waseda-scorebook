@@ -2344,6 +2344,63 @@
             font-weight: 800;
         }
 
+        .cell-action-popup-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.28);
+            z-index: 11890;
+            display: none;
+        }
+
+        .cell-action-popup-backdrop.is-open {
+            display: block;
+        }
+
+        .cell-action-popup {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: min(420px, calc(100vw - 28px));
+            background: rgba(255, 255, 255, 0.98);
+            border: 3px solid #243447;
+            border-radius: 20px;
+            box-shadow: 0 22px 60px rgba(15, 23, 42, 0.25);
+            padding: 16px;
+            z-index: 11900;
+            display: none;
+        }
+
+        .cell-action-popup.is-open {
+            display: block;
+        }
+
+        .cell-action-popup-title {
+            color: #243447;
+            font-size: 18px;
+            font-weight: 900;
+            margin-bottom: 10px;
+        }
+
+        .cell-action-popup-help {
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.45;
+            margin-bottom: 12px;
+        }
+
+        .cell-action-buttons {
+            display: grid;
+            gap: 8px;
+        }
+
+        .cell-action-buttons button {
+            min-height: 48px;
+            font-size: 15px;
+            font-weight: 900;
+        }
+
         .tweet-comment-row {
             display: grid;
             grid-template-columns: minmax(0, 1fr);
@@ -2963,6 +3020,8 @@
                     </div>
                     <div id="runnerActionPopupBackdrop" class="runner-action-popup-backdrop" onclick="closeRunnerActionPopup()"></div>
                     <div id="runnerActionPopup" class="runner-action-popup" aria-hidden="true"></div>
+                    <div id="cellActionPopupBackdrop" class="cell-action-popup-backdrop" onclick="closeCellActionPopup()"></div>
+                    <div id="cellActionPopup" class="cell-action-popup" aria-hidden="true"></div>
                     <div id="commentPopupBackdrop" class="comment-popup-backdrop" onclick="closeAtBatCommentPopup()"></div>
                     <div id="commentPopup" class="comment-popup" aria-hidden="true"></div>
                     <textarea id="naturalLanguageInput" class="nl-input" placeholder="テキスト入力（オプション）"></textarea>
@@ -3336,7 +3395,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.9";
+        const APP_VERSION = "0.1.10";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6574,6 +6633,80 @@
         }
 
         let commentPopupTarget = null;
+        let cellActionTarget = null;
+
+        function getCellActionLabel(half, row, col) {
+            return (half === "top" ? "先攻 " : "後攻 ") + getColumnInningLabel(col) + "回 " + (row + 1) + "番";
+        }
+
+        function showCellActionPopup(snapshot, half = state.activeHalf, row = state.selectedSheetRow, col = state.selectedSheetCol) {
+            cellActionTarget = { snapshot, half, row, col };
+            const popup = document.getElementById("cellActionPopup");
+            const backdrop = document.getElementById("cellActionPopupBackdrop");
+            if (!popup || !backdrop) {
+                return;
+            }
+            if (popup.parentElement !== document.body) {
+                document.body.appendChild(popup);
+            }
+            if (backdrop.parentElement !== document.body) {
+                document.body.appendChild(backdrop);
+            }
+            popup.innerHTML = [
+                '<div class="cell-action-popup-title">' + escapeHtml(getCellActionLabel(half, row, col)) + '</div>',
+                '<div class="cell-action-popup-help">このマスをどの内容として修正するか選んでください。確定済みのスコアも、後から見直して直せるようにします。</div>',
+                '<div class="cell-action-buttons">',
+                '<button type="button" onclick="editCellBatterResult()">打撃結果を編集</button>',
+                '<button type="button" onclick="editCellRunnerResult()">走塁結果を編集</button>',
+                '<button type="button" onclick="editCellComment()">つぶやきを編集</button>',
+                '<button type="button" onclick="closeCellActionPopup()">閉じる</button>',
+                '</div>'
+            ].join("");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            backdrop.classList.add("is-open");
+        }
+
+        function closeCellActionPopup() {
+            document.getElementById("cellActionPopup")?.classList.remove("is-open");
+            document.getElementById("cellActionPopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("cellActionPopupBackdrop")?.classList.remove("is-open");
+            cellActionTarget = null;
+        }
+
+        function editCellBatterResult() {
+            if (!cellActionTarget) {
+                return;
+            }
+            const { row, col } = cellActionTarget;
+            closeCellActionPopup();
+            selectSheetCell(row, col);
+        }
+
+        function editCellRunnerResult() {
+            if (!cellActionTarget) {
+                return;
+            }
+            const { row, col } = cellActionTarget;
+            const label = getColumnInningLabel(col) + "回 " + (row + 1) + "番";
+            closeCellActionPopup();
+            selectSheetCell(row, col);
+            const commentLabel = document.getElementById("commentTargetLabel");
+            if (commentLabel) {
+                commentLabel.textContent = "対象: " + label + "（走塁編集）";
+            }
+            window.alert("このマスを走塁結果の修正対象として開きました。右側の走者プレビューから、到達塁・アウト・得点などを修正してください。");
+        }
+
+        function editCellComment() {
+            if (!cellActionTarget) {
+                return;
+            }
+            const target = cellActionTarget;
+            closeCellActionPopup();
+            commentPopupTarget = target;
+            renderAtBatCommentPopup(true);
+        }
 
         function showAtBatCommentPopup(snapshot, half = state.activeHalf, row = state.selectedSheetRow, col = state.selectedSheetCol) {
             const comment = String(snapshot?.atBatComment || "").trim();
@@ -6668,27 +6801,8 @@
                 showAtBatCommentPopup(snapshot, state.activeHalf, row, col);
                 return;
             }
-            if (snapshot && state.scoreSheet[row]?.[col] && (row !== state.selectedSheetRow || col !== state.selectedSheetCol)) {
-                const choice = window.prompt(
-                    (getColumnInningLabel(col) + "回 " + (row + 1) + "番のマスを編集します。\n") +
-                    "1: 打撃結果を編集\n" +
-                    "2: 走塁結果を編集（対象走者としてプレビューに表示）\n" +
-                    "3: つぶやきを見る",
-                    "1"
-                );
-                if (choice === "3") {
-                    showAtBatCommentPopup(snapshot, state.activeHalf, row, col);
-                    return;
-                }
-                selectSheetCell(row, col);
-                if (choice === "2") {
-                    const label = getColumnInningLabel(col) + "回 " + (row + 1) + "番";
-                    const commentLabel = document.getElementById("commentTargetLabel");
-                    if (commentLabel) {
-                        commentLabel.textContent = "対象: " + label + "（走塁編集）";
-                    }
-                    window.alert("このマスを走塁結果の修正対象として開きました。右側の走者プレビューから、到達塁・アウト・得点などを修正してください。");
-                }
+            if (snapshot && state.scoreSheet[row]?.[col]) {
+                showCellActionPopup(snapshot, state.activeHalf, row, col);
                 return;
             }
             selectSheetCell(row, col);

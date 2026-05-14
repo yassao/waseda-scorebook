@@ -1,3 +1,12 @@
+## v0.1.10 [2026-05-15] 過去セル編集ダイアログを追加
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.9 [2026-05-14] Phase1完了とPhase2開始を計画書に反映
 
 **変更ファイル:**
