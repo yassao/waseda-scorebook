@@ -54,6 +54,116 @@
             padding-top: env(safe-area-inset-top);
         }
 
+        .start-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 40000;
+            display: grid;
+            place-items: center;
+            padding: calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 20px);
+            background:
+                radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.95), transparent 34%),
+                linear-gradient(145deg, #f7f2e8 0%, #d8e7f1 100%);
+            overflow-y: auto;
+        }
+
+        .start-screen.is-hidden {
+            display: none;
+        }
+
+        .start-card {
+            width: min(100%, 460px);
+            padding: 26px 22px;
+            border-radius: 28px;
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(35, 49, 66, 0.1);
+            box-shadow: 0 24px 60px rgba(22, 34, 51, 0.18);
+        }
+
+        .start-kicker {
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        .start-card h1 {
+            margin-top: 6px;
+            color: #12202c;
+            font-size: clamp(32px, 9vw, 48px);
+            line-height: 1.05;
+            letter-spacing: 0.04em;
+        }
+
+        .start-card h1 small {
+            margin-left: 8px;
+            color: #536274;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            vertical-align: super;
+        }
+
+        .start-lead {
+            margin-top: 12px;
+            color: #475569;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.7;
+        }
+
+        .start-save-status {
+            margin-top: 16px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: #f3f8fb;
+            color: #334155;
+            border: 1px solid #d8e4ec;
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.5;
+        }
+
+        .start-actions {
+            display: grid;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .start-actions button,
+        .start-sub-action {
+            width: 100%;
+            min-height: 48px;
+            border-radius: 16px;
+            border: 2px solid var(--border);
+            background: #fff;
+            color: #1f2937;
+            font-size: 16px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .start-actions button.primary {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent-strong);
+        }
+
+        .start-actions button:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+        }
+
+        .start-sub-action {
+            margin-top: 10px;
+            min-height: 40px;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-size: 13px;
+        }
+
         .app-header {
             padding: 4px 16px 4px;
             color: #12202c;
@@ -2630,6 +2740,23 @@
 </head>
 <body>
     <div class="container">
+        <div id="startScreen" class="start-screen" aria-label="トップ画面">
+            <div class="start-card">
+                <div class="start-kicker">CuViu Scorebook</div>
+                <h1>スコアブック<small>by CuViu</small></h1>
+                <p class="start-lead">
+                    球場で素早く入力し、あとからJSONやPDFへつなげるためのプロトタイプです。
+                    まずは試合データを選んで始めます。
+                </p>
+                <div id="startSaveStatus" class="start-save-status">保存状態を確認しています。</div>
+                <div class="start-actions">
+                    <button id="startContinueBtn" type="button" class="primary" onclick="continueSavedGameFromStart()">前回の続き</button>
+                    <button type="button" onclick="startNewGameFromStart()">新規試合</button>
+                    <button type="button" onclick="importGameJsonFromStart()">JSONを読み込む</button>
+                </div>
+                <button type="button" class="start-sub-action" onclick="hideStartScreen()">入力画面を表示</button>
+            </div>
+        </div>
         <header class="app-header">
             <div class="history-actions" aria-label="履歴操作">
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
@@ -3107,7 +3234,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.5";
+        const APP_VERSION = "0.1.6";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
 
@@ -3192,6 +3319,7 @@
         let isSheetPinching = false;
         let gameAutoSaveTimer = null;
         let isRestoringSavedGame = false;
+        let hideStartScreenAfterJsonImport = false;
 
         const SCORE_COLORS = {
             ink: "#111",
@@ -3687,6 +3815,145 @@
             }
         }
 
+        function getSavedGameMeta() {
+            try {
+                const raw = localStorage.getItem(GAME_STORAGE_KEY);
+                if (!raw) {
+                    return null;
+                }
+                const data = JSON.parse(raw);
+                return {
+                    appVersion: data.appVersion || "-",
+                    savedAt: data.savedAt || ""
+                };
+            } catch (error) {
+                console.warn("Read saved game meta failed", error);
+                return { appVersion: "-", savedAt: "" };
+            }
+        }
+
+        function formatSavedGameDate(value) {
+            if (!value) {
+                return "保存日時不明";
+            }
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return "保存日時不明";
+            }
+            return date.toLocaleString("ja-JP");
+        }
+
+        function updateStartScreenState() {
+            const status = document.getElementById("startSaveStatus");
+            const continueButton = document.getElementById("startContinueBtn");
+            const meta = getSavedGameMeta();
+            if (continueButton) {
+                continueButton.disabled = !meta;
+            }
+            if (!status) {
+                return;
+            }
+            if (meta) {
+                status.innerHTML = [
+                    "前回の自動保存があります。",
+                    "保存: " + escapeHtml(formatSavedGameDate(meta.savedAt)),
+                    "版: " + escapeHtml(meta.appVersion)
+                ].join("<br>");
+            } else {
+                status.textContent = "この端末に保存済みの試合はありません。新規試合またはJSON読み込みから始められます。";
+            }
+        }
+
+        function hideStartScreen() {
+            document.getElementById("startScreen")?.classList.add("is-hidden");
+        }
+
+        function showStartScreen() {
+            updateStartScreenState();
+            document.getElementById("startScreen")?.classList.remove("is-hidden");
+        }
+
+        function continueSavedGameFromStart() {
+            if (getSavedGameMeta()) {
+                loadGameFromLocalStorage();
+            }
+            hideStartScreen();
+        }
+
+        function resetFullGameStateForNewGame() {
+            isRestoringSavedGame = true;
+            try {
+                gameHistory.length = 0;
+                redoHistory.length = 0;
+                state.activeHalf = "top";
+                state.teamNames = { top: "先攻", bottom: "後攻" };
+                state.playerNames = {
+                    top: Array.from({ length: 9 }, () => ""),
+                    bottom: Array.from({ length: 9 }, () => "")
+                };
+                state.playerNumbers = {
+                    top: Array.from({ length: 9 }, () => ""),
+                    bottom: Array.from({ length: 9 }, () => "")
+                };
+                state.scoreSheets = {
+                    top: createEmptyScoreSheet(),
+                    bottom: createEmptyScoreSheet()
+                };
+                state.inningLabelsByHalf = {
+                    top: createDefaultInningLabels(),
+                    bottom: createDefaultInningLabels()
+                };
+                state.baseRunnersByHalf = {
+                    top: [null, null, null],
+                    bottom: [null, null, null]
+                };
+                state.retiredRunnerPreviewsByHalf = {
+                    top: [],
+                    bottom: []
+                };
+                state.selectionsByHalf = {
+                    top: { row: 0, col: 0 },
+                    bottom: { row: 0, col: 0 }
+                };
+                state.selectedSheetRow = 0;
+                state.selectedSheetCol = 0;
+                state.battingOrder = "1";
+                state.parsedInput = null;
+                syncActiveHalfRefs();
+
+                const naturalInput = document.getElementById("naturalLanguageInput");
+                if (naturalInput) {
+                    naturalInput.value = "";
+                }
+                const commentInput = document.getElementById("atBatCommentInput");
+                if (commentInput) {
+                    commentInput.value = "";
+                }
+                resetPlayParts();
+                ensureRunnerGuiStep();
+                resetState();
+                renderPlayerRosterEditor();
+                renderLineScoreBoard();
+                renderScoreSheet();
+                updateDisplay();
+                updateGameFlowDisplay();
+                updateHistoryButtons();
+            } finally {
+                isRestoringSavedGame = false;
+            }
+        }
+
+        function startNewGameFromStart() {
+            if (getSavedGameMeta() && !confirm("前回の自動保存を消して、新しい試合を始めます。必要なら先にJSONを書き出してください。よろしいですか？")) {
+                return;
+            }
+            localStorage.removeItem(GAME_STORAGE_KEY);
+            resetFullGameStateForNewGame();
+            saveGameToLocalStorage();
+            updateStartScreenState();
+            hideStartScreen();
+        }
+
         function saveGameToLocalStorage() {
             if (isRestoringSavedGame) {
                 return;
@@ -3694,6 +3961,7 @@
             try {
                 localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify(createGameSaveData()));
                 setGameSaveStatus("自動保存済み: " + new Date().toLocaleString("ja-JP"));
+                updateStartScreenState();
             } catch (error) {
                 console.warn("Auto save failed", error);
                 setGameSaveStatus("自動保存に失敗しました。JSON書き出しでバックアップしてください。");
@@ -3771,8 +4039,13 @@
             setGameSaveStatus("JSONを書き出しました。");
         }
 
-        function triggerImportGameJson() {
+        function triggerImportGameJson(options = {}) {
+            hideStartScreenAfterJsonImport = !!options.fromStart;
             document.getElementById("gameJsonImportInput")?.click();
+        }
+
+        function importGameJsonFromStart() {
+            triggerImportGameJson({ fromStart: true });
         }
 
         function handleImportGameJson(event) {
@@ -3780,6 +4053,9 @@
             if (!file) {
                 return;
             }
+            const shouldHideStartAfterImport = hideStartScreenAfterJsonImport
+                && !document.getElementById("startScreen")?.classList.contains("is-hidden");
+            hideStartScreenAfterJsonImport = false;
             const reader = new FileReader();
             reader.onload = () => {
                 try {
@@ -3789,6 +4065,10 @@
                     }
                     restoreGameSaveData(data, "JSONから読み込みました");
                     setGameSaveStatus("JSONから読み込みました: " + file.name);
+                    updateStartScreenState();
+                    if (shouldHideStartAfterImport) {
+                        hideStartScreen();
+                    }
                 } catch (error) {
                     console.warn("Import game JSON failed", error);
                     alert("JSONを読み込めませんでした。ファイル形式を確認してください。");
@@ -3806,6 +4086,7 @@
             }
             localStorage.removeItem(GAME_STORAGE_KEY);
             setGameSaveStatus("この端末の自動保存を削除しました。現在の画面は次の操作で再び自動保存されます。");
+            updateStartScreenState();
         }
 
         function undoGameAction() {
@@ -11653,6 +11934,7 @@
         renderScoreSheet();
         updateDisplay();
         updateGameFlowDisplay();
+        showStartScreen();
     </script>
 </body>
 </html>
