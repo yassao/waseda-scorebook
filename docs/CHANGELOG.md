@@ -1,3 +1,13 @@
+## v0.1.29 [2026-05-16] PDF準拠の三振記号へ修正
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/SCOREBOOK_RULES.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.28 [2026-05-16] 投球ごとのつぶやき保存を追加
 
 **変更ファイル:**
