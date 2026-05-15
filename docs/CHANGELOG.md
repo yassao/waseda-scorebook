@@ -1,3 +1,14 @@
+## v0.1.11 [2026-05-15] PDF資料準拠のJSON項目整理
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/JSON_DESIGN.md
+- docs/SCOREBOOK_RULES.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.10 [2026-05-15] 過去セル編集ダイアログを追加
 
 **変更ファイル:**

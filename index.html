@@ -742,6 +742,16 @@
             margin: 0 4px 4px;
         }
 
+        .one-pa-textarea {
+            min-height: 52px;
+            font-size: 15px;
+            line-height: 1.45;
+        }
+
+        .hidden-preview {
+            display: none;
+        }
+
         .nl-quick-panel {
             background: var(--panel);
             border-radius: 18px;
@@ -3024,11 +3034,6 @@
                     <div id="cellActionPopup" class="cell-action-popup" aria-hidden="true"></div>
                     <div id="commentPopupBackdrop" class="comment-popup-backdrop" onclick="closeAtBatCommentPopup()"></div>
                     <div id="commentPopup" class="comment-popup" aria-hidden="true"></div>
-                    <textarea id="naturalLanguageInput" class="nl-input" placeholder="テキスト入力（オプション）"></textarea>
-                    <details id="interpretationDetails" class="interpretation-details">
-                        <summary>解釈結果</summary>
-                        <div id="naturalLanguagePreview" class="nl-preview compact">ここに解釈結果を表示します。</div>
-                    </details>
                     <div id="gameMiniStatus" class="game-mini-status" aria-label="試合状況"></div>
                     <div id="nlCorrectionPanel" class="nl-correction-panel">
                         <div class="nl-corrections">
@@ -3180,6 +3185,9 @@
                                     <button onclick="clearTwitterImportInput()">内容クリア</button>
                                 </div>
                                 <div id="twitterImportPreview" class="nl-preview">X / Twitter取り込みは1イニング分ずつ貼り付けてください。現在の回・打順の続きから推定で取り込み、原文は吹き出しコメントとして残します。</div>
+                                <div class="import-help">1打席だけ自然文で補足したい場合は、下の入力欄を使います。通常入力で足りる場合は空欄のままで大丈夫です。</div>
+                                <textarea id="naturalLanguageInput" class="nl-input import-textarea one-pa-textarea" placeholder="1打席テキスト入力（任意）"></textarea>
+                                <div id="naturalLanguagePreview" class="nl-preview compact hidden-preview">ここに解釈結果を表示します。</div>
                             </div>
                         </section>
                         <section id="optionPanelSave" class="section options-panel">
@@ -3395,7 +3403,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.10";
+        const APP_VERSION = "0.1.11";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";

@@ -77,6 +77,26 @@ Scorebook by CuViu の保存JSONは、早稲田式の見た目そのものでは
   "date": "2026-05-14",
   "venue": "",
   "title": "",
+  "competition": "",
+  "fieldCondition": "",
+  "weather": "",
+  "wind": "",
+  "attendance": null,
+  "broadcast": "",
+  "scorer": "",
+  "startTime": "",
+  "endTime": "",
+  "durationMinutes": null,
+  "umpires": {
+    "plate": "",
+    "first": "",
+    "second": "",
+    "third": ""
+  },
+  "benches": {
+    "firstBaseSideTeamId": "team_top",
+    "thirdBaseSideTeamId": "team_bottom"
+  },
   "topTeamId": "team_top",
   "bottomTeamId": "team_bottom",
   "currentHalf": "top",
@@ -95,6 +115,8 @@ Scorebook by CuViu の保存JSONは、早稲田式の見た目そのものでは
 - `currentHalf` は `top` または `bottom`。
 - `score` は将来延長対応のため配列を伸ばせる。
 - 0点も表示できるよう、イニング終了時または得点発生時に値を入れる。
+- 長崎県高野連資料の紙面上部にある、大会名、年月日、球場、球場状態、天候・風向、観衆、開始・終了・所要時間、審判員、記録者、放送欄を保存できるようにする。
+- 一塁側・三塁側のチームは、先攻・後攻と一致しない場合があるため `benches` に分けて保存する。
 
 ## teams
 
@@ -128,6 +150,70 @@ Scorebook by CuViu の保存JSONは、早稲田式の見た目そのものでは
 - 打順ごとに `slots` を持ち、交代選手を縦3段に表示できるようにする。
 - 1人目、2人目、3人目は別スロット。
 - 4人目以降は暫定的に3段目へ `/` 区切りで表示してもよい。
+- `position` は守備位置、`hand` は左打者などの打ち方、`number` は背番号として紙面左側に再現できるよう保存する。
+- 守備位置変更、代打、代走、投手交代は `substitution` イベントにも保存し、どのイニング・どの打席で発生したかを後から復元できるようにする。
+
+## officialSheet
+
+紙のスコアブックで下段・右側に集計する情報を保存する。
+初期実装では自動集計できる範囲から埋め、ユーザー修正を受け入れられる構造にする。
+
+```json
+{
+  "officialSheet": {
+    "pitchers": [
+      {
+        "teamId": "team_top",
+        "playerId": "p_top_pitcher_1",
+        "throws": "right",
+        "name": "",
+        "decision": "",
+        "save": false,
+        "inningsPitched": "0",
+        "pitchCountByInning": [],
+        "totalPitchCount": 0,
+        "battersFaced": 0,
+        "atBats": 0,
+        "hits": 0,
+        "extraBaseHits": 0,
+        "sacBunts": 0,
+        "sacFlies": 0,
+        "walks": 0,
+        "hitByPitch": 0,
+        "strikeouts": 0,
+        "wildPitches": 0,
+        "balks": 0,
+        "runs": 0,
+        "earnedRuns": 0
+      }
+    ],
+    "catchers": [
+      {
+        "teamId": "team_top",
+        "playerId": "p_top_catcher_1",
+        "passedBalls": 0,
+        "stolenBasesAllowed": 0,
+        "caughtStealing": 0
+      }
+    ],
+    "extraBaseHits": {
+      "homeRuns": [],
+      "triples": [],
+      "doubles": []
+    },
+    "teamTotals": {
+      "top": {},
+      "bottom": {}
+    }
+  }
+}
+```
+
+### 方針
+
+- PDF出力時に紙面下段の投手欄、捕手欄、長打欄へ流し込めるようにする。
+- 投球数は、左をイニング投球数、右を合計投球数として保存できるようにする。
+- `officialSheet` は自動集計と手入力補正を併用する。記録員が後から修正した値を優先できるよう、将来 `manualOverride` を追加する。
 
 ## plateAppearances
 
@@ -146,7 +232,7 @@ Scorebook by CuViu の保存JSONは、早稲田式の見た目そのものでは
   "pitches": [
     {
       "type": "strike_swing",
-      "symbol": "swing",
+      "symbol": "×",
       "note": ""
     }
   ],
@@ -175,6 +261,8 @@ Scorebook by CuViu の保存JSONは、早稲田式の見た目そのものでは
 - `source` は `manual`、`x_import`、`nikkan_import`、`natural_language` など。
 - 現行の `event-draft-1` では、既存のスコアブックセルから抽出できる範囲を保存する。
 - 打者一巡時の完全な入力順、複雑な走者イベントの正規化は今後の改善対象。
+- 投球記号は新規データでは資料準拠の `○`、`×`、`・`、`－` を基本にする。旧データやアプリ内部の互換記号は読み込み時に変換できるようにする。
+- 得点・残塁・アウトカウントは空欄にせず、紙面上で何らかの状態が分かるよう保存する。
 
 ## events
 
