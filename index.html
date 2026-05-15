@@ -3297,6 +3297,7 @@
                                     <button onclick="importNikkanSportsBoardForHalf('top')">先攻チーム取り込み</button>
                                     <button onclick="clearNikkanSportsBoardInput()">内容クリア</button>
                                     <button onclick="importNikkanSportsBoardForHalf('bottom')">後攻チーム取り込み</button>
+                                    <button onclick="generateNikkanSportsPrompt()">AI変換プロンプト生成</button>
                                 </div>
                                 <div id="nikkanBoardPreview" class="nl-preview">日刊スポーツの打者成績表をまとめて貼り付けます。アウト・走者・得点は推定で反映します。</div>
                                 <div class="import-help">低確度のセルはシート上でグレーハッチ表示にします。あとでタップして修正できます。</div>
@@ -3543,7 +3544,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.15";
+        const APP_VERSION = "0.1.16";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7392,6 +7393,41 @@
             }
         }
 
+        function buildNikkanSportsPrompt(rawText) {
+            return [
+                "以下の日刊スポーツの野球打者成績表コピーを、早稲田式スコアブックアプリへ貼り付けやすい形に整形してください。",
+                "",
+                "最重要:",
+                "出力は「整形後テキスト」だけにしてください。説明、質問、補足、前置き、後書きは絶対に書かないでください。",
+                "表の1選手を必ず1行にしてください。複数選手を1行にまとめないでください。",
+                "タブ区切り、または全角スペース区切りで、次の列順を維持してください。",
+                "[守備] [選手名] [左右] [打数] [安打] [打点] [通算率] [HR] [1回] [2回] [3回] [4回] [5回] [6回] [7回] [8回] [9回]",
+                "",
+                "ルール:",
+                "1. チーム名行、見出し行、計の行は残してもよいですが、説明文は書かないでください。",
+                "2. 選手行は1人1行にしてください。途中出場選手も1行ずつ残してください。",
+                "3. 空欄は空欄のまま、または「……」で補ってください。",
+                "4. 打席結果は短い表記を維持してください。例: 右安、左2、中3、左本、四球、死球、空三振、見三振、三邪、捕ギ、ギ野、遊併。",
+                "5. 「ギ」は犠打、「邪」はファールフライ、「野」はフィルダースチョイスとして扱えるよう、元の文字を消さないでください。",
+                "6. 選手名を勝手に匿名化しないでください。ただし出力例を追加する場合は匿名名にしてください。",
+                "7. 出力には箇条書き記号、番号、Markdown表、説明文を入れないでください。整形後の行だけを返してください。",
+                "",
+                "出力例（形式例です。実データではなく匿名です）:",
+                "```text",
+                "(中)　選手A　（左）　4　1　0　.250　0　右安　……　三邪　……　三振　……　一ゴ　……　",
+                "(捕)　選手B　（右）　3　0　0　.200　1　三振　……　捕ギ　……　……　二飛　……　四球　",
+                "```",
+                "",
+                "変換対象:",
+                rawText || "（ここに日刊スポーツの打者成績表コピーを貼り付け）"
+            ].join("\n");
+        }
+
+        function generateNikkanSportsPrompt() {
+            const input = document.getElementById("nikkanBoardInput");
+            showAiPromptPopup("nikkan", buildNikkanSportsPrompt((input?.value || "").trim()));
+        }
+
         function showOptionPanel(panelName) {
             const normalized = ["x", "save"].includes(panelName) ? panelName : "nikkan";
             const panels = {
@@ -7635,7 +7671,7 @@
         }
 
         function showAiPromptPopup(target, promptText) {
-            aiPromptTarget = target === "one-pa" ? "one-pa" : "twitter";
+            aiPromptTarget = ["one-pa", "nikkan"].includes(target) ? target : "twitter";
             currentAiPromptText = promptText || "";
             const popup = document.getElementById("aiPromptPopup");
             const backdrop = document.getElementById("aiPromptPopupBackdrop");
@@ -7648,12 +7684,18 @@
             if (backdrop.parentElement !== document.body) {
                 document.body.appendChild(backdrop);
             }
-            const title = aiPromptTarget === "one-pa"
-                ? "1打席AI変換"
-                : "1イニングAI変換";
-            const resultHelp = aiPromptTarget === "one-pa"
-                ? "AIの回答をここへ貼ると、1打席入力へ反映して閉じます。"
-                : "AIの回答をここへ貼ると、X / Twitter取り込みとして反映して閉じます。";
+            const titleMap = {
+                "one-pa": "1打席AI変換",
+                nikkan: "日刊スポーツAI変換",
+                twitter: "1イニングAI変換"
+            };
+            const resultHelpMap = {
+                "one-pa": "AIの回答をここへ貼ると、1打席入力へ反映して閉じます。",
+                nikkan: "AIの回答をここへ貼ると、日刊スポーツ取り込み欄へ反映して閉じます。",
+                twitter: "AIの回答をここへ貼ると、X / Twitter取り込みとして反映して閉じます。"
+            };
+            const title = titleMap[aiPromptTarget] || titleMap.twitter;
+            const resultHelp = resultHelpMap[aiPromptTarget] || resultHelpMap.twitter;
             popup.innerHTML = [
                 '<div class="ai-prompt-header">',
                 '<div class="ai-prompt-title">' + title + '</div>',
@@ -7706,6 +7748,15 @@
                     input.value = result;
                 }
                 applyOnePlateAppearanceText();
+            } else if (aiPromptTarget === "nikkan") {
+                const input = document.getElementById("nikkanBoardInput");
+                const preview = document.getElementById("nikkanBoardPreview");
+                if (input) {
+                    input.value = result;
+                }
+                if (preview) {
+                    preview.textContent = "AI整形結果を貼り付けました。先攻または後攻チーム取り込みを押してください。";
+                }
             } else {
                 const input = document.getElementById("twitterImportInput");
                 if (input) {
