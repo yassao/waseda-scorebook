@@ -3191,14 +3191,14 @@
                 <div class="start-kicker">CuViu Scorebook</div>
                 <h1>スコアブック<small>by CuViu</small></h1>
                 <p class="start-lead">
-                    球場で素早く入力し、あとからJSONやPDFへつなげるためのプロトタイプです。
+                    球場で素早く入力し、あとから試合データやPDFへつなげるためのプロトタイプです。
                     まずは試合データを選んで始めます。
                 </p>
                 <div id="startSaveStatus" class="start-save-status">保存状態を確認しています。</div>
                 <div class="start-actions">
                     <button id="startContinueBtn" type="button" class="primary" onclick="continueSavedGameFromStart()">前回の続き</button>
                     <button type="button" onclick="startNewGameFromStart()">新規試合</button>
-                    <button type="button" onclick="importGameJsonFromStart()">JSONを読み込む</button>
+                    <button type="button" onclick="importGameJsonFromStart()">試合データを読み込む</button>
                 </div>
                 <div class="saved-games-title">保存済み試合</div>
                 <div id="savedGameList" class="saved-game-list"></div>
@@ -3207,9 +3207,9 @@
             <div id="startNewGameConfirm" class="start-confirm is-hidden" role="dialog" aria-modal="true" aria-labelledby="startNewGameConfirmTitle">
                 <div class="start-confirm-card">
                     <div id="startNewGameConfirmTitle" class="start-confirm-title">前回の自動保存を消して、新しい試合を始めます。</div>
-                    <div class="start-confirm-text">必要なら先にJSONを書き出してください。書き出したあとも、この画面から新規試合を始められます。</div>
+                    <div class="start-confirm-text">必要なら先に試合データを書き出してください。書き出したあとも、この画面から新規試合を始められます。</div>
                     <div class="start-confirm-actions">
-                        <button type="button" class="start-confirm-export" onclick="exportAutoSavedGameFromStartConfirm()">JSONを書き出す</button>
+                        <button type="button" class="start-confirm-export" onclick="exportAutoSavedGameFromStartConfirm()">試合データを書き出す</button>
                         <button type="button" onclick="closeStartNewGameConfirm()">キャンセル</button>
                         <button type="button" class="start-confirm-danger" onclick="confirmStartNewGameFromStart()">新規試合を始める</button>
                     </div>
@@ -3501,7 +3501,7 @@
                         <div class="options-nav" role="tablist" aria-label="インポート機能">
                             <button id="optionNavNikkan" type="button" class="is-active" onclick="showOptionPanel('nikkan')">日刊スポーツ<br>インポート</button>
                             <button id="optionNavX" type="button" onclick="showOptionPanel('x')">X / Twitter<br>インポート</button>
-                            <button id="optionNavSave" type="button" onclick="showOptionPanel('save')">保存 / 読込<br>JSON</button>
+                            <button id="optionNavSave" type="button" onclick="showOptionPanel('save')">保存 / 読込<br>試合データ</button>
                         </div>
                         <section id="optionPanelNikkan" class="section options-panel is-active">
                             <div class="section-title">日刊スポーツ 全体インポート</div>
@@ -3548,17 +3548,17 @@
                         <section id="optionPanelSave" class="section options-panel">
                             <div class="section-title">試合データ 保存 / 読み込み</div>
                             <div class="nl-panel">
-                                <div id="gameSaveStatus" class="nl-preview">この端末には自動保存されます。JSON書き出しは画面下部のリセット横から行えます。</div>
+                                <div id="gameSaveStatus" class="nl-preview">この端末には自動保存されます。試合データの書き出しは画面下部のリセット横から行えます。</div>
                                 <div class="nl-actions">
                                     <button onclick="saveCurrentGameToSlot()">現在の試合を保存</button>
-                                    <button onclick="triggerImportGameJson()">JSONを読み込み</button>
+                                    <button onclick="triggerImportGameJson()">試合データを読み込み</button>
                                     <button onclick="showStartScreen()">トップ画面を開く</button>
                                     <button onclick="clearSavedGameData()">この端末の自動保存を削除</button>
                                 </div>
                                 <div class="saved-games-title">保存済み試合</div>
                                 <div id="optionsSavedGameList" class="saved-game-list compact"></div>
                                 <input id="gameJsonImportInput" class="sr-only" type="file" accept="application/json,.json" onchange="handleImportGameJson(event)">
-                                <div class="import-help">読み込み時は現在の試合データを置き換えます。必要なら先に画面下部からJSONを書き出してください。</div>
+                                <div class="import-help">読み込み時は現在の試合データを置き換えます。必要なら先に画面下部から試合データを書き出してください。</div>
                             </div>
                         </section>
                     </div>
@@ -3567,7 +3567,7 @@
                 <div class="danger-action-row">
                     <button class="btn-reset" onclick="resetState()">リセット</button>
                     <button class="btn-save-return" onclick="saveCurrentGameAndShowStart()">保存してトップへ</button>
-                    <button class="btn-export" onclick="exportGameJson()">JSON書き出し</button>
+                    <button class="btn-export" onclick="exportGameJson()">試合データ書き出し</button>
                 </div>
 
                 <p class="note">
@@ -3581,7 +3581,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.25";
+        const APP_VERSION = "0.1.26";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4825,7 +4825,7 @@
 
             containers.forEach((container) => {
                 if (!slots.length) {
-                    container.innerHTML = '<div class="saved-game-empty">手動保存した試合はまだありません。入力画面の「保存 / 読込 JSON」から現在の試合を保存できます。</div>';
+                    container.innerHTML = '<div class="saved-game-empty">手動保存した試合はまだありません。入力画面の「保存 / 読込 試合データ」から現在の試合を保存できます。</div>';
                     return;
                 }
                 container.innerHTML = slots.map((slot) => {
@@ -4945,7 +4945,7 @@
                     "版: " + escapeHtml(meta.appVersion)
                 ].join("<br>");
             } else {
-                status.textContent = "この端末に保存済みの試合はありません。新規試合またはJSON読み込みから始められます。";
+                status.textContent = "この端末に保存済みの試合はありません。新規試合または試合データ読み込みから始められます。";
             }
         }
 
@@ -5081,7 +5081,7 @@
                 updateStartScreenState();
             } catch (error) {
                 console.warn("Auto save failed", error);
-                setGameSaveStatus("自動保存に失敗しました。JSON書き出しでバックアップしてください。");
+                setGameSaveStatus("自動保存に失敗しました。試合データ書き出しでバックアップしてください。");
             }
         }
 
@@ -5131,7 +5131,7 @@
                 return true;
             } catch (error) {
                 console.warn("Restore saved game failed", error);
-                setGameSaveStatus("前回の自動保存を復元できませんでした。JSONの手動読み込みを試してください。");
+                setGameSaveStatus("前回の自動保存を復元できませんでした。試合データの手動読み込みを試してください。");
                 return false;
             }
         }
@@ -5155,7 +5155,7 @@
 
         function exportGameJson() {
             downloadJsonData(createGameSaveData(), getGameExportFileName());
-            setGameSaveStatus("JSONを書き出しました。");
+            setGameSaveStatus("試合データを書き出しました。");
         }
 
         function exportAutoSavedGameFromStartConfirm() {
@@ -5169,12 +5169,12 @@
                 const data = JSON.parse(raw);
                 const fileName = getGameExportFileNameFromSavedAt(data.savedAt);
                 downloadJsonData(data, fileName);
-                setStartNewGameConfirmStatus("JSONを書き出しました: " + fileName);
-                setGameSaveStatus("前回の自動保存をJSONに書き出しました。");
+                setStartNewGameConfirmStatus("試合データを書き出しました: " + fileName);
+                setGameSaveStatus("前回の自動保存を試合データとして書き出しました。");
                 updateStartScreenState();
             } catch (error) {
                 console.warn("Export auto saved game failed", error);
-                setStartNewGameConfirmStatus("自動保存JSONの読み取りに失敗しました。", true);
+                setStartNewGameConfirmStatus("自動保存データの読み取りに失敗しました。", true);
             }
         }
 
@@ -5202,16 +5202,16 @@
                     if (!confirm("現在の試合データを読み込みデータで置き換えます。よろしいですか？")) {
                         return;
                     }
-                    restoreGameSaveData(data, "JSONから読み込みました");
-                    setGameSaveStatus("JSONから読み込みました: " + file.name);
+                    restoreGameSaveData(data, "試合データから読み込みました");
+                    setGameSaveStatus("試合データから読み込みました: " + file.name);
                     updateStartScreenState();
                     if (shouldHideStartAfterImport) {
                         hideStartScreen();
                     }
                 } catch (error) {
                     console.warn("Import game JSON failed", error);
-                    alert("JSONを読み込めませんでした。ファイル形式を確認してください。");
-                    setGameSaveStatus("JSONを読み込めませんでした。");
+                    alert("試合データを読み込めませんでした。ファイル形式を確認してください。");
+                    setGameSaveStatus("試合データを読み込めませんでした。");
                 } finally {
                     event.target.value = "";
                 }
