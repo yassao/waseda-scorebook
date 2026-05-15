@@ -164,6 +164,74 @@
             font-size: 13px;
         }
 
+        .start-confirm {
+            position: fixed;
+            inset: 0;
+            z-index: 41000;
+            display: grid;
+            place-items: center;
+            padding: calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 18px);
+            background: rgba(15, 23, 42, 0.32);
+        }
+
+        .start-confirm.is-hidden {
+            display: none;
+        }
+
+        .start-confirm-card {
+            width: min(100%, 430px);
+            padding: 22px 18px 18px;
+            border-radius: 22px;
+            background: #fff;
+            border: 1px solid rgba(35, 49, 66, 0.14);
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+        }
+
+        .start-confirm-title {
+            color: #172331;
+            font-size: 20px;
+            font-weight: 900;
+            line-height: 1.35;
+        }
+
+        .start-confirm-text {
+            margin-top: 8px;
+            color: #475569;
+            font-size: 14px;
+            font-weight: 800;
+            line-height: 1.6;
+        }
+
+        .start-confirm-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .start-confirm-actions button {
+            min-height: 46px;
+            border-radius: 16px;
+            border: 2px solid var(--border);
+            background: #fff;
+            color: #1f2937;
+            font-size: 15px;
+            font-weight: 900;
+        }
+
+        .start-confirm-actions .start-confirm-export {
+            grid-column: 1 / -1;
+            background: #eef7f5;
+            color: #0f4f4a;
+            border-color: #0f766e;
+        }
+
+        .start-confirm-actions .start-confirm-danger {
+            background: #ef4444;
+            color: #fff;
+            border-color: #dc2626;
+        }
+
         .saved-games-title {
             margin-top: 18px;
             color: #22313f;
@@ -3123,6 +3191,17 @@
                 <div id="savedGameList" class="saved-game-list"></div>
                 <button type="button" class="start-sub-action" onclick="hideStartScreen()">入力画面を表示</button>
             </div>
+            <div id="startNewGameConfirm" class="start-confirm is-hidden" role="dialog" aria-modal="true" aria-labelledby="startNewGameConfirmTitle">
+                <div class="start-confirm-card">
+                    <div id="startNewGameConfirmTitle" class="start-confirm-title">前回の自動保存を消して、新しい試合を始めます。</div>
+                    <div class="start-confirm-text">必要なら先にJSONを書き出してください。書き出したあとも、この画面から新規試合を始められます。</div>
+                    <div class="start-confirm-actions">
+                        <button type="button" class="start-confirm-export" onclick="exportAutoSavedGameFromStartConfirm()">JSONを書き出す</button>
+                        <button type="button" onclick="closeStartNewGameConfirm()">キャンセル</button>
+                        <button type="button" class="start-confirm-danger" onclick="confirmStartNewGameFromStart()">新規試合を始める</button>
+                    </div>
+                </div>
+            </div>
         </div>
         <header class="app-header">
             <div class="history-actions" aria-label="履歴操作">
@@ -3488,7 +3567,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.23";
+        const APP_VERSION = "0.1.24";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4873,6 +4952,14 @@
             hideStartScreen();
         }
 
+        function openStartNewGameConfirm() {
+            document.getElementById("startNewGameConfirm")?.classList.remove("is-hidden");
+        }
+
+        function closeStartNewGameConfirm() {
+            document.getElementById("startNewGameConfirm")?.classList.add("is-hidden");
+        }
+
         function resetFullGameStateForNewGame() {
             isRestoringSavedGame = true;
             try {
@@ -4943,13 +5030,19 @@
         }
 
         function startNewGameFromStart() {
-            if (getSavedGameMeta() && !confirm("前回の自動保存を消して、新しい試合を始めます。必要なら先にJSONを書き出してください。よろしいですか？")) {
+            if (getSavedGameMeta()) {
+                openStartNewGameConfirm();
                 return;
             }
+            confirmStartNewGameFromStart();
+        }
+
+        function confirmStartNewGameFromStart() {
             localStorage.removeItem(GAME_STORAGE_KEY);
             resetFullGameStateForNewGame();
             saveGameToLocalStorage();
             updateStartScreenState();
+            closeStartNewGameConfirm();
             hideStartScreen();
         }
 
@@ -5027,9 +5120,36 @@
             return "cuviu-scorebook-" + stamp + ".json";
         }
 
+        function getGameExportFileNameFromSavedAt(savedAt) {
+            const stamp = (savedAt || new Date().toISOString())
+                .replace(/[-:]/g, "")
+                .replace(/\..+$/, "")
+                .replace("T", "-");
+            return "cuviu-scorebook-autosave-" + stamp + ".json";
+        }
+
         function exportGameJson() {
             downloadJsonData(createGameSaveData(), getGameExportFileName());
             setGameSaveStatus("JSONを書き出しました。");
+        }
+
+        function exportAutoSavedGameFromStartConfirm() {
+            const raw = localStorage.getItem(GAME_STORAGE_KEY);
+            if (!raw) {
+                alert("書き出せる自動保存が見つかりませんでした。");
+                closeStartNewGameConfirm();
+                updateStartScreenState();
+                return;
+            }
+            try {
+                const data = JSON.parse(raw);
+                downloadJsonData(data, getGameExportFileNameFromSavedAt(data.savedAt));
+                setGameSaveStatus("前回の自動保存をJSONに書き出しました。");
+                updateStartScreenState();
+            } catch (error) {
+                console.warn("Export auto saved game failed", error);
+                alert("自動保存JSONの読み取りに失敗しました。");
+            }
         }
 
         function triggerImportGameJson(options = {}) {
