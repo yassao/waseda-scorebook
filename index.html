@@ -1446,6 +1446,39 @@
             font-size: 13px;
         }
 
+        .ai-import-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            align-items: stretch;
+        }
+
+        .ai-import-card {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .ai-import-title {
+            font-size: 13px;
+            font-weight: 900;
+            color: #334155;
+        }
+
+        .ai-import-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 6px;
+        }
+
+        .ai-import-actions button {
+            min-height: 38px;
+            padding: 8px 10px;
+            font-size: 12px;
+            line-height: 1.25;
+        }
+
         .play-builder {
             display: grid;
             gap: 4px;
@@ -2862,6 +2895,10 @@
                 font-size: 12px;
             }
 
+            .ai-import-grid {
+                grid-template-columns: 1fr;
+            }
+
             .nl-preview.compact {
                 min-height: 24px;
                 font-size: 10px;
@@ -3176,18 +3213,31 @@
                             </div>
                         </section>
                         <section id="optionPanelX" class="section options-panel">
-                            <div class="section-title">X / Twitter インポート</div>
+                            <div class="section-title">AI整形インポート</div>
                             <div class="nl-panel">
-                                <textarea id="twitterImportInput" class="nl-input import-textarea" placeholder="1イニング分だけ貼り付け。例: 打者名　中安　コメント"></textarea>
-                                <div class="nl-actions">
-                                    <button onclick="importTwitterGameText()">現在の続きから取り込み</button>
-                                    <button onclick="generateTwitterFormatPrompt()">AI変換プロンプト生成</button>
-                                    <button onclick="clearTwitterImportInput()">内容クリア</button>
+                                <div class="ai-import-grid">
+                                    <div class="ai-import-card">
+                                        <div class="ai-import-title">1イニング入力（X / Twitter向け）</div>
+                                        <textarea id="twitterImportInput" class="nl-input import-textarea" placeholder="1イニング分だけ貼り付け。例: 打者名　中安　コメント"></textarea>
+                                        <div class="ai-import-actions">
+                                            <button onclick="importTwitterGameText()">現在の続きから取り込み</button>
+                                            <button onclick="generateTwitterFormatPrompt()">AI変換プロンプト生成</button>
+                                            <button onclick="clearTwitterImportInput()">内容クリア</button>
+                                        </div>
+                                    </div>
+                                    <div class="ai-import-card">
+                                        <div class="ai-import-title">1打席入力（音声・自然文向け）</div>
+                                        <textarea id="naturalLanguageInput" class="nl-input import-textarea one-pa-textarea" placeholder="例: 低め変化球を拾ってセンター前ヒット。二走はホーム生還"></textarea>
+                                        <div class="ai-import-actions">
+                                            <button onclick="applyOnePlateAppearanceText()">1打席を反映</button>
+                                            <button onclick="generateOnePlateAppearancePrompt()">AI変換プロンプト生成</button>
+                                            <button onclick="clearOnePlateAppearanceInput()">内容クリア</button>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div id="twitterImportPreview" class="nl-preview">X / Twitter取り込みは1イニング分ずつ貼り付けてください。現在の回・打順の続きから推定で取り込み、原文は吹き出しコメントとして残します。</div>
-                                <div class="import-help">1打席だけ自然文で補足したい場合は、下の入力欄を使います。通常入力で足りる場合は空欄のままで大丈夫です。</div>
-                                <textarea id="naturalLanguageInput" class="nl-input import-textarea one-pa-textarea" placeholder="1打席テキスト入力（任意）"></textarea>
                                 <div id="naturalLanguagePreview" class="nl-preview compact hidden-preview">ここに解釈結果を表示します。</div>
+                                <div class="import-help">曖昧な音声入力は、まずAI変換プロンプトで「1打席だけの短い結果」に整形してから貼り直すと安定します。</div>
                             </div>
                         </section>
                         <section id="optionPanelSave" class="section options-panel">
@@ -3403,7 +3453,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.11";
+        const APP_VERSION = "0.1.12";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7417,6 +7467,81 @@
                     "<div>以下のプロンプトをChatGPTなどに貼ると、このアプリに読み込ませやすい形へ整形できます。</div>",
                     '<textarea class="nl-input import-textarea" readonly onclick="this.select()">' + escapeHtml(prompt) + "</textarea>",
                     "<div class=\"import-help\">素のまま取り込んで誤りが多いときの補助用です。変換結果を上の入力欄へ貼り直して取り込んでください。</div>"
+                ].join("");
+            }
+            if (navigator.clipboard?.writeText) {
+                navigator.clipboard.writeText(prompt).catch(() => {});
+            }
+        }
+
+        function clearOnePlateAppearanceInput() {
+            const input = document.getElementById("naturalLanguageInput");
+            const preview = document.getElementById("twitterImportPreview");
+            if (input) {
+                input.value = "";
+                input.focus();
+            }
+            if (preview) {
+                preview.textContent = "1打席入力をクリアしました。音声入力や自然文を貼り直せます。";
+            }
+            scheduleNaturalLanguageParse();
+        }
+
+        function applyOnePlateAppearanceText() {
+            const input = document.getElementById("naturalLanguageInput");
+            const preview = document.getElementById("twitterImportPreview");
+            const text = (input?.value || "").trim();
+            if (!text) {
+                if (preview) {
+                    preview.textContent = "1打席入力欄が空です。音声入力や自然文を入れてください。";
+                }
+                return;
+            }
+            parseNaturalLanguage();
+            if (preview) {
+                preview.innerHTML = [
+                    "<div>1打席入力を現在のプレビューへ反映しました。</div>",
+                    "<div class=\"import-help\">内容が曖昧な場合は、AI変換プロンプトで短い結果表記に整えてから貼り直してください。</div>"
+                ].join("");
+            }
+        }
+
+        function generateOnePlateAppearancePrompt() {
+            const input = document.getElementById("naturalLanguageInput");
+            const preview = document.getElementById("twitterImportPreview");
+            const rawText = (input?.value || "").trim();
+            const prompt = [
+                "以下の野球の1打席メモを、早稲田式スコアブックアプリへ貼り付けやすい短い1行に整形してください。",
+                "",
+                "最重要:",
+                "出力は「整形後テキスト」1行だけにしてください。説明、質問、補足、前置き、後書きは絶対に書かないでください。",
+                "変換対象は必ず1打席分だけです。複数打席が混ざっている場合は、最初の1打席だけを出力してください。",
+                "形式は必ず次のどちらかにしてください。",
+                "[打撃結果]　[走者の動きやコメント]",
+                "[名前]　[打撃結果]　[走者の動きやコメント]",
+                "",
+                "ルール:",
+                "1. 打撃結果は短い野球表記にしてください。例: 中安、右線二塁打、左本、空三振、見三振、四球、死球、投犠打、三邪、遊ゴロ、463 Fc、463併殺、ギ野。",
+                "2. 打球方向が分かる場合は残してください。例: センター前ヒットは中安、ライトオーバー二塁打は右越二塁打、三遊間ゴロ安は三遊間左安。",
+                "3. 走者の動きが分かる場合は後ろに追記してください。例: 一走三塁、二走生還、三走生還、二盗、二盗死、暴投で二塁、①。",
+                "4. 球速、好捕、強襲、ポテンなどの情景は短く残してください。",
+                "5. 463併殺と書かれていても、一塁セーフが明記されている場合は「463 Fc 一塁はセーフ」としてください。",
+                "6. 出力には箇条書き記号、番号、表、説明文を入れないでください。",
+                "",
+                "出力例:",
+                "```text",
+                "中安　低め変化球を拾う。一走三塁",
+                "```",
+                "",
+                "変換対象:",
+                rawText || "（ここに1打席メモを貼り付け）"
+            ].join("\n");
+
+            if (preview) {
+                preview.innerHTML = [
+                    "<div>以下のプロンプトをChatGPTなどに貼ると、1打席入力へ貼り直しやすい形に整形できます。</div>",
+                    '<textarea class="nl-input import-textarea" readonly onclick="this.select()">' + escapeHtml(prompt) + "</textarea>",
+                    "<div class=\"import-help\">変換結果を右側の1打席入力欄へ貼り直して反映してください。</div>"
                 ].join("");
             }
             if (navigator.clipboard?.writeText) {

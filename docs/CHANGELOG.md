@@ -1,3 +1,12 @@
+## v0.1.12 [2026-05-15] 1打席AI整形入力を追加
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.11 [2026-05-15] PDF資料準拠のJSON項目整理
 
 **変更ファイル:**
