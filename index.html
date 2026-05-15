@@ -1117,6 +1117,71 @@
             grid-column: 1 / -1;
         }
 
+        .pitcher-change-panel {
+            grid-column: 1 / -1;
+            display: grid;
+            gap: 8px;
+            padding: 8px;
+            border: 1.5px solid #d7e1e8;
+            border-radius: 10px;
+            background: #f8fafc;
+        }
+
+        .pitcher-change-title {
+            color: #22313f;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .pitcher-change-form {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .pitcher-change-form button,
+        .pitcher-change-list button {
+            min-height: 34px;
+            border: 0;
+            border-radius: 9px;
+            background: #1f7a8c;
+            color: #fff;
+            font-weight: 900;
+        }
+
+        .pitcher-change-list {
+            display: grid;
+            gap: 6px;
+        }
+
+        .pitcher-change-item {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+            padding: 7px 8px;
+            border: 1px solid #dbe5ec;
+            border-radius: 9px;
+            background: #fff;
+            color: #22313f;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .pitcher-change-item small {
+            display: block;
+            margin-top: 2px;
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .pitcher-change-empty {
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
         .player-roster-editor {
             display: grid;
             gap: 12px;
@@ -3309,6 +3374,20 @@
                                     <label>後攻投手<input id="gameInfoBottomPitcher" type="text" oninput="updateGameInfoField('pitchers.bottom', this.value)"></label>
                                     <label>一塁側<select id="gameInfoFirstBench" onchange="updateGameInfoField('benches.firstBaseSideTeamId', this.value)"><option value="team_top">先攻</option><option value="team_bottom">後攻</option></select></label>
                                     <label>三塁側<select id="gameInfoThirdBench" onchange="updateGameInfoField('benches.thirdBaseSideTeamId', this.value)"><option value="team_bottom">後攻</option><option value="team_top">先攻</option></select></label>
+                                    <div class="pitcher-change-panel">
+                                        <div class="pitcher-change-title">投手交代</div>
+                                        <div class="pitcher-change-form">
+                                            <label>チーム<select id="pitcherChangeTeam"><option value="top">先攻</option><option value="bottom">後攻</option></select></label>
+                                            <label>投げ方<select id="pitcherChangeThrows"><option value="">未選択</option><option value="right">右</option><option value="left">左</option></select></label>
+                                            <label>投手名<input id="pitcherChangeName" type="text" placeholder="例: 田中"></label>
+                                            <label>交代回<input id="pitcherChangeInning" type="number" min="1" max="12" inputmode="numeric"></label>
+                                            <label>表/裏<select id="pitcherChangeHalf"><option value="top">表</option><option value="bottom">裏</option></select></label>
+                                            <label>何番から<input id="pitcherChangeBattingOrder" type="number" min="1" max="9" inputmode="numeric"></label>
+                                            <label class="span-2">メモ<input id="pitcherChangeNote" type="text" placeholder="例: 二死一二塁から"></label>
+                                            <button class="span-2" type="button" onclick="addPitcherChangeFromForm()">投手交代を記録</button>
+                                        </div>
+                                        <div id="pitcherChangeList" class="pitcher-change-list"></div>
+                                    </div>
                                 </div>
                             </div>
                         </details>
@@ -3409,7 +3488,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.22";
+        const APP_VERSION = "0.1.23";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -3461,6 +3540,10 @@
                 pitchers: {
                     top: "",
                     bottom: ""
+                },
+                pitcherChanges: {
+                    top: [],
+                    bottom: []
                 },
                 benches: {
                     firstBaseSideTeamId: "team_top",
@@ -4189,6 +4272,7 @@
                     top: info.pitchers.top || "",
                     bottom: info.pitchers.bottom || ""
                 },
+                pitcherChanges: deepClone(info.pitcherChanges),
                 benches: {
                     firstBaseSideTeamId: info.benches.firstBaseSideTeamId || "team_top",
                     thirdBaseSideTeamId: info.benches.thirdBaseSideTeamId || "team_bottom"
@@ -4287,18 +4371,43 @@
                 totals.errorsReached += result.errorMode && result.errorMode !== "none" ? 1 : 0;
             });
             const info = normalizeGameInfo(state.gameInfo);
-            return {
-                pitchers: ["top", "bottom"].map((half) => ({
+            const pitcherRows = ["top", "bottom"].flatMap((half) => {
+                const starterName = info.pitchers[half] || "";
+                const starter = {
                     teamId: getTeamId(half),
                     playerId: "",
-                    name: info.pitchers[half] || "",
+                    name: starterName,
                     throws: "",
+                    role: "starter",
                     decision: "",
                     save: false,
                     inningsPitched: "",
                     pitchCountByInning: [],
                     totalPitchCount: 0
-                })),
+                };
+                const changes = (info.pitcherChanges[half] || []).map((change, changeIndex) => ({
+                    teamId: getTeamId(half),
+                    playerId: "",
+                    name: change.name || "",
+                    throws: change.throws || "",
+                    role: "relief",
+                    order: changeIndex + 2,
+                    enteredAt: {
+                        inning: change.inning || "",
+                        half: change.half || "top",
+                        battingOrder: change.battingOrder || "",
+                        note: change.note || ""
+                    },
+                    decision: "",
+                    save: false,
+                    inningsPitched: "",
+                    pitchCountByInning: [],
+                    totalPitchCount: 0
+                }));
+                return [starter, ...changes].filter((pitcher) => pitcher.name || pitcher.role === "starter");
+            });
+            return {
+                pitchers: pitcherRows,
                 catchers: [],
                 extraBaseHits,
                 teamTotals
@@ -4472,6 +4581,28 @@
                         outsByInning[inningKey] = outsAfter >= 3 ? 0 : outsAfter;
                     }
                 }
+            });
+
+            const info = normalizeGameInfo(state.gameInfo);
+            ["top", "bottom"].forEach((teamHalf) => {
+                (info.pitcherChanges[teamHalf] || []).forEach((change, changeIndex) => {
+                    events.push({
+                        type: "substitution",
+                        id: "ev_" + String(eventSerial++).padStart(5, "0"),
+                        teamId: getTeamId(teamHalf),
+                        half: change.half || "top",
+                        inning: change.inning || "",
+                        battingOrder: change.battingOrder || "",
+                        sequence: changeIndex + 1,
+                        substitution: {
+                            kind: "pitcher_change",
+                            teamHalf,
+                            playerName: change.name || "",
+                            throws: change.throws || "",
+                            note: change.note || ""
+                        }
+                    });
+                });
             });
 
             const topLine = calculateLineScore("top");
@@ -5045,6 +5176,32 @@
             state.baseRunnersByHalf[state.activeHalf] = runners;
         }
 
+        function normalizePitcherChange(change = {}) {
+            return {
+                id: change.id || "pc_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7),
+                name: change.name || "",
+                throws: change.throws === "left" || change.throws === "right" ? change.throws : "",
+                inning: parseOptionalInteger(change.inning) || "",
+                half: change.half === "bottom" ? "bottom" : "top",
+                battingOrder: parseOptionalInteger(change.battingOrder) || "",
+                note: change.note || ""
+            };
+        }
+
+        function normalizePitcherChanges(pitcherChanges) {
+            const source = pitcherChanges || {};
+            if (Array.isArray(source)) {
+                return {
+                    top: source.filter((change) => change?.teamHalf !== "bottom" && change?.halfTeam !== "bottom").map(normalizePitcherChange),
+                    bottom: source.filter((change) => change?.teamHalf === "bottom" || change?.halfTeam === "bottom").map(normalizePitcherChange)
+                };
+            }
+            return {
+                top: (source.top || []).map(normalizePitcherChange),
+                bottom: (source.bottom || []).map(normalizePitcherChange)
+            };
+        }
+
         function normalizeGameInfo(gameInfo) {
             const defaults = createDefaultGameInfo();
             return {
@@ -5058,6 +5215,7 @@
                     ...defaults.pitchers,
                     ...(gameInfo?.pitchers || {})
                 },
+                pitcherChanges: normalizePitcherChanges(gameInfo?.pitcherChanges || defaults.pitcherChanges),
                 benches: {
                     ...defaults.benches,
                     ...(gameInfo?.benches || {})
@@ -5102,6 +5260,102 @@
                 gameInfoThirdBench: info.benches.thirdBaseSideTeamId
             };
             Object.entries(fieldMap).forEach(([id, value]) => setElementValue(id, value || ""));
+            setPitcherChangeFormDefaults();
+            renderPitcherChangeList();
+        }
+
+        function getThrowsLabel(value) {
+            if (value === "right") {
+                return "右";
+            }
+            if (value === "left") {
+                return "左";
+            }
+            return "";
+        }
+
+        function setPitcherChangeFormDefaults() {
+            const teamSelect = document.getElementById("pitcherChangeTeam");
+            const inningInput = document.getElementById("pitcherChangeInning");
+            const halfSelect = document.getElementById("pitcherChangeHalf");
+            const battingOrderInput = document.getElementById("pitcherChangeBattingOrder");
+            if (teamSelect && !teamSelect.value) {
+                teamSelect.value = getOpponentHalf();
+            }
+            if (inningInput && !inningInput.value) {
+                inningInput.value = getColumnInningLabel();
+            }
+            if (halfSelect && !halfSelect.value) {
+                halfSelect.value = state.activeHalf;
+            }
+            if (battingOrderInput && !battingOrderInput.value) {
+                battingOrderInput.value = state.selectedSheetRow + 1;
+            }
+        }
+
+        function addPitcherChangeFromForm() {
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            const teamHalf = document.getElementById("pitcherChangeTeam")?.value === "bottom" ? "bottom" : "top";
+            const name = document.getElementById("pitcherChangeName")?.value.trim() || "";
+            if (!name) {
+                alert("投手名を入力してください。");
+                return;
+            }
+            const change = normalizePitcherChange({
+                name,
+                throws: document.getElementById("pitcherChangeThrows")?.value || "",
+                inning: document.getElementById("pitcherChangeInning")?.value || getColumnInningLabel(),
+                half: document.getElementById("pitcherChangeHalf")?.value || state.activeHalf,
+                battingOrder: document.getElementById("pitcherChangeBattingOrder")?.value || state.selectedSheetRow + 1,
+                note: document.getElementById("pitcherChangeNote")?.value.trim() || ""
+            });
+            state.gameInfo.pitcherChanges[teamHalf].push(change);
+            ["pitcherChangeName", "pitcherChangeNote"].forEach((id) => setElementValue(id, ""));
+            renderPitcherChangeList();
+            renderCurrentBatterCard();
+            scheduleGameAutoSave();
+        }
+
+        function deletePitcherChange(teamHalf, index) {
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            if (!state.gameInfo.pitcherChanges[teamHalf]?.[index]) {
+                return;
+            }
+            state.gameInfo.pitcherChanges[teamHalf].splice(index, 1);
+            renderPitcherChangeList();
+            renderCurrentBatterCard();
+            scheduleGameAutoSave();
+        }
+
+        function renderPitcherChangeList() {
+            const list = document.getElementById("pitcherChangeList");
+            if (!list) {
+                return;
+            }
+            const info = normalizeGameInfo(state.gameInfo);
+            const rows = ["top", "bottom"].flatMap((teamHalf) => (
+                (info.pitcherChanges[teamHalf] || []).map((change, index) => ({ teamHalf, change, index }))
+            ));
+            if (!rows.length) {
+                list.innerHTML = '<div class="pitcher-change-empty">投手交代はまだ記録されていません。</div>';
+                return;
+            }
+            list.innerHTML = rows.map(({ teamHalf, change, index }) => {
+                const teamName = state.teamNames[teamHalf] || (teamHalf === "top" ? "先攻" : "後攻");
+                const inningText = (change.inning || "?") + "回" + getHalfLabel(change.half);
+                const orderText = change.battingOrder ? change.battingOrder + "番から" : "打順未指定";
+                const throwsText = getThrowsLabel(change.throws);
+                const noteText = change.note ? " / " + change.note : "";
+                return (
+                    '<div class="pitcher-change-item">' +
+                        '<div>' +
+                            escapeHtml(teamName + " " + (throwsText ? throwsText + " " : "") + change.name) +
+                            '<small>' + escapeHtml(inningText + " " + orderText + noteText) + '</small>' +
+                        '</div>' +
+                        '<button type="button" onclick="deletePitcherChange(\'' + teamHalf + '\',' + index + ')">削除</button>' +
+                    '</div>'
+                );
+            }).join("");
         }
 
         function rememberRetiredRunnerPreview(runnerRef, baseIndex, label, outScore) {
@@ -5396,7 +5650,10 @@
 
         function getCurrentOpponentPitcherName() {
             const info = normalizeGameInfo(state.gameInfo);
-            return info.pitchers[getOpponentHalf()] || "";
+            const opponentHalf = getOpponentHalf();
+            const changes = info.pitcherChanges[opponentHalf] || [];
+            const latestChange = changes[changes.length - 1];
+            return latestChange?.name || info.pitchers[opponentHalf] || "";
         }
 
         function renderCurrentBatterCard() {

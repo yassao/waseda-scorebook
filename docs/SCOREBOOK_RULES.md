@@ -169,6 +169,15 @@ Scorebook by CuViu では、当面は早稲田式を主軸にする。
 保存JSONでは残塁を `left_on_base` イベントとしても残し、公式集計欄の残塁数へ反映する。
 今後、残塁表記の細かな位置は資料に合わせて再確認する。
 
+## 選手交代・投手交代
+
+PDF資料では、試合中の守備位置変更や代打・代走は、その場面が分かるようにイニング間へ縦波線で記録する。  
+代打は `PH` または `H`、代走は `PR` または `R` として扱い、どの回・どの場面で交代したかを残す。
+
+投手交代は、打者マス側だけでなく下段の投手欄にも対応する。  
+保存JSONではスターターを `officialSheet.pitchers` の `role: "starter"`、交代投手を `role: "relief"` として残し、交代時期を `enteredAt.inning`、`enteredAt.half`、`enteredAt.battingOrder`、`enteredAt.note` に保存する。  
+イベント列にも `type: "substitution"`、`substitution.kind: "pitcher_change"` として出力し、将来のPDF出力で波線・投手欄・投球数欄を結びつけられるようにする。
+
 ## 失策
 
 失策は誰のエラーかを明確にする。
