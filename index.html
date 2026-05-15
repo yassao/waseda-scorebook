@@ -274,6 +274,7 @@
 
         .history-btn,
         .workspace-toggle-btn,
+        .input-layout-toggle-btn,
         .header-help-btn {
             width: 34px;
             min-height: 34px;
@@ -301,6 +302,17 @@
             background: #fff;
         }
 
+        .input-layout-toggle-btn {
+            width: auto;
+            min-width: 50px;
+            padding: 0 10px;
+            border-radius: 999px;
+            background: #eef7f5;
+            color: #0f4f4a;
+            border-color: #0f766e;
+            font-size: 12px;
+        }
+
         .history-btn:disabled {
             color: #cbd5e1;
             border-color: #dbe4ec;
@@ -310,7 +322,7 @@
 
         .top-workspace {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 168px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 12px;
             padding: 0 16px;
             align-items: stretch;
@@ -330,16 +342,24 @@
             box-shadow: 0 18px 40px rgba(22, 34, 51, 0.12);
             flex-shrink: 0;
             border: 1px solid rgba(35, 49, 66, 0.08);
-            order: 2;
+            order: 1;
             min-height: 0;
             overflow: hidden;
         }
 
+        .top-workspace.input-left .scorebox-container {
+            order: 2;
+        }
+
+        .top-workspace.input-left .nl-quick-panel {
+            order: 1;
+        }
+
         .scorebox-svg {
             width: 100%;
-            max-width: 148px;
+            max-width: 220px;
             display: block;
-            margin: 0;
+            margin: 0 auto;
         }
 
         .game-mini-status {
@@ -550,6 +570,7 @@
             display: grid;
             gap: 6px;
             padding: 0;
+            margin-top: auto;
             margin-bottom: 0;
             border: 0;
             border-radius: 0;
@@ -760,7 +781,7 @@
             box-shadow: 0 18px 40px rgba(22, 34, 51, 0.08);
             display: flex;
             flex-direction: column;
-            order: 1;
+            order: 2;
             min-height: 0;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
@@ -2792,8 +2813,15 @@
                 font-size: 16px;
             }
 
+            .input-layout-toggle-btn {
+                min-width: 44px;
+                min-height: 30px;
+                padding: 0 8px;
+                font-size: 11px;
+            }
+
             .top-workspace {
-                grid-template-columns: minmax(0, 1fr) 126px;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
                 padding: 0 12px;
                 gap: 8px;
                 height: min(42dvh, 300px);
@@ -2812,7 +2840,7 @@
 
             .scorebox-svg {
                 width: 100%;
-                max-width: 96px;
+                max-width: 160px;
             }
 
             .base-runner-preview-stack {
@@ -2995,6 +3023,7 @@
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
                 <button id="workspaceToggleBtn" class="workspace-toggle-btn" onclick="toggleTopWorkspace()" aria-label="入力とスコアブックを切替">スコアブック</button>
+                <button id="inputLayoutToggleBtn" class="input-layout-toggle-btn" onclick="toggleInputLayout()" aria-label="右手入力と左手入力を切替">右手</button>
                 <button class="header-help-btn" onclick="showPlayBuilderHelp()" aria-label="ヘルプ">?</button>
             </div>
         </header>
@@ -3049,6 +3078,7 @@
 
             <section class="nl-quick-panel">
                 <div class="nl-panel is-compact">
+                    <div id="gameMiniStatus" class="game-mini-status" aria-label="試合状況"></div>
                     <div class="pitch-input-panel">
                         <div class="status-line">
                             <span id="countStatus">B 0</span>
@@ -3105,7 +3135,6 @@
                     <div id="commentPopup" class="comment-popup" aria-hidden="true"></div>
                     <div id="aiPromptPopupBackdrop" class="ai-prompt-popup-backdrop" onclick="closeAiPromptPopup()"></div>
                     <div id="aiPromptPopup" class="ai-prompt-popup" aria-hidden="true"></div>
-                    <div id="gameMiniStatus" class="game-mini-status" aria-label="試合状況"></div>
                     <div id="nlCorrectionPanel" class="nl-correction-panel">
                         <div class="nl-corrections">
                             <div class="nl-field">
@@ -3336,7 +3365,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.18";
+        const APP_VERSION = "0.1.19";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -3422,6 +3451,7 @@
             currentConfidence: 1,
             atBatComment: "",
             activeHalf: "top",
+            inputLayout: "right",
             gameInfo: createDefaultGameInfo(),
             teamNames: {
                 top: "先攻",
@@ -3897,6 +3927,7 @@
                     currentConfidence: state.currentConfidence,
                     atBatComment: state.atBatComment,
                     activeHalf: state.activeHalf,
+                    inputLayout: state.inputLayout || "right",
                     gameInfo: deepClone(state.gameInfo),
                     teamNames: deepClone(state.teamNames),
                     playerNames: deepClone(state.playerNames),
@@ -3930,6 +3961,7 @@
                 return;
             }
             Object.assign(state, deepClone(snapshot.state));
+            state.inputLayout = state.inputLayout === "left" ? "left" : "right";
             state.gameInfo = normalizeGameInfo(state.gameInfo || snapshot.game || {});
             syncActiveHalfRefs();
 
@@ -4583,6 +4615,7 @@
                 gameHistory.length = 0;
                 redoHistory.length = 0;
                 state.activeHalf = "top";
+                state.inputLayout = "right";
                 state.gameInfo = createDefaultGameInfo();
                 state.teamNames = { top: "先攻", bottom: "後攻" };
                 state.playerNames = {
@@ -4829,6 +4862,25 @@
             }
             document.body.classList.toggle("scorebook-view-mode", shouldCollapse);
             renderScoreSheet();
+        }
+
+        function applyInputLayout() {
+            const layout = state.inputLayout === "left" ? "left" : "right";
+            const workspace = document.querySelector(".top-workspace");
+            const button = document.getElementById("inputLayoutToggleBtn");
+            workspace?.classList.toggle("input-left", layout === "left");
+            if (button) {
+                const label = layout === "left" ? "左手" : "右手";
+                button.textContent = label;
+                button.setAttribute("aria-pressed", layout === "left" ? "true" : "false");
+                button.setAttribute("title", label + "入力レイアウト");
+            }
+        }
+
+        function toggleInputLayout() {
+            state.inputLayout = state.inputLayout === "left" ? "right" : "left";
+            applyInputLayout();
+            scheduleGameAutoSave();
         }
 
         function updateHistoryButtons() {
@@ -12853,6 +12905,7 @@
         }
 
         function updateDisplay() {
+            applyInputLayout();
             updatePitchDisplay();
             updateRunnerNotesDisplay();
             updateRunnerPreviewPanel();
