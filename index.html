@@ -3544,7 +3544,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.16";
+        const APP_VERSION = "0.1.17";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7775,7 +7775,7 @@
                 preview.textContent = "実況ポストを貼り付けてください。";
                 return;
             }
-            const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+            const lines = splitTwitterImportTextIntoLines(text);
             const batterLikeLines = lines.filter((line) => /　|\s/.test(line) && !/^\d+回|^P|^\d+番から|.*\d+-\d+/.test(line));
             preview.innerHTML = [
                 "Twitter/Xインポート準備:",
@@ -7800,6 +7800,88 @@
                 return null;
             }
             return { playerName, body, raw: normalized };
+        }
+
+        function escapeRegExpLiteral(value) {
+            return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        }
+
+        function getKnownImportPlayerNames() {
+            const names = [
+                ...(state.playerNames?.top || []),
+                ...(state.playerNames?.bottom || [])
+            ]
+                .map((name) => String(name || "").trim())
+                .filter((name) => name.length >= 1);
+            return Array.from(new Set(names)).sort((a, b) => b.length - a.length);
+        }
+
+        function getTwitterResultLookaheadPattern() {
+            return [
+                "[投捕一二三遊左右中](?:安|2|２|3|３|本|飛|直|ゴロ|邪|併|失|ギ)",
+                "[左右中](?:前|線|越|中間)?(?:安|2|２|3|３|本|飛|直)",
+                "空三振|見三振|三振|四球|死球|申告敬遠|敬遠",
+                "捕逸|暴投|ボーク|ギ野",
+                "[1-9]{2,4}(?:併殺|ダブルプレー|ゲッツー|Fc|FC)",
+                "[1-9](?:-|→)[1-9]"
+            ].join("|");
+        }
+
+        function splitTwitterLineByKnownNames(line, knownNames) {
+            if (!knownNames.length) {
+                return [line];
+            }
+            const positions = [];
+            knownNames.forEach((name) => {
+                const escapedName = escapeRegExpLiteral(name);
+                const regex = new RegExp("(^|[\\s　])(" + escapedName + ")(?=[\\s　])", "g");
+                let match;
+                while ((match = regex.exec(line)) !== null) {
+                    positions.push(match.index + match[1].length);
+                }
+            });
+            const uniquePositions = Array.from(new Set(positions))
+                .filter((position) => position >= 0 && position < line.length)
+                .sort((a, b) => a - b);
+            if (uniquePositions.length <= 1) {
+                return [line];
+            }
+            return uniquePositions
+                .map((position, index) => line.slice(position, uniquePositions[index + 1] || line.length).trim())
+                .filter(Boolean);
+        }
+
+        function splitTwitterLineByResultPattern(line) {
+            const resultPattern = getTwitterResultLookaheadPattern();
+            const regex = new RegExp("(^|[\\s　])([^\\s　]{1,8})[\\s　]+(?=(?:[^\\s　]{0,24})?(?:" + resultPattern + "))", "g");
+            const positions = [];
+            let match;
+            while ((match = regex.exec(line)) !== null) {
+                const candidateName = match[2];
+                if (/^(P|投|代走|守備|シート|守備タイム|満塁|ランナー|原文)$/.test(candidateName)) {
+                    continue;
+                }
+                positions.push(match.index + match[1].length);
+            }
+            const uniquePositions = Array.from(new Set(positions)).sort((a, b) => a - b);
+            if (uniquePositions.length <= 1) {
+                return [line];
+            }
+            return uniquePositions
+                .map((position, index) => line.slice(position, uniquePositions[index + 1] || line.length).trim())
+                .filter(Boolean);
+        }
+
+        function splitTwitterImportTextIntoLines(text) {
+            const knownNames = getKnownImportPlayerNames();
+            const rawLines = String(text || "")
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter(Boolean);
+            return rawLines.flatMap((line) => {
+                const byKnownName = splitTwitterLineByKnownNames(line, knownNames);
+                return byKnownName.flatMap((part) => splitTwitterLineByResultPattern(part));
+            });
         }
 
         function extractTwitterMainPlayText(body) {
@@ -7885,8 +7967,8 @@
                 ].join("<br>");
                 return;
             }
-            const entries = text
-                .split(/\r?\n/)
+            const splitLines = splitTwitterImportTextIntoLines(text);
+            const entries = splitLines
                 .map((line) => parseTwitterBatterLine(line))
                 .filter(Boolean);
             if (!entries.length) {
