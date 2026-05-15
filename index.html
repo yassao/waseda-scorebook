@@ -3409,7 +3409,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.20";
+        const APP_VERSION = "0.1.21";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4063,16 +4063,19 @@
         function mapPitchToEventType(symbol, note = "") {
             const normalized = String(symbol || "");
             const normalizedNote = String(note || "");
-            if (normalized === "●") {
+            if (normalized === "ball" || normalized === "・" || normalized === "●") {
                 return "ball";
             }
-            if (normalized === "－") {
+            if (normalized === "foul" || normalized === "buntFoul" || normalized === "－") {
                 return normalizedNote.includes("バント") ? "foul_bunt" : "foul";
             }
-            if (normalized === "○") {
-                return normalizedNote.includes("バント") ? "strike_bunt_swing" : "strike_swing";
+            if (normalized === "swingStrike" || normalized === "×") {
+                return "strike_swing";
             }
-            if (normalized === "◎") {
+            if (normalized === "buntSwing" || normalized === "ギ") {
+                return "strike_bunt_swing";
+            }
+            if (normalized === "calledStrike" || normalized === "○" || normalized === "◎") {
                 return "strike_called";
             }
             return "unknown";
@@ -5308,13 +5311,19 @@
             return "B" + state.balls + "-S" + state.strikes + " P" + state.pitches.length;
         }
 
-        function captureCommentTimingMeta() {
+        function capturePitchTimingMeta() {
             return {
                 balls: state.balls,
                 strikes: state.strikes,
                 pitchIndex: state.pitches.length,
                 pitchSymbol: state.pitches[state.pitches.length - 1] || "",
-                countLabel: getCurrentCountLabel(),
+                countLabel: getCurrentCountLabel()
+            };
+        }
+
+        function captureCommentTimingMeta() {
+            return {
+                ...capturePitchTimingMeta(),
                 capturedAt: new Date().toISOString()
             };
         }
@@ -6248,7 +6257,7 @@
             }
         }
 
-        function removeRunnerFromBase(runners, baseIndex, label, outScore) {
+        function removeRunnerFromBase(runners, baseIndex, label, outScore, eventMeta = null) {
             if (!runners[baseIndex]) {
                 return;
             }
@@ -6259,7 +6268,8 @@
                 type: "out",
                 label: label || "アウト",
                 by: currentBatterNumberForRunnerEvent(),
-                doublePlay: Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]?.modifiers?.doublePlay)
+                doublePlay: Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]?.modifiers?.doublePlay),
+                ...(eventMeta || {})
             });
             rememberRetiredRunnerPreview(runnerRef, baseIndex, label, outScore);
         }
@@ -8333,6 +8343,9 @@
             }
             const lastIndex = state.pitchNotes.length - 1;
             const current = state.pitchNotes[lastIndex];
+            if (current && current.split("/").includes(note)) {
+                return;
+            }
             state.pitchNotes[lastIndex] = current ? current + "/" + note : note;
         }
 
@@ -9584,6 +9597,43 @@
             }[source] || "アウト";
         }
 
+        function getRunnerReasonPitchNote(reason, action) {
+            if (reason === "steal") {
+                return action === "out" ? "CS" : "S";
+            }
+            if (reason === "wp") {
+                return "WP";
+            }
+            if (reason === "pb") {
+                return "PB";
+            }
+            if (reason === "bk") {
+                return "BK";
+            }
+            if (reason === "error") {
+                return "E";
+            }
+            return "";
+        }
+
+        function buildRunnerPitchEventMeta(reason, action) {
+            if (reason === "next") {
+                return null;
+            }
+            return {
+                reason,
+                timing: capturePitchTimingMeta(),
+                pitchNote: getRunnerReasonPitchNote(reason, action)
+            };
+        }
+
+        function markRunnerReasonOnLastPitch(reason, action) {
+            const note = getRunnerReasonPitchNote(reason, action);
+            if (note) {
+                markLastPitchNote(note);
+            }
+        }
+
         function getNextOutScoreForRunnerGui() {
             const previousOuts = getPreviousOutCountForCell(state.selectedSheetRow, state.selectedSheetCol);
             return outCountToRoman(Math.min(3, previousOuts + 1)) || "Ⅰ";
@@ -9602,10 +9652,12 @@
             pushGameHistory();
             const runners = state.baseRunners.map((runner) => (runner ? { ...runner } : null));
             const runnerLabel = getRunnerRefLabel(runnerRef);
+            const eventMeta = buildRunnerPitchEventMeta(reason, action);
+            markRunnerReasonOnLastPitch(reason, action);
 
             if (action === "out") {
                 const outLabel = getRunnerOutLabel(reason, source, step);
-                removeRunnerFromBase(runners, fromIndex, outLabel, getNextOutScoreForRunnerGui());
+                removeRunnerFromBase(runners, fromIndex, outLabel, getNextOutScoreForRunnerGui(), eventMeta);
                 setBaseRunners(runners);
                 renderScoreSheet();
                 updateDisplay();
@@ -9631,7 +9683,7 @@
             const label = getRunnerAdvanceLabel(reason, action, source, step);
             let statusMessage = "";
             if (targetIndex >= 3) {
-                setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta() });
+                setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta(), ...(eventMeta || {}) });
                 statusMessage = runnerLabel + "→本塁" + (label ? "（" + label + "）" : "");
             } else {
                 runners[targetIndex] = runnerRef;
@@ -9639,7 +9691,8 @@
                     type: "advance",
                     base: targetIndex + 1,
                     by: currentBatterNumberForRunnerEvent(),
-                    label
+                    label,
+                    ...(eventMeta || {})
                 });
                 statusMessage = runnerLabel + "→" + (targetIndex + 1) + "塁" + (label ? "（" + label + "）" : "");
             }
@@ -12633,13 +12686,25 @@
                 const circle = document.createElementNS(svgNs, "circle");
                 circle.setAttribute("cx", "0");
                 circle.setAttribute("cy", "0");
-                circle.setAttribute("r", "4");
+                circle.setAttribute("r", "2.6");
                 circle.setAttribute("fill", "#111");
                 group.appendChild(circle);
                 return;
             }
 
-            if (pitch === "calledStrike" || pitch === "swingStrike" || pitch === "buntSwing") {
+            if (pitch === "calledStrike") {
+                const circle = document.createElementNS(svgNs, "circle");
+                circle.setAttribute("cx", "0");
+                circle.setAttribute("cy", "0");
+                circle.setAttribute("r", "4.6");
+                circle.setAttribute("fill", "none");
+                circle.setAttribute("stroke", "#111");
+                circle.setAttribute("stroke-width", "1.5");
+                group.appendChild(circle);
+                return;
+            }
+
+            if (pitch === "swingStrike") {
                 const line1 = document.createElementNS(svgNs, "line");
                 line1.setAttribute("x1", "-4");
                 line1.setAttribute("y1", "-4");
@@ -12657,46 +12722,42 @@
                 line2.setAttribute("stroke", "#111");
                 line2.setAttribute("stroke-width", "1.6");
                 group.appendChild(line2);
+                return;
+            }
 
-                if (pitch === "swingStrike" || pitch === "buntSwing") {
-                    const vertical = document.createElementNS(svgNs, "line");
-                    vertical.setAttribute("x1", "0");
-                    vertical.setAttribute("y1", "-5");
-                    vertical.setAttribute("x2", "0");
-                    vertical.setAttribute("y2", "5");
-                    vertical.setAttribute("stroke", "#111");
-                    vertical.setAttribute("stroke-width", "1.4");
-                    group.appendChild(vertical);
-                }
-
-                if (pitch === "buntSwing") {
-                    const horizontal = document.createElementNS(svgNs, "line");
-                    horizontal.setAttribute("x1", "-5");
-                    horizontal.setAttribute("y1", "0");
-                    horizontal.setAttribute("x2", "5");
-                    horizontal.setAttribute("y2", "0");
-                    horizontal.setAttribute("stroke", "#111");
-                    horizontal.setAttribute("stroke-width", "1.2");
-                    group.appendChild(horizontal);
-                }
+            if (pitch === "buntSwing") {
+                const text = document.createElementNS(svgNs, "text");
+                text.setAttribute("x", "0");
+                text.setAttribute("y", "4");
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("font-size", "9");
+                text.setAttribute("font-weight", "800");
+                text.setAttribute("fill", "#111");
+                text.textContent = "ギ";
+                group.appendChild(text);
                 return;
             }
 
             if (pitch === "foul" || pitch === "buntFoul") {
-                const triangle = document.createElementNS(svgNs, "polygon");
-                triangle.setAttribute("points", "0,-5 5,4 -5,4");
-                triangle.setAttribute("fill", "none");
-                triangle.setAttribute("stroke", "#111");
-                triangle.setAttribute("stroke-width", "1.4");
-                group.appendChild(triangle);
+                const line = document.createElementNS(svgNs, "line");
+                line.setAttribute("x1", "-5");
+                line.setAttribute("y1", "0");
+                line.setAttribute("x2", "5");
+                line.setAttribute("y2", "0");
+                line.setAttribute("stroke", "#111");
+                line.setAttribute("stroke-width", "1.7");
+                group.appendChild(line);
 
                 if (pitch === "buntFoul") {
-                    const dot = document.createElementNS(svgNs, "circle");
-                    dot.setAttribute("cx", "0");
-                    dot.setAttribute("cy", "1");
-                    dot.setAttribute("r", "1.5");
-                    dot.setAttribute("fill", "#111");
-                    group.appendChild(dot);
+                    const text = document.createElementNS(svgNs, "text");
+                    text.setAttribute("x", "0");
+                    text.setAttribute("y", "-3");
+                    text.setAttribute("text-anchor", "middle");
+                    text.setAttribute("font-size", "7");
+                    text.setAttribute("font-weight", "800");
+                    text.setAttribute("fill", "#111");
+                    text.textContent = "ギ";
+                    group.appendChild(text);
                 }
             }
         }

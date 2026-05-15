@@ -1,3 +1,13 @@
+## v0.1.21 [2026-05-15] 投球記号と走者イベント時点をPDF準拠化
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/SCOREBOOK_RULES.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.20 [2026-05-15] 現在打者表示と投球時点コメント保存
 
 **変更ファイル:**
