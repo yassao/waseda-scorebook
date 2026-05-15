@@ -2387,6 +2387,94 @@
             font-weight: 800;
         }
 
+        .ai-prompt-popup-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.38);
+            z-index: 12190;
+            display: none;
+        }
+
+        .ai-prompt-popup-backdrop.is-open {
+            display: block;
+        }
+
+        .ai-prompt-popup {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: min(720px, calc(100vw - 22px));
+            max-height: calc(100vh - 36px);
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.98);
+            border: 3px solid #243447;
+            border-radius: 22px;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+            padding: 16px;
+            z-index: 12200;
+            display: none;
+        }
+
+        .ai-prompt-popup.is-open {
+            display: block;
+        }
+
+        .ai-prompt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .ai-prompt-title {
+            font-size: 18px;
+            font-weight: 900;
+            color: #172331;
+        }
+
+        .ai-prompt-close {
+            min-height: 42px;
+            padding: 8px 14px;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 900;
+        }
+
+        .ai-prompt-copy-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            align-items: center;
+            margin: 8px 0;
+        }
+
+        .ai-prompt-textarea {
+            min-height: 170px;
+            height: 170px;
+            font-size: 12px;
+        }
+
+        .ai-result-textarea {
+            min-height: 96px;
+            height: 96px;
+            font-size: 14px;
+        }
+
+        .ai-prompt-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .ai-prompt-actions button {
+            min-height: 48px;
+            font-size: 15px;
+            font-weight: 900;
+        }
+
         .cell-action-popup-backdrop {
             position: fixed;
             inset: 0;
@@ -3071,6 +3159,8 @@
                     <div id="cellActionPopup" class="cell-action-popup" aria-hidden="true"></div>
                     <div id="commentPopupBackdrop" class="comment-popup-backdrop" onclick="closeAtBatCommentPopup()"></div>
                     <div id="commentPopup" class="comment-popup" aria-hidden="true"></div>
+                    <div id="aiPromptPopupBackdrop" class="ai-prompt-popup-backdrop" onclick="closeAiPromptPopup()"></div>
+                    <div id="aiPromptPopup" class="ai-prompt-popup" aria-hidden="true"></div>
                     <div id="gameMiniStatus" class="game-mini-status" aria-label="試合状況"></div>
                     <div id="nlCorrectionPanel" class="nl-correction-panel">
                         <div class="nl-corrections">
@@ -3453,7 +3543,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.13";
+        const APP_VERSION = "0.1.14";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -3540,6 +3630,9 @@
         let gameAutoSaveTimer = null;
         let isRestoringSavedGame = false;
         let hideStartScreenAfterJsonImport = false;
+        let aiPromptTarget = "twitter";
+        let currentAiPromptText = "";
+        let isTwitterImporting = false;
 
         const SCORE_COLORS = {
             ink: "#111",
@@ -7423,11 +7516,8 @@
             }
         }
 
-        function generateTwitterFormatPrompt() {
-            const input = document.getElementById("twitterImportInput");
-            const preview = document.getElementById("twitterImportPreview");
-            const rawText = (input?.value || "").trim();
-            const prompt = [
+        function buildTwitterFormatPrompt(rawText) {
+            return [
                 "以下の野球実況テキストを、早稲田式スコアブックアプリへ貼り付けやすい形式に整形してください。",
                 "",
                 "最重要:",
@@ -7461,17 +7551,11 @@
                 "変換対象:",
                 rawText || "（ここに実況テキストを貼り付け）"
             ].join("\n");
+        }
 
-            if (preview) {
-                preview.innerHTML = [
-                    "<div>以下のプロンプトをChatGPTなどに貼ると、このアプリに読み込ませやすい形へ整形できます。</div>",
-                    '<textarea class="nl-input import-textarea" readonly onclick="this.select()">' + escapeHtml(prompt) + "</textarea>",
-                    "<div class=\"import-help\">素のまま取り込んで誤りが多いときの補助用です。変換結果を上の入力欄へ貼り直して取り込んでください。</div>"
-                ].join("");
-            }
-            if (navigator.clipboard?.writeText) {
-                navigator.clipboard.writeText(prompt).catch(() => {});
-            }
+        function generateTwitterFormatPrompt() {
+            const input = document.getElementById("twitterImportInput");
+            showAiPromptPopup("twitter", buildTwitterFormatPrompt((input?.value || "").trim()));
         }
 
         function clearOnePlateAppearanceInput() {
@@ -7516,11 +7600,8 @@
             }
         }
 
-        function generateOnePlateAppearancePrompt() {
-            const input = document.getElementById("naturalLanguageInput");
-            const preview = document.getElementById("twitterImportPreview");
-            const rawText = (input?.value || "").trim();
-            const prompt = [
+        function buildOnePlateAppearancePrompt(rawText) {
+            return [
                 "以下の野球の1打席メモを、早稲田式スコアブックアプリへ貼り付けやすい短い1行に整形してください。",
                 "",
                 "最重要:",
@@ -7546,17 +7627,93 @@
                 "変換対象:",
                 rawText || "（ここに1打席メモを貼り付け）"
             ].join("\n");
+        }
 
-            if (preview) {
-                preview.innerHTML = [
-                    "<div>以下のプロンプトをChatGPTなどに貼ると、1打席入力へ貼り直しやすい形に整形できます。</div>",
-                    '<textarea class="nl-input import-textarea" readonly onclick="this.select()">' + escapeHtml(prompt) + "</textarea>",
-                    "<div class=\"import-help\">変換結果を右側の1打席入力欄へ貼り直して反映してください。</div>"
-                ].join("");
+        function generateOnePlateAppearancePrompt() {
+            const input = document.getElementById("naturalLanguageInput");
+            showAiPromptPopup("one-pa", buildOnePlateAppearancePrompt((input?.value || "").trim()));
+        }
+
+        function showAiPromptPopup(target, promptText) {
+            aiPromptTarget = target === "one-pa" ? "one-pa" : "twitter";
+            currentAiPromptText = promptText || "";
+            const popup = document.getElementById("aiPromptPopup");
+            const backdrop = document.getElementById("aiPromptPopupBackdrop");
+            if (!popup || !backdrop) {
+                return;
             }
+            if (popup.parentElement !== document.body) {
+                document.body.appendChild(popup);
+            }
+            if (backdrop.parentElement !== document.body) {
+                document.body.appendChild(backdrop);
+            }
+            const title = aiPromptTarget === "one-pa"
+                ? "1打席AI変換"
+                : "1イニングAI変換";
+            const resultHelp = aiPromptTarget === "one-pa"
+                ? "AIの回答をここへ貼ると、1打席入力へ反映して閉じます。"
+                : "AIの回答をここへ貼ると、X / Twitter取り込みとして反映して閉じます。";
+            popup.innerHTML = [
+                '<div class="ai-prompt-header">',
+                '<div class="ai-prompt-title">' + title + '</div>',
+                '<button type="button" class="ai-prompt-close" onclick="closeAiPromptPopup()">閉じる</button>',
+                '</div>',
+                '<div class="import-help">1. プロンプトをコピーして、ChatGPTなどへ貼り付けます。</div>',
+                '<div class="ai-prompt-copy-row">',
+                '<button type="button" onclick="copyAiPromptText()">プロンプトをコピー</button>',
+                '<button type="button" onclick="selectAiPromptText()">全文選択</button>',
+                '</div>',
+                '<textarea id="aiPromptText" class="nl-input import-textarea ai-prompt-textarea" readonly onclick="this.select()">' + escapeHtml(currentAiPromptText) + '</textarea>',
+                '<div class="import-help">2. AIの回答を下へ貼り付けます。' + resultHelp + '</div>',
+                '<textarea id="aiPromptResultInput" class="nl-input import-textarea ai-result-textarea" placeholder="AIの変換結果をここに貼り付け" onpaste="setTimeout(applyAiPromptResult, 80)"></textarea>',
+                '<div class="ai-prompt-actions">',
+                '<button type="button" onclick="closeAiPromptPopup()">キャンセル</button>',
+                '<button type="button" onclick="applyAiPromptResult()">貼り付け結果を反映</button>',
+                '</div>'
+            ].join("");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            backdrop.classList.add("is-open");
+        }
+
+        function closeAiPromptPopup() {
+            document.getElementById("aiPromptPopup")?.classList.remove("is-open");
+            document.getElementById("aiPromptPopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("aiPromptPopupBackdrop")?.classList.remove("is-open");
+        }
+
+        function selectAiPromptText() {
+            document.getElementById("aiPromptText")?.select();
+        }
+
+        function copyAiPromptText() {
+            const promptText = document.getElementById("aiPromptText")?.value || currentAiPromptText || "";
             if (navigator.clipboard?.writeText) {
-                navigator.clipboard.writeText(prompt).catch(() => {});
+                navigator.clipboard.writeText(promptText).catch(() => {});
             }
+            selectAiPromptText();
+        }
+
+        function applyAiPromptResult() {
+            const result = (document.getElementById("aiPromptResultInput")?.value || "").trim();
+            if (!result) {
+                return;
+            }
+            if (aiPromptTarget === "one-pa") {
+                const input = document.getElementById("naturalLanguageInput");
+                if (input) {
+                    input.value = result;
+                }
+                applyOnePlateAppearanceText();
+            } else {
+                const input = document.getElementById("twitterImportInput");
+                if (input) {
+                    input.value = result;
+                }
+                importTwitterGameText();
+            }
+            closeAiPromptPopup();
         }
 
         function previewTwitterImport() {
@@ -7658,6 +7815,9 @@
         }
 
         function importTwitterGameText() {
+            if (isTwitterImporting) {
+                return;
+            }
             const input = document.getElementById("twitterImportInput");
             const preview = document.getElementById("twitterImportPreview");
             const text = (input?.value || "").trim();
@@ -7683,46 +7843,53 @@
                 return;
             }
 
+            isTwitterImporting = true;
             pushGameHistory();
             let imported = 0;
             let skipped = 0;
-            entries.forEach((entry) => {
-                const mainPlayText = extractTwitterMainPlayText(entry.body);
-                let parsed = buildParsedInput(mainPlayText) || buildParsedInput(entry.body);
-                if (parsed?.modifiers?.doublePlay && includesFirstBaseSafe(entry.body)) {
-                    parsed = buildForceOutFcParsed(entry.body, parsed.fieldSequence, parsed.runnerContext);
-                }
-                if (!parsed?.result) {
-                    skipped += 1;
-                    return;
-                }
-                const targetRow = state.selectedSheetRow;
-                const targetCol = state.selectedSheetCol;
-                if (!state.playerNames[state.activeHalf][targetRow]) {
-                    state.playerNames[state.activeHalf][targetRow] = entry.playerName;
-                }
-                const runnerContext = detectTwitterRunnerContext(entry.body);
-                parsed.runnerContext = mergeParsedRunnerContext(parsed.runnerContext, runnerContext);
-                const estimated = estimateNikkanBoardContext(parsed, state.baseRunners, getMaxOutCountForActiveInning());
-                applyParsedInput(estimated);
-                state.atBatComment = extractImportCommentText(entry.body, mainPlayText);
-                const naturalInput = document.getElementById("naturalLanguageInput");
-                if (naturalInput) {
-                    naturalInput.value = mainPlayText;
-                }
-                const snapshot = saveCurrentToSheet();
-                imported += 1;
-                advanceAfterSave(snapshot);
-            });
+            try {
+                entries.forEach((entry) => {
+                    const mainPlayText = extractTwitterMainPlayText(entry.body);
+                    let parsed = buildParsedInput(mainPlayText) || buildParsedInput(entry.body);
+                    if (parsed?.modifiers?.doublePlay && includesFirstBaseSafe(entry.body)) {
+                        parsed = buildForceOutFcParsed(entry.body, parsed.fieldSequence, parsed.runnerContext);
+                    }
+                    if (!parsed?.result) {
+                        skipped += 1;
+                        return;
+                    }
+                    const targetRow = state.selectedSheetRow;
+                    if (!state.playerNames[state.activeHalf][targetRow]) {
+                        state.playerNames[state.activeHalf][targetRow] = entry.playerName;
+                    }
+                    const runnerContext = detectTwitterRunnerContext(entry.body);
+                    parsed.runnerContext = mergeParsedRunnerContext(parsed.runnerContext, runnerContext);
+                    const estimated = estimateNikkanBoardContext(parsed, state.baseRunners, getMaxOutCountForActiveInning());
+                    applyParsedInput(estimated);
+                    state.atBatComment = extractImportCommentText(entry.body, mainPlayText);
+                    const naturalInput = document.getElementById("naturalLanguageInput");
+                    if (naturalInput) {
+                        naturalInput.value = mainPlayText;
+                    }
+                    const snapshot = saveCurrentToSheet();
+                    imported += 1;
+                    advanceAfterSave(snapshot);
+                });
 
-            renderScoreSheet();
-            updateDisplay();
-            preview.innerHTML = [
-                "X / Twitter取り込み完了:",
-                "反映打席: " + imported,
-                "未解釈: " + skipped,
-                "原文は各打席の吹き出しコメントに保存しました。"
-            ].join("<br>");
+                renderScoreSheet();
+                updateDisplay();
+                if (input) {
+                    input.value = "";
+                }
+                preview.innerHTML = [
+                    "X / Twitter取り込み完了:",
+                    "反映打席: " + imported,
+                    "未解釈: " + skipped,
+                    "入力欄をクリアしました。原文コメントは吹き出しに保存します。"
+                ].join("<br>");
+            } finally {
+                isTwitterImporting = false;
+            }
         }
 
         function setBattingOrder() {
