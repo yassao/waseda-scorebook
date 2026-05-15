@@ -1562,6 +1562,73 @@
             font-weight: 700;
         }
 
+        .pitcher-change-marker {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 2px;
+            height: 38%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .pitcher-change-marker svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .pitcher-book-section {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(12, var(--sheet-cell-w));
+            width: max-content;
+            background: #fff;
+            border-left: 1px solid var(--sheet-green);
+            border-top: 2px solid var(--sheet-green);
+        }
+
+        .pitcher-book-label,
+        .pitcher-book-cell {
+            min-height: 28px;
+            border-right: 1px solid var(--sheet-green);
+            border-bottom: 1px solid var(--sheet-green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 4px;
+            color: #172331;
+            font-size: calc(var(--sheet-font) * 0.95);
+            font-weight: 800;
+            line-height: 1.2;
+            background: #fff;
+        }
+
+        .pitcher-book-title {
+            grid-row: span 4;
+            writing-mode: vertical-rl;
+            letter-spacing: 0.08em;
+            color: var(--sheet-green);
+            font-weight: 900;
+        }
+
+        .pitcher-book-header {
+            color: var(--sheet-green);
+            font-weight: 900;
+        }
+
+        .pitcher-book-name {
+            justify-content: flex-start;
+            text-align: left;
+        }
+
+        .pitcher-book-empty {
+            grid-column: span 13;
+            justify-content: flex-start;
+            color: #64748b;
+            font-size: calc(var(--sheet-font) * 0.9);
+        }
+
         .import-help {
             margin-top: 8px;
             font-size: 12px;
@@ -3581,7 +3648,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.26";
+        const APP_VERSION = "0.1.27";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5378,6 +5445,7 @@
                 state.gameInfo[parts[0]] = value;
             }
             renderCurrentBatterCard();
+            renderScoreSheet();
             scheduleGameAutoSave();
         }
 
@@ -5459,6 +5527,7 @@
             ["pitcherChangeName", "pitcherChangeNote"].forEach((id) => setElementValue(id, ""));
             renderPitcherChangeList();
             renderCurrentBatterCard();
+            renderScoreSheet();
             scheduleGameAutoSave();
         }
 
@@ -5470,6 +5539,7 @@
             state.gameInfo.pitcherChanges[teamHalf].splice(index, 1);
             renderPitcherChangeList();
             renderCurrentBatterCard();
+            renderScoreSheet();
             scheduleGameAutoSave();
         }
 
@@ -7284,6 +7354,119 @@
             root.style.setProperty("--sheet-font", (baseFont * zoom).toFixed(2) + "px");
         }
 
+        function getPitcherRowsForHalf(half) {
+            const info = normalizeGameInfo(state.gameInfo);
+            const starter = {
+                role: "starter",
+                name: info.pitchers[half] || "",
+                throws: "",
+                enteredAt: null,
+                pitchCount: "",
+                battersFaced: ""
+            };
+            const relievers = (info.pitcherChanges[half] || []).map((change) => ({
+                role: "relief",
+                name: change.name || "",
+                throws: change.throws || "",
+                enteredAt: {
+                    inning: change.inning || "",
+                    half: change.half || "top",
+                    battingOrder: change.battingOrder || "",
+                    note: change.note || ""
+                },
+                pitchCount: "",
+                battersFaced: ""
+            }));
+            return [starter, ...relievers].filter((pitcher) => pitcher.name || pitcher.role === "starter");
+        }
+
+        function getPitcherChangeForSheetCell(sheetHalf, row, col) {
+            const info = normalizeGameInfo(state.gameInfo);
+            const inningLabel = String(getInningLabels(sheetHalf)[col] || (col + 1));
+            const battingOrder = row + 1;
+            const changes = ["top", "bottom"].flatMap((teamHalf) => (
+                (info.pitcherChanges[teamHalf] || []).map((change, index) => ({ teamHalf, change, index }))
+            ));
+            return changes.find(({ change }) => {
+                const changeInning = String(change.inning || "");
+                const changeOrder = Number(change.battingOrder) || 1;
+                return change.half === sheetHalf
+                    && changeInning === inningLabel
+                    && changeOrder === battingOrder;
+            }) || null;
+        }
+
+        function renderPitcherChangeMarker(match) {
+            if (!match?.change?.name) {
+                return "";
+            }
+            const label = "P." + match.change.name;
+            return [
+                '<div class="pitcher-change-marker" aria-label="投手交代 ' + escapeHtml(label) + '">',
+                '<svg viewBox="0 0 100 44" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">',
+                '<path d="M 0 27 C 8 13 16 41 24 27 S 40 13 48 27 S 64 41 72 27 S 88 13 100 27" fill="none" stroke="#0f5bd6" stroke-width="5" stroke-linecap="round"/>',
+                '<text x="50" y="22" text-anchor="middle" font-size="16" font-weight="900" fill="#111" paint-order="stroke" stroke="#fff" stroke-width="4">' + escapeHtml(label) + '</text>',
+                '</svg>',
+                '</div>'
+            ].join("");
+        }
+
+        function createPitcherBookCell(text, className = "", span = 1) {
+            const cell = document.createElement("div");
+            cell.className = "pitcher-book-cell " + className;
+            cell.textContent = text || "";
+            if (span > 1) {
+                cell.style.gridColumn = "span " + span;
+            }
+            return cell;
+        }
+
+        function renderPitcherBook(target, half) {
+            const section = document.createElement("div");
+            section.className = "pitcher-book-section";
+            const rows = getPitcherRowsForHalf(half);
+            const title = document.createElement("div");
+            title.className = "pitcher-book-label pitcher-book-title";
+            title.textContent = "投手";
+            title.style.gridRow = "span " + Math.max(2, rows.length + 1);
+            section.appendChild(title);
+
+            [
+                ["投", 1],
+                ["投方", 1],
+                ["氏名", 2],
+                ["勝敗", 1],
+                ["セーブ", 1],
+                ["投球回数", 3],
+                ["投球数", 2],
+                ["打者", 2]
+            ].forEach(([text, span]) => {
+                section.appendChild(createPitcherBookCell(text, "pitcher-book-header", span));
+            });
+
+            if (!rows.length) {
+                section.appendChild(createPitcherBookCell("投手はまだ登録されていません。", "pitcher-book-empty", 13));
+                target.appendChild(section);
+                return;
+            }
+
+            rows.forEach((pitcher, index) => {
+                const enteredAt = pitcher.enteredAt
+                    ? ((pitcher.enteredAt.inning || "?") + "回" + getHalfLabel(pitcher.enteredAt.half) + " " + (pitcher.enteredAt.battingOrder ? pitcher.enteredAt.battingOrder + "番から" : ""))
+                    : "";
+                section.appendChild(createPitcherBookCell(String(index + 1)));
+                section.appendChild(createPitcherBookCell(getThrowsLabel(pitcher.throws)));
+                section.appendChild(createPitcherBookCell(pitcher.name || "未登録", "pitcher-book-name", 2));
+                section.appendChild(createPitcherBookCell(""));
+                section.appendChild(createPitcherBookCell(""));
+                section.appendChild(createPitcherBookCell(enteredAt, "", 3));
+                section.appendChild(createPitcherBookCell(pitcher.pitchCount, "", 2));
+                section.appendChild(createPitcherBookCell(pitcher.battersFaced, "", 2));
+            });
+
+            target.appendChild(section);
+        }
+
         function getTouchDistance(touchA, touchB) {
             const dx = touchA.clientX - touchB.clientX;
             const dy = touchA.clientY - touchB.clientY;
@@ -7408,7 +7591,8 @@
                     if (liveCurrentSnapshot) {
                         snapshot = liveCurrentSnapshot;
                     }
-                    button.innerHTML = generateSheetCellSvg(snapshot);
+                    const pitcherChangeMatch = getPitcherChangeForSheetCell(half, row, col);
+                    button.innerHTML = generateSheetCellSvg(snapshot) + renderPitcherChangeMarker(pitcherChangeMatch);
                     const hasComment = Boolean(snapshot?.atBatComment);
                     button.disabled = !canEditCell && !hasComment;
                     if (canEditCell) {
@@ -7428,6 +7612,7 @@
                     target.appendChild(button);
                 }
             }
+            renderPitcherBook(target, half);
             state.scoreSheet = previousSheet;
         }
 

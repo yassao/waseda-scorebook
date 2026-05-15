@@ -178,6 +178,9 @@ PDF資料では、試合中の守備位置変更や代打・代走は、その�
 保存JSONではスターターを `officialSheet.pitchers` の `role: "starter"`、交代投手を `role: "relief"` として残し、交代時期を `enteredAt.inning`、`enteredAt.half`、`enteredAt.battingOrder`、`enteredAt.note` に保存する。  
 イベント列にも `type: "substitution"`、`substitution.kind: "pitcher_change"` として出力し、将来のPDF出力で波線・投手欄・投球数欄を結びつけられるようにする。
 
+画面表示では、投手交代ログの `enteredAt` に対応する打者マスへ青い波線と `P.投手名` を重ねる。
+シート下段には投手欄を表示し、投方・氏名・勝敗・セーブ・投球回数・投球数・打者数を将来入力/集計できる枠として確保する。
+
 ## 失策
 
 失策は誰のエラーかを明確にする。

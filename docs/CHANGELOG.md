@@ -1,3 +1,13 @@
+## v0.1.27 [2026-05-16] 投手交代をスコアブックへ反映
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/SCOREBOOK_RULES.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.26 [2026-05-16] JSON表記を試合データへ変更
 
 **変更ファイル:**
