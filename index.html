@@ -232,6 +232,19 @@
             border-color: #dc2626;
         }
 
+        .start-confirm-status {
+            min-height: 22px;
+            margin-top: 10px;
+            color: #0f766e;
+            font-size: 13px;
+            font-weight: 900;
+            line-height: 1.45;
+        }
+
+        .start-confirm-status.is-error {
+            color: #b91c1c;
+        }
+
         .saved-games-title {
             margin-top: 18px;
             color: #22313f;
@@ -3200,6 +3213,7 @@
                         <button type="button" onclick="closeStartNewGameConfirm()">キャンセル</button>
                         <button type="button" class="start-confirm-danger" onclick="confirmStartNewGameFromStart()">新規試合を始める</button>
                     </div>
+                    <div id="startNewGameConfirmStatus" class="start-confirm-status" aria-live="polite"></div>
                 </div>
             </div>
         </div>
@@ -3567,7 +3581,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.24";
+        const APP_VERSION = "0.1.25";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4953,11 +4967,22 @@
         }
 
         function openStartNewGameConfirm() {
+            setStartNewGameConfirmStatus("");
             document.getElementById("startNewGameConfirm")?.classList.remove("is-hidden");
         }
 
         function closeStartNewGameConfirm() {
+            setStartNewGameConfirmStatus("");
             document.getElementById("startNewGameConfirm")?.classList.add("is-hidden");
+        }
+
+        function setStartNewGameConfirmStatus(message, isError = false) {
+            const status = document.getElementById("startNewGameConfirmStatus");
+            if (!status) {
+                return;
+            }
+            status.textContent = message || "";
+            status.classList.toggle("is-error", !!isError);
         }
 
         function resetFullGameStateForNewGame() {
@@ -5136,19 +5161,20 @@
         function exportAutoSavedGameFromStartConfirm() {
             const raw = localStorage.getItem(GAME_STORAGE_KEY);
             if (!raw) {
-                alert("書き出せる自動保存が見つかりませんでした。");
-                closeStartNewGameConfirm();
+                setStartNewGameConfirmStatus("書き出せる自動保存が見つかりませんでした。", true);
                 updateStartScreenState();
                 return;
             }
             try {
                 const data = JSON.parse(raw);
-                downloadJsonData(data, getGameExportFileNameFromSavedAt(data.savedAt));
+                const fileName = getGameExportFileNameFromSavedAt(data.savedAt);
+                downloadJsonData(data, fileName);
+                setStartNewGameConfirmStatus("JSONを書き出しました: " + fileName);
                 setGameSaveStatus("前回の自動保存をJSONに書き出しました。");
                 updateStartScreenState();
             } catch (error) {
                 console.warn("Export auto saved game failed", error);
-                alert("自動保存JSONの読み取りに失敗しました。");
+                setStartNewGameConfirmStatus("自動保存JSONの読み取りに失敗しました。", true);
             }
         }
 
