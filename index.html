@@ -3482,7 +3482,7 @@
             <div class="tweet-comment-row">
                 <div id="commentTargetLabel" class="tweet-target-label">対象: 1回 1番</div>
                 <textarea id="atBatCommentInput" class="tweet-comment-input" placeholder="つぶやき" rows="2" oninput="updateAtBatComment(this.value)"></textarea>
-                <button class="small-btn tweet-draft-btn" onclick="registerAtBatComment()" aria-label="つぶやきを登録">↑</button>
+                <button class="small-btn tweet-draft-btn" onclick="registerPitchComment()" aria-label="この投球につぶやく" title="この投球につぶやく">↑</button>
             </div>
             <button class="small-btn global-apply-btn" onclick="applyNaturalLanguage()">次の打者に移る</button>
         </div>
@@ -3648,7 +3648,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.27";
+        const APP_VERSION = "0.1.28";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -3715,6 +3715,7 @@
         const state = {
             pitches: [],
             pitchNotes: [],
+            pitchComments: [],
             result: "",
             outScore: "",
             strikes: 0,
@@ -4205,6 +4206,7 @@
                 state: {
                     pitches: [...state.pitches],
                     pitchNotes: [...state.pitchNotes],
+                    pitchComments: deepClone(state.pitchComments || []),
                     result: state.result,
                     outScore: state.outScore,
                     strikes: state.strikes,
@@ -4650,7 +4652,8 @@
                             pitch: {
                                 type: mapPitchToEventType(symbol, snapshot.pitchNotes?.[pitchIndex]),
                                 symbol,
-                                note: snapshot.pitchNotes?.[pitchIndex] || ""
+                                note: snapshot.pitchNotes?.[pitchIndex] || "",
+                                comment: snapshot.pitchComments?.[pitchIndex]?.text || ""
                             }
                         }));
                         events.push(...pitchEvents);
@@ -4696,8 +4699,10 @@
                             }
                         });
 
+                        const commentIdsForPlateAppearance = [];
                         if (snapshot.atBatComment) {
                             const commentId = "cm_" + String(commentSerial++).padStart(5, "0");
+                            commentIdsForPlateAppearance.push(commentId);
                             comments.push({
                                 id: commentId,
                                 plateAppearanceId: paId,
@@ -4711,6 +4716,24 @@
                                 source: snapshot.source || "manual"
                             });
                         }
+                        (snapshot.pitchComments || []).filter((item) => item?.text).forEach((pitchComment) => {
+                            const pitchCommentId = "cm_" + String(commentSerial++).padStart(5, "0");
+                            commentIdsForPlateAppearance.push(pitchCommentId);
+                            comments.push({
+                                id: pitchCommentId,
+                                plateAppearanceId: paId,
+                                teamId,
+                                half,
+                                inning,
+                                inningColumn: col + 1,
+                                battingOrder,
+                                text: pitchComment.text,
+                                timing: deepClone(pitchComment.timing || null),
+                                source: "pitch_comment",
+                                pitchIndex: pitchComment.pitchIndex || pitchComment.timing?.pitchIndex || null,
+                                pitchSymbol: pitchComment.pitchSymbol || pitchComment.timing?.pitchSymbol || ""
+                            });
+                        });
 
                         plateAppearances.push({
                             id: paId,
@@ -4724,7 +4747,8 @@
                             pitches: (snapshot.pitches || []).map((symbol, pitchIndex) => ({
                                 type: mapPitchToEventType(symbol, snapshot.pitchNotes?.[pitchIndex]),
                                 symbol,
-                                note: snapshot.pitchNotes?.[pitchIndex] || ""
+                                note: snapshot.pitchNotes?.[pitchIndex] || "",
+                                comment: snapshot.pitchComments?.[pitchIndex]?.text || ""
                             })),
                             batterResult: buildBatterResultModel(snapshot),
                             runnerContext: deepClone(snapshot.runnerContext || null),
@@ -4735,7 +4759,7 @@
                             rbi: snapshot.hasRbi ? 1 : 0,
                             rawText: snapshot.note || "",
                             source: snapshot.source || "manual",
-                            commentIds: snapshot.atBatComment ? ["cm_" + String(commentSerial - 1).padStart(5, "0")] : []
+                            commentIds: commentIdsForPlateAppearance
                         });
                         plateAppearanceSerial += 1;
                         outsByInning[inningKey] = outsAfter >= 3 ? 0 : outsAfter;
@@ -5765,7 +5789,9 @@
             }
             const inning = getColumnInningLabel();
             const order = state.selectedSheetRow + 1;
-            label.textContent = "対象: " + inning + "回 " + order + "番 / " + getCurrentCountLabel();
+            const batter = getCurrentBatterInfo();
+            const playerName = batter.name || "選手名未登録";
+            label.textContent = "対象: " + inning + "回 " + order + "番 " + playerName + " / " + getCurrentCountLabel();
         }
 
         function updateTeamName(half, value) {
@@ -5974,6 +6000,7 @@
             return {
                 pitches: [...state.pitches],
                 pitchNotes: [...state.pitchNotes],
+                pitchComments: deepClone(state.pitchComments || []),
                 result: state.result,
                 outScore: state.outScore,
                 strikes: state.strikes,
@@ -5994,7 +6021,7 @@
                 runnerStatusEvents: [],
                 confidence: state.currentConfidence,
                 atBatComment: state.atBatComment,
-                atBatCommentMeta: deepClone(state.atBatCommentMeta || null)
+                atBatCommentMeta: state.atBatComment ? deepClone(state.atBatCommentMeta || captureCommentTimingMeta()) : null
             };
         }
 
@@ -6022,6 +6049,7 @@
                 || state.runnerContextText
                 || state.runnerContext
                 || state.atBatComment
+                || (state.pitchComments || []).some((comment) => comment?.text)
             );
         }
 
@@ -6032,6 +6060,7 @@
             return {
                 pitches: snapshot.pitches || [],
                 pitchNotes: snapshot.pitchNotes || [],
+                pitchComments: snapshot.pitchComments || [],
                 result: snapshot.result || "",
                 outScore: snapshot.outScore || "",
                 strikes: snapshot.strikes || 0,
@@ -6104,6 +6133,7 @@
 
             state.pitches = [...(snapshot.pitches || [])];
             state.pitchNotes = [...(snapshot.pitchNotes || [])];
+            state.pitchComments = deepClone(snapshot.pitchComments || []);
             state.result = snapshot.result || "";
             state.outScore = snapshot.outScore || "";
             state.strikes = snapshot.strikes || 0;
@@ -7278,7 +7308,7 @@
                     '<rect x="35" y="5" width="180" height="180" fill="url(#sheet-hatch-' + snapshot.battingOrder + '-' + displayedResult.replace(/[^A-Za-z0-9]/g, "") + ')" opacity="0.65"></rect>'
                 ].join("")
                 : "";
-            const commentBubble = snapshot.atBatComment
+            const commentBubble = snapshot.atBatComment || (snapshot.pitchComments || []).some((item) => item?.text)
                 ? [
                     '<g class="comment-bubble-mark" aria-hidden="true">',
                     '<path d="M 186 14 Q 186 8 192 8 L 208 8 Q 214 8 214 14 L 214 24 Q 214 30 208 30 L 199 30 L 191 37 L 193 30 L 192 30 Q 186 30 186 24 Z" fill="#fffdf5" stroke="#334155" stroke-width="1.5"/>',
@@ -7593,7 +7623,8 @@
                     }
                     const pitcherChangeMatch = getPitcherChangeForSheetCell(half, row, col);
                     button.innerHTML = generateSheetCellSvg(snapshot) + renderPitcherChangeMarker(pitcherChangeMatch);
-                    const hasComment = Boolean(snapshot?.atBatComment);
+                    const hasComment = Boolean(snapshot?.atBatComment)
+                        || (snapshot?.pitchComments || []).some((comment) => comment?.text);
                     button.disabled = !canEditCell && !hasComment;
                     if (canEditCell) {
                         button.onclick = (event) => handleSheetCellClick(event, row, col);
@@ -7765,11 +7796,17 @@
 
         function showAtBatCommentPopup(snapshot, half = state.activeHalf, row = state.selectedSheetRow, col = state.selectedSheetCol) {
             const comment = String(snapshot?.atBatComment || "").trim();
-            if (!comment) {
+            const pitchComments = (snapshot?.pitchComments || []).filter((item) => item?.text);
+            if (!comment && !pitchComments.length) {
                 return;
             }
             commentPopupTarget = { snapshot, half, row, col };
             renderAtBatCommentPopup(false);
+        }
+
+        function snapshotHasAnyComment(snapshot) {
+            return Boolean(snapshot?.atBatComment)
+                || (snapshot?.pitchComments || []).some((item) => item?.text);
         }
 
         function renderAtBatCommentPopup(isEditing) {
@@ -7785,11 +7822,19 @@
                 document.body.appendChild(backdrop);
             }
             const { snapshot, half, row, col } = commentPopupTarget;
-            const label = (half === "top" ? "先攻 " : "後攻 ") + getColumnInningLabel(col) + "回 " + (row + 1) + "番";
+            const playerName = state.playerNames?.[half]?.[row] || "選手名未登録";
+            const label = (half === "top" ? "先攻 " : "後攻 ") + getColumnInningLabel(col) + "回 " + (row + 1) + "番 " + playerName;
             const comment = String(snapshot?.atBatComment || "").trim();
+            const pitchComments = (snapshot?.pitchComments || []).filter((item) => item?.text);
+            const pitchCommentBody = pitchComments.length
+                ? '<div class="comment-popup-body">' + pitchComments.map((item) => escapeHtml(item.text) + '（' + escapeHtml(getPitchCommentTimingLabel(item)) + '）').join('<br>') + '</div>'
+                : "";
             const body = isEditing
                 ? '<textarea id="commentPopupTextarea">' + escapeHtml(comment) + '</textarea>'
-                : '<div class="comment-popup-body">' + escapeHtml(comment) + '</div>';
+                : [
+                    comment ? '<div class="comment-popup-body">' + escapeHtml(comment) + '</div>' : "",
+                    pitchCommentBody
+                ].join("");
             const actions = isEditing
                 ? [
                     '<button type="button" onclick="closeAtBatCommentPopup()">キャンセル</button>',
@@ -7797,7 +7842,8 @@
                 ]
                 : [
                     '<button type="button" onclick="closeAtBatCommentPopup()">OK</button>',
-                    '<button type="button" class="btn-hit" onclick="renderAtBatCommentPopup(true)">修正</button>'
+                    '<button type="button" class="btn-hit" onclick="renderAtBatCommentPopup(true)">修正</button>',
+                    '<button type="button" onclick="editScoreFromCommentPopup()">スコア編集</button>'
                 ];
             popup.innerHTML = [
                 '<div class="comment-popup-title">つぶやき: ' + escapeHtml(label) + '</div>',
@@ -7842,6 +7888,15 @@
             }
         }
 
+        function editScoreFromCommentPopup() {
+            if (!commentPopupTarget) {
+                return;
+            }
+            const { row, col } = commentPopupTarget;
+            closeAtBatCommentPopup();
+            selectSheetCell(row, col);
+        }
+
         function closeAtBatCommentPopup() {
             document.getElementById("commentPopup")?.classList.remove("is-open");
             document.getElementById("commentPopup")?.setAttribute("aria-hidden", "true");
@@ -7853,6 +7908,10 @@
             const snapshot = state.scoreSheet[row]?.[col] || getLiveCurrentSheetSnapshot(row, col);
             if (isSheetCommentHit(event, snapshot)) {
                 suppressSheetCellClick = false;
+                showAtBatCommentPopup(snapshot, state.activeHalf, row, col);
+                return;
+            }
+            if (snapshot && state.scoreSheet[row]?.[col] && snapshotHasAnyComment(snapshot)) {
                 showAtBatCommentPopup(snapshot, state.activeHalf, row, col);
                 return;
             }
@@ -10416,19 +10475,51 @@
 
         function updateAtBatComment(value) {
             state.atBatComment = value || "";
+            state.atBatCommentMeta = state.atBatComment.trim() ? (state.atBatCommentMeta || captureCommentTimingMeta()) : null;
         }
 
-        function registerAtBatComment() {
-            state.atBatComment = document.getElementById("atBatCommentInput")?.value.trim() || "";
-            state.atBatCommentMeta = state.atBatComment ? captureCommentTimingMeta() : null;
+        function getPitchCommentTimingLabel(comment) {
+            const timing = comment?.timing || {};
+            const pitchIndex = Number(timing.pitchIndex) || Number(comment?.pitchIndex) || 0;
+            return pitchIndex > 0 ? pitchIndex + "球目" : "投球時";
+        }
+
+        function registerPitchComment() {
+            const input = document.getElementById("atBatCommentInput");
+            const text = input?.value.trim() || "";
+            if (!text) {
+                updateRunnerGuiStatus("つぶやきを入力してください");
+                return;
+            }
+            if (state.pitches.length === 0) {
+                updateAtBatComment(text);
+                updateRunnerGuiStatus("打席全体のつぶやき");
+                return;
+            }
+            const pitchIndex = state.pitches.length - 1;
+            const timing = captureCommentTimingMeta();
+            const comment = {
+                text,
+                timing,
+                pitchIndex: pitchIndex + 1,
+                pitchSymbol: state.pitches[pitchIndex] || "",
+                batterName: getCurrentBatterInfo().name || ""
+            };
+            if (!Array.isArray(state.pitchComments)) {
+                state.pitchComments = [];
+            }
+            pushGameHistory();
+            state.pitchComments[pitchIndex] = comment;
             const existingSnapshot = state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol];
             if (existingSnapshot) {
-                pushGameHistory();
-                existingSnapshot.atBatComment = state.atBatComment;
-                existingSnapshot.atBatCommentMeta = deepClone(state.atBatCommentMeta);
+                existingSnapshot.pitchComments = deepClone(state.pitchComments);
             }
+            input.value = "";
+            state.atBatComment = "";
+            state.atBatCommentMeta = null;
             renderScoreSheet();
             updateDisplay();
+            updateRunnerGuiStatus("投球つぶやき（" + getPitchCommentTimingLabel(comment) + "）");
         }
 
         function parsePlayPartSequence(text) {
@@ -12118,12 +12209,14 @@
         function applyParsedInput(parsed) {
             const preservedPitches = [...state.pitches];
             const preservedPitchNotes = [...state.pitchNotes];
+            const preservedPitchComments = deepClone(state.pitchComments || []);
             const preservedStrikes = state.strikes;
             const preservedBalls = state.balls;
             resetState();
             if (preservedPitches.length > 0) {
                 state.pitches = preservedPitches;
                 state.pitchNotes = preservedPitchNotes;
+                state.pitchComments = preservedPitchComments;
                 state.strikes = preservedStrikes;
                 state.balls = preservedBalls;
             }
@@ -12754,6 +12847,7 @@
             pushGameHistory();
             state.pitches.push(symbol);
             state.pitchNotes.push("");
+            state.pitchComments.push(null);
             recomputePitchState();
 
             if (symbol !== "ball") {
@@ -12769,6 +12863,7 @@
             pushGameHistory();
             state.pitches.pop();
             state.pitchNotes.pop();
+            state.pitchComments.pop();
             recomputePitchState();
             updateDisplay();
         }
@@ -13214,6 +13309,7 @@
                 : {
                     pitches: [],
                     pitchNotes: [],
+                    pitchComments: [],
                     result: "",
                     outScore: "",
                     selectedFielder: "",
@@ -13861,6 +13957,7 @@
         function resetState() {
             state.pitches = [];
             state.pitchNotes = [];
+            state.pitchComments = [];
             state.result = "";
             state.outScore = "";
             state.strikes = 0;
