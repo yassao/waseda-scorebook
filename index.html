@@ -377,6 +377,47 @@
             box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
         }
 
+        .current-batter-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 5px 8px;
+            align-items: center;
+            padding: 7px 8px;
+            border: 2px solid #d8e1e8;
+            border-radius: 12px;
+            background: #fff;
+            color: #172331;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07);
+        }
+
+        .current-batter-main {
+            min-width: 0;
+            font-size: 15px;
+            font-weight: 900;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .current-batter-main small,
+        .current-batter-meta,
+        .current-batter-pitcher {
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .current-batter-meta {
+            text-align: right;
+        }
+
+        .current-batter-pitcher {
+            grid-column: 1 / -1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .game-mini-score {
             display: grid;
             gap: 3px;
@@ -1094,7 +1135,7 @@
 
         .player-roster-grid {
             display: grid;
-            grid-template-columns: auto minmax(0, 1fr) 64px;
+            grid-template-columns: auto minmax(0, 1fr) 54px 62px;
             gap: 6px;
             align-items: center;
         }
@@ -3079,6 +3120,7 @@
             <section class="nl-quick-panel">
                 <div class="nl-panel is-compact">
                     <div id="gameMiniStatus" class="game-mini-status" aria-label="試合状況"></div>
+                    <div id="currentBatterCard" class="current-batter-card" aria-label="現在の打者"></div>
                     <div class="pitch-input-panel">
                         <div class="status-line">
                             <span id="countStatus">B 0</span>
@@ -3263,6 +3305,8 @@
                                     <label>三塁審<input id="gameInfoUmpireThird" type="text" oninput="updateGameInfoField('umpires.third', this.value)"></label>
                                     <label>放送<input id="gameInfoBroadcast" type="text" oninput="updateGameInfoField('broadcast', this.value)"></label>
                                     <label>記録者<input id="gameInfoScorer" type="text" oninput="updateGameInfoField('scorer', this.value)"></label>
+                                    <label>先攻投手<input id="gameInfoTopPitcher" type="text" oninput="updateGameInfoField('pitchers.top', this.value)"></label>
+                                    <label>後攻投手<input id="gameInfoBottomPitcher" type="text" oninput="updateGameInfoField('pitchers.bottom', this.value)"></label>
                                     <label>一塁側<select id="gameInfoFirstBench" onchange="updateGameInfoField('benches.firstBaseSideTeamId', this.value)"><option value="team_top">先攻</option><option value="team_bottom">後攻</option></select></label>
                                     <label>三塁側<select id="gameInfoThirdBench" onchange="updateGameInfoField('benches.thirdBaseSideTeamId', this.value)"><option value="team_bottom">後攻</option><option value="team_top">先攻</option></select></label>
                                 </div>
@@ -3365,7 +3409,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.19";
+        const APP_VERSION = "0.1.20";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -3414,6 +3458,10 @@
                     second: "",
                     third: ""
                 },
+                pitchers: {
+                    top: "",
+                    bottom: ""
+                },
                 benches: {
                     firstBaseSideTeamId: "team_top",
                     thirdBaseSideTeamId: "team_bottom"
@@ -3450,6 +3498,7 @@
             baseRunners: [null, null, null],
             currentConfidence: 1,
             atBatComment: "",
+            atBatCommentMeta: null,
             activeHalf: "top",
             inputLayout: "right",
             gameInfo: createDefaultGameInfo(),
@@ -3462,6 +3511,10 @@
                 bottom: Array.from({ length: 9 }, () => "")
             },
             playerNumbers: {
+                top: Array.from({ length: 9 }, () => ""),
+                bottom: Array.from({ length: 9 }, () => "")
+            },
+            playerPositions: {
                 top: Array.from({ length: 9 }, () => ""),
                 bottom: Array.from({ length: 9 }, () => "")
             },
@@ -3498,6 +3551,7 @@
 
         let naturalLanguageParseTimer = null;
         let sheetCellPressTimer = null;
+        let rosterNamePressTimer = null;
         let suppressSheetCellClick = false;
         let sheetPinchStartDistance = 0;
         let sheetPinchStartZoom = 1;
@@ -3926,12 +3980,14 @@
                     runnerContext: deepClone(state.runnerContext),
                     currentConfidence: state.currentConfidence,
                     atBatComment: state.atBatComment,
+                    atBatCommentMeta: deepClone(state.atBatCommentMeta),
                     activeHalf: state.activeHalf,
                     inputLayout: state.inputLayout || "right",
                     gameInfo: deepClone(state.gameInfo),
                     teamNames: deepClone(state.teamNames),
                     playerNames: deepClone(state.playerNames),
                     playerNumbers: deepClone(state.playerNumbers),
+                    playerPositions: deepClone(state.playerPositions),
                     scoreSheets: deepClone(state.scoreSheets),
                     inningLabelsByHalf: deepClone(state.inningLabelsByHalf),
                     baseRunnersByHalf: deepClone(state.baseRunnersByHalf),
@@ -3963,6 +4019,10 @@
             Object.assign(state, deepClone(snapshot.state));
             state.inputLayout = state.inputLayout === "left" ? "left" : "right";
             state.gameInfo = normalizeGameInfo(state.gameInfo || snapshot.game || {});
+            state.playerPositions = state.playerPositions || {
+                top: Array.from({ length: 9 }, () => ""),
+                bottom: Array.from({ length: 9 }, () => "")
+            };
             syncActiveHalfRefs();
 
             const playParts = document.getElementById("playParts");
@@ -4067,6 +4127,7 @@
             return ["top", "bottom"].map((half) => {
                 const names = state.playerNames[half] || Array.from({ length: 9 }, () => "");
                 const numbers = state.playerNumbers[half] || Array.from({ length: 9 }, () => "");
+                const positions = state.playerPositions?.[half] || Array.from({ length: 9 }, () => "");
                 return {
                     id: getTeamId(half),
                     half,
@@ -4079,7 +4140,7 @@
                                 playerId: getPlayerId(half, battingOrder, slotIndex),
                                 name,
                                 number: slotIndex === 0 ? (numbers[index] || "") : "",
-                                position: "",
+                                position: slotIndex === 0 ? (positions[index] || "") : "",
                                 hand: "",
                                 fromInning: 1,
                                 toInning: null
@@ -4120,6 +4181,10 @@
                     first: info.umpires.first || "",
                     second: info.umpires.second || "",
                     third: info.umpires.third || ""
+                },
+                pitchers: {
+                    top: info.pitchers.top || "",
+                    bottom: info.pitchers.bottom || ""
                 },
                 benches: {
                     firstBaseSideTeamId: info.benches.firstBaseSideTeamId || "team_top",
@@ -4215,8 +4280,19 @@
                 totals.caughtStealing += (runnerText.match(/盗塁死|盗塁刺|CS/g) || []).length;
                 totals.errorsReached += result.errorMode && result.errorMode !== "none" ? 1 : 0;
             });
+            const info = normalizeGameInfo(state.gameInfo);
             return {
-                pitchers: [],
+                pitchers: ["top", "bottom"].map((half) => ({
+                    teamId: getTeamId(half),
+                    playerId: "",
+                    name: info.pitchers[half] || "",
+                    throws: "",
+                    decision: "",
+                    save: false,
+                    inningsPitched: "",
+                    pitchCountByInning: [],
+                    totalPitchCount: 0
+                })),
                 catchers: [],
                 extraBaseHits,
                 teamTotals
@@ -4306,6 +4382,7 @@
                                 inningColumn: col + 1,
                                 battingOrder,
                                 text: snapshot.atBatComment,
+                                timing: deepClone(snapshot.atBatCommentMeta || null),
                                 source: snapshot.source || "manual"
                             });
                         }
@@ -4626,6 +4703,10 @@
                     top: Array.from({ length: 9 }, () => ""),
                     bottom: Array.from({ length: 9 }, () => "")
                 };
+                state.playerPositions = {
+                    top: Array.from({ length: 9 }, () => ""),
+                    bottom: Array.from({ length: 9 }, () => "")
+                };
                 state.scoreSheets = {
                     top: createEmptyScoreSheet(),
                     bottom: createEmptyScoreSheet()
@@ -4917,6 +4998,10 @@
                     ...defaults.umpires,
                     ...(gameInfo?.umpires || {})
                 },
+                pitchers: {
+                    ...defaults.pitchers,
+                    ...(gameInfo?.pitchers || {})
+                },
                 benches: {
                     ...defaults.benches,
                     ...(gameInfo?.benches || {})
@@ -4932,6 +5017,7 @@
             } else if (parts[0]) {
                 state.gameInfo[parts[0]] = value;
             }
+            renderCurrentBatterCard();
             scheduleGameAutoSave();
         }
 
@@ -4954,6 +5040,8 @@
                 gameInfoUmpireThird: info.umpires.third,
                 gameInfoBroadcast: info.broadcast,
                 gameInfoScorer: info.scorer,
+                gameInfoTopPitcher: info.pitchers.top,
+                gameInfoBottomPitcher: info.pitchers.bottom,
                 gameInfoFirstBench: info.benches.firstBaseSideTeamId,
                 gameInfoThirdBench: info.benches.thirdBaseSideTeamId
             };
@@ -5151,7 +5239,7 @@
             }
             const inning = getColumnInningLabel();
             const order = state.selectedSheetRow + 1;
-            label.textContent = "対象: " + inning + "回 " + order + "番";
+            label.textContent = "対象: " + inning + "回 " + order + "番 / " + getCurrentCountLabel();
         }
 
         function updateTeamName(half, value) {
@@ -5182,6 +5270,7 @@
                 state.playerNames[half] = Array.from({ length: 9 }, () => "");
             }
             state.playerNames[half][index] = value.trim();
+            renderCurrentBatterCard();
             renderScoreSheet();
             scheduleGameAutoSave();
         }
@@ -5194,8 +5283,75 @@
                 state.playerNumbers[half] = Array.from({ length: 9 }, () => "");
             }
             state.playerNumbers[half][index] = value.trim();
+            renderCurrentBatterCard();
             renderScoreSheet();
             scheduleGameAutoSave();
+        }
+
+        function updatePlayerPosition(half, index, value) {
+            if (!["top", "bottom"].includes(half) || index < 0 || index >= 9) {
+                return;
+            }
+            if (!state.playerPositions[half]) {
+                state.playerPositions[half] = Array.from({ length: 9 }, () => "");
+            }
+            state.playerPositions[half][index] = value.trim();
+            renderCurrentBatterCard();
+            scheduleGameAutoSave();
+        }
+
+        function getOpponentHalf(half = state.activeHalf) {
+            return half === "top" ? "bottom" : "top";
+        }
+
+        function getCurrentCountLabel() {
+            return "B" + state.balls + "-S" + state.strikes + " P" + state.pitches.length;
+        }
+
+        function captureCommentTimingMeta() {
+            return {
+                balls: state.balls,
+                strikes: state.strikes,
+                pitchIndex: state.pitches.length,
+                pitchSymbol: state.pitches[state.pitches.length - 1] || "",
+                countLabel: getCurrentCountLabel(),
+                capturedAt: new Date().toISOString()
+            };
+        }
+
+        function getCurrentBatterInfo() {
+            const half = state.activeHalf === "bottom" ? "bottom" : "top";
+            const index = Math.max(0, Math.min(8, Number(state.selectedSheetRow) || 0));
+            const order = index + 1;
+            return {
+                half,
+                order,
+                name: state.playerNames[half]?.[index] || "",
+                number: state.playerNumbers[half]?.[index] || "",
+                position: state.playerPositions?.[half]?.[index] || ""
+            };
+        }
+
+        function getCurrentOpponentPitcherName() {
+            const info = normalizeGameInfo(state.gameInfo);
+            return info.pitchers[getOpponentHalf()] || "";
+        }
+
+        function renderCurrentBatterCard() {
+            const card = document.getElementById("currentBatterCard");
+            if (!card) {
+                return;
+            }
+            const batter = getCurrentBatterInfo();
+            const pitcher = getCurrentOpponentPitcherName();
+            const name = batter.name || "未登録";
+            const number = batter.number ? "#" + batter.number : "背番号未登録";
+            const position = batter.position || "守備未登録";
+            card.innerHTML = [
+                '<div class="current-batter-main"><small>' + batter.order + '番</small> ' + escapeHtml(name) + '</div>',
+                '<div class="current-batter-meta">' + escapeHtml(number) + ' / ' + escapeHtml(position) + '</div>',
+                '<div class="current-batter-pitcher">相手投手: ' + escapeHtml(pitcher || "未登録") + '</div>'
+            ].join("");
         }
 
         function splitRosterNameSlots(playerName) {
@@ -5219,12 +5375,14 @@
                 const teamLabel = state.teamNames[half] || (half === "top" ? "先攻" : "後攻");
                 const names = state.playerNames[half] || Array.from({ length: 9 }, () => "");
                 const numbers = state.playerNumbers[half] || Array.from({ length: 9 }, () => "");
+                const positions = state.playerPositions?.[half] || Array.from({ length: 9 }, () => "");
                 const inputs = names.map((name, index) => {
                     const order = index + 1;
                     return [
                         `<div class="player-roster-order">${order}番</div>`,
                         `<input class="player-name-field" value="${escapeHtml(name)}" placeholder="名前" aria-label="${escapeHtml(teamLabel)} ${order}番選手名" onchange="updatePlayerName('${half}', ${index}, this.value)">`,
-                        `<input class="player-name-field" value="${escapeHtml(numbers[index] || "")}" placeholder="背" inputmode="numeric" aria-label="${escapeHtml(teamLabel)} ${order}番背番号" onchange="updatePlayerNumber('${half}', ${index}, this.value)">`
+                        `<input class="player-name-field" value="${escapeHtml(numbers[index] || "")}" placeholder="背" inputmode="numeric" aria-label="${escapeHtml(teamLabel)} ${order}番背番号" onchange="updatePlayerNumber('${half}', ${index}, this.value)">`,
+                        `<input class="player-name-field" value="${escapeHtml(positions[index] || "")}" placeholder="守/DH" aria-label="${escapeHtml(teamLabel)} ${order}番守備位置" onchange="updatePlayerPosition('${half}', ${index}, this.value)">`
                     ].join("");
                 }).join("");
                 return [
@@ -5300,7 +5458,8 @@
                 runnerStatusText: "",
                 runnerStatusEvents: [],
                 confidence: state.currentConfidence,
-                atBatComment: state.atBatComment
+                atBatComment: state.atBatComment,
+                atBatCommentMeta: deepClone(state.atBatCommentMeta || null)
             };
         }
 
@@ -5354,7 +5513,8 @@
                 runnerContextText: snapshot.runnerContextText || "",
                 runnerContext: snapshot.runnerContext || null,
                 confidence: snapshot.confidence || 1,
-                atBatComment: snapshot.atBatComment || ""
+                atBatComment: snapshot.atBatComment || "",
+                atBatCommentMeta: snapshot.atBatCommentMeta || null
             };
         }
 
@@ -5434,6 +5594,7 @@
             state.runnerContext = deepClone(snapshot.runnerContext || null);
             state.currentConfidence = snapshot.confidence || 1;
             state.atBatComment = snapshot.atBatComment || "";
+            state.atBatCommentMeta = deepClone(snapshot.atBatCommentMeta || null);
 
             setElementValue("fielderSelect", state.selectedFielder);
             setElementValue("battingOrderSelect", state.battingOrder);
@@ -6729,11 +6890,11 @@
             for (let row = 0; row < 9; row += 1) {
                 const label = document.createElement("div");
                 label.className = "sheet-label sheet-order-col";
-                label.textContent = (row + 1) + "番";
-                target.appendChild(label);
+            label.textContent = (row + 1) + "番";
+            target.appendChild(label);
 
-                const roster = document.createElement("div");
-                roster.className = "sheet-label sheet-name-col sheet-roster-cell";
+            const roster = document.createElement("div");
+            roster.className = "sheet-label sheet-name-col sheet-roster-cell";
                 const playerName = state.playerNames[half]?.[row] || "";
                 const nameSlots = splitRosterNameSlots(playerName);
                 roster.innerHTML = [
@@ -6743,6 +6904,16 @@
                     '<div class="sheet-roster-slot">' + escapeHtml(nameSlots[2]) + '</div>',
                     '</div>'
                 ].join("");
+                if (interactive) {
+                    roster.onpointerdown = () => startRosterNamePress(half, row);
+                    roster.onpointerup = cancelRosterNamePress;
+                    roster.onpointerleave = cancelRosterNamePress;
+                    roster.onpointercancel = cancelRosterNamePress;
+                    roster.oncontextmenu = (event) => {
+                        event.preventDefault();
+                        openPinchHitterDialog(half, row);
+                    };
+                }
                 target.appendChild(roster);
 
                 const number = document.createElement("div");
@@ -7079,6 +7250,46 @@
             }
             renderScoreSheet();
             updateDisplay();
+        }
+
+        function startRosterNamePress(half, row) {
+            clearTimeout(rosterNamePressTimer);
+            rosterNamePressTimer = setTimeout(() => {
+                openPinchHitterDialog(half, row);
+            }, 520);
+        }
+
+        function cancelRosterNamePress() {
+            clearTimeout(rosterNamePressTimer);
+            rosterNamePressTimer = null;
+        }
+
+        function openPinchHitterDialog(half, row) {
+            cancelRosterNamePress();
+            if (!["top", "bottom"].includes(half) || row < 0 || row >= 9) {
+                return;
+            }
+            const currentName = state.playerNames[half]?.[row] || "";
+            const label = (state.teamNames[half] || (half === "top" ? "先攻" : "後攻")) + " " + (row + 1) + "番";
+            const nextName = window.prompt(label + "の代打/交代選手名を入力してください。現在: " + (currentName || "未登録"), "");
+            if (!nextName) {
+                return;
+            }
+            const cleaned = nextName.trim();
+            if (!cleaned) {
+                return;
+            }
+            pushGameHistory();
+            if (!state.playerNames[half]) {
+                state.playerNames[half] = Array.from({ length: 9 }, () => "");
+            }
+            const names = splitRosterNameSlots(state.playerNames[half][row]).filter(Boolean);
+            names.push(cleaned);
+            state.playerNames[half][row] = names.slice(0, 3).join("/");
+            renderPlayerRosterEditor();
+            renderScoreSheet();
+            renderCurrentBatterCard();
+            scheduleGameAutoSave();
         }
 
         function saveCurrentToSheet() {
@@ -9515,10 +9726,12 @@
 
         function registerAtBatComment() {
             state.atBatComment = document.getElementById("atBatCommentInput")?.value.trim() || "";
+            state.atBatCommentMeta = state.atBatComment ? captureCommentTimingMeta() : null;
             const existingSnapshot = state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol];
             if (existingSnapshot) {
                 pushGameHistory();
                 existingSnapshot.atBatComment = state.atBatComment;
+                existingSnapshot.atBatCommentMeta = deepClone(state.atBatCommentMeta);
             }
             renderScoreSheet();
             updateDisplay();
@@ -12937,6 +13150,7 @@
             updateHistoryButtons();
             updateCommentTargetLabel();
             renderGameMiniStatus();
+            renderCurrentBatterCard();
             renderScoreSheet();
 
             requestAnimationFrame(updateResultDecoration);
@@ -12963,6 +13177,7 @@
             state.runnerContext = null;
             state.currentConfidence = 1;
             state.atBatComment = "";
+            state.atBatCommentMeta = null;
 
             setElementValue("fielderSelect", "");
             setElementValue("battingOrderSelect", state.battingOrder);
