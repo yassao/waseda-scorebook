@@ -3409,7 +3409,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.21";
+        const APP_VERSION = "0.1.22";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4279,8 +4279,11 @@
                     totals.atBats += 1;
                 }
                 const runnerText = JSON.stringify(pa.runnerContext || {});
-                totals.stolenBases += (runnerText.match(/盗塁|二盗|三盗|本盗|S/g) || []).length;
-                totals.caughtStealing += (runnerText.match(/盗塁死|盗塁刺|CS/g) || []).length;
+                const runnerStatusText = JSON.stringify(pa.runnerStatusEvents || []);
+                const runnerRecordText = runnerText + " " + runnerStatusText;
+                totals.stolenBases += (runnerRecordText.match(/盗塁|二盗|三盗|本盗|\"S\"|:S|S\)/g) || []).length;
+                totals.caughtStealing += (runnerRecordText.match(/盗塁死|盗塁刺|CS/g) || []).length;
+                totals.leftOnBase += (pa.runnerStatusEvents || []).filter((event) => event === "残塁" || event?.type === "left_on_base").length;
                 totals.errorsReached += result.errorMode && result.errorMode !== "none" ? 1 : 0;
             });
             const info = normalizeGameInfo(state.gameInfo);
@@ -4299,6 +4302,36 @@
                 catchers: [],
                 extraBaseHits,
                 teamTotals
+            };
+        }
+
+        function getRunnerStatusEventType(event) {
+            if (event?.type === "score" || event === "生還") {
+                return "run_scored";
+            }
+            if (event?.type === "out") {
+                return "runner_out";
+            }
+            if (event?.type === "advance" || event === "1塁" || event === "2塁" || event === "3塁") {
+                return "advance";
+            }
+            if (event === "残塁" || event?.type === "left_on_base") {
+                return "left_on_base";
+            }
+            return "";
+        }
+
+        function buildRunnerStatusSaveEvent(event, base) {
+            const type = getRunnerStatusEventType(event);
+            if (!type) {
+                return null;
+            }
+            const value = typeof event === "string" ? { label: event } : deepClone(event);
+            return {
+                type,
+                ...base,
+                runnerStatus: value,
+                timing: deepClone(value.timing || null)
             };
         }
 
@@ -4353,6 +4386,7 @@
                         }));
                         events.push(...pitchEvents);
 
+                        const runnerStatusEvents = deepClone(getRunnerStatusEvents(snapshot));
                         const batterResultEvent = {
                             type: "batter_result",
                             id: "ev_" + String(eventSerial++).padStart(5, "0"),
@@ -4370,9 +4404,28 @@
                             batterResult: buildBatterResultModel(snapshot),
                             outNumber: romanToOutCount(snapshot.outScore) || null,
                             rawRunnerContext: deepClone(snapshot.runnerContext || null),
-                            runnerStatusEvents: deepClone(getRunnerStatusEvents(snapshot))
+                            runnerStatusEvents
                         };
                         events.push(batterResultEvent);
+
+                        runnerStatusEvents.forEach((runnerStatusEvent, runnerEventIndex) => {
+                            const runnerEvent = buildRunnerStatusSaveEvent(runnerStatusEvent, {
+                                id: "ev_" + String(eventSerial++).padStart(5, "0"),
+                                plateAppearanceId: paId,
+                                teamId,
+                                half,
+                                inning,
+                                inningColumn: col + 1,
+                                sequence: pitchEvents.length + 2 + runnerEventIndex,
+                                runner: {
+                                    battingOrder,
+                                    playerId: getPlayerId(half, battingOrder)
+                                }
+                            });
+                            if (runnerEvent) {
+                                events.push(runnerEvent);
+                            }
+                        });
 
                         if (snapshot.atBatComment) {
                             const commentId = "cm_" + String(commentSerial++).padStart(5, "0");
@@ -4406,7 +4459,7 @@
                             })),
                             batterResult: buildBatterResultModel(snapshot),
                             runnerContext: deepClone(snapshot.runnerContext || null),
-                            runnerStatusEvents: deepClone(getRunnerStatusEvents(snapshot)),
+                            runnerStatusEvents,
                             outsBefore,
                             outsAfter,
                             runsScored: getRunnerStatusEvents(snapshot).filter((event) => event?.type === "score" || event === "生還").length,

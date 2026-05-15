@@ -1,3 +1,13 @@
+## v0.1.22 [2026-05-15] 残塁と走者イベントをJSON集計へ反映
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/SCOREBOOK_RULES.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.21 [2026-05-15] 投球記号と走者イベント時点をPDF準拠化
 
 **変更ファイル:**
