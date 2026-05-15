@@ -1,3 +1,13 @@
+## v0.1.18 [2026-05-15] 手動詳細入力削除とPDF準拠項目追加
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/SCOREBOOK_RULES.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.17 [2026-05-15] X取り込みの連結行分割を補強
 
 **変更ファイル:**
