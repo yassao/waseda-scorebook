@@ -1375,6 +1375,7 @@
         .line-score-board {
             width: 100%;
             max-width: 100%;
+            flex: 0 0 auto;
             overflow: hidden;
             margin: 0;
             border: 1px solid var(--sheet-green);
@@ -3440,7 +3441,6 @@
                 <div class="nl-panel is-compact">
                     <div id="lineScoreBoard" class="line-score-board" aria-label="点数板"></div>
                     <div id="gameMiniStatus" class="game-mini-status" aria-label="試合状況"></div>
-                    <div id="currentBatterCard" class="current-batter-card" aria-label="現在の打者"></div>
                     <div class="pitch-input-panel">
                         <div class="status-line">
                             <span id="countStatus">B 0</span>
@@ -3768,7 +3768,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.48";
+        const APP_VERSION = "0.1.49";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5355,16 +5355,24 @@
         function confirmStartNewGameFromStart() {
             try {
                 localStorage.removeItem(GAME_STORAGE_KEY);
-                sessionStorage.setItem(START_BLANK_GAME_SESSION_KEY, "1");
-                window.location.reload();
-            } catch (error) {
-                console.warn("Reload start new game failed", error);
-                localStorage.removeItem(GAME_STORAGE_KEY);
+                sessionStorage.removeItem(START_BLANK_GAME_SESSION_KEY);
                 resetFullGameStateForNewGame();
                 saveGameToLocalStorage();
                 updateStartScreenState();
+                renderSavedGameSlots();
                 closeStartNewGameConfirm();
                 hideStartScreen();
+            } catch (error) {
+                console.warn("Start new game failed; retrying after reload", error);
+                setStartNewGameConfirmStatus("新規試合を準備しています。画面を再読み込みします。");
+                try {
+                    localStorage.removeItem(GAME_STORAGE_KEY);
+                    sessionStorage.setItem(START_BLANK_GAME_SESSION_KEY, "1");
+                    window.location.reload();
+                } catch (reloadError) {
+                    console.warn("Reload start new game failed", reloadError);
+                    setStartNewGameConfirmStatus("新規試合の開始に失敗しました。ページを再読み込みしてからもう一度試してください。", true);
+                }
             }
         }
 
