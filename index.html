@@ -3694,7 +3694,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.33";
+        const APP_VERSION = "0.1.34";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6932,19 +6932,59 @@
             return "?";
         }
 
+        function getForceRetiredBaseIndexForReceiver(receiver) {
+            return {
+                "2": 2,
+                "5": 1,
+                "6": 0,
+                "4": 0
+            }[receiver];
+        }
+
+        function resolveDoublePlayRunnerOutEvents(snapshot, runners) {
+            const sequence = snapshot.fieldSequence || [];
+            const events = [];
+            const usedBases = new Set();
+            if (sequence.length >= 3) {
+                for (let index = 1; index < sequence.length; index += 1) {
+                    const baseIndex = getForceRetiredBaseIndexForReceiver(sequence[index]);
+                    if (baseIndex === undefined || usedBases.has(baseIndex) || !runners[baseIndex]) {
+                        continue;
+                    }
+                    usedBases.add(baseIndex);
+                    events.push({
+                        baseIndex,
+                        label: sequence[index - 1] + "-" + sequence[index]
+                    });
+                }
+                if (events.length >= 2) {
+                    return events.slice(0, 2);
+                }
+            }
+
+            const runnerBaseIndex = resolveDoublePlayRunnerBaseIndex(snapshot, runners);
+            if (runnerBaseIndex >= 0) {
+                events.push({
+                    baseIndex: runnerBaseIndex,
+                    label: resolveDoublePlayRunnerNote(snapshot)
+                });
+            }
+            return events;
+        }
+
+        function getOutScoreForDoublePlayRunner(snapshot, eventIndex, eventCount) {
+            const finalOutCount = romanToOutCount(snapshot?.outScore);
+            const outCount = Math.max(1, finalOutCount - eventCount + eventIndex + 1);
+            return outCountToRoman(outCount);
+        }
+
         function resolveDoublePlayRunnerBaseIndex(snapshot, runners) {
             const sequence = snapshot.fieldSequence || [];
             const forceOutFielder = sequence[1] || "";
 
             // Baseball score sequences describe where the lead runner is retired.
             // 1-2-3: runner from third is out at home. 6-4-3/5-4-3: runner from first is out at second.
-            const baseByForceOutFielder = {
-                "2": 2,
-                "5": 1,
-                "6": 0,
-                "4": 0
-            };
-            const preferredBase = baseByForceOutFielder[forceOutFielder];
+            const preferredBase = getForceRetiredBaseIndexForReceiver(forceOutFielder);
             if (preferredBase !== undefined && runners[preferredBase]) {
                 return preferredBase;
             }
@@ -7126,12 +7166,22 @@
                 runners[0] = batterRef;
                 setRunnerStatusForRef(batterRef, "1塁");
             } else if (snapshot.modifiers?.doublePlay && snapshot.outScore) {
-                const runnerOutScore = outCountToRoman(Math.max(1, romanToOutCount(snapshot.outScore) - 1));
-                const runnerNote = resolveDoublePlayRunnerNote(snapshot);
-                const runnerBaseIndex = resolveDoublePlayRunnerBaseIndex(snapshot, runners);
-                if (runnerBaseIndex >= 0) {
-                    removeRunnerFromBase(runners, runnerBaseIndex, runnerNote, runnerOutScore);
-                    advanceTrailingRunnersAfterForceOut(runners, runnerBaseIndex);
+                const runnerOutEvents = resolveDoublePlayRunnerOutEvents(snapshot, runners);
+                if (runnerOutEvents.length >= 2) {
+                    runnerOutEvents.forEach((event, eventIndex) => {
+                        removeRunnerFromBase(
+                            runners,
+                            event.baseIndex,
+                            event.label,
+                            getOutScoreForDoublePlayRunner(snapshot, eventIndex, runnerOutEvents.length)
+                        );
+                    });
+                    runners[0] = batterRef;
+                    setRunnerStatusForRef(batterRef, "1塁");
+                } else if (runnerOutEvents.length === 1) {
+                    const event = runnerOutEvents[0];
+                    removeRunnerFromBase(runners, event.baseIndex, event.label, getOutScoreForDoublePlayRunner(snapshot, 0, 1));
+                    advanceTrailingRunnersAfterForceOut(runners, event.baseIndex);
                 }
             } else if (snapshot.modifiers?.sacrificeBunt && snapshot.outScore) {
                 if (runners[1]) {
@@ -13536,10 +13586,19 @@
                 }
                 projected[0] = null;
             } else if (state.modifiers?.doublePlay && state.outScore) {
-                const runnerBaseIndex = resolveDoublePlayRunnerBaseIndex(captureAtBatSnapshot(), projected.map((item) => item?.runnerRef || null));
-                if (runnerBaseIndex >= 0) {
-                    removeProjectedRunnerAtBase(projected, runnerBaseIndex);
-                    advanceProjectedTrailingRunnersAfterForceOut(projected, runnerBaseIndex);
+                const snapshot = captureAtBatSnapshot();
+                const runnerOutEvents = resolveDoublePlayRunnerOutEvents(snapshot, projected.map((item) => item?.runnerRef || null));
+                if (runnerOutEvents.length >= 2) {
+                    runnerOutEvents.forEach((event) => removeProjectedRunnerAtBase(projected, event.baseIndex));
+                    projected[0] = {
+                        runnerRef: getSheetRef(state.selectedSheetRow, state.selectedSheetCol),
+                        baseIndex: 0,
+                        sourceBaseIndex: 0
+                    };
+                } else if (runnerOutEvents.length === 1) {
+                    const event = runnerOutEvents[0];
+                    removeProjectedRunnerAtBase(projected, event.baseIndex);
+                    advanceProjectedTrailingRunnersAfterForceOut(projected, event.baseIndex);
                 }
             }
         }
@@ -13620,6 +13679,25 @@
         function getLiveRunnerOutPreviewItems() {
             if (!hasCurrentAtBatInput()) {
                 return [];
+            }
+            if (state.modifiers?.doublePlay && state.outScore) {
+                const snapshot = captureAtBatSnapshot();
+                return resolveDoublePlayRunnerOutEvents(snapshot, state.baseRunners)
+                    .map((event, eventIndex, events) => {
+                        const runnerRef = state.baseRunners[event.baseIndex];
+                        if (!runnerRef) {
+                            return null;
+                        }
+                        return {
+                            runnerRef: { ...runnerRef },
+                            baseIndex: event.baseIndex,
+                            label: event.label,
+                            outScore: getOutScoreForDoublePlayRunner(snapshot, eventIndex, events.length),
+                            retired: true,
+                            live: true
+                        };
+                    })
+                    .filter(Boolean);
             }
             const baseIndexByOutLabel = {
                 "二塁封殺": 0,
