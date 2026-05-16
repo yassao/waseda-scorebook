@@ -3768,7 +3768,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.51";
+        const APP_VERSION = "0.1.52";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8894,7 +8894,7 @@
                 return;
             }
             popup.innerHTML = [
-                '<div class="comment-popup-title">Xポスト下書き</div>',
+                '<div class="comment-popup-title">Xポスト下書き <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
                 '<textarea id="inningShareDraftText" onfocus="this.select()" onclick="this.select()">' + escapeHtml(draft) + '</textarea>',
                 '<div id="inningShareCopyStatus" class="inning-share-options">コピーできない場合は「Xで開く」を使うか、文面を長押ししてコピーしてください。</div>',
                 '<div class="comment-popup-actions">',
@@ -8909,6 +8909,43 @@
                 textarea?.select();
                 textarea?.setSelectionRange?.(0, textarea.value.length);
             });
+        }
+
+        function repairOpenInningShareDraftUi() {
+            const textarea = document.getElementById("inningShareDraftText");
+            if (!textarea) {
+                return;
+            }
+            textarea.value = ensureCuViuHashtag(textarea.value);
+            const popup = textarea.closest("#inningSharePopup");
+            const title = popup?.querySelector(".comment-popup-title");
+            if (title && !title.textContent.includes(APP_VERSION)) {
+                title.innerHTML = "Xポスト下書き <small>v" + escapeHtml(APP_VERSION) + "</small>";
+            }
+            const status = document.getElementById("inningShareCopyStatus");
+            if (status && !status.textContent.includes("Xで開く")) {
+                status.textContent = "コピーできない場合は「Xで開く」を使うか、文面を長押ししてコピーしてください。";
+            }
+            const actions = popup?.querySelector(".comment-popup-actions");
+            if (actions && !actions.querySelector("[data-x-post-open]")) {
+                const nextButton = Array.from(actions.querySelectorAll("button")).find((button) => button.textContent.includes("次"));
+                const xButton = document.createElement("button");
+                xButton.type = "button";
+                xButton.dataset.xPostOpen = "true";
+                xButton.textContent = "Xで開く";
+                xButton.onclick = openXPostDraft;
+                actions.insertBefore(xButton, nextButton || null);
+            }
+        }
+
+        function watchInningShareDraftUi() {
+            const popup = document.getElementById("inningSharePopup");
+            if (!popup || typeof MutationObserver === "undefined") {
+                return;
+            }
+            const observer = new MutationObserver(() => repairOpenInningShareDraftUi());
+            observer.observe(popup, { childList: true, subtree: true });
+            repairOpenInningShareDraftUi();
         }
 
         function copyTextFromTextarea(textarea) {
@@ -15262,6 +15299,7 @@
         ensureRunnerGuiStep();
         updateSheetZoom();
         initializeSheetPinchZoom();
+        watchInningShareDraftUi();
         document.getElementById("naturalLanguageInput").addEventListener("input", scheduleNaturalLanguageParse);
         const shouldStartBlankGame = sessionStorage.getItem(START_BLANK_GAME_SESSION_KEY) === "1";
         if (shouldStartBlankGame) {
