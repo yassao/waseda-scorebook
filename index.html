@@ -3757,7 +3757,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.44";
+        const APP_VERSION = "0.1.45";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6138,6 +6138,58 @@
                 .trim();
         }
 
+        function normalizeRosterOcrPosition(position) {
+            const value = String(position || "").trim().toUpperCase();
+            if (value === "D" || value === "O" || value === "0") {
+                return "DH";
+            }
+            return value;
+        }
+
+        function normalizeRosterOcrName(name) {
+            return String(name || "")
+                .replace(/高見避/g, "高見澤")
+                .trim();
+        }
+
+        function inferMissingRosterPosition(entries) {
+            const used = new Set(entries.map((entry) => entry.position).filter(Boolean));
+            const candidates = ["2", "3", "4", "5", "6", "7", "8", "9"];
+            const missing = candidates.filter((position) => !used.has(position));
+            return missing.length === 1 ? missing[0] : "";
+        }
+
+        function chooseRosterContinuationTargets(targets, chars, entries) {
+            const commonSurnames = new Set([
+                "田中", "北村", "塩見", "松下",
+                "東妻", "田内", "小田", "宮下", "加藤"
+            ]);
+            const uniqueOptions = [];
+            const addOption = (orders) => {
+                const key = orders.join(",");
+                if (!uniqueOptions.some((option) => option.key === key)) {
+                    uniqueOptions.push({ key, orders });
+                }
+            };
+            addOption(targets);
+            addOption([...targets].sort((a, b) => a - b));
+            addOption([...targets].sort((a, b) => b - a));
+            let best = uniqueOptions[0]?.orders || targets;
+            let bestScore = -1;
+            uniqueOptions.forEach(({ orders }) => {
+                const score = orders.reduce((total, order, index) => {
+                    const current = entries[order - 1]?.name || "";
+                    const candidate = current + (chars[index] || "");
+                    return total + (commonSurnames.has(candidate) ? 1 : 0);
+                }, 0);
+                if (score > bestScore) {
+                    best = orders;
+                    bestScore = score;
+                }
+            });
+            return best;
+        }
+
         function parseScoreboardRosterOcr(text) {
             const lines = String(text || "")
                 .split(/\r?\n/)
@@ -6145,7 +6197,7 @@
                 .filter(Boolean);
             const entries = Array.from({ length: 9 }, () => ({ name: "", number: "", position: "" }));
             const parsedOrder = [];
-            const continuations = [];
+            let continuations = [];
             const textCandidates = [];
             let pitcher = "";
             let teamName = "";
@@ -6157,13 +6209,13 @@
                     return;
                 }
                 const compact = line.replace(/[^\dA-Za-z一-龯ぁ-んァ-ンー・]/g, "");
-                const orderPositionName = compact.match(/^([1-9])([1-9])(.+)$/);
+                const orderPositionName = compact.match(/^([1-9])([1-9DOP0])(.+)$/i);
                 if (orderPositionName) {
                     const order = Number(orderPositionName[1]);
                     entries[order - 1] = {
                         ...entries[order - 1],
-                        position: orderPositionName[2],
-                        name: orderPositionName[3]
+                        position: normalizeRosterOcrPosition(orderPositionName[2]),
+                        name: normalizeRosterOcrName(orderPositionName[3])
                     };
                     parsedOrder.push(order);
                     return;
@@ -6173,9 +6225,12 @@
                     const order = Number(orderName[1]);
                     entries[order - 1] = {
                         ...entries[order - 1],
-                        name: orderName[2]
+                        name: normalizeRosterOcrName(orderName[2])
                     };
                     parsedOrder.push(order);
+                    return;
+                }
+                if (/^[一二三四五六七八九十]+$/.test(compact) || /^[A-Z]{1,2}$/i.test(compact)) {
                     return;
                 }
                 if (/^[一-龯ぁ-んァ-ンー・]{1,2}$/.test(compact)) {
@@ -6187,27 +6242,45 @@
                 }
             });
 
+            const missingOrders = Array.from({ length: 9 }, (_, index) => index + 1)
+                .filter((order) => !entries[order - 1].name && !entries[order - 1].position);
+            missingOrders.forEach((order) => {
+                const part = continuations[0] || "";
+                if (Array.from(part).length !== 1) {
+                    return;
+                }
+                entries[order - 1] = {
+                    ...entries[order - 1],
+                    name: part,
+                    position: inferMissingRosterPosition(entries)
+                };
+                parsedOrder.push(order);
+                continuations = continuations.slice(1);
+            });
+
             const continuationTargets = parsedOrder
                 .filter((order) => {
                     const name = entries[order - 1]?.name || "";
                     return name.length > 0 && name.length <= 1;
                 });
-            textCandidates.forEach((candidate) => {
-                const remainingTargets = continuationTargets.length - continuations.length;
-                const chars = Array.from(candidate);
-                if (remainingTargets > 0 && chars.length <= remainingTargets) {
-                    continuations.push(...chars);
-                } else {
-                    teamName = candidate;
-                }
-            });
-
             continuations.forEach((part, index) => {
                 const order = continuationTargets[index];
                 if (!order) {
                     return;
                 }
                 entries[order - 1].name += part;
+            });
+            textCandidates.forEach((candidate) => {
+                const chars = Array.from(candidate);
+                const targets = continuationTargets.slice(continuations.length, continuations.length + chars.length);
+                if (targets.length === chars.length) {
+                    const orderedTargets = chooseRosterContinuationTargets(targets, chars, entries);
+                    orderedTargets.forEach((order, index) => {
+                        entries[order - 1].name += chars[index] || "";
+                    });
+                } else {
+                    teamName = candidate;
+                }
             });
 
             if (entries[0]?.name && teamName && Array.from(entries[0].name).length >= 5) {
@@ -6223,6 +6296,10 @@
             if (entries[0]?.name && !entries[0].position && /^[ァ-ンー・]+$/.test(entries[0].name)) {
                 entries[0].position = "DH";
             }
+            entries.forEach((entry) => {
+                entry.name = normalizeRosterOcrName(entry.name);
+                entry.position = normalizeRosterOcrPosition(entry.position);
+            });
 
             return { entries, pitcher, teamName };
         }
