@@ -349,8 +349,17 @@
 
         .history-actions {
             display: inline-flex;
+            align-items: center;
             gap: 6px;
             flex-shrink: 0;
+        }
+
+        .app-version-badge {
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 900;
+            line-height: 1;
+            white-space: nowrap;
         }
 
         .history-btn,
@@ -3381,6 +3390,7 @@
         </div>
         <header class="app-header">
             <div class="history-actions" aria-label="履歴操作">
+                <span id="appVersionBadge" class="app-version-badge">v0.1.52</span>
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
                 <button id="workspaceToggleBtn" class="workspace-toggle-btn" onclick="toggleTopWorkspace()" aria-label="入力とスコアブックを切替">スコアブック</button>
@@ -3768,7 +3778,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.52";
+        const APP_VERSION = "0.1.53";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -15300,6 +15310,10 @@
         updateSheetZoom();
         initializeSheetPinchZoom();
         watchInningShareDraftUi();
+        const appVersionBadge = document.getElementById("appVersionBadge");
+        if (appVersionBadge) {
+            appVersionBadge.textContent = "v" + APP_VERSION;
+        }
         document.getElementById("naturalLanguageInput").addEventListener("input", scheduleNaturalLanguageParse);
         const shouldStartBlankGame = sessionStorage.getItem(START_BLANK_GAME_SESSION_KEY) === "1";
         if (shouldStartBlankGame) {
