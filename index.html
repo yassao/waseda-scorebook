@@ -3694,7 +3694,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.32";
+        const APP_VERSION = "0.1.33";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8083,9 +8083,56 @@
             });
         }
 
+        function getShareStrikeoutText(snapshot) {
+            const pitches = snapshot?.pitches || [];
+            const lastPitch = pitches[pitches.length - 1] || "";
+            if (snapshot?.modifiers?.droppedThirdStrike) {
+                return "振り逃げ";
+            }
+            if (snapshot?.modifiers?.threeBuntStrikeout || lastPitch === "buntFoul") {
+                return "スリーバント失敗";
+            }
+            if (snapshot?.modifiers?.swingStrikeout || lastPitch === "swingStrike" || lastPitch === "buntSwing") {
+                return "空振り三振";
+            }
+            if (lastPitch === "calledStrike") {
+                return "見逃し三振";
+            }
+            return "三振";
+        }
+
+        function getShareResultText(snapshot) {
+            if (!snapshot) {
+                return "";
+            }
+            if (snapshot.result === "K") {
+                return getShareStrikeoutText(snapshot);
+            }
+            const displayed = getDisplayedResultFromSnapshot(snapshot);
+            const labels = {
+                "B": "四球",
+                "B'": "申告敬遠",
+                "DB": "死球",
+                "HP": "死球",
+                "1B": "単打",
+                "2B": "二塁打",
+                "3B": "三塁打",
+                "HR": "本塁打",
+                "RH": "ランニング本塁打",
+                "GR": "エンタイトル二塁打",
+                "WP": "暴投",
+                "PB": "捕逸",
+                "BK": "ボーク",
+                "IF": "打撃妨害",
+                "OB": "走塁妨害",
+                "FC": "野選"
+            };
+            return labels[displayed] || labels[snapshot.result] || displayed;
+        }
+
         function formatSnapshotForInningDraft(half, row, snapshot) {
-            const playerName = splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || (row + 1) + "番";
-            const result = getDisplayedResultFromSnapshot(snapshot);
+            const playerName = splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || "未登録（" + (row + 1) + "番）";
+            const result = getShareResultText(snapshot);
             const atBatComment = String(snapshot?.atBatComment || "").trim();
             const pitchCommentText = (snapshot?.pitchComments || [])
                 .filter((item) => item?.text)
