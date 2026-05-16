@@ -3615,6 +3615,20 @@
                         <details class="game-info-details player-roster-details">
                             <summary>選手名登録</summary>
                             <div class="game-info-body">
+                                <datalist id="positionOptions">
+                                    <option value="1"></option>
+                                    <option value="2"></option>
+                                    <option value="3"></option>
+                                    <option value="4"></option>
+                                    <option value="5"></option>
+                                    <option value="6"></option>
+                                    <option value="7"></option>
+                                    <option value="8"></option>
+                                    <option value="9"></option>
+                                    <option value="DH"></option>
+                                    <option value="PH"></option>
+                                    <option value="PR"></option>
+                                </datalist>
                                 <div id="playerRosterEditor" class="player-roster-editor"></div>
                             </div>
                         </details>
@@ -3759,7 +3773,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.42";
+        const APP_VERSION = "0.1.43";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6212,6 +6226,20 @@
                 entries[order - 1].name += part;
             });
 
+            if (entries[0]?.name && teamName && Array.from(entries[0].name).length >= 5) {
+                const firstChar = Array.from(entries[0].name)[0];
+                if (teamName.includes(firstChar)) {
+                    entries[0].name = Array.from(entries[0].name).slice(1).join("");
+                }
+            }
+            if (entries[0]?.name && /^ロモン/.test(entries[0].name)) {
+                entries[0].name = entries[0].name.replace(/^ロ/, "");
+            }
+
+            if (entries[0]?.name && !entries[0].position && /^[ァ-ンー・]+$/.test(entries[0].name)) {
+                entries[0].position = "DH";
+            }
+
             return { entries, pitcher, teamName };
         }
 
@@ -6298,7 +6326,7 @@
                         `<div class="player-roster-order">${order}番</div>`,
                         `<input class="player-name-field" value="${escapeHtml(name)}" placeholder="名前" aria-label="${escapeHtml(teamLabel)} ${order}番選手名" onchange="updatePlayerName('${half}', ${index}, this.value)">`,
                         `<input class="player-name-field" value="${escapeHtml(numbers[index] || "")}" placeholder="背" inputmode="numeric" aria-label="${escapeHtml(teamLabel)} ${order}番背番号" onchange="updatePlayerNumber('${half}', ${index}, this.value)">`,
-                        `<input class="player-name-field" value="${escapeHtml(positions[index] || "")}" placeholder="守/DH" aria-label="${escapeHtml(teamLabel)} ${order}番守備位置" onchange="updatePlayerPosition('${half}', ${index}, this.value)">`
+                        `<input class="player-name-field" list="positionOptions" value="${escapeHtml(positions[index] || "")}" placeholder="守/DH" aria-label="${escapeHtml(teamLabel)} ${order}番守備位置" onchange="updatePlayerPosition('${half}', ${index}, this.value)">`
                     ].join("");
                 }).join("");
                 return [

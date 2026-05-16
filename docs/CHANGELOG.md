@@ -1,3 +1,12 @@
+## v0.1.43 [2026-05-16] OCRのDH登録と名前補正を改善
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.42 [2026-05-16] 縦書きOCRの名前補完を強化
 
 **変更ファイル:**
