@@ -1321,12 +1321,10 @@
 
         .roster-ocr-actions {
             display: grid;
-            grid-template-columns: 1fr 1fr;
             gap: 6px;
         }
 
-        .roster-ocr-actions button,
-        .roster-ocr-actions label {
+        .roster-ocr-actions button {
             min-height: 34px;
             display: flex;
             align-items: center;
@@ -1337,20 +1335,6 @@
             color: #0f4f4a;
             font-size: 12px;
             font-weight: 900;
-        }
-
-        .roster-ocr-actions input {
-            display: none;
-        }
-
-        .roster-ocr-preview {
-            max-height: 120px;
-            max-width: 100%;
-            object-fit: contain;
-            border-radius: 8px;
-            border: 1px solid #d7e1e8;
-            background: #fff;
-            display: none;
         }
 
         .roster-ocr-status {
@@ -3773,7 +3757,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.43";
+        const APP_VERSION = "0.1.44";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6290,26 +6274,6 @@
             scheduleGameAutoSave();
         }
 
-        function previewRosterOcrImage(input, half) {
-            const file = input?.files?.[0];
-            const image = document.getElementById("rosterOcrPreview_" + half);
-            if (!image) {
-                return;
-            }
-            if (!file) {
-                image.style.display = "none";
-                image.removeAttribute("src");
-                return;
-            }
-            const reader = new FileReader();
-            reader.onload = () => {
-                image.src = String(reader.result || "");
-                image.style.display = "block";
-                setRosterOcrStatus(half, "写真を確認し、iPhoneの文字認識結果を下に貼り付けてください。");
-            };
-            reader.readAsDataURL(file);
-        }
-
         function renderPlayerRosterEditor() {
             const container = document.getElementById("playerRosterEditor");
             if (!container) {
@@ -6333,13 +6297,11 @@
                     '<div class="player-roster-team">',
                     '<div class="player-roster-team-title">' + escapeHtml(teamLabel) + '</div>',
                     '<div class="roster-ocr-panel">',
-                    '<textarea id="rosterOcrText_' + half + '" placeholder="写真の文字認識結果を貼り付け 例: 98松本龍"></textarea>',
+                    '<textarea id="rosterOcrText_' + half + '" placeholder="iPhone写真アプリ等の文字認識結果を貼り付け 例: 98松本龍"></textarea>',
                     '<div class="roster-ocr-actions">',
-                    '<label>写真を選ぶ<input type="file" accept="image/*" onchange="previewRosterOcrImage(this, \'' + half + '\')"></label>',
                     '<button type="button" onclick="applyRosterOcrToHalf(\'' + half + '\')">文字から登録</button>',
                     '</div>',
-                    '<img id="rosterOcrPreview_' + half + '" class="roster-ocr-preview" alt="">',
-                    '<div id="rosterOcrStatus_' + half + '" class="roster-ocr-status">iPhoneの写真アプリで文字認識した結果を貼ると、打順・守備・名前に分けます。</div>',
+                    '<div id="rosterOcrStatus_' + half + '" class="roster-ocr-status">このアプリは写真そのものではなく、貼り付けた文字を打順・守備・名前に分けます。</div>',
                     '</div>',
                     '<div class="player-roster-grid">',
                     inputs,

@@ -1,3 +1,12 @@
+## v0.1.44 [2026-05-16] OCR写真選択導線を整理
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.43 [2026-05-16] OCRのDH登録と名前補正を改善
 
 **変更ファイル:**
