@@ -1373,31 +1373,33 @@
         }
 
         .line-score-board {
-            width: max-content;
+            width: 100%;
             max-width: 100%;
-            overflow-x: auto;
-            margin: 0 0 10px;
+            overflow: hidden;
+            margin: 0;
             border: 1px solid var(--sheet-green);
             background: #ffffff;
-            font-size: 16px;
+            font-size: clamp(9px, 1.8vw, 13px);
             color: #1f2937;
         }
 
         .line-score-row {
             display: grid;
-            grid-template-columns: minmax(58px, 1.4fr) repeat(12, 28px) 34px;
-            min-width: 428px;
+            grid-template-columns: minmax(38px, 1.7fr) repeat(12, minmax(15px, 1fr)) minmax(22px, 0.9fr);
+            min-width: 0;
         }
 
         .line-score-cell {
-            min-height: 24px;
+            min-width: 0;
+            min-height: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-right: 1px solid var(--sheet-green);
             border-bottom: 1px solid var(--sheet-green);
-            padding: 2px 4px;
-            font-weight: 700;
+            padding: 1px 2px;
+            font-weight: 900;
+            line-height: 1;
         }
 
         .line-score-row:last-child .line-score-cell {
@@ -1407,6 +1409,8 @@
         .line-score-cell:first-child {
             justify-content: flex-start;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .line-score-cell:last-child {
@@ -3434,6 +3438,7 @@
 
             <section class="nl-quick-panel">
                 <div class="nl-panel is-compact">
+                    <div id="lineScoreBoard" class="line-score-board" aria-label="点数板"></div>
                     <div id="gameMiniStatus" class="game-mini-status" aria-label="試合状況"></div>
                     <div id="currentBatterCard" class="current-batter-card" aria-label="現在の打者"></div>
                     <div class="pitch-input-panel">
@@ -3584,7 +3589,7 @@
                 <section class="section">
                     <div class="sheet-panel">
                         <details class="game-info-details">
-                            <summary>試合進行・点数板</summary>
+                            <summary>試合進行</summary>
                             <div class="game-info-body">
                                 <div class="game-flow-bar" aria-label="試合進行">
                                     <input id="topTeamName" class="team-name-input" value="先攻" aria-label="先攻チーム名" onchange="updateTeamName('top', this.value)">
@@ -3593,7 +3598,6 @@
                                     <button id="bottomHalfBtn" class="half-switch" onclick="activateHalf('bottom')">後攻</button>
                                     <div id="inningStatus" class="inning-status">1回表 先攻</div>
                                 </div>
-                                <div id="lineScoreBoard" class="line-score-board" aria-label="点数板"></div>
                             </div>
                         </details>
                         <details class="game-info-details player-roster-details">
@@ -3764,7 +3768,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.46";
+        const APP_VERSION = "0.1.47";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
