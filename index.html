@@ -3694,7 +3694,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.38";
+        const APP_VERSION = "0.1.39";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6516,10 +6516,6 @@
             return Math.max(romanToOutCount(snapshot.outScore), runnerOutCount);
         }
 
-        function isSnapshotBatterOut(snapshot) {
-            return Boolean(romanToOutCount(snapshot?.outScore)) && getBatterReachedBaseFromSnapshot(snapshot) <= 0;
-        }
-
         function getCentralOutScoreForSnapshot(snapshot) {
             if (!snapshot) {
                 return "";
@@ -6527,7 +6523,7 @@
             if (!romanToOutCount(snapshot.outScore)) {
                 return snapshot.outScore || "";
             }
-            return isSnapshotBatterOut(snapshot) ? snapshot.outScore : "";
+            return snapshot.outScore;
         }
 
         function romanToOutCount(symbol) {
@@ -6659,7 +6655,8 @@
                     kind: "out",
                     label: text.label || "アウト",
                     doublePlay: Boolean(text.doublePlay),
-                    outScore: text.outScore || ""
+                    outScore: text.outScore || "",
+                    by: text.by || ""
                 };
             }
             if (text === "1塁") {
@@ -6774,8 +6771,8 @@
                         parts.push('<text x="22" y="106" text-anchor="middle" font-size="11" font-weight="700" fill="#111">DP</text>');
                     }
                     parts.push('<text x="' + outPosition.x + '" y="' + outPosition.y + '" text-anchor="middle" font-size="13" font-weight="700" fill="#111">' + event.label + '</text>');
-                    if (event.outScore) {
-                        parts.push('<text x="' + (outPosition.x + 18) + '" y="' + (outPosition.y - 12) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#111">(' + event.outScore + ')</text>');
+                    if (event.by) {
+                        parts.push('<text x="' + (outPosition.x + 18) + '" y="' + (outPosition.y - 12) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#111">(' + event.by + ')</text>');
                     }
                     return;
                 }
@@ -6919,14 +6916,12 @@
             });
         }
 
-        function markRunnerOutOnSnapshot(ref, outScore, options = {}) {
+        function markRunnerOutOnSnapshot(ref, outScore) {
             const snapshot = getSnapshotByRef(ref);
             if (!snapshot) {
                 return;
             }
-            if (options.central) {
-                snapshot.outScore = outScore || "Ⅰ";
-            }
+            snapshot.outScore = outScore || "Ⅰ";
         }
 
         function currentBatterNumberForRunnerEvent() {
@@ -7217,7 +7212,7 @@
                 const batterOutMatch = String(outLabel || "").match(/^打者走者(?:一塁|二塁|三塁|本塁)アウト(?::(.+))?$/);
                 if (batterOutMatch && batterRef) {
                     removeRunnerRefFromBases(runners, batterRef);
-                    markRunnerOutOnSnapshot(batterRef, scoreOnRunner, { central: true });
+                    markRunnerOutOnSnapshot(batterRef, scoreOnRunner);
                     setRunnerStatusForRef(batterRef, {
                         type: "out",
                         label: batterOutMatch[1] || sheetLabel || "アウト",
@@ -7225,7 +7220,7 @@
                         by: currentBatterNumberForRunnerEvent()
                     });
                 } else if (outLabel === "一塁封殺" && batterRef) {
-                    markRunnerOutOnSnapshot(batterRef, scoreOnRunner, { central: true });
+                    markRunnerOutOnSnapshot(batterRef, scoreOnRunner);
                     setRunnerStatusForRef(batterRef, { type: "out", label: sheetLabel, outScore: scoreOnRunner, by: currentBatterNumberForRunnerEvent() });
                 } else if (outLabel === "二盗死" || outLabel === "二塁封殺" || outLabel === "二塁アウト" || /^2-[46]T$/.test(outLabel)) {
                     removeRunnerFromBase(runners, 0, sheetLabel, scoreOnRunner);
