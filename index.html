@@ -3694,7 +3694,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.35";
+        const APP_VERSION = "0.1.36";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5045,15 +5045,87 @@
         }
 
         function downloadJsonData(data, filename) {
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
+            try {
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                return true;
+            } catch (error) {
+                console.warn("Download JSON failed", error);
+                return false;
+            }
+        }
+
+        function ensureGameDataExportPopup() {
+            let backdrop = document.getElementById("gameDataExportPopupBackdrop");
+            let popup = document.getElementById("gameDataExportPopup");
+            if (!backdrop) {
+                backdrop = document.createElement("div");
+                backdrop.id = "gameDataExportPopupBackdrop";
+                backdrop.className = "comment-popup-backdrop";
+                backdrop.onclick = closeGameDataExportPopup;
+                document.body.appendChild(backdrop);
+            }
+            if (!popup) {
+                popup = document.createElement("div");
+                popup.id = "gameDataExportPopup";
+                popup.className = "comment-popup inning-share-popup";
+                popup.setAttribute("aria-hidden", "true");
+                document.body.appendChild(popup);
+            }
+            return { backdrop, popup };
+        }
+
+        function showGameDataExportPopup(data, filename, downloaded = true) {
+            const { backdrop, popup } = ensureGameDataExportPopup();
+            const json = JSON.stringify(data, null, 2);
+            popup.innerHTML = [
+                '<div class="comment-popup-title">試合データ書き出し</div>',
+                '<div class="comment-popup-body">' + escapeHtml(downloaded ? "ファイル保存を試みました。保存先に見当たらない場合は、下の内容をコピーしてください。" : "このブラウザではファイル保存できませんでした。下の内容をコピーしてください。") + '<br>' + escapeHtml(filename) + '</div>',
+                '<textarea id="gameDataExportText" readonly onclick="this.select()">' + escapeHtml(json) + '</textarea>',
+                '<div id="gameDataExportCopyStatus" class="inning-share-options">不具合調査では、この内容をそのまま貼ると原因を追いやすくなります。</div>',
+                '<div class="comment-popup-actions">',
+                '<button type="button" onclick="copyGameDataExportText()">コピー</button>',
+                '<button type="button" class="btn-hit" onclick="closeGameDataExportPopup()">閉じる</button>',
+                '</div>'
+            ].join("");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            backdrop.classList.add("is-open");
+        }
+
+        function copyGameDataExportText() {
+            const textarea = document.getElementById("gameDataExportText");
+            const status = document.getElementById("gameDataExportCopyStatus");
+            if (!textarea) {
+                return;
+            }
+            textarea.focus();
+            textarea.select();
+            const finish = (message) => {
+                if (status) {
+                    status.textContent = message;
+                }
+            };
+            if (navigator.clipboard?.writeText) {
+                navigator.clipboard.writeText(textarea.value)
+                    .then(() => finish("コピーしました。"))
+                    .catch(() => finish("コピーできませんでした。選択済みの文面をコピーしてください。"));
+            } else {
+                finish("選択済みの文面をコピーしてください。");
+            }
+        }
+
+        function closeGameDataExportPopup() {
+            document.getElementById("gameDataExportPopup")?.classList.remove("is-open");
+            document.getElementById("gameDataExportPopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("gameDataExportPopupBackdrop")?.classList.remove("is-open");
         }
 
         function exportSavedGameSlot(id) {
@@ -5297,8 +5369,11 @@
         }
 
         function exportGameJson() {
-            downloadJsonData(createGameSaveData(), getGameExportFileName());
-            setGameSaveStatus("試合データを書き出しました。");
+            const data = createGameSaveData();
+            const fileName = getGameExportFileName();
+            const downloaded = downloadJsonData(data, fileName);
+            showGameDataExportPopup(data, fileName, downloaded);
+            setGameSaveStatus(downloaded ? "試合データを書き出しました。" : "試合データを画面に表示しました。コピーして保存してください。");
         }
 
         function exportAutoSavedGameFromStartConfirm() {
@@ -8529,6 +8604,10 @@
                     row: nextBatterRow,
                     col: nextInningCol
                 };
+                state.retiredRunnerPreviewsByHalf[endedHalf] = [];
+                if (state.activeHalf === endedHalf) {
+                    state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[endedHalf];
+                }
 
                 clearNaturalLanguageInput();
                 if (options.showShareDialog === false || shouldSkipInningShareDialog()) {
