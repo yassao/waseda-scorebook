@@ -3694,7 +3694,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.39";
+        const APP_VERSION = "0.1.40";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7031,9 +7031,39 @@
         function resolveDoublePlayRunnerNote(snapshot) {
             const sequence = snapshot.fieldSequence || [];
             if (sequence.length >= 2) {
-                return sequence.slice(0, -1).join("-");
+                return formatFieldSequenceForSheet(sequence.slice(0, -1));
             }
             return "?";
+        }
+
+        function getBaseCoverCodeForRepeatedFielder(fielder) {
+            return {
+                "1": "B",
+                "2": "D",
+                "3": "A",
+                "4": "B",
+                "5": "C",
+                "6": "B"
+            }[fielder] || "";
+        }
+
+        function formatFieldSequenceForSheet(sequence) {
+            const steps = Array.isArray(sequence) ? sequence.filter(Boolean) : [];
+            if (!steps.length) {
+                return "";
+            }
+            const pieces = [];
+            for (let index = 0; index < steps.length; index += 1) {
+                const current = steps[index];
+                const next = steps[index + 1];
+                if (/^[1-9]$/.test(current) && current === next) {
+                    pieces.push(current + getBaseCoverCodeForRepeatedFielder(current));
+                    index += 1;
+                } else {
+                    pieces.push(current);
+                }
+            }
+            return pieces.join("-");
         }
 
         function getForceRetiredBaseIndexForReceiver(receiver) {
@@ -7058,7 +7088,7 @@
                     usedBases.add(baseIndex);
                     events.push({
                         baseIndex,
-                        label: sequence[index - 1] + "-" + sequence[index]
+                        label: formatFieldSequenceForSheet(sequence.slice(index - 1, index + 1))
                     });
                 }
                 if (events.length >= 2) {
@@ -7089,7 +7119,7 @@
                 return "";
             }
             const sequence = snapshot.fieldSequence || [];
-            const sequenceText = sequence.join("-");
+            const sequenceText = formatFieldSequenceForSheet(sequence);
             if (sequence.length < 3) {
                 return sequenceText ? sequenceText + ": 通常の併殺として判定" : "通常の併殺として判定";
             }
@@ -7430,7 +7460,7 @@
                     }
                     return sequence[0] + "E";
                 }
-                const joined = sequence.join("-");
+                const joined = formatFieldSequenceForSheet(sequence);
                 return joined + (snapshot.baseCover && snapshot.baseCover !== "none" ? snapshot.baseCover : "");
             }
 
@@ -7522,7 +7552,7 @@
 
             const displayedResult = getDisplayedResultFromSnapshot(snapshot) || " ";
             const fcContinuation = snapshot.result === "Fc" && Array.isArray(snapshot.fieldSequence) && snapshot.fieldSequence.length >= 3
-                ? snapshot.fieldSequence.slice(1).join("-")
+                ? formatFieldSequenceForSheet(snapshot.fieldSequence.slice(1))
                 : "";
             const resultColor = getSnapshotResultColor(snapshot);
             const prefixText = getSnapshotPrefixText(snapshot);
@@ -14664,7 +14694,7 @@
                     }
                     return sequence[0] + "E";
                 }
-                const joined = sequence.join("-");
+                const joined = formatFieldSequenceForSheet(sequence);
                 return joined + (state.baseCover !== "none" ? state.baseCover : "");
             }
 

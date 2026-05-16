@@ -1,3 +1,12 @@
+## v0.1.40 [2026-05-16] 併殺連係をPDF式ベース踏みに変換
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.39 [2026-05-16] 走者アウトのPDF表示を調整
 
 **変更ファイル:**
