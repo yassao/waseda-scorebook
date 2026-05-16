@@ -3768,7 +3768,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.50";
+        const APP_VERSION = "0.1.51";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8849,6 +8849,11 @@
             return lines.join("\n");
         }
 
+        function ensureCuViuHashtag(text) {
+            const value = String(text || "").trimEnd();
+            return /(^|\s)#CuViu(\s|$)/.test(value) ? value : value + "\n\n#CuViu";
+        }
+
         function openInningSharePopup(transition) {
             pendingInningTransition = transition;
             const popup = document.getElementById("inningSharePopup");
@@ -8883,37 +8888,48 @@
                 return;
             }
             rememberInningSharePreference();
-            const draft = buildInningShareDraft(pendingInningTransition);
+            const draft = ensureCuViuHashtag(buildInningShareDraft(pendingInningTransition));
             const popup = document.getElementById("inningSharePopup");
             if (!popup) {
                 return;
             }
             popup.innerHTML = [
                 '<div class="comment-popup-title">Xポスト下書き</div>',
-                '<textarea id="inningShareDraftText" onclick="this.select()">' + escapeHtml(draft) + '</textarea>',
-                '<div id="inningShareCopyStatus" class="inning-share-options">コピーできない場合も、文面を長押ししてコピーできます。</div>',
+                '<textarea id="inningShareDraftText" onfocus="this.select()" onclick="this.select()">' + escapeHtml(draft) + '</textarea>',
+                '<div id="inningShareCopyStatus" class="inning-share-options">コピーできない場合は「Xで開く」を使うか、文面を長押ししてコピーしてください。</div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
+                '<button type="button" onclick="openXPostDraft()">Xで開く</button>',
                 '<button type="button" class="btn-hit" onclick="completeInningTransition()">次の攻撃へ</button>',
                 '</div>'
             ].join("");
+            requestAnimationFrame(() => {
+                const textarea = document.getElementById("inningShareDraftText");
+                textarea?.focus();
+                textarea?.select();
+                textarea?.setSelectionRange?.(0, textarea.value.length);
+            });
         }
 
         function copyTextFromTextarea(textarea) {
+            textarea.value = ensureCuViuHashtag(textarea.value);
             textarea.focus();
             textarea.select();
             textarea.setSelectionRange?.(0, textarea.value.length);
-            try {
-                if (document.execCommand?.("copy")) {
-                    return Promise.resolve(true);
+            const fallbackCopy = () => {
+                try {
+                    return Boolean(document.execCommand?.("copy"));
+                } catch (error) {
+                    console.warn("Fallback copy failed", error);
+                    return false;
                 }
-            } catch (error) {
-                console.warn("Fallback copy failed", error);
-            }
+            };
             if (navigator.clipboard?.writeText) {
-                return navigator.clipboard.writeText(textarea.value).then(() => true);
+                return navigator.clipboard.writeText(textarea.value)
+                    .then(() => true)
+                    .catch(() => fallbackCopy());
             }
-            return Promise.resolve(false);
+            return Promise.resolve(fallbackCopy());
         }
 
         function copyInningShareDraft() {
@@ -8932,6 +8948,16 @@
                     finish(copied ? "コピーしました。" : "コピーできませんでした。選択済みの文面を長押ししてコピーしてください。");
                 })
                 .catch(() => finish("コピーできませんでした。選択済みの文面を長押ししてコピーしてください。"));
+        }
+
+        function openXPostDraft() {
+            const textarea = document.getElementById("inningShareDraftText");
+            if (!textarea) {
+                return;
+            }
+            textarea.value = ensureCuViuHashtag(textarea.value);
+            const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(textarea.value);
+            window.open(url, "_blank", "noopener,noreferrer");
         }
 
         function closeInningSharePopup() {
