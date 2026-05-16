@@ -1268,16 +1268,21 @@
             gap: 12px;
         }
 
-        .quick-half-toggle {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px;
-            margin-bottom: 10px;
+        .quick-half-toggle-slot {
+            display: flex;
+            align-items: stretch;
+            min-height: 42px;
         }
 
-        .quick-half-toggle .half-switch {
-            min-height: 38px;
+        .quick-half-toggle-btn {
+            width: 100%;
+            min-height: 42px;
+            border-radius: 16px;
+            font-size: 15px;
             font-weight: 900;
+            background: #eef7f5;
+            color: #0f4f4a;
+            border-color: #0f766e;
         }
 
         .player-roster-team {
@@ -3519,10 +3524,6 @@
                         <details class="game-info-details player-roster-details">
                             <summary>選手名登録</summary>
                             <div class="game-info-body">
-                                <div class="quick-half-toggle" aria-label="入力チーム切替">
-                                    <button id="quickTopHalfBtn" class="half-switch" type="button" onclick="activateHalf('top')">先攻入力</button>
-                                    <button id="quickBottomHalfBtn" class="half-switch" type="button" onclick="activateHalf('bottom')">後攻入力</button>
-                                </div>
                                 <div id="playerRosterEditor" class="player-roster-editor"></div>
                             </div>
                         </details>
@@ -3567,6 +3568,9 @@
                                 </div>
                             </div>
                         </details>
+                        <div class="quick-half-toggle-slot">
+                            <button id="quickHalfToggleBtn" class="half-switch quick-half-toggle-btn" type="button" onclick="toggleActiveHalf()" aria-label="先攻と後攻の入力を切替">先攻入力</button>
+                        </div>
                         <div id="sheetMeta" class="sheet-meta"></div>
                         <div id="sheetViewport" class="sheet-viewport">
                             <div id="sheetGrid" class="sheet-grid"></div>
@@ -3664,7 +3668,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.30";
+        const APP_VERSION = "0.1.31";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5409,6 +5413,10 @@
             scheduleGameAutoSave();
         }
 
+        function toggleActiveHalf() {
+            activateHalf(state.activeHalf === "top" ? "bottom" : "top");
+        }
+
         function updateHistoryButtons() {
             const undoButton = document.getElementById("undoHistoryBtn");
             const redoButton = document.getElementById("redoHistoryBtn");
@@ -5641,21 +5649,19 @@
         function updateGameFlowDisplay() {
             const topBtn = document.getElementById("topHalfBtn");
             const bottomBtn = document.getElementById("bottomHalfBtn");
-            const quickTopBtn = document.getElementById("quickTopHalfBtn");
-            const quickBottomBtn = document.getElementById("quickBottomHalfBtn");
+            const quickHalfBtn = document.getElementById("quickHalfToggleBtn");
             const topInput = document.getElementById("topTeamName");
             const bottomInput = document.getElementById("bottomTeamName");
             const status = document.getElementById("inningStatus");
 
             topBtn?.classList.toggle("is-active", state.activeHalf === "top");
             bottomBtn?.classList.toggle("is-active", state.activeHalf === "bottom");
-            quickTopBtn?.classList.toggle("is-active", state.activeHalf === "top");
-            quickBottomBtn?.classList.toggle("is-active", state.activeHalf === "bottom");
-            if (quickTopBtn) {
-                quickTopBtn.textContent = (state.teamNames.top || "先攻") + "入力";
-            }
-            if (quickBottomBtn) {
-                quickBottomBtn.textContent = (state.teamNames.bottom || "後攻") + "入力";
+            if (quickHalfBtn) {
+                const activeName = state.teamNames[state.activeHalf] || (state.activeHalf === "top" ? "先攻" : "後攻");
+                quickHalfBtn.textContent = activeName + "入力";
+                quickHalfBtn.classList.toggle("is-active", true);
+                quickHalfBtn.setAttribute("aria-pressed", "true");
+                quickHalfBtn.setAttribute("title", "現在: " + activeName + "入力。押すと先攻/後攻を切替");
             }
             if (topInput && topInput.value !== state.teamNames.top) {
                 topInput.value = state.teamNames.top;
