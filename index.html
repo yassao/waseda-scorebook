@@ -3694,7 +3694,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.36";
+        const APP_VERSION = "0.1.37";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4686,7 +4686,7 @@
                         const teamId = getTeamId(half);
                         const paId = "pa_" + String(plateAppearanceSerial).padStart(5, "0");
                         const outsBefore = outsByInning[inningKey] || 0;
-                        const outsAfter = Math.max(outsBefore, romanToOutCount(snapshot.outScore) || outsBefore);
+                        const outsAfter = Math.max(outsBefore, getSnapshotOutCount(snapshot) || outsBefore);
                         const pitchEvents = (snapshot.pitches || []).map((symbol, pitchIndex) => ({
                             type: "pitch",
                             id: "ev_" + String(eventSerial++).padStart(5, "0"),
@@ -4726,7 +4726,7 @@
                                 playerId: getPlayerId(half, battingOrder)
                             },
                             batterResult: buildBatterResultModel(snapshot),
-                            outNumber: romanToOutCount(snapshot.outScore) || null,
+                            outNumber: romanToOutCount(getCentralOutScoreForSnapshot(snapshot)) || null,
                             rawRunnerContext: deepClone(snapshot.runnerContext || null),
                             runnerStatusEvents
                         };
@@ -5809,7 +5809,7 @@
                     const inningIndex = inning - 1;
                     if (inningIndex >= 0 && inningIndex < MAX_INNINGS) {
                         hasData[inningIndex] = true;
-                        if (romanToOutCount(snapshot.outScore) >= 3) {
+                        if (getSnapshotOutCount(snapshot) >= 3) {
                             recorded[inningIndex] = true;
                         }
                     }
@@ -6503,6 +6503,33 @@
             }
         }
 
+        function getSnapshotOutCount(snapshot) {
+            if (!snapshot) {
+                return 0;
+            }
+            const runnerOutCount = getRunnerStatusEvents(snapshot).reduce((maxOuts, event) => {
+                if (event?.type !== "out") {
+                    return maxOuts;
+                }
+                return Math.max(maxOuts, romanToOutCount(event.outScore));
+            }, 0);
+            return Math.max(romanToOutCount(snapshot.outScore), runnerOutCount);
+        }
+
+        function isSnapshotBatterOut(snapshot) {
+            return Boolean(romanToOutCount(snapshot?.outScore)) && getBatterReachedBaseFromSnapshot(snapshot) <= 0;
+        }
+
+        function getCentralOutScoreForSnapshot(snapshot) {
+            if (!snapshot) {
+                return "";
+            }
+            if (!romanToOutCount(snapshot.outScore)) {
+                return snapshot.outScore || "";
+            }
+            return isSnapshotBatterOut(snapshot) ? snapshot.outScore : "";
+        }
+
         function romanToOutCount(symbol) {
             if (symbol === "Ⅰ") {
                 return 1;
@@ -6552,7 +6579,7 @@
                         continue;
                     }
                     const snapshot = state.scoreSheet?.[scanRow]?.[scanCol];
-                    maxOutsInSameInning = Math.max(maxOutsInSameInning, romanToOutCount(snapshot?.outScore));
+                    maxOutsInSameInning = Math.max(maxOutsInSameInning, getSnapshotOutCount(snapshot));
                 }
             }
             if (maxOutsInSameInning > 0) {
@@ -6564,7 +6591,7 @@
                 if (!previousSnapshot) {
                     continue;
                 }
-                const outCount = romanToOutCount(previousSnapshot.outScore);
+                const outCount = getSnapshotOutCount(previousSnapshot);
                 if (outCount > 0) {
                     return outCount;
                 }
@@ -6576,7 +6603,7 @@
                     if (!previousSnapshot) {
                         continue;
                     }
-                    const outCount = romanToOutCount(previousSnapshot.outScore);
+                    const outCount = getSnapshotOutCount(previousSnapshot);
                     if (outCount > 0) {
                         return outCount;
                     }
@@ -6589,7 +6616,7 @@
                     if (!previousSnapshot) {
                         continue;
                     }
-                    const outCount = romanToOutCount(previousSnapshot.outScore);
+                    const outCount = getSnapshotOutCount(previousSnapshot);
                     if (outCount > 0) {
                         return outCount;
                     }
@@ -6631,7 +6658,8 @@
                 return {
                     kind: "out",
                     label: text.label || "アウト",
-                    doublePlay: Boolean(text.doublePlay)
+                    doublePlay: Boolean(text.doublePlay),
+                    outScore: text.outScore || ""
                 };
             }
             if (text === "1塁") {
@@ -6746,6 +6774,9 @@
                         parts.push('<text x="22" y="106" text-anchor="middle" font-size="11" font-weight="700" fill="#111">DP</text>');
                     }
                     parts.push('<text x="' + outPosition.x + '" y="' + outPosition.y + '" text-anchor="middle" font-size="13" font-weight="700" fill="#111">' + event.label + '</text>');
+                    if (event.outScore) {
+                        parts.push('<text x="' + (outPosition.x + 18) + '" y="' + (outPosition.y - 12) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#111">(' + event.outScore + ')</text>');
+                    }
                     return;
                 }
                 parts.push(
@@ -6888,12 +6919,14 @@
             });
         }
 
-        function markRunnerOutOnSnapshot(ref, outScore) {
+        function markRunnerOutOnSnapshot(ref, outScore, options = {}) {
             const snapshot = getSnapshotByRef(ref);
             if (!snapshot) {
                 return;
             }
-            snapshot.outScore = outScore || "Ⅰ";
+            if (options.central) {
+                snapshot.outScore = outScore || "Ⅰ";
+            }
         }
 
         function currentBatterNumberForRunnerEvent() {
@@ -6968,6 +7001,7 @@
             setRunnerStatusForRef(runnerRef, {
                 type: "out",
                 label: label || "アウト",
+                outScore: outScore || "",
                 by: currentBatterNumberForRunnerEvent(),
                 doublePlay: Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]?.modifiers?.doublePlay),
                 ...(eventMeta || {})
@@ -7175,15 +7209,16 @@
                 const batterOutMatch = String(outLabel || "").match(/^打者走者(?:一塁|二塁|三塁|本塁)アウト(?::(.+))?$/);
                 if (batterOutMatch && batterRef) {
                     removeRunnerRefFromBases(runners, batterRef);
-                    markRunnerOutOnSnapshot(batterRef, scoreOnRunner);
+                    markRunnerOutOnSnapshot(batterRef, scoreOnRunner, { central: true });
                     setRunnerStatusForRef(batterRef, {
                         type: "out",
                         label: batterOutMatch[1] || sheetLabel || "アウト",
+                        outScore: scoreOnRunner,
                         by: currentBatterNumberForRunnerEvent()
                     });
                 } else if (outLabel === "一塁封殺" && batterRef) {
-                    markRunnerOutOnSnapshot(batterRef, scoreOnRunner);
-                    setRunnerStatusForRef(batterRef, { type: "out", label: sheetLabel, by: currentBatterNumberForRunnerEvent() });
+                    markRunnerOutOnSnapshot(batterRef, scoreOnRunner, { central: true });
+                    setRunnerStatusForRef(batterRef, { type: "out", label: sheetLabel, outScore: scoreOnRunner, by: currentBatterNumberForRunnerEvent() });
                 } else if (outLabel === "二盗死" || outLabel === "二塁封殺" || outLabel === "二塁アウト" || /^2-[46]T$/.test(outLabel)) {
                     removeRunnerFromBase(runners, 0, sheetLabel, scoreOnRunner);
                     if (outLabel === "二塁封殺") {
@@ -7554,14 +7589,15 @@
                 ? '<polygon points="148,174 170,136 192,174" fill="none" stroke="' + SCORE_COLORS.blue + '" stroke-width="2"/>'
                 : "";
 
-            const inningSlash = snapshot.outScore === "Ⅲ"
+            const centralOutScore = getCentralOutScoreForSnapshot(snapshot);
+            const inningSlash = centralOutScore === "Ⅲ"
                 ? [
                     '<line x1="140" y1="185" x2="209" y2="116" stroke="#111" stroke-width="2"/>',
                     '<line x1="152" y1="185" x2="221" y2="116" stroke="#111" stroke-width="2"/>'
                 ].join("")
                 : "";
 
-            const outColor = snapshot.outScore === "●" ? SCORE_COLORS.red : snapshot.outScore === "○" ? SCORE_COLORS.blue : SCORE_COLORS.ink;
+            const outColor = centralOutScore === "●" ? SCORE_COLORS.red : centralOutScore === "○" ? SCORE_COLORS.blue : SCORE_COLORS.ink;
             const prefix = prefixText
                 ? '<text x="152" y="128" font-size="14" font-weight="700" fill="' + (prefixText === "BH" ? SCORE_COLORS.red : SCORE_COLORS.ink) + '" transform="rotate(-45 152 128)">' + prefixText + '</text>'
                 : "";
@@ -7607,7 +7643,7 @@
                 extraAdvanceArrow,
                 runnerNote,
                 pitchMarks,
-                '<text x="125" y="106" text-anchor="middle" font-size="28" font-weight="700" fill="' + outColor + '">' + (snapshot.outScore || "") + '</text>',
+                '<text x="125" y="106" text-anchor="middle" font-size="28" font-weight="700" fill="' + outColor + '">' + centralOutScore + '</text>',
                 sacrificeBox,
                 sacrificeFlyTriangle,
                 ballTypeDecoration,
@@ -8577,7 +8613,7 @@
                     continue;
                 }
                 for (let row = 0; row < 9; row += 1) {
-                    maxOuts = Math.max(maxOuts, romanToOutCount(state.scoreSheet?.[row]?.[col]?.outScore));
+                    maxOuts = Math.max(maxOuts, getSnapshotOutCount(state.scoreSheet?.[row]?.[col]));
                 }
             }
             return maxOuts;
