@@ -3613,6 +3613,13 @@
                                     <option value="PH"></option>
                                     <option value="PR"></option>
                                 </datalist>
+                                <div class="roster-ocr-panel">
+                                    <textarea id="starterPostInput" placeholder="X投稿のスタメン文を貼り付け 例: 先攻・横浜、後攻・桐蔭学園。&#10;横浜スタメン：3小野、4田島、6池田、5川上、7安食、DH大山、9植村、2脇山　投手・織田"></textarea>
+                                    <div class="roster-ocr-actions">
+                                        <button type="button" onclick="importStarterPostText()">X投稿から両チーム登録</button>
+                                    </div>
+                                    <div id="starterPostStatus" class="roster-ocr-status">先攻・後攻と各チームのスタメン行をまとめて貼ると、チーム名・守備・名前・投手に分けます。</div>
+                                </div>
                                 <div id="playerRosterEditor" class="player-roster-editor"></div>
                             </div>
                         </details>
@@ -3757,7 +3764,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.45";
+        const APP_VERSION = "0.1.46";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6302,6 +6309,121 @@
             });
 
             return { entries, pitcher, teamName };
+        }
+
+        function parseStarterPostRosterItems(rosterText) {
+            return String(rosterText || "")
+                .split(/[、,，]/)
+                .map((part) => normalizeRosterOcrLine(part))
+                .filter(Boolean)
+                .map((part) => {
+                    const match = part.match(/^(DH|[1-9])(.+)$/i);
+                    if (!match) {
+                        return null;
+                    }
+                    return {
+                        name: normalizeRosterOcrName(match[2]),
+                        number: "",
+                        position: normalizeRosterOcrPosition(match[1])
+                    };
+                })
+                .filter(Boolean);
+        }
+
+        function parseStarterPostText(text) {
+            const raw = String(text || "").replace(/\r/g, "");
+            const result = {
+                teams: {
+                    top: { teamName: "", pitcher: "", entries: [] },
+                    bottom: { teamName: "", pitcher: "", entries: [] }
+                }
+            };
+            const matchup = raw.match(/先攻[・:：]\s*([^、。\n\r]+).*?後攻[・:：]\s*([^、。\n\r]+)/);
+            if (matchup) {
+                result.teams.top.teamName = matchup[1].trim();
+                result.teams.bottom.teamName = matchup[2].trim();
+            }
+
+            const starterPattern = /([^：:\n\r]+?)スタメン[：:]\s*([^\n\r]+)/g;
+            const parsedLines = [];
+            let match;
+            while ((match = starterPattern.exec(raw)) !== null) {
+                const teamName = match[1].trim();
+                const body = match[2].trim();
+                const pitcherMatch = body.match(/投手[・:：]\s*([^、,，\s]+)/);
+                const rosterText = body.split(/投手[・:：]/)[0];
+                parsedLines.push({
+                    teamName,
+                    pitcher: pitcherMatch ? normalizeRosterOcrName(pitcherMatch[1]) : "",
+                    entries: parseStarterPostRosterItems(rosterText)
+                });
+            }
+
+            parsedLines.forEach((line, index) => {
+                let half = "";
+                if (result.teams.top.teamName && line.teamName === result.teams.top.teamName) {
+                    half = "top";
+                } else if (result.teams.bottom.teamName && line.teamName === result.teams.bottom.teamName) {
+                    half = "bottom";
+                } else {
+                    half = index === 0 ? "top" : "bottom";
+                }
+                result.teams[half] = {
+                    teamName: line.teamName || result.teams[half].teamName,
+                    pitcher: line.pitcher,
+                    entries: line.entries
+                };
+            });
+
+            return result;
+        }
+
+        function setStarterPostStatus(message, isError = false) {
+            const status = document.getElementById("starterPostStatus");
+            if (!status) {
+                return;
+            }
+            status.textContent = message || "";
+            status.style.color = isError ? "#b42318" : "#64748b";
+        }
+
+        function importStarterPostText() {
+            const textarea = document.getElementById("starterPostInput");
+            const parsed = parseStarterPostText(textarea?.value || "");
+            const topCount = parsed.teams.top.entries.length;
+            const bottomCount = parsed.teams.bottom.entries.length;
+            if (!topCount && !bottomCount) {
+                setStarterPostStatus("読み取れるスタメン行が見つかりませんでした。", true);
+                return;
+            }
+
+            pushGameHistory();
+            ["top", "bottom"].forEach((half) => {
+                const team = parsed.teams[half];
+                if (team.teamName) {
+                    state.teamNames[half] = team.teamName;
+                }
+                state.playerNames[half] = Array.from({ length: 9 }, () => "");
+                state.playerNumbers[half] = Array.from({ length: 9 }, () => "");
+                state.playerPositions[half] = Array.from({ length: 9 }, () => "");
+                team.entries.slice(0, 9).forEach((entry, index) => {
+                    state.playerNames[half][index] = entry.name || "";
+                    state.playerNumbers[half][index] = entry.number || "";
+                    state.playerPositions[half][index] = entry.position || "";
+                });
+                if (team.pitcher) {
+                    state.gameInfo = normalizeGameInfo(state.gameInfo);
+                    state.gameInfo.pitchers[half] = team.pitcher;
+                }
+            });
+
+            renderPlayerRosterEditor();
+            setStarterPostStatus("先攻 " + topCount + "人、後攻 " + bottomCount + "人を読み取りました。");
+            updateGameFlowDisplay();
+            renderCurrentBatterCard();
+            renderScoreSheet();
+            updateDisplay();
+            scheduleGameAutoSave();
         }
 
         function setRosterOcrStatus(half, message, isError = false) {

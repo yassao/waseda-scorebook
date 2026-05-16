@@ -1,3 +1,12 @@
+## v0.1.46 [2026-05-17] Xスタメン投稿の一括登録を追加
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.45 [2026-05-16] DeNA型OCRの選手名補正を追加
 
 **変更ファイル:**
