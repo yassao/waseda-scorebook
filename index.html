@@ -3768,7 +3768,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.49";
+        const APP_VERSION = "0.1.50";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5181,20 +5181,16 @@
             if (!textarea) {
                 return;
             }
-            textarea.focus();
-            textarea.select();
             const finish = (message) => {
                 if (status) {
                     status.textContent = message;
                 }
             };
-            if (navigator.clipboard?.writeText) {
-                navigator.clipboard.writeText(textarea.value)
-                    .then(() => finish("コピーしました。"))
-                    .catch(() => finish("コピーできませんでした。選択済みの文面をコピーしてください。"));
-            } else {
-                finish("選択済みの文面をコピーしてください。");
-            }
+            copyTextFromTextarea(textarea)
+                .then((copied) => {
+                    finish(copied ? "コピーしました。" : "コピーできませんでした。選択済みの文面をコピーしてください。");
+                })
+                .catch(() => finish("コピーできませんでした。選択済みの文面をコピーしてください。"));
         }
 
         function closeGameDataExportPopup() {
@@ -8848,6 +8844,8 @@
             });
 
             lines.push(getTeamDisplayName("top") + getInningTotalRuns("top") + "-" + getInningTotalRuns("bottom") + getTeamDisplayName("bottom"));
+            lines.push("");
+            lines.push("#CuViu");
             return lines.join("\n");
         }
 
@@ -8892,13 +8890,30 @@
             }
             popup.innerHTML = [
                 '<div class="comment-popup-title">Xポスト下書き</div>',
-                '<textarea id="inningShareDraftText" readonly onclick="this.select()">' + escapeHtml(draft) + '</textarea>',
-                '<div id="inningShareCopyStatus" class="inning-share-options">必要なら文面を選択して投稿してください。</div>',
+                '<textarea id="inningShareDraftText" onclick="this.select()">' + escapeHtml(draft) + '</textarea>',
+                '<div id="inningShareCopyStatus" class="inning-share-options">コピーできない場合も、文面を長押ししてコピーできます。</div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
                 '<button type="button" class="btn-hit" onclick="completeInningTransition()">次の攻撃へ</button>',
                 '</div>'
             ].join("");
+        }
+
+        function copyTextFromTextarea(textarea) {
+            textarea.focus();
+            textarea.select();
+            textarea.setSelectionRange?.(0, textarea.value.length);
+            try {
+                if (document.execCommand?.("copy")) {
+                    return Promise.resolve(true);
+                }
+            } catch (error) {
+                console.warn("Fallback copy failed", error);
+            }
+            if (navigator.clipboard?.writeText) {
+                return navigator.clipboard.writeText(textarea.value).then(() => true);
+            }
+            return Promise.resolve(false);
         }
 
         function copyInningShareDraft() {
@@ -8907,20 +8922,16 @@
             if (!textarea) {
                 return;
             }
-            textarea.focus();
-            textarea.select();
             const finish = (message) => {
                 if (status) {
                     status.textContent = message;
                 }
             };
-            if (navigator.clipboard?.writeText) {
-                navigator.clipboard.writeText(textarea.value)
-                    .then(() => finish("コピーしました。"))
-                    .catch(() => finish("コピーできませんでした。選択済みの文面をコピーしてください。"));
-            } else {
-                finish("選択済みの文面をコピーしてください。");
-            }
+            copyTextFromTextarea(textarea)
+                .then((copied) => {
+                    finish(copied ? "コピーしました。" : "コピーできませんでした。選択済みの文面を長押ししてコピーしてください。");
+                })
+                .catch(() => finish("コピーできませんでした。選択済みの文面を長押ししてコピーしてください。"));
         }
 
         function closeInningSharePopup() {
