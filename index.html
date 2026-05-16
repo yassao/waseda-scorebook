@@ -3759,7 +3759,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.41";
+        const APP_VERSION = "0.1.42";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6148,6 +6148,7 @@
             const entries = Array.from({ length: 9 }, () => ({ name: "", number: "", position: "" }));
             const parsedOrder = [];
             const continuations = [];
+            const textCandidates = [];
             let pitcher = "";
             let teamName = "";
 
@@ -6184,7 +6185,7 @@
                     return;
                 }
                 if (/^[一-龯ぁ-んァ-ンー・A-Za-z]{3,}$/.test(compact)) {
-                    teamName = compact;
+                    textCandidates.push(compact);
                 }
             });
 
@@ -6193,6 +6194,16 @@
                     const name = entries[order - 1]?.name || "";
                     return name.length > 0 && name.length <= 1;
                 });
+            textCandidates.forEach((candidate) => {
+                const remainingTargets = continuationTargets.length - continuations.length;
+                const chars = Array.from(candidate);
+                if (remainingTargets > 0 && chars.length <= remainingTargets) {
+                    continuations.push(...chars);
+                } else {
+                    teamName = candidate;
+                }
+            });
+
             continuations.forEach((part, index) => {
                 const order = continuationTargets[index];
                 if (!order) {
