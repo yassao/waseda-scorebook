@@ -3778,7 +3778,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.53";
+        const APP_VERSION = "0.1.54";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8909,7 +8909,7 @@
                 '<div id="inningShareCopyStatus" class="inning-share-options">コピーできない場合は「Xで開く」を使うか、文面を長押ししてコピーしてください。</div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
-                '<button type="button" onclick="openXPostDraft()">Xで開く</button>',
+                '<button type="button" data-x-post-open="true" onclick="openXPostDraft()">Xで開く</button>',
                 '<button type="button" class="btn-hit" onclick="completeInningTransition()">次の攻撃へ</button>',
                 '</div>'
             ].join("");
@@ -8937,7 +8937,7 @@
                 status.textContent = "コピーできない場合は「Xで開く」を使うか、文面を長押ししてコピーしてください。";
             }
             const actions = popup?.querySelector(".comment-popup-actions");
-            if (actions && !actions.querySelector("[data-x-post-open]")) {
+            if (actions && !actions.querySelector("[data-x-post-open]") && !Array.from(actions.querySelectorAll("button")).some((button) => button.textContent.trim() === "Xで開く")) {
                 const nextButton = Array.from(actions.querySelectorAll("button")).find((button) => button.textContent.includes("次"));
                 const xButton = document.createElement("button");
                 xButton.type = "button";
