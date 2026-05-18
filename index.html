@@ -1044,6 +1044,77 @@
             margin-top: 12px;
         }
 
+        .pdf-action-row {
+            display: none;
+            margin-top: 14px;
+        }
+
+        .pdf-export-btn {
+            width: 100%;
+            min-height: 48px;
+            border-color: #0f766e;
+            background: #0f766e;
+            color: #fff;
+            font-weight: 900;
+        }
+
+        body.scorebook-view-mode .global-apply-row,
+        body.scorebook-view-mode .control-panel-wrapper .game-info-details,
+        body.scorebook-view-mode .quick-half-toggle-slot,
+        body.scorebook-view-mode .options-menu,
+        body.scorebook-view-mode .danger-action-row,
+        body.scorebook-view-mode .note {
+            display: none !important;
+        }
+
+        body.scorebook-view-mode .pdf-action-row {
+            display: block;
+        }
+
+        body.scorebook-view-mode .control-panel-wrapper {
+            padding-bottom: calc(18px + env(safe-area-inset-bottom));
+        }
+
+        @media print {
+            .start-screen,
+            .app-header,
+            .top-workspace,
+            .global-apply-row,
+            .game-info-details,
+            .quick-half-toggle-slot,
+            .options-menu,
+            .danger-action-row,
+            .pdf-action-row,
+            .note {
+                display: none !important;
+            }
+
+            body,
+            .app-shell,
+            .control-panel-wrapper,
+            .control-panel {
+                height: auto !important;
+                min-height: 0 !important;
+                max-width: none !important;
+                overflow: visible !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                border: 0 !important;
+                background: #fff !important;
+            }
+
+            .sheet-viewport {
+                max-height: none !important;
+                overflow: visible !important;
+            }
+
+            .sheet-grid.is-dual-view {
+                transform: scale(0.72);
+                transform-origin: top left;
+            }
+        }
+
         .btn-export {
             width: 100%;
             background: #eef7f5;
@@ -3705,6 +3776,9 @@
                         </div>
                     </div>
                 </section>
+                <div class="pdf-action-row">
+                    <button type="button" class="pdf-export-btn" onclick="exportScorebookPdf()">PDF出力</button>
+                </div>
 
                 <details class="options-menu">
                     <summary>☰ インポート</summary>
@@ -3796,7 +3870,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.56";
+        const APP_VERSION = "0.1.57";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5608,6 +5682,11 @@
             }
             document.body.classList.toggle("scorebook-view-mode", shouldCollapse);
             renderScoreSheet();
+        }
+
+        function exportScorebookPdf() {
+            toggleTopWorkspace(true);
+            setTimeout(() => window.print(), 120);
         }
 
         function applyInputLayout() {
@@ -8262,6 +8341,56 @@
             ].join("");
         }
 
+        function compareSheetPosition(a, b) {
+            if (a.col !== b.col) {
+                return a.col - b.col;
+            }
+            return a.row - b.row;
+        }
+
+        function getPitcherEntryPosition(change, battingHalf) {
+            const labels = getInningLabels(battingHalf).map((label) => String(label));
+            const label = String(change?.inning || "");
+            let col = labels.indexOf(label);
+            if (col < 0) {
+                col = Math.max(0, Math.min(MAX_INNINGS - 1, (Number(label) || 1) - 1));
+            }
+            return {
+                col,
+                row: Math.max(0, Math.min(8, (Number(change?.battingOrder) || 1) - 1))
+            };
+        }
+
+        function calculatePitcherStatsForTeam(teamHalf) {
+            const info = normalizeGameInfo(state.gameInfo);
+            const battingHalf = getOpponentHalf(teamHalf);
+            const changes = (info.pitcherChanges[teamHalf] || [])
+                .map((change, index) => ({
+                    index: index + 1,
+                    entry: getPitcherEntryPosition(change, battingHalf)
+                }))
+                .sort((a, b) => compareSheetPosition(a.entry, b.entry));
+            const stats = Array.from({ length: changes.length + 1 }, () => ({ pitchCount: 0, battersFaced: 0 }));
+            const sheet = state.scoreSheets[battingHalf] || [];
+
+            for (let col = 0; col < MAX_INNINGS; col += 1) {
+                for (let row = 0; row < 9; row += 1) {
+                    const snapshot = sheet[row]?.[col];
+                    if (!snapshot) {
+                        continue;
+                    }
+                    const position = { col, row };
+                    const activeChange = changes
+                        .filter((change) => compareSheetPosition(position, change.entry) >= 0)
+                        .at(-1);
+                    const statIndex = activeChange ? activeChange.index : 0;
+                    stats[statIndex].battersFaced += 1;
+                    stats[statIndex].pitchCount += (snapshot.pitches || []).length;
+                }
+            }
+            return stats;
+        }
+
         function createPitcherBookCell(text, className = "", span = 1) {
             const cell = document.createElement("div");
             cell.className = "pitcher-book-cell " + className;
@@ -8276,6 +8405,7 @@
             const section = document.createElement("div");
             section.className = "pitcher-book-section";
             const rows = getPitcherRowsForHalf(half);
+            const pitcherStats = calculatePitcherStatsForTeam(half);
             const title = document.createElement("div");
             title.className = "pitcher-book-label pitcher-book-title";
             title.textContent = "投手";
@@ -8302,6 +8432,7 @@
             }
 
             rows.forEach((pitcher, index) => {
+                const stats = pitcherStats[index] || { pitchCount: 0, battersFaced: 0 };
                 const enteredAt = pitcher.enteredAt
                     ? ((pitcher.enteredAt.inning || "?") + "回" + getHalfLabel(pitcher.enteredAt.half) + " " + (pitcher.enteredAt.battingOrder ? pitcher.enteredAt.battingOrder + "番から" : ""))
                     : "";
@@ -8311,8 +8442,8 @@
                 section.appendChild(createPitcherBookCell(""));
                 section.appendChild(createPitcherBookCell(""));
                 section.appendChild(createPitcherBookCell(enteredAt, "", 3));
-                section.appendChild(createPitcherBookCell(pitcher.pitchCount, "", 2));
-                section.appendChild(createPitcherBookCell(pitcher.battersFaced, "", 2));
+                section.appendChild(createPitcherBookCell(stats.pitchCount ? String(stats.pitchCount) : "", "", 2));
+                section.appendChild(createPitcherBookCell(stats.battersFaced ? String(stats.battersFaced) : "", "", 2));
             });
 
             target.appendChild(section);
