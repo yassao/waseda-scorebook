@@ -1394,25 +1394,25 @@
             margin: 0;
             border: 1px solid var(--sheet-green);
             background: #ffffff;
-            font-size: clamp(9px, 1.8vw, 13px);
+            font-size: clamp(8px, 1.55vw, 11px);
             color: #1f2937;
         }
 
         .line-score-row {
             display: grid;
-            grid-template-columns: minmax(38px, 1.7fr) repeat(12, minmax(15px, 1fr)) minmax(22px, 0.9fr);
+            grid-template-columns: minmax(28px, 1.25fr) repeat(12, minmax(12px, 1fr)) minmax(18px, 0.75fr);
             min-width: 0;
         }
 
         .line-score-cell {
             min-width: 0;
-            min-height: 18px;
+            min-height: 17px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-right: 1px solid var(--sheet-green);
             border-bottom: 1px solid var(--sheet-green);
-            padding: 1px 2px;
+            padding: 1px;
             font-weight: 900;
             line-height: 1;
         }
@@ -3617,7 +3617,7 @@
                 <div id="pitchMemoList" class="pitch-memo-list" aria-live="polite"></div>
                 <button class="small-btn tweet-draft-btn" onclick="registerPitchComment()" aria-label="この投球に一言メモ" title="この投球に一言メモ">↑</button>
             </div>
-            <button class="small-btn global-apply-btn" onclick="applyNaturalLanguage()">次の打者に移る</button>
+            <button class="small-btn global-apply-btn" onclick="applyNaturalLanguage()">次打者へ</button>
         </div>
 
         <div class="control-panel-wrapper">
@@ -3707,10 +3707,10 @@
                 </section>
 
                 <details class="options-menu">
-                    <summary>☰ オプション</summary>
+                    <summary>☰ インポート</summary>
                     <div class="options-body">
                         <div class="options-header">
-                            <div class="options-header-title">インポート / オプション</div>
+                            <div class="options-header-title">インポート / 保存</div>
                             <button type="button" class="options-close-btn" onclick="this.closest('details').removeAttribute('open')">閉じる</button>
                         </div>
                         <div class="options-nav" role="tablist" aria-label="インポート機能">
@@ -3763,7 +3763,7 @@
                         <section id="optionPanelSave" class="section options-panel">
                             <div class="section-title">試合データ 保存 / 読み込み</div>
                             <div class="nl-panel">
-                                <div id="gameSaveStatus" class="nl-preview">この端末には自動保存されます。試合データの書き出しは画面下部のリセット横から行えます。</div>
+                                <div id="gameSaveStatus" class="nl-preview">この端末には自動保存されます。試合データの書き出しはこのパネルまたは画面下部から行えます。</div>
                                 <div class="nl-actions">
                                     <button onclick="saveCurrentGameToSlot()">現在の試合を保存</button>
                                     <button onclick="triggerImportGameJson()">試合データを読み込み</button>
@@ -3780,7 +3780,7 @@
                 </details>
 
                 <div class="danger-action-row">
-                    <button class="btn-reset" onclick="resetState()">リセット</button>
+                    <button class="btn-reset" onclick="resetState()">入力クリア</button>
                     <button class="btn-save-return" onclick="saveCurrentGameAndShowStart()">保存してトップへ</button>
                     <button class="btn-export" onclick="exportGameJson()">試合データ書き出し</button>
                 </div>
@@ -3796,7 +3796,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.55";
+        const APP_VERSION = "0.1.56";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
