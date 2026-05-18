@@ -920,12 +920,17 @@
 
         .global-apply-row {
             flex-shrink: 0;
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+            gap: 8px;
+            align-items: stretch;
             padding: 3px 16px 0;
         }
 
         .global-apply-btn {
             width: 100%;
-            min-height: 38px;
+            height: 100%;
+            min-height: 48px;
             border-color: var(--teal);
             background: #0f766e;
             color: white;
@@ -2893,8 +2898,8 @@
             display: grid;
             grid-template-columns: minmax(0, 1fr);
             align-items: center;
-            width: min(640px, 100%);
-            margin: 0 auto 4px;
+            width: 100%;
+            margin: 0;
             position: relative;
         }
 
@@ -2915,9 +2920,9 @@
         }
 
         .tweet-comment-input {
-            min-height: 38px;
+            min-height: 48px;
             max-height: 72px;
-            padding: 17px 46px 7px 11px;
+            padding: 17px 46px 16px 11px;
             border: 2px solid #d7e1ea;
             border-radius: 14px;
             background: #fff;
@@ -2931,6 +2936,21 @@
         .tweet-comment-input::placeholder {
             color: #9aa6b2;
             opacity: 1;
+        }
+
+        .pitch-memo-list {
+            position: absolute;
+            left: 11px;
+            right: 46px;
+            bottom: 4px;
+            overflow: hidden;
+            color: #64748b;
+            font-size: 9px;
+            font-weight: 800;
+            line-height: 1.1;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            pointer-events: none;
         }
 
         .tweet-draft-btn {
@@ -3254,6 +3274,11 @@
 
             .nl-quick-panel {
                 padding: 8px;
+            }
+
+            .global-apply-row {
+                grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+                padding: 3px 12px 0;
             }
 
             .play-builder,
@@ -3588,8 +3613,9 @@
         <div class="global-apply-row">
             <div class="tweet-comment-row">
                 <div id="commentTargetLabel" class="tweet-target-label">対象: 1回 1番</div>
-                <textarea id="atBatCommentInput" class="tweet-comment-input" placeholder="つぶやき" rows="2" oninput="updateAtBatComment(this.value)"></textarea>
-                <button class="small-btn tweet-draft-btn" onclick="registerPitchComment()" aria-label="この投球につぶやく" title="この投球につぶやく">↑</button>
+                <textarea id="atBatCommentInput" class="tweet-comment-input" placeholder="一言メモ" rows="2" oninput="updateAtBatComment(this.value)"></textarea>
+                <div id="pitchMemoList" class="pitch-memo-list" aria-live="polite"></div>
+                <button class="small-btn tweet-draft-btn" onclick="registerPitchComment()" aria-label="この投球に一言メモ" title="この投球に一言メモ">↑</button>
             </div>
             <button class="small-btn global-apply-btn" onclick="applyNaturalLanguage()">次の打者に移る</button>
         </div>
@@ -3598,21 +3624,13 @@
             <div class="control-panel">
                 <section class="section">
                     <div class="sheet-panel">
-                        <details class="game-info-details">
-                            <summary>試合進行</summary>
+                        <details class="game-info-details player-roster-details">
+                            <summary>チーム/選手登録</summary>
                             <div class="game-info-body">
-                                <div class="game-flow-bar" aria-label="試合進行">
+                                <div class="game-flow-bar" aria-label="チーム名">
                                     <input id="topTeamName" class="team-name-input" value="先攻" aria-label="先攻チーム名" onchange="updateTeamName('top', this.value)">
                                     <input id="bottomTeamName" class="team-name-input" value="後攻" aria-label="後攻チーム名" onchange="updateTeamName('bottom', this.value)">
-                                    <button id="topHalfBtn" class="half-switch" onclick="activateHalf('top')">先攻</button>
-                                    <button id="bottomHalfBtn" class="half-switch" onclick="activateHalf('bottom')">後攻</button>
-                                    <div id="inningStatus" class="inning-status">1回表 先攻</div>
                                 </div>
-                            </div>
-                        </details>
-                        <details class="game-info-details player-roster-details">
-                            <summary>選手名登録</summary>
-                            <div class="game-info-body">
                                 <datalist id="positionOptions">
                                     <option value="1"></option>
                                     <option value="2"></option>
@@ -3778,7 +3796,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.54";
+        const APP_VERSION = "0.1.55";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6027,6 +6045,18 @@
             const batter = getCurrentBatterInfo();
             const playerName = batter.name || "選手名未登録";
             label.textContent = "対象: " + inning + "回 " + order + "番 " + playerName + " / " + getCurrentCountLabel();
+        }
+
+        function renderPitchMemoList() {
+            const container = document.getElementById("pitchMemoList");
+            if (!container) {
+                return;
+            }
+            const items = (state.pitchComments || [])
+                .filter((item) => item?.text)
+                .map((item) => getPitchCommentTimingLabel(item) + " " + String(item.text).trim());
+            container.textContent = items.join(" / ");
+            container.style.display = items.length ? "block" : "none";
         }
 
         function updateTeamName(half, value) {
@@ -8536,7 +8566,7 @@
                 '<div class="cell-action-buttons">',
                 '<button type="button" onclick="editCellBatterResult()">打撃結果を編集</button>',
                 '<button type="button" onclick="editCellRunnerResult()">走塁結果を編集</button>',
-                '<button type="button" onclick="editCellComment()">つぶやきを編集</button>',
+                '<button type="button" onclick="editCellComment()">一言メモを編集</button>',
                 '<button type="button" onclick="closeCellActionPopup()">閉じる</button>',
                 '</div>'
             ].join("");
@@ -8638,7 +8668,7 @@
                     '<button type="button" onclick="editScoreFromCommentPopup()">スコア編集</button>'
                 ];
             popup.innerHTML = [
-                '<div class="comment-popup-title">つぶやき: ' + escapeHtml(label) + '</div>',
+                '<div class="comment-popup-title">一言メモ: ' + escapeHtml(label) + '</div>',
                 body,
                 '<div class="comment-popup-actions">',
                 actions.join(""),
@@ -11637,12 +11667,12 @@
             const input = document.getElementById("atBatCommentInput");
             const text = input?.value.trim() || "";
             if (!text) {
-                updateRunnerGuiStatus("つぶやきを入力してください");
+                updateRunnerGuiStatus("一言メモを入力してください");
                 return;
             }
             if (state.pitches.length === 0) {
                 updateAtBatComment(text);
-                updateRunnerGuiStatus("打席全体のつぶやき");
+                updateRunnerGuiStatus("打席全体の一言メモ");
                 return;
             }
             const pitchIndex = state.pitches.length - 1;
@@ -11668,7 +11698,7 @@
             state.atBatCommentMeta = null;
             renderScoreSheet();
             updateDisplay();
-            updateRunnerGuiStatus("投球つぶやき（" + getPitchCommentTimingLabel(comment) + "）");
+            updateRunnerGuiStatus("投球メモ（" + getPitchCommentTimingLabel(comment) + "）");
         }
 
         function parsePlayPartSequence(text) {
@@ -15147,6 +15177,7 @@
             updateRunnerLiveStatus();
             updateHistoryButtons();
             updateCommentTargetLabel();
+            renderPitchMemoList();
             renderGameMiniStatus();
             renderCurrentBatterCard();
             renderScoreSheet();
