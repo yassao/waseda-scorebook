@@ -1081,7 +1081,7 @@
 
         @media print {
             @page {
-                size: A4 landscape;
+                size: A4 portrait;
                 margin: 3mm;
             }
 
@@ -1096,25 +1096,29 @@
 
             body.printing-scorebook .print-scorebook-page {
                 display: grid !important;
-                width: 291mm;
-                min-height: 204mm;
+                width: 204mm;
+                height: 291mm;
+                max-height: 291mm;
                 box-sizing: border-box;
                 margin: 0 auto !important;
-                padding: 1mm;
+                padding: 1.2mm;
                 background: #ffffff;
                 grid-template-rows: auto auto auto auto;
-                gap: 1.2mm;
+                gap: 1.5mm;
                 align-content: center;
                 justify-content: center;
+                overflow: hidden;
+                break-inside: avoid;
+                page-break-inside: avoid;
                 --sheet-green: #111111;
-                --sheet-order-w: 7mm;
+                --sheet-order-w: 6.6mm;
                 --sheet-name-w: 20mm;
-                --sheet-number-w: 7mm;
-                --sheet-cell-w: 10.7mm;
-                --sheet-cell-h: 6.9mm;
-                --sheet-header-h: 5.5mm;
-                --sheet-font: 1.9mm;
-                --sheet-zoom: 0.54;
+                --sheet-number-w: 6.6mm;
+                --sheet-cell-w: 13.2mm;
+                --sheet-cell-h: 7.6mm;
+                --sheet-header-h: 5.4mm;
+                --sheet-font: 2.1mm;
+                --sheet-zoom: 0.6;
             }
 
             body.printing-scorebook .print-info-table,
@@ -1123,9 +1127,11 @@
                 border-collapse: collapse;
                 table-layout: fixed;
                 color: #111111;
-                font-size: 2.25mm;
+                font-size: 2.15mm;
                 line-height: 1.1;
                 font-weight: 700;
+                break-inside: avoid;
+                page-break-inside: avoid;
             }
 
             body.printing-scorebook .print-info-table th,
@@ -1133,8 +1139,8 @@
             body.printing-scorebook .print-line-score-table th,
             body.printing-scorebook .print-line-score-table td {
                 border: 0.35mm solid #111111;
-                padding: 0.7mm 1mm;
-                height: 4.8mm;
+                padding: 0.45mm 0.8mm;
+                height: 4.4mm;
                 vertical-align: middle;
                 overflow: hidden;
             }
@@ -1149,14 +1155,16 @@
             body.printing-scorebook .print-sheet-title {
                 border: 0.35mm solid #111111;
                 border-bottom: 0;
-                padding: 0.6mm 1mm;
-                font-size: 2.4mm;
+                padding: 0.45mm 1mm;
+                font-size: 2.25mm;
                 font-weight: 900;
                 text-align: center;
             }
 
             body.printing-scorebook .print-sheet-block {
                 width: 100%;
+                break-inside: avoid;
+                page-break-inside: avoid;
             }
 
             body.printing-scorebook .print-sheet-grid {
@@ -1196,8 +1204,8 @@
 
             body.printing-scorebook .print-sheet-grid .pitcher-book-cell,
             body.printing-scorebook .print-sheet-grid .pitcher-book-label {
-                min-height: 4.3mm;
-                font-size: 1.85mm;
+                min-height: 4mm;
+                font-size: 1.75mm;
                 padding: 0.2mm;
             }
 
@@ -3996,7 +4004,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.59";
+        const APP_VERSION = "0.1.60";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";

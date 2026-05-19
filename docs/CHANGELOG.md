@@ -1,3 +1,12 @@
+## v0.1.60 [2026-05-19] PDF出力をA4縦1枚に調整
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.59 [2026-05-19] PDF出力を公式紙面レイアウト化
 
 **変更ファイル:**
