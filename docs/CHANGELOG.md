@@ -1,3 +1,13 @@
+## v0.1.62 [2026-05-19] 不要な一時ファイルを除外
+
+**変更ファイル:**
+- .gitignore
+- docs/.IMPLEMENTATION_PLAN.md.swp
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.61 [2026-05-19] iPhone PDF出力とX下書き表現を補強
 
 **変更ファイル:**
