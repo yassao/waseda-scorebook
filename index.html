@@ -3870,7 +3870,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "0.1.57";
+        const APP_VERSION = "0.1.58";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8123,6 +8123,7 @@
             const showLandingDot = Boolean(snapshot.selectedDirection && snapshot.selectedDirection !== "none" && snapshot.selectedDirection !== "?")
                 && (
                     ["1B", "2B", "3B", "G", "BH"].includes(snapshot.selectedHitType)
+                    || snapshot.result === "H"
                     || snapshot.result === snapshot.selectedFielder
                     || snapshot.result === snapshot.fielder
                 );
@@ -8944,6 +8945,85 @@
             return "三振";
         }
 
+        function getShareFielderShortName(fielder) {
+            const names = {
+                "1": "投",
+                "2": "捕",
+                "3": "一",
+                "4": "二",
+                "5": "三",
+                "6": "遊",
+                "7": "左",
+                "8": "中",
+                "9": "右"
+            };
+            return names[String(fielder || "")] || "";
+        }
+
+        function getShareDirectionText(direction, fielder) {
+            if (!direction || direction === "none" || direction === "?") {
+                return "";
+            }
+            if (direction === "down") {
+                return /^[1-6]$/.test(String(fielder || "")) ? "前" : "前";
+            }
+            const labels = {
+                up: "越え",
+                left: "左",
+                right: "右"
+            };
+            return labels[direction] || "";
+        }
+
+        function getShareBallTypeText(snapshot) {
+            if (snapshot?.selectedBallType === "fly") {
+                return "飛";
+            }
+            if (snapshot?.selectedBallType === "liner") {
+                return "直";
+            }
+            if (snapshot?.selectedBallType === "ground") {
+                return "ゴロ";
+            }
+            return "";
+        }
+
+        function getShareErrorText(snapshot, fielderShort) {
+            if (!snapshot?.errorMode || snapshot.errorMode === "none") {
+                return "";
+            }
+            const target = fielderShort || "守備";
+            if (snapshot.errorMode === "thrower") {
+                return target + "送球失策";
+            }
+            if (snapshot.errorMode === "receiver") {
+                return target + "捕球失策";
+            }
+            return target + "失策";
+        }
+
+        function getShareRunnerEventText(snapshot) {
+            const events = getRunnerStatusEvents(snapshot);
+            const parts = [];
+            events.forEach((event) => {
+                if (event?.type === "out") {
+                    const label = String(event.label || "");
+                    if (label.includes("1-2") || label.includes("2-2") || label.includes("3-2") || label.includes("5-2") || label.includes("6-2")) {
+                        parts.push("本塁封殺");
+                    } else if (label) {
+                        parts.push(label + "アウト");
+                    } else {
+                        parts.push("走者アウト");
+                    }
+                } else if (event?.type === "advance" && event.base > 1) {
+                    parts.push((event.base === 2 ? "二塁" : event.base === 3 ? "三塁" : "進塁"));
+                } else if (event?.type === "score" || event === "生還") {
+                    parts.push("生還");
+                }
+            });
+            return Array.from(new Set(parts));
+        }
+
         function getShareResultText(snapshot) {
             if (!snapshot) {
                 return "";
@@ -8952,6 +9032,37 @@
                 return getShareStrikeoutText(snapshot);
             }
             const displayed = getDisplayedResultFromSnapshot(snapshot);
+            const sequence = snapshot.fieldSequence?.length > 0
+                ? [...snapshot.fieldSequence]
+                : (snapshot.selectedFielder ? [snapshot.selectedFielder] : []);
+            const fielder = sequence[0] || snapshot.selectedFielder || snapshot.fielder || "";
+            const fielderShort = getShareFielderShortName(fielder);
+            const directionText = getShareDirectionText(snapshot.selectedDirection, fielder);
+            const runnerEvents = getShareRunnerEventText(snapshot);
+            const runnerSuffix = runnerEvents.length ? "、" + runnerEvents.join("、") : "";
+            const errorText = getShareErrorText(snapshot, fielderShort);
+            if (snapshot.selectedHitType === "BH" || (snapshot.result === "BH")) {
+                return (fielderShort ? fielderShort + (directionText || "前") : "") + "バントヒット";
+            }
+            if (snapshot.selectedHitType === "G") {
+                return (fielderShort ? fielderShort + directionText : "") + "内野安打";
+            }
+            if (snapshot.result === "H") {
+                return (fielderShort ? fielderShort + directionText : "") + "強襲安打";
+            }
+            if (snapshot.result === "Fc") {
+                const lead = fielderShort ? fielderShort + "ゴロ" : "ゴロ";
+                return lead + runnerSuffix + "、打者走者一塁セーフ（野選）";
+            }
+            if (snapshot.result === fielder && fielderShort) {
+                if (errorText) {
+                    return errorText + runnerSuffix;
+                }
+                const ballType = getShareBallTypeText(snapshot);
+                return ballType
+                    ? fielderShort + directionText + ballType + runnerSuffix
+                    : fielderShort + directionText + "への打球" + runnerSuffix;
+            }
             const labels = {
                 "B": "四球",
                 "B'": "申告敬遠",
@@ -8968,7 +9079,11 @@
                 "BK": "ボーク",
                 "IF": "打撃妨害",
                 "OB": "走塁妨害",
-                "FC": "野選"
+                "FC": "野選",
+                "Fc": "野選",
+                "H": "強襲安打",
+                "BH": "バントヒット",
+                "G": "内野安打"
             };
             return labels[displayed] || labels[snapshot.result] || displayed;
         }
