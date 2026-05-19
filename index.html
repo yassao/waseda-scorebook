@@ -1062,6 +1062,18 @@
             display: none;
         }
 
+        body.printing-scorebook {
+            background: #ffffff;
+        }
+
+        body.printing-scorebook > :not(.print-scorebook-page) {
+            display: none !important;
+        }
+
+        body.printing-scorebook .print-scorebook-page {
+            display: grid;
+        }
+
         body.scorebook-view-mode .global-apply-row,
         body.scorebook-view-mode .control-panel-wrapper .game-info-details,
         body.scorebook-view-mode .quick-half-toggle-slot,
@@ -4004,7 +4016,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.60";
+        const APP_VERSION = "0.1.61";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5958,15 +5970,30 @@
             );
         }
 
-        function exportScorebookPdf() {
+        function prepareScorebookPrintMode() {
             toggleTopWorkspace(true);
             renderPrintableScorebookPage();
             document.body.classList.add("printing-scorebook");
-            window.addEventListener("afterprint", () => {
-                document.body.classList.remove("printing-scorebook");
-            }, { once: true });
-            setTimeout(() => window.print(), 120);
         }
+
+        function cleanupScorebookPrintMode() {
+            setTimeout(() => {
+                document.body.classList.remove("printing-scorebook");
+            }, 900);
+        }
+
+        function exportScorebookPdf() {
+            prepareScorebookPrintMode();
+            window.addEventListener("afterprint", cleanupScorebookPrintMode, { once: true });
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    setTimeout(() => window.print(), 180);
+                });
+            });
+        }
+
+        window.addEventListener("beforeprint", prepareScorebookPrintMode);
+        window.addEventListener("afterprint", cleanupScorebookPrintMode);
 
         function applyInputLayout() {
             const layout = state.inputLayout === "left" ? "left" : "right";
@@ -9232,9 +9259,9 @@
                 "4": "二",
                 "5": "三",
                 "6": "遊",
-                "7": "左",
-                "8": "中",
-                "9": "右"
+                "7": "レフト",
+                "8": "センター",
+                "9": "ライト"
             };
             return names[String(fielder || "")] || "";
         }
@@ -9300,6 +9327,12 @@
                     parts.push("生還");
                 }
             });
+            if (snapshot?.modifiers?.doublePlay) {
+                parts.push("併殺");
+            }
+            if (getSnapshotOutCount(snapshot) >= 3) {
+                parts.push("チェンジ");
+            }
             return Array.from(new Set(parts));
         }
 

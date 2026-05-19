@@ -1,3 +1,12 @@
+## v0.1.61 [2026-05-19] iPhone PDF出力とX下書き表現を補強
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.60 [2026-05-19] PDF出力をA4縦1枚に調整
 
 **変更ファイル:**
