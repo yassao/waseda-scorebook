@@ -1058,6 +1058,10 @@
             font-weight: 900;
         }
 
+        .print-scorebook-page {
+            display: none;
+        }
+
         body.scorebook-view-mode .global-apply-row,
         body.scorebook-view-mode .control-panel-wrapper .game-info-details,
         body.scorebook-view-mode .quick-half-toggle-slot,
@@ -1076,6 +1080,127 @@
         }
 
         @media print {
+            @page {
+                size: A4 landscape;
+                margin: 3mm;
+            }
+
+            body.printing-scorebook {
+                background: #ffffff !important;
+                color: #111111 !important;
+            }
+
+            body.printing-scorebook > :not(.print-scorebook-page) {
+                display: none !important;
+            }
+
+            body.printing-scorebook .print-scorebook-page {
+                display: grid !important;
+                width: 291mm;
+                min-height: 204mm;
+                box-sizing: border-box;
+                margin: 0 auto !important;
+                padding: 1mm;
+                background: #ffffff;
+                grid-template-rows: auto auto auto auto;
+                gap: 1.2mm;
+                align-content: center;
+                justify-content: center;
+                --sheet-green: #111111;
+                --sheet-order-w: 7mm;
+                --sheet-name-w: 20mm;
+                --sheet-number-w: 7mm;
+                --sheet-cell-w: 10.7mm;
+                --sheet-cell-h: 6.9mm;
+                --sheet-header-h: 5.5mm;
+                --sheet-font: 1.9mm;
+                --sheet-zoom: 0.54;
+            }
+
+            body.printing-scorebook .print-info-table,
+            body.printing-scorebook .print-line-score-table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+                color: #111111;
+                font-size: 2.25mm;
+                line-height: 1.1;
+                font-weight: 700;
+            }
+
+            body.printing-scorebook .print-info-table th,
+            body.printing-scorebook .print-info-table td,
+            body.printing-scorebook .print-line-score-table th,
+            body.printing-scorebook .print-line-score-table td {
+                border: 0.35mm solid #111111;
+                padding: 0.7mm 1mm;
+                height: 4.8mm;
+                vertical-align: middle;
+                overflow: hidden;
+            }
+
+            body.printing-scorebook .print-info-table th,
+            body.printing-scorebook .print-line-score-table th {
+                text-align: center;
+                font-weight: 900;
+                white-space: nowrap;
+            }
+
+            body.printing-scorebook .print-sheet-title {
+                border: 0.35mm solid #111111;
+                border-bottom: 0;
+                padding: 0.6mm 1mm;
+                font-size: 2.4mm;
+                font-weight: 900;
+                text-align: center;
+            }
+
+            body.printing-scorebook .print-sheet-block {
+                width: 100%;
+            }
+
+            body.printing-scorebook .print-sheet-grid {
+                display: grid;
+                grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(12, var(--sheet-cell-w));
+                width: max-content;
+                max-width: 100%;
+                margin: 0 auto;
+                border-left: 0.35mm solid #111111;
+                border-top: 0.35mm solid #111111;
+            }
+
+            body.printing-scorebook .print-sheet-grid .sheet-header,
+            body.printing-scorebook .print-sheet-grid .sheet-label,
+            body.printing-scorebook .print-sheet-grid .sheet-cell,
+            body.printing-scorebook .print-sheet-grid .pitcher-book-label,
+            body.printing-scorebook .print-sheet-grid .pitcher-book-cell {
+                border-color: #111111 !important;
+                color: #111111;
+            }
+
+            body.printing-scorebook .print-sheet-grid .sheet-cell {
+                padding: 0;
+            }
+
+            body.printing-scorebook .print-sheet-grid .sheet-cell-svg {
+                width: 100%;
+                height: 100%;
+            }
+
+            body.printing-scorebook .print-sheet-grid .pitcher-book-section {
+                grid-column: 1 / -1;
+                grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(12, var(--sheet-cell-w));
+                border-left: 0;
+                border-top: 0.5mm solid #111111;
+            }
+
+            body.printing-scorebook .print-sheet-grid .pitcher-book-cell,
+            body.printing-scorebook .print-sheet-grid .pitcher-book-label {
+                min-height: 4.3mm;
+                font-size: 1.85mm;
+                padding: 0.2mm;
+            }
+
             .start-screen,
             .app-header,
             .top-workspace,
@@ -1109,7 +1234,7 @@
                 overflow: visible !important;
             }
 
-            .sheet-grid.is-dual-view {
+            body:not(.printing-scorebook) .sheet-grid.is-dual-view {
                 transform: scale(0.72);
                 transform-origin: top left;
             }
@@ -3868,9 +3993,10 @@
             </div>
         </div>
     </div>
+    <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.58";
+        const APP_VERSION = "0.1.59";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5684,8 +5810,153 @@
             renderScoreSheet();
         }
 
+        function appendPrintCell(row, tagName, text, colSpan = 1, className = "") {
+            const cell = document.createElement(tagName);
+            cell.textContent = text || "";
+            if (colSpan > 1) {
+                cell.colSpan = colSpan;
+            }
+            if (className) {
+                cell.className = className;
+            }
+            row.appendChild(cell);
+            return cell;
+        }
+
+        function formatPrintDate(dateText) {
+            if (!dateText) {
+                return "";
+            }
+            const match = String(dateText).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (!match) {
+                return dateText;
+            }
+            return match[1] + "年 " + Number(match[2]) + "月 " + Number(match[3]) + "日";
+        }
+
+        function getBenchSidePrintText(teamId) {
+            if (teamId === "team_top") {
+                return getTeamDisplayName("top");
+            }
+            if (teamId === "team_bottom") {
+                return getTeamDisplayName("bottom");
+            }
+            return "";
+        }
+
+        function createPrintInfoTable() {
+            const info = normalizeGameInfo(state.gameInfo);
+            const table = document.createElement("table");
+            table.className = "print-info-table";
+            const colGroup = document.createElement("colgroup");
+            for (let index = 0; index < 16; index += 1) {
+                colGroup.appendChild(document.createElement("col"));
+            }
+            table.appendChild(colGroup);
+
+            const rows = [
+                [
+                    ["大会名", info.competition, 3],
+                    ["開始", info.startTime],
+                    ["球場状態", info.fieldCondition],
+                    ["一塁側", getBenchSidePrintText(info.benches.firstBaseSideTeamId)],
+                    ["球審", info.umpires.plate],
+                    ["二塁", info.umpires.second],
+                    ["放送", info.broadcast]
+                ],
+                [
+                    ["年月日", formatPrintDate(info.date), 3],
+                    ["終了", info.endTime],
+                    ["天候・風向", [info.weather, info.wind].filter(Boolean).join(" / ")],
+                    ["三塁側", getBenchSidePrintText(info.benches.thirdBaseSideTeamId)],
+                    ["一塁", info.umpires.first],
+                    ["三塁", info.umpires.third],
+                    ["記録", info.scorer]
+                ],
+                [
+                    ["球場", info.venue, 3],
+                    ["所要", info.durationMinutes ? info.durationMinutes + "分" : ""],
+                    ["観衆", info.attendance ? String(info.attendance) : ""],
+                    ["先攻", getTeamDisplayName("top")],
+                    ["後攻", getTeamDisplayName("bottom")],
+                    ["先攻P", info.pitchers.top],
+                    ["後攻P", info.pitchers.bottom]
+                ]
+            ];
+
+            rows.forEach((rowConfig) => {
+                const tr = document.createElement("tr");
+                rowConfig.forEach(([label, value, valueSpan]) => {
+                    appendPrintCell(tr, "th", label);
+                    appendPrintCell(tr, "td", value, valueSpan || 1);
+                });
+                table.appendChild(tr);
+            });
+
+            return table;
+        }
+
+        function createPrintLineScoreTable() {
+            const innings = Array.from({ length: MAX_INNINGS }, (_, index) => index + 1);
+            const topLine = calculateLineScore("top");
+            const bottomLine = calculateLineScore("bottom");
+            const table = document.createElement("table");
+            table.className = "print-line-score-table";
+            const buildRow = (label, line, isHeader = false) => {
+                const tr = document.createElement("tr");
+                appendPrintCell(tr, isHeader ? "th" : "td", label);
+                innings.forEach((inning) => {
+                    const value = isHeader
+                        ? inning
+                        : (line.recorded[inning - 1] ? line.scores[inning - 1] : "");
+                    appendPrintCell(tr, isHeader ? "th" : "td", String(value));
+                });
+                const total = isHeader
+                    ? "合計"
+                    : String(line.scores.reduce((sum, score) => sum + score, 0));
+                appendPrintCell(tr, isHeader ? "th" : "td", total);
+                return tr;
+            };
+            table.appendChild(buildRow("チーム名", { scores: innings, recorded: innings.map(() => true) }, true));
+            table.appendChild(buildRow(getTeamDisplayName("top"), topLine));
+            table.appendChild(buildRow(getTeamDisplayName("bottom"), bottomLine));
+            return table;
+        }
+
+        function createPrintSheetBlock(half) {
+            const block = document.createElement("section");
+            block.className = "print-sheet-block";
+            const title = document.createElement("div");
+            title.className = "print-sheet-title";
+            title.textContent = (half === "top" ? "先攻" : "後攻") + " " + getTeamDisplayName(half);
+            const grid = document.createElement("div");
+            grid.className = "print-sheet-grid";
+            block.appendChild(title);
+            block.appendChild(grid);
+            renderScoreSheetHalf(grid, half, false);
+            return block;
+        }
+
+        function renderPrintableScorebookPage() {
+            const page = document.getElementById("printScorebookPage");
+            if (!page) {
+                return;
+            }
+            page.replaceChildren(
+                createPrintInfoTable(),
+                createPrintSheetBlock("top"),
+                createPrintLineScoreTable(),
+                createPrintSheetBlock("bottom")
+            );
+        }
+
         function exportScorebookPdf() {
             toggleTopWorkspace(true);
+            renderPrintableScorebookPage();
+            document.body.classList.add("printing-scorebook");
+            window.addEventListener("afterprint", () => {
+                document.body.classList.remove("printing-scorebook");
+            }, { once: true });
             setTimeout(() => window.print(), 120);
         }
 
