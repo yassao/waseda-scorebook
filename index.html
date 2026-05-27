@@ -4035,7 +4035,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.64";
+        const APP_VERSION = "0.1.65";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8743,7 +8743,7 @@
             [
                 ["投", 1],
                 ["投方", 1],
-                ["氏名", 2],
+                ["氏名", 3],
                 ["勝敗", 1],
                 ["セーブ", 1],
                 ["投球回数", 3],
@@ -8754,7 +8754,7 @@
             });
 
             if (!rows.length) {
-                section.appendChild(createPitcherBookCell("投手はまだ登録されていません。", "pitcher-book-empty", 13));
+                section.appendChild(createPitcherBookCell("投手はまだ登録されていません。", "pitcher-book-empty", 14));
                 target.appendChild(section);
                 return;
             }
@@ -8766,7 +8766,7 @@
                     : "";
                 section.appendChild(createPitcherBookCell(String(index + 1)));
                 section.appendChild(createPitcherBookCell(getThrowsLabel(pitcher.throws)));
-                section.appendChild(createPitcherBookCell(pitcher.name || "未登録", "pitcher-book-name", 2));
+                section.appendChild(createPitcherBookCell(pitcher.name || "未登録", "pitcher-book-name", 3));
                 section.appendChild(createPitcherBookCell(""));
                 section.appendChild(createPitcherBookCell(""));
                 section.appendChild(createPitcherBookCell(enteredAt, "", 3));
