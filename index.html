@@ -3219,6 +3219,18 @@
             gap: 10px;
         }
 
+        .nl-actions.nikkan-actions {
+            grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        }
+
+        .nl-actions .secondary-ai-action {
+            min-height: 36px;
+            background: #f8fafc;
+            color: #64748b;
+            border-color: #d8e1e8;
+            font-size: 11px;
+        }
+
         .nl-actions.compact {
             grid-template-columns: repeat(2, max-content);
             justify-content: start;
@@ -3950,11 +3962,9 @@
                             <div class="section-title">日刊スポーツ 全体インポート</div>
                             <div class="nl-panel">
                                 <textarea id="nikkanBoardInput" class="nl-input import-textarea" placeholder="日刊スポーツの打者成績表を複数行まとめて貼り付け"></textarea>
-                                <div class="nl-actions">
-                                    <button onclick="importNikkanSportsBoardForHalf('top')">先攻チーム取り込み</button>
-                                    <button onclick="clearNikkanSportsBoardInput()">内容クリア</button>
-                                    <button onclick="importNikkanSportsBoardForHalf('bottom')">後攻チーム取り込み</button>
-                                    <button onclick="generateNikkanSportsPrompt()">AI変換プロンプト生成</button>
+                                <div class="nl-actions nikkan-actions">
+                                    <button onclick="importNikkanSportsBoardForCurrentHalf()">表示中チームへ取り込み</button>
+                                    <button class="secondary-ai-action" onclick="generateNikkanSportsPrompt()">AI変換</button>
                                 </div>
                                 <div id="nikkanBoardPreview" class="nl-preview">日刊スポーツの打者成績表をまとめて貼り付けます。アウト・走者・得点は推定で反映します。</div>
                                 <div class="import-help">低確度のセルはシート上でグレーハッチ表示にします。あとでタップして修正できます。</div>
@@ -4025,7 +4035,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.63";
+        const APP_VERSION = "0.1.64";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6384,6 +6394,7 @@
             if (!container) {
                 return;
             }
+            const displayedCount = getDisplayedBallStrikeCount();
 
             const topLine = calculateLineScore("top");
             const bottomLine = calculateLineScore("bottom");
@@ -6421,8 +6432,8 @@
                 '<span class="game-mini-base first' + (occupiedBases.has(0) ? " is-on" : "") + '"></span>',
                 '</div>',
                 '<div class="game-mini-counts">',
-                dotGroup("B", state.balls, 3, "ball"),
-                dotGroup("S", state.strikes, 2, "strike"),
+                dotGroup("B", displayedCount.balls, 3, "ball"),
+                dotGroup("S", displayedCount.strikes, 2, "strike"),
                 dotGroup("O", Math.min(currentOuts, 2), 2, "out"),
                 '</div>',
                 '</div>'
@@ -6516,7 +6527,8 @@
         }
 
         function getCurrentCountLabel() {
-            return "B" + state.balls + "-S" + state.strikes + " P" + state.pitches.length;
+            const displayedCount = getDisplayedBallStrikeCount();
+            return "B" + displayedCount.balls + "-S" + displayedCount.strikes + " P" + state.pitches.length;
         }
 
         function capturePitchTimingMeta() {
@@ -10199,22 +10211,35 @@
             }
         }
 
-        function importNikkanSportsBoard(startFromTop = false) {
+        function getNikkanImportGuide(importedHalf) {
+            if (importedHalf === "top") {
+                return "次は後攻チームの表を貼り付けて、入力切替を後攻にしてから取り込んでください。";
+            }
+            return "必要ならスコアブックを確認し、ズレたセルをタップして修正してください。";
+        }
+
+        function closeImportOptionsAndPreviewSheet() {
+            document.querySelector(".options-menu")?.removeAttribute("open");
+            document.getElementById("sheetViewport")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        function importNikkanSportsBoard(startFromTop = false, options = {}) {
             const input = document.getElementById("nikkanBoardInput").value.trim();
             const preview = document.getElementById("nikkanBoardPreview");
             if (!input) {
                 preview.textContent = "全体表を貼り付けてください。";
-                return;
+                return null;
             }
 
             const parsedRows = parseNikkanSportsBoardRows(input);
 
             if (parsedRows.length === 0) {
                 preview.textContent = "有効な打者行を見つけられませんでした。表全体か、打者行を複数行で貼ってください。";
-                return;
+                return null;
             }
 
             const startRow = startFromTop ? 0 : state.selectedSheetRow;
+            const importedHalf = state.activeHalf;
             const maxRows = 9 - startRow;
             let importedRows = 0;
             let importedCells = 0;
@@ -10269,14 +10294,31 @@
             renderScoreSheet();
             updateDisplay();
 
+            const guide = getNikkanImportGuide(importedHalf);
             preview.innerHTML = [
                 "一括取り込み完了:",
+                "対象: " + getTeamDisplayName(importedHalf),
                 "開始打順: " + (startRow + 1) + "番",
                 "反映行数: " + importedRows,
                 "反映セル数: " + importedCells,
                 "低確度セル: " + lowConfidenceCells + "件",
-                startFromTop ? "配置: 1番から自動" : "配置: 選択打順から"
+                startFromTop ? "配置: 1番から自動" : "配置: 選択打順から",
+                guide
             ].join("<br>");
+            if (options.clearInputOnSuccess) {
+                document.getElementById("nikkanBoardInput").value = "";
+            }
+            if (options.showAlertOnSuccess) {
+                window.alert([
+                    getTeamDisplayName(importedHalf) + "をインポートしました。",
+                    "反映行数: " + importedRows + " / 反映セル数: " + importedCells,
+                    guide
+                ].join("\n"));
+            }
+            if (options.previewSheetOnSuccess) {
+                closeImportOptionsAndPreviewSheet();
+            }
+            return { importedHalf, importedRows, importedCells, lowConfidenceCells };
         }
 
         function importNikkanSportsBoardForHalf(half) {
@@ -10286,6 +10328,15 @@
             pushGameHistory();
             activateHalf(half, 0, 0, { skipSave: true });
             importNikkanSportsBoard(true);
+        }
+
+        function importNikkanSportsBoardForCurrentHalf() {
+            pushGameHistory();
+            importNikkanSportsBoard(true, {
+                clearInputOnSuccess: true,
+                showAlertOnSuccess: true,
+                previewSheetOnSuccess: true
+            });
         }
 
         function clearTwitterImportInput() {
@@ -15602,6 +15653,20 @@
             document.getElementById("inningEndSlash").setAttribute("visibility", getCurrentOutScoreForDisplay() === "Ⅲ" ? "visible" : "hidden");
         }
 
+        function hasCompletedBatterResultForCount() {
+            if (isFielderPlay() || isHitTypeSelection()) {
+                return true;
+            }
+            return ["K", "B", "HP", "IB", "IF", "OB", "x"].includes(state.result);
+        }
+
+        function getDisplayedBallStrikeCount() {
+            if (hasCompletedBatterResultForCount()) {
+                return { balls: 0, strikes: 0 };
+            }
+            return { balls: state.balls, strikes: state.strikes };
+        }
+
         function updateStatusText() {
             const dirMap = {
                 up: "上",
@@ -15618,8 +15683,9 @@
                     : "選択: 未指定"
             );
 
-            document.getElementById("countStatus").textContent = "B " + state.balls;
-            document.getElementById("strikeStatus").textContent = "S " + state.strikes;
+            const displayedCount = getDisplayedBallStrikeCount();
+            document.getElementById("countStatus").textContent = "B " + displayedCount.balls;
+            document.getElementById("strikeStatus").textContent = "S " + displayedCount.strikes;
             document.getElementById("outStatus").textContent = "O " + (getCurrentOutScoreForDisplay() || "-");
 
             let autoJudgeText = "自動判定待ち";
