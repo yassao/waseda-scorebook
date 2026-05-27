@@ -1094,13 +1094,13 @@
         @media print {
             @page {
                 size: A4 portrait;
-                margin: 3mm;
+                margin: 0;
             }
 
             html,
             body.printing-scorebook {
-                width: 204mm !important;
-                height: 291mm !important;
+                width: 210mm !important;
+                height: 297mm !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 overflow: hidden !important;
@@ -1135,16 +1135,18 @@
                 --sheet-order-w: 6.6mm;
                 --sheet-name-w: 20mm;
                 --sheet-number-w: 6.6mm;
-                --sheet-cell-w: 12.7mm;
+                --sheet-cell-w: 13.7mm;
                 --sheet-cell-h: 7.15mm;
                 --sheet-header-h: 5mm;
                 --sheet-font: 1.98mm;
                 --sheet-zoom: 0.57;
+                --print-content-w: 197.6mm;
             }
 
             body.printing-scorebook .print-info-table,
             body.printing-scorebook .print-line-score-table {
-                width: 100%;
+                width: var(--print-content-w);
+                margin: 0 auto;
                 border-collapse: collapse;
                 table-layout: fixed;
                 color: #111111;
@@ -1183,7 +1185,8 @@
             }
 
             body.printing-scorebook .print-sheet-block {
-                width: 100%;
+                width: var(--print-content-w);
+                margin: 0 auto;
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
@@ -1192,7 +1195,7 @@
                 display: grid;
                 grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(12, var(--sheet-cell-w));
                 width: max-content;
-                max-width: 100%;
+                max-width: var(--print-content-w);
                 margin: 0 auto;
                 border-left: 0.35mm solid #111111;
                 border-top: 0.35mm solid #111111;
@@ -4035,7 +4038,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.65";
+        const APP_VERSION = "0.1.66";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
