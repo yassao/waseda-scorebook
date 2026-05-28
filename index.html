@@ -1121,18 +1121,20 @@
             body.printing-scorebook .print-scorebook-page {
                 display: grid !important;
                 width: 198mm;
-                height: 285mm;
-                max-height: 285mm;
+                height: 282mm;
+                max-height: 282mm;
                 box-sizing: border-box;
                 margin: 0 auto !important;
                 padding: 0.8mm;
                 background: #ffffff;
-                grid-template-rows: auto auto auto auto;
-                gap: 1mm;
+                grid-template-rows: min-content minmax(0, 1fr) min-content minmax(0, 1fr);
+                gap: 0.75mm;
                 align-content: center;
                 justify-content: center;
                 overflow: hidden;
+                break-after: avoid;
                 break-inside: avoid;
+                page-break-after: avoid;
                 page-break-inside: avoid;
                 --sheet-green: #111111;
                 --sheet-order-w: 6.6mm;
@@ -1262,6 +1264,23 @@
                 box-shadow: none !important;
                 border: 0 !important;
                 background: #fff !important;
+            }
+
+            body.printing-scorebook {
+                position: relative !important;
+                width: 210mm !important;
+                height: 297mm !important;
+                min-height: 0 !important;
+                max-height: 297mm !important;
+                overflow: hidden !important;
+            }
+
+            body.printing-scorebook .print-scorebook-page {
+                position: absolute !important;
+                top: 4mm;
+                left: 50%;
+                transform: translateX(-50%);
+                margin: 0 !important;
             }
 
             .sheet-viewport {
@@ -4116,7 +4135,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.78";
+        const APP_VERSION = "0.1.79";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
