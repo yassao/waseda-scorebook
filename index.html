@@ -4044,7 +4044,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.74";
+        const APP_VERSION = "0.1.75";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -14695,7 +14695,8 @@
             pointerId: null,
             highlightedPitch: "calledStrike",
             suppressClick: false,
-            button: null
+            button: null,
+            choiceHandled: false
         };
 
         function handleStrikeButtonClick(event) {
@@ -14729,17 +14730,31 @@
                 '<div class="play-part-popup-section">投球内容を選択</div>',
                 '<div class="play-part-popup-grid">',
                 ...getStrikeChoiceOptions().map((option) =>
-                    '<button type="button" class="play-part-popup-option" onclick="chooseStrikePitch(' + JSON.stringify(option.pitch) + ')">' + option.label + '</button>'
+                    '<button type="button" class="play-part-popup-option" data-strike-pitch="' + escapeHtml(option.pitch) + '" onpointerup="chooseStrikePitchFromButton(event, this)" ontouchend="chooseStrikePitchFromButton(event, this)" onclick="chooseStrikePitchFromButton(event, this)">' + option.label + '</button>'
                 ),
                 '</div>'
             ].join("");
+            strikeSwipeState.choiceHandled = false;
             positionPlayPartPopupNear(anchor);
             showPlayPartPopup();
         }
 
+        function chooseStrikePitchFromButton(event, button) {
+            event?.preventDefault?.();
+            event?.stopPropagation?.();
+            chooseStrikePitch(button?.dataset?.strikePitch || "calledStrike");
+        }
+
         function chooseStrikePitch(pitch) {
+            if (strikeSwipeState.choiceHandled) {
+                return;
+            }
+            strikeSwipeState.choiceHandled = true;
             addPitch(pitch || "calledStrike");
             closePlayPartPopup();
+            setTimeout(() => {
+                strikeSwipeState.choiceHandled = false;
+            }, 250);
         }
 
         function startStrikeSwipe(event) {
