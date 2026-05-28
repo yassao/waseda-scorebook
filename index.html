@@ -472,7 +472,8 @@
             grid-template-columns: minmax(0, 1fr) auto;
             gap: 5px 8px;
             align-items: center;
-            padding: 7px 8px;
+            margin-top: 5px;
+            padding: 6px 8px;
             border: 2px solid #d8e1e8;
             border-radius: 12px;
             background: #fff;
@@ -482,7 +483,7 @@
 
         .current-batter-main {
             min-width: 0;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 900;
             white-space: nowrap;
             overflow: hidden;
@@ -3738,6 +3739,7 @@
             <section class="nl-quick-panel">
                 <div class="nl-panel is-compact">
                     <div id="lineScoreBoard" class="line-score-board" aria-label="点数板"></div>
+                    <div id="currentBatterCard" class="current-batter-card" aria-label="現在の打者"></div>
                     <div id="gameMiniStatus" class="game-mini-status" aria-label="試合状況"></div>
                     <div class="pitch-input-panel">
                         <div class="status-line">
@@ -3748,15 +3750,7 @@
                         </div>
                         <div class="pitch-quick">
                             <button class="pitch-main-btn" onclick="addPitch('ball')">B</button>
-                            <button id="strikeQuickBtn" class="pitch-main-btn" onclick="handleStrikeButtonClick(event)" onpointerdown="startStrikeSwipe(event)" onpointermove="moveStrikeSwipe(event)" onpointerup="endStrikeSwipe(event)" onpointercancel="cancelStrikeSwipe(event)" onpointerleave="moveStrikeSwipe(event)">S</button>
-                            <div id="strikeSwipeMenu" class="pitch-swipe-menu" aria-hidden="true">
-                                <button class="pitch-swipe-option" data-pitch="calledStrike" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">見逃し<br>ストライク</button>
-                                <button class="pitch-swipe-option" data-pitch="swingStrike" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">空振り<br>ストライク</button>
-                                <button class="pitch-swipe-option" data-pitch="foul" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">ファール</button>
-                                <button class="pitch-swipe-option" data-pitch="buntFoul" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">バント<br>ファール</button>
-                                <button class="pitch-swipe-option" data-pitch="buntSwing" onpointerenter="selectStrikeSwipeOption(this)" onpointermove="selectStrikeSwipeOption(this)" onclick="chooseStrikeSwipeOption(event, this)">バント<br>空振り</button>
-                                <div class="pitch-swipe-hint">長押ししたまま動かして、離すと選択</div>
-                            </div>
+                            <button id="strikeQuickBtn" class="pitch-main-btn" onclick="openStrikeChoicePopup(event)">S</button>
                         </div>
                     </div>
                     <div id="playPartPopupBackdrop" class="play-part-popup-backdrop" onclick="closePlayPartPopup()"></div>
@@ -4048,7 +4042,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.68";
+        const APP_VERSION = "0.1.69";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11973,6 +11967,7 @@
                 '<option value="wp">暴投</option>',
                 '<option value="pb">捕逸</option>',
                 '<option value="bk">ボーク</option>',
+                '<option value="pickoff">牽制</option>',
                 '<option value="error">失策</option>',
                 '</select>',
                 '<select class="runnerGuiThrowTarget runner-steal-detail" aria-label="盗塁送球先">',
@@ -12059,6 +12054,7 @@
                 '<option value="wp">暴投</option>',
                 '<option value="pb">捕逸</option>',
                 '<option value="bk">ボーク</option>',
+                '<option value="pickoff">牽制</option>',
                 '<option value="error">失策</option>',
                 '</select>',
                 '<select class="runnerGuiThrowTarget runner-steal-detail runner-popup-hidden-select" aria-label="盗塁送球先">',
@@ -12092,6 +12088,7 @@
                 '<button type="button" class="runner-choice-btn" data-runner-reason="wp" onclick="setRunnerPopupReason(this, \'wp\')">暴投</button>',
                 '<button type="button" class="runner-choice-btn" data-runner-reason="pb" onclick="setRunnerPopupReason(this, \'pb\')">捕逸</button>',
                 '<button type="button" class="runner-choice-btn" data-runner-reason="bk" onclick="setRunnerPopupReason(this, \'bk\')">ボーク</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-reason="pickoff" onclick="setRunnerPopupReason(this, \'pickoff\')">牽制</button>',
                 '<button type="button" class="runner-choice-btn" data-runner-reason="error" onclick="setRunnerPopupReason(this, \'error\')">失策</button>',
                 '</div>',
                 '</div>',
@@ -12316,6 +12313,13 @@
             if (reason === "steal") {
                 return "2-" + getRunnerGuiThrowTarget(source, "out", step) + "T";
             }
+            if (reason === "pickoff") {
+                return {
+                    r1: "1-3T",
+                    r2: "1-6T",
+                    r3: "1-5T"
+                }[source] || "PO";
+            }
             return {
                 batter: "一塁アウト",
                 r1: "二塁アウト",
@@ -12336,6 +12340,9 @@
             }
             if (reason === "bk") {
                 return "BK";
+            }
+            if (reason === "pickoff") {
+                return "PO";
             }
             if (reason === "error") {
                 return "E";
@@ -14617,6 +14624,42 @@
                 return;
             }
             addPitch("calledStrike");
+        }
+
+        function getStrikeChoiceOptions() {
+            return [
+                { pitch: "calledStrike", label: "見逃し<br>ストライク" },
+                { pitch: "swingStrike", label: "空振り<br>ストライク" },
+                { pitch: "foul", label: "ファール" },
+                { pitch: "buntFoul", label: "バント<br>ファール" },
+                { pitch: "buntSwing", label: "バント<br>空振り" }
+            ];
+        }
+
+        function openStrikeChoicePopup(event) {
+            event?.preventDefault?.();
+            const popup = document.getElementById("playPartPopup");
+            const anchor = event?.currentTarget || document.getElementById("strikeQuickBtn");
+            if (!popup || !anchor) {
+                addPitch("calledStrike");
+                return;
+            }
+            popup.innerHTML = [
+                renderPlayPartPopupHeader("ストライク"),
+                '<div class="play-part-popup-section">投球内容を選択</div>',
+                '<div class="play-part-popup-grid">',
+                ...getStrikeChoiceOptions().map((option) =>
+                    '<button type="button" class="play-part-popup-option" onclick="chooseStrikePitch(' + JSON.stringify(option.pitch) + ')">' + option.label + '</button>'
+                ),
+                '</div>'
+            ].join("");
+            positionPlayPartPopupNear(anchor);
+            showPlayPartPopup();
+        }
+
+        function chooseStrikePitch(pitch) {
+            addPitch(pitch || "calledStrike");
+            closePlayPartPopup();
         }
 
         function startStrikeSwipe(event) {
