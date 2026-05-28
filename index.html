@@ -4044,7 +4044,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.70";
+        const APP_VERSION = "0.1.71";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -12026,11 +12026,14 @@
             createRunnerGuiStep();
         }
 
-        function openRunnerActionPopup(source) {
+        function openRunnerActionPopup(source, projectedBaseIndex = null) {
             const baseIndex = getRunnerSourceBaseIndex(source);
             if (baseIndex < 0 || !state.baseRunners[baseIndex]) {
                 return;
             }
+            const projectedIndex = Number.isInteger(projectedBaseIndex)
+                ? Math.max(0, Math.min(2, projectedBaseIndex))
+                : baseIndex;
             const popup = document.getElementById("runnerActionPopup");
             const backdrop = document.getElementById("runnerActionPopupBackdrop");
             if (!popup || !backdrop) {
@@ -12043,12 +12046,13 @@
                 document.body.appendChild(popup);
             }
             const runnerLabel = getRunnerRefLabel(state.baseRunners[baseIndex]);
+            const projectedLabel = projectedIndex !== baseIndex ? "（現在表示: " + (projectedIndex + 1) + "塁）" : "";
             popup.innerHTML = [
                 '<div class="runner-action-popup-header">',
-                '<div class="runner-action-popup-title">' + (baseIndex + 1) + '塁走者 ' + runnerLabel + '</div>',
+                '<div class="runner-action-popup-title">' + (baseIndex + 1) + '塁走者 ' + runnerLabel + projectedLabel + '</div>',
                 '<button type="button" class="runner-action-popup-close" onclick="closeRunnerActionPopup()">閉じる</button>',
                 '</div>',
-                '<div class="runner-gui-step is-detail-open">',
+                '<div class="runner-gui-step is-detail-open" data-projected-base-index="' + projectedIndex + '">',
                 '<div class="runner-gui-controls">',
                 '<select class="runnerGuiSource runner-popup-hidden-select" aria-label="対象走者">',
                 '<option value="r1"' + (source === "r1" ? " selected" : "") + '>一走</option>',
@@ -12326,6 +12330,11 @@
                     r2: "1-6T",
                     r3: "1-5T"
                 }[source] || "PO";
+            }
+            const projectedBaseIndex = Number(step?.dataset?.projectedBaseIndex);
+            if (Number.isInteger(projectedBaseIndex) && projectedBaseIndex >= 0) {
+                const nextBaseOutLabels = ["二塁アウト", "三塁アウト", "本塁アウト"];
+                return nextBaseOutLabels[Math.min(2, projectedBaseIndex)] || "アウト";
             }
             return {
                 batter: "一塁アウト",
@@ -15507,7 +15516,7 @@
                 const labelPrefix = item.retired ? "アウト<br>" : (item.baseIndex + 1) + "塁<br>";
                 const card = item.retired
                     ? '<div class="' + cardClass + '" aria-label="アウト済み走者">' + generateSheetCellSvg(snapshot) + '</div>'
-                    : '<button type="button" class="' + cardClass + '" onclick="openRunnerActionPopup(\'r' + ((item.sourceBaseIndex ?? item.baseIndex) + 1) + '\')" aria-label="' + (item.baseIndex + 1) + '塁走者を操作">' + generateSheetCellSvg(snapshot) + '</button>';
+                    : '<button type="button" class="' + cardClass + '" onclick="openRunnerActionPopup(\'r' + ((item.sourceBaseIndex ?? item.baseIndex) + 1) + '\', ' + item.baseIndex + ')" aria-label="' + (item.baseIndex + 1) + '塁走者を操作">' + generateSheetCellSvg(snapshot) + '</button>';
                 return [
                     '<div class="' + itemClass + '">',
                     '<div class="base-runner-preview-label">' + labelPrefix + getRunnerRefLabel(item.runnerRef) + '</div>',
