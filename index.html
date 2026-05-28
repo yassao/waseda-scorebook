@@ -2299,6 +2299,22 @@
             border-color: #86efac;
         }
 
+        .play-part-popup.is-strike-choice {
+            width: calc(50vw - 14px);
+            max-width: 260px;
+            min-width: 150px;
+            max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        }
+
+        .play-part-popup.is-strike-choice .play-part-popup-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .play-part-popup.is-strike-choice .play-part-popup-option {
+            min-height: 46px;
+            font-size: 14px;
+        }
+
         .play-part-popup-section {
             margin: 10px 0 6px;
             font-size: 11px;
@@ -3566,6 +3582,18 @@
                 max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
             }
 
+            .play-part-popup.is-strike-choice {
+                width: calc(50vw - 14px) !important;
+                max-width: none;
+                right: 8px !important;
+                left: auto !important;
+            }
+
+            .top-workspace.input-left .play-part-popup.is-strike-choice {
+                left: 8px !important;
+                right: auto !important;
+            }
+
             .play-part-row select,
             .play-part-row input {
                 padding: 4px 6px;
@@ -4044,7 +4072,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.75";
+        const APP_VERSION = "0.1.76";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11835,6 +11863,7 @@
 
         function closePlayPartPopup() {
             document.getElementById("playPartPopup")?.classList.remove("is-open");
+            document.getElementById("playPartPopup")?.classList.remove("is-strike-choice");
             document.getElementById("playPartPopup")?.setAttribute("aria-hidden", "true");
             document.getElementById("playPartPopupBackdrop")?.classList.remove("is-open");
             hideNumberDirectionMenu();
@@ -14735,8 +14764,24 @@
                 '</div>'
             ].join("");
             strikeSwipeState.choiceHandled = false;
+            popup.classList.add("is-strike-choice");
             positionPlayPartPopupNear(anchor);
+            positionStrikeChoicePopup();
             showPlayPartPopup();
+        }
+
+        function positionStrikeChoicePopup() {
+            const popup = document.getElementById("playPartPopup");
+            if (!popup) {
+                return;
+            }
+            const isLeftLayout = state.inputLayout === "left";
+            const safeTop = "calc(12px + env(safe-area-inset-top))";
+            popup.style.top = safeTop;
+            popup.style.width = "calc(50vw - 14px)";
+            popup.style.maxWidth = "260px";
+            popup.style.right = isLeftLayout ? "auto" : "8px";
+            popup.style.left = isLeftLayout ? "8px" : "auto";
         }
 
         function chooseStrikePitchFromButton(event, button) {
