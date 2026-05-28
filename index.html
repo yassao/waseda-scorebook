@@ -620,7 +620,9 @@
 
         .base-runner-preview-stack {
             display: grid;
-            gap: 2px;
+            grid-template-columns: repeat(2, max-content);
+            gap: 2px 4px;
+            justify-content: center;
             margin-bottom: 4px;
         }
 
@@ -3486,7 +3488,7 @@
             }
 
             .base-runner-preview-stack {
-                gap: 1px;
+                gap: 1px 3px;
                 margin-bottom: 3px;
             }
 
@@ -4042,7 +4044,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.69";
+        const APP_VERSION = "0.1.70";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8870,10 +8872,15 @@
                 .sort((a, b) => compareSheetPosition(a.entry, b.entry));
             const stats = Array.from({ length: changes.length + 1 }, () => ({ pitchCount: 0, battersFaced: 0 }));
             const sheet = state.scoreSheets[battingHalf] || [];
+            const liveSnapshot = battingHalf === state.activeHalf
+                ? getLiveCurrentSheetSnapshot(state.selectedSheetRow, state.selectedSheetCol)
+                : null;
 
             for (let col = 0; col < MAX_INNINGS; col += 1) {
                 for (let row = 0; row < 9; row += 1) {
-                    const snapshot = sheet[row]?.[col];
+                    const snapshot = liveSnapshot && row === state.selectedSheetRow && col === state.selectedSheetCol
+                        ? liveSnapshot
+                        : sheet[row]?.[col];
                     if (!snapshot) {
                         continue;
                     }
@@ -12368,6 +12375,16 @@
             }
         }
 
+        function ensurePitchForRunnerReason(reason, action) {
+            if (!["wp", "pb"].includes(reason) || state.pitches.length > 0) {
+                return;
+            }
+            state.pitches.push("ball");
+            state.pitchNotes.push(getRunnerReasonPitchNote(reason, action));
+            state.pitchComments.push(null);
+            recomputePitchState();
+        }
+
         function getNextOutScoreForRunnerGui() {
             const previousOuts = getPreviousOutCountForCell(state.selectedSheetRow, state.selectedSheetCol);
             return outCountToRoman(Math.min(3, previousOuts + 1)) || "Ⅰ";
@@ -12386,6 +12403,7 @@
             pushGameHistory();
             const runners = state.baseRunners.map((runner) => (runner ? { ...runner } : null));
             const runnerLabel = getRunnerRefLabel(runnerRef);
+            ensurePitchForRunnerReason(reason, action);
             const eventMeta = buildRunnerPitchEventMeta(reason, action);
             markRunnerReasonOnLastPitch(reason, action);
 
