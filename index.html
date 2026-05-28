@@ -4044,7 +4044,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.72";
+        const APP_VERSION = "0.1.73";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5310,6 +5310,39 @@
             };
         }
 
+        function getGameStateFingerprint(data) {
+            try {
+                const snapshot = normalizeGameSaveData(deepClone(data));
+                return JSON.stringify(snapshot.state || {});
+            } catch (error) {
+                return "";
+            }
+        }
+
+        function preserveCurrentAutoSaveBeforeReplace(nextData) {
+            try {
+                flushGameAutoSave();
+                const raw = localStorage.getItem(GAME_STORAGE_KEY);
+                if (!raw) {
+                    return false;
+                }
+                const currentData = JSON.parse(raw);
+                if (getGameStateFingerprint(currentData) === getGameStateFingerprint(nextData)) {
+                    return false;
+                }
+                const recoverySlot = createSavedGameSlot(currentData);
+                recoverySlot.title = "自動保存の退避: " + (recoverySlot.title || "無題の試合");
+                recoverySlot.summary = (recoverySlot.summary || "スコア未集計") + " / 別試合を開く前";
+                const slots = [recoverySlot, ...getSavedGameSlots()].slice(0, 30);
+                writeSavedGameSlots(slots);
+                renderSavedGameSlots();
+                return true;
+            } catch (error) {
+                console.warn("Preserve autosave before replace failed", error);
+                return false;
+            }
+        }
+
         function renderSavedGameSlots() {
             const slots = getSavedGameSlots();
             const containers = [
@@ -5375,8 +5408,9 @@
             if (!confirm(`保存済み試合「${slot.title || "無題の試合"}」を開きます。現在の画面は置き換わります。よろしいですか？`)) {
                 return;
             }
+            const preserved = preserveCurrentAutoSaveBeforeReplace(slot.data);
             restoreGameSaveData(slot.data, "保存済み試合を開きました");
-            setGameSaveStatus("保存済み試合を開きました: " + (slot.title || "無題の試合"));
+            setGameSaveStatus("保存済み試合を開きました: " + (slot.title || "無題の試合") + (preserved ? " / 直前の自動保存を退避しました" : ""));
             hideStartScreen();
         }
 
