@@ -1529,13 +1529,31 @@
 
         .player-roster-team {
             display: grid;
-            gap: 6px;
+            gap: 8px;
         }
 
         .player-roster-team-title {
             color: #22313f;
             font-size: 13px;
             font-weight: 900;
+        }
+
+        .player-roster-team.is-active .player-roster-team-title {
+            color: #0f766e;
+        }
+
+        .player-roster-pitcher {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 6px;
+            align-items: center;
+            color: #22313f;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .player-roster-pitcher input {
+            min-width: 0;
         }
 
         .roster-ocr-panel {
@@ -1605,6 +1623,11 @@
             font: inherit;
             font-size: 12px;
             font-weight: 700;
+        }
+
+        select.player-name-field {
+            appearance: auto;
+            padding-right: 4px;
         }
 
         .player-roster-order {
@@ -3864,27 +3887,15 @@
             <div class="control-panel">
                 <section class="section">
                     <div class="sheet-panel">
-                        <details class="game-info-details player-roster-details">
+                        <details class="game-info-details player-roster-details" id="playerRosterDetails" ontoggle="handleRosterDetailsToggle(this)">
                             <summary>チーム/選手登録</summary>
                             <div class="game-info-body">
                                 <div class="game-flow-bar" aria-label="チーム名">
                                     <input id="topTeamName" class="team-name-input" value="先攻" aria-label="先攻チーム名" onchange="updateTeamName('top', this.value)">
                                     <input id="bottomTeamName" class="team-name-input" value="後攻" aria-label="後攻チーム名" onchange="updateTeamName('bottom', this.value)">
                                 </div>
-                                <datalist id="positionOptions">
-                                    <option value="1"></option>
-                                    <option value="2"></option>
-                                    <option value="3"></option>
-                                    <option value="4"></option>
-                                    <option value="5"></option>
-                                    <option value="6"></option>
-                                    <option value="7"></option>
-                                    <option value="8"></option>
-                                    <option value="9"></option>
-                                    <option value="DH"></option>
-                                    <option value="PH"></option>
-                                    <option value="PR"></option>
-                                </datalist>
+                                <datalist id="registeredPlayerNameOptions"></datalist>
+                                <div id="playerRosterEditor" class="player-roster-editor"></div>
                                 <div class="roster-ocr-panel">
                                     <textarea id="starterPostInput" placeholder="X投稿のスタメン文を貼り付け 例: 先攻・横浜、後攻・桐蔭学園。&#10;横浜スタメン：3小野、4田島、6池田、5川上、7安食、DH大山、9植村、2脇山　投手・織田"></textarea>
                                     <div class="roster-ocr-actions">
@@ -3892,7 +3903,6 @@
                                     </div>
                                     <div id="starterPostStatus" class="roster-ocr-status">先攻・後攻と各チームのスタメン行をまとめて貼ると、チーム名・守備・名前・投手に分けます。</div>
                                 </div>
-                                <div id="playerRosterEditor" class="player-roster-editor"></div>
                             </div>
                         </details>
                         <details class="game-info-details">
@@ -4038,7 +4048,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.67";
+        const APP_VERSION = "0.1.68";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6122,6 +6132,9 @@
             }
             renderCurrentBatterCard();
             renderScoreSheet();
+            if (parts[0] === "pitchers" && document.getElementById("playerRosterDetails")?.open) {
+                renderPlayerRosterEditor();
+            }
             scheduleGameAutoSave();
         }
 
@@ -6500,6 +6513,94 @@
             scheduleGameAutoSave();
         }
 
+        function getRegisteredPlayers() {
+            const players = [];
+            ["top", "bottom"].forEach((half) => {
+                const names = state.playerNames?.[half] || [];
+                const numbers = state.playerNumbers?.[half] || [];
+                const positions = state.playerPositions?.[half] || [];
+                names.forEach((name, index) => {
+                    const normalizedName = String(name || "").trim();
+                    if (!normalizedName) {
+                        return;
+                    }
+                    players.push({
+                        half,
+                        index,
+                        name: normalizedName,
+                        number: String(numbers[index] || "").trim(),
+                        position: String(positions[index] || "").trim()
+                    });
+                });
+            });
+            return players;
+        }
+
+        function updateRegisteredPlayerNameOptions() {
+            const datalist = document.getElementById("registeredPlayerNameOptions");
+            if (!datalist) {
+                return;
+            }
+            const seen = new Set();
+            datalist.innerHTML = getRegisteredPlayers().map((player) => {
+                if (seen.has(player.name)) {
+                    return "";
+                }
+                seen.add(player.name);
+                const labelParts = [
+                    player.number ? "背" + player.number : "",
+                    player.position ? "守" + player.position : ""
+                ].filter(Boolean);
+                return '<option value="' + escapeHtml(player.name) + '" label="' + escapeHtml(labelParts.join(" / ")) + '"></option>';
+            }).join("");
+        }
+
+        function findRegisteredPlayerByName(name, halfToSkip = "", indexToSkip = -1) {
+            const normalizedName = String(name || "").trim();
+            if (!normalizedName) {
+                return null;
+            }
+            return getRegisteredPlayers().find((player) => {
+                if (player.name !== normalizedName) {
+                    return false;
+                }
+                return !(player.half === halfToSkip && player.index === indexToSkip);
+            }) || null;
+        }
+
+        function updatePlayerNameFromInput(half, index, input) {
+            const value = input?.value || "";
+            updatePlayerName(half, index, value);
+            const player = findRegisteredPlayerByName(value, half, index);
+            if (!player) {
+                updateRegisteredPlayerNameOptions();
+                return;
+            }
+            let changed = false;
+            if (player.number && state.playerNumbers?.[half]?.[index] !== player.number) {
+                state.playerNumbers[half][index] = player.number;
+                const numberInput = document.getElementById("playerNumber_" + half + "_" + index);
+                if (numberInput) {
+                    numberInput.value = player.number;
+                }
+                changed = true;
+            }
+            if (player.position && state.playerPositions?.[half]?.[index] !== player.position) {
+                state.playerPositions[half][index] = player.position;
+                const positionInput = document.getElementById("playerPosition_" + half + "_" + index);
+                if (positionInput) {
+                    positionInput.value = player.position;
+                }
+                changed = true;
+            }
+            updateRegisteredPlayerNameOptions();
+            if (changed) {
+                renderCurrentBatterCard();
+                renderScoreSheet();
+                scheduleGameAutoSave();
+            }
+        }
+
         function updatePlayerNumber(half, index, value) {
             if (!["top", "bottom"].includes(half) || index < 0 || index >= 9) {
                 return;
@@ -6508,6 +6609,7 @@
                 state.playerNumbers[half] = Array.from({ length: 9 }, () => "");
             }
             state.playerNumbers[half][index] = value.trim();
+            updateRegisteredPlayerNameOptions();
             renderCurrentBatterCard();
             renderScoreSheet();
             scheduleGameAutoSave();
@@ -6521,7 +6623,21 @@
                 state.playerPositions[half] = Array.from({ length: 9 }, () => "");
             }
             state.playerPositions[half][index] = value.trim();
+            updateRegisteredPlayerNameOptions();
             renderCurrentBatterCard();
+            scheduleGameAutoSave();
+        }
+
+        function updateTeamPitcherFromRoster(half, value) {
+            if (!["top", "bottom"].includes(half)) {
+                return;
+            }
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            state.gameInfo.pitchers[half] = String(value || "").trim();
+            const gameInfoPitcherId = half === "top" ? "gameInfoTopPitcher" : "gameInfoBottomPitcher";
+            setElementValue(gameInfoPitcherId, state.gameInfo.pitchers[half]);
+            renderCurrentBatterCard();
+            renderScoreSheet();
             scheduleGameAutoSave();
         }
 
@@ -6938,37 +7054,91 @@
             scheduleGameAutoSave();
         }
 
+        function getRosterPositionOptions(selectedValue = "") {
+            const options = [
+                ["", "守/DH"],
+                ["1", "1 投"],
+                ["2", "2 捕"],
+                ["3", "3 一"],
+                ["4", "4 二"],
+                ["5", "5 三"],
+                ["6", "6 遊"],
+                ["7", "7 左"],
+                ["8", "8 中"],
+                ["9", "9 右"],
+                ["DH", "DH"],
+                ["PH", "PH"],
+                ["PR", "PR"]
+            ];
+            const normalizedSelected = String(selectedValue || "").trim().toUpperCase();
+            if (normalizedSelected && !options.some(([value]) => value === normalizedSelected)) {
+                options.push([normalizedSelected, normalizedSelected]);
+            }
+            return options.map(([value, label]) => {
+                const selected = normalizedSelected === value ? " selected" : "";
+                return '<option value="' + escapeHtml(value) + '"' + selected + '>' + escapeHtml(label) + '</option>';
+            }).join("");
+        }
+
+        function getRosterDisplayOrder() {
+            const activeHalf = state.activeHalf === "bottom" ? "bottom" : "top";
+            const otherHalf = activeHalf === "top" ? "bottom" : "top";
+            return [activeHalf, otherHalf];
+        }
+
+        function focusRosterActiveFirstBatter() {
+            const activeHalf = state.activeHalf === "bottom" ? "bottom" : "top";
+            const firstInput = document.getElementById("playerName_" + activeHalf + "_0");
+            if (!firstInput) {
+                return;
+            }
+            firstInput.scrollIntoView({ block: "center", behavior: "smooth" });
+            firstInput.focus({ preventScroll: true });
+        }
+
+        function handleRosterDetailsToggle(details) {
+            if (!details?.open) {
+                return;
+            }
+            renderPlayerRosterEditor();
+            window.setTimeout(focusRosterActiveFirstBatter, 80);
+        }
+
         function renderPlayerRosterEditor() {
             const container = document.getElementById("playerRosterEditor");
             if (!container) {
                 return;
             }
-            container.innerHTML = ["top", "bottom"].map((half) => {
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            updateRegisteredPlayerNameOptions();
+            container.innerHTML = getRosterDisplayOrder().map((half) => {
                 const teamLabel = state.teamNames[half] || (half === "top" ? "先攻" : "後攻");
                 const names = state.playerNames[half] || Array.from({ length: 9 }, () => "");
                 const numbers = state.playerNumbers[half] || Array.from({ length: 9 }, () => "");
                 const positions = state.playerPositions?.[half] || Array.from({ length: 9 }, () => "");
+                const pitcherName = state.gameInfo.pitchers?.[half] || "";
                 const inputs = names.map((name, index) => {
                     const order = index + 1;
                     return [
                         `<div class="player-roster-order">${order}番</div>`,
-                        `<input class="player-name-field" value="${escapeHtml(name)}" placeholder="名前" aria-label="${escapeHtml(teamLabel)} ${order}番選手名" onchange="updatePlayerName('${half}', ${index}, this.value)">`,
-                        `<input class="player-name-field" value="${escapeHtml(numbers[index] || "")}" placeholder="背" inputmode="numeric" aria-label="${escapeHtml(teamLabel)} ${order}番背番号" onchange="updatePlayerNumber('${half}', ${index}, this.value)">`,
-                        `<input class="player-name-field" list="positionOptions" value="${escapeHtml(positions[index] || "")}" placeholder="守/DH" aria-label="${escapeHtml(teamLabel)} ${order}番守備位置" onchange="updatePlayerPosition('${half}', ${index}, this.value)">`
+                        `<input id="playerName_${half}_${index}" class="player-name-field" list="registeredPlayerNameOptions" value="${escapeHtml(name)}" placeholder="名前" aria-label="${escapeHtml(teamLabel)} ${order}番選手名" onchange="updatePlayerNameFromInput('${half}', ${index}, this)">`,
+                        `<input id="playerNumber_${half}_${index}" class="player-name-field" value="${escapeHtml(numbers[index] || "")}" placeholder="背" inputmode="numeric" aria-label="${escapeHtml(teamLabel)} ${order}番背番号" onchange="updatePlayerNumber('${half}', ${index}, this.value)">`,
+                        `<select id="playerPosition_${half}_${index}" class="player-name-field" aria-label="${escapeHtml(teamLabel)} ${order}番守備位置" onchange="updatePlayerPosition('${half}', ${index}, this.value)">${getRosterPositionOptions(positions[index])}</select>`
                     ].join("");
                 }).join("");
                 return [
-                    '<div class="player-roster-team">',
-                    '<div class="player-roster-team-title">' + escapeHtml(teamLabel) + '</div>',
+                    '<div class="player-roster-team' + (half === state.activeHalf ? ' is-active' : '') + '">',
+                    '<div class="player-roster-team-title">' + escapeHtml(teamLabel) + (half === state.activeHalf ? ' 入力中' : '') + '</div>',
+                    '<label class="player-roster-pitcher"><span>投手</span><input class="player-name-field" list="registeredPlayerNameOptions" value="' + escapeHtml(pitcherName) + '" placeholder="投手名" aria-label="' + escapeHtml(teamLabel) + ' 投手名" onchange="updateTeamPitcherFromRoster(\'' + half + '\', this.value)"></label>',
+                    '<div class="player-roster-grid">',
+                    inputs,
+                    '</div>',
                     '<div class="roster-ocr-panel">',
-                    '<textarea id="rosterOcrText_' + half + '" placeholder="iPhone写真アプリ等の文字認識結果を貼り付け 例: 98松本龍"></textarea>',
+                    '<textarea id="rosterOcrText_' + half + '" placeholder="文字認識結果を貼り付け 例: 98松本龍"></textarea>',
                     '<div class="roster-ocr-actions">',
                     '<button type="button" onclick="applyRosterOcrToHalf(\'' + half + '\')">文字から登録</button>',
                     '</div>',
-                    '<div id="rosterOcrStatus_' + half + '" class="roster-ocr-status">このアプリは写真そのものではなく、貼り付けた文字を打順・守備・名前に分けます。</div>',
-                    '</div>',
-                    '<div class="player-roster-grid">',
-                    inputs,
+                    '<div id="rosterOcrStatus_' + half + '" class="roster-ocr-status">写真アプリ等で文字認識したテキストを、打順・守備・名前に分けます。</div>',
                     '</div>',
                     '</div>'
                 ].join("");
@@ -7012,6 +7182,9 @@
             renderScoreSheet();
             updateDisplay();
             updateGameFlowDisplay();
+            if (document.getElementById("playerRosterDetails")?.open) {
+                renderPlayerRosterEditor();
+            }
         }
 
         function captureAtBatSnapshot() {
