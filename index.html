@@ -4044,7 +4044,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.73";
+        const APP_VERSION = "0.1.74";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -15618,86 +15618,7 @@
         }
 
         function appendPitchMark(group, pitch) {
-            const svgNs = "http://www.w3.org/2000/svg";
-
-            if (pitch === "ball") {
-                const circle = document.createElementNS(svgNs, "circle");
-                circle.setAttribute("cx", "0");
-                circle.setAttribute("cy", "0");
-                circle.setAttribute("r", "2.6");
-                circle.setAttribute("fill", "#111");
-                group.appendChild(circle);
-                return;
-            }
-
-            if (pitch === "calledStrike") {
-                const circle = document.createElementNS(svgNs, "circle");
-                circle.setAttribute("cx", "0");
-                circle.setAttribute("cy", "0");
-                circle.setAttribute("r", "4.6");
-                circle.setAttribute("fill", "none");
-                circle.setAttribute("stroke", "#111");
-                circle.setAttribute("stroke-width", "1.5");
-                group.appendChild(circle);
-                return;
-            }
-
-            if (pitch === "swingStrike") {
-                const line1 = document.createElementNS(svgNs, "line");
-                line1.setAttribute("x1", "-4");
-                line1.setAttribute("y1", "-4");
-                line1.setAttribute("x2", "4");
-                line1.setAttribute("y2", "4");
-                line1.setAttribute("stroke", "#111");
-                line1.setAttribute("stroke-width", "1.6");
-                group.appendChild(line1);
-
-                const line2 = document.createElementNS(svgNs, "line");
-                line2.setAttribute("x1", "4");
-                line2.setAttribute("y1", "-4");
-                line2.setAttribute("x2", "-4");
-                line2.setAttribute("y2", "4");
-                line2.setAttribute("stroke", "#111");
-                line2.setAttribute("stroke-width", "1.6");
-                group.appendChild(line2);
-                return;
-            }
-
-            if (pitch === "buntSwing") {
-                const text = document.createElementNS(svgNs, "text");
-                text.setAttribute("x", "0");
-                text.setAttribute("y", "4");
-                text.setAttribute("text-anchor", "middle");
-                text.setAttribute("font-size", "9");
-                text.setAttribute("font-weight", "800");
-                text.setAttribute("fill", "#111");
-                text.textContent = "ギ";
-                group.appendChild(text);
-                return;
-            }
-
-            if (pitch === "foul" || pitch === "buntFoul") {
-                const line = document.createElementNS(svgNs, "line");
-                line.setAttribute("x1", "-5");
-                line.setAttribute("y1", "0");
-                line.setAttribute("x2", "5");
-                line.setAttribute("y2", "0");
-                line.setAttribute("stroke", "#111");
-                line.setAttribute("stroke-width", "1.7");
-                group.appendChild(line);
-
-                if (pitch === "buntFoul") {
-                    const text = document.createElementNS(svgNs, "text");
-                    text.setAttribute("x", "0");
-                    text.setAttribute("y", "-3");
-                    text.setAttribute("text-anchor", "middle");
-                    text.setAttribute("font-size", "7");
-                    text.setAttribute("font-weight", "800");
-                    text.setAttribute("fill", "#111");
-                    text.textContent = "ギ";
-                    group.appendChild(text);
-                }
-            }
+            group.insertAdjacentHTML("beforeend", getPitchMarkSvgMarkup(pitch, 0, 0, 1, ""));
         }
 
         function appendPitchNote(group, note) {
