@@ -2306,6 +2306,16 @@
             max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
         }
 
+        .play-part-popup.is-strike-choice.is-left-hand {
+            left: 8px;
+            right: auto;
+        }
+
+        .play-part-popup.is-strike-choice.is-right-hand {
+            left: auto;
+            right: 8px;
+        }
+
         .play-part-popup.is-strike-choice .play-part-popup-grid {
             grid-template-columns: 1fr;
         }
@@ -3585,13 +3595,16 @@
             .play-part-popup.is-strike-choice {
                 width: calc(50vw - 14px) !important;
                 max-width: none;
-                right: 8px !important;
-                left: auto !important;
             }
 
-            .top-workspace.input-left .play-part-popup.is-strike-choice {
+            .play-part-popup.is-strike-choice.is-left-hand {
                 left: 8px !important;
                 right: auto !important;
+            }
+
+            .play-part-popup.is-strike-choice.is-right-hand {
+                right: 8px !important;
+                left: auto !important;
             }
 
             .play-part-row select,
@@ -3904,7 +3917,7 @@
                 <div id="pitchMemoList" class="pitch-memo-list" aria-live="polite"></div>
                 <button class="small-btn tweet-draft-btn" onclick="registerPitchComment()" aria-label="この投球に一言メモ" title="この投球に一言メモ">↑</button>
             </div>
-            <button class="small-btn global-apply-btn" onclick="applyNaturalLanguage()">次打者へ</button>
+            <button class="small-btn global-apply-btn" type="button" onclick="handleGlobalApplyButtonClick(event)">次打者へ</button>
         </div>
 
         <div class="control-panel-wrapper">
@@ -4072,7 +4085,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.76";
+        const APP_VERSION = "0.1.77";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11864,6 +11877,8 @@
         function closePlayPartPopup() {
             document.getElementById("playPartPopup")?.classList.remove("is-open");
             document.getElementById("playPartPopup")?.classList.remove("is-strike-choice");
+            document.getElementById("playPartPopup")?.classList.remove("is-left-hand");
+            document.getElementById("playPartPopup")?.classList.remove("is-right-hand");
             document.getElementById("playPartPopup")?.setAttribute("aria-hidden", "true");
             document.getElementById("playPartPopupBackdrop")?.classList.remove("is-open");
             hideNumberDirectionMenu();
@@ -13355,6 +13370,23 @@
             saveAndAdvanceCurrentPlate();
         }
 
+        function refreshGlobalApplyButtonState() {
+            const button = document.querySelector(".global-apply-btn");
+            if (!button) {
+                return;
+            }
+            button.disabled = false;
+            button.removeAttribute("aria-disabled");
+        }
+
+        function handleGlobalApplyButtonClick(event) {
+            event?.preventDefault?.();
+            refreshGlobalApplyButtonState();
+            event?.currentTarget?.blur?.();
+            applyNaturalLanguage();
+            requestAnimationFrame(refreshGlobalApplyButtonState);
+        }
+
         function applyCorrectedNaturalLanguage() {
             const corrected = getCorrectedParsedInput();
             state.parsedInput = corrected;
@@ -14765,6 +14797,8 @@
             ].join("");
             strikeSwipeState.choiceHandled = false;
             popup.classList.add("is-strike-choice");
+            popup.classList.toggle("is-left-hand", state.inputLayout === "left");
+            popup.classList.toggle("is-right-hand", state.inputLayout !== "left");
             positionPlayPartPopupNear(anchor);
             positionStrikeChoicePopup();
             showPlayPartPopup();
@@ -14782,6 +14816,8 @@
             popup.style.maxWidth = "260px";
             popup.style.right = isLeftLayout ? "auto" : "8px";
             popup.style.left = isLeftLayout ? "8px" : "auto";
+            popup.classList.toggle("is-left-hand", isLeftLayout);
+            popup.classList.toggle("is-right-hand", !isLeftLayout);
         }
 
         function chooseStrikePitchFromButton(event, button) {
@@ -16148,6 +16184,7 @@
             renderGameMiniStatus();
             renderCurrentBatterCard();
             renderScoreSheet();
+            refreshGlobalApplyButtonState();
 
             requestAnimationFrame(updateResultDecoration);
         }
