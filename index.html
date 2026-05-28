@@ -4038,7 +4038,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.66";
+        const APP_VERSION = "0.1.67";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9277,12 +9277,12 @@
 
         function getShareFielderShortName(fielder) {
             const names = {
-                "1": "投",
-                "2": "捕",
-                "3": "一",
-                "4": "二",
-                "5": "三",
-                "6": "遊",
+                "1": "ピッチャー",
+                "2": "キャッチャー",
+                "3": "ファースト",
+                "4": "セカンド",
+                "5": "サード",
+                "6": "ショート",
                 "7": "レフト",
                 "8": "センター",
                 "9": "ライト"
@@ -9305,6 +9305,35 @@
             return labels[direction] || "";
         }
 
+        function getShareDirectionPhrase(direction, fielder) {
+            if (!direction || direction === "none" || direction === "?") {
+                return "";
+            }
+            if (direction === "down") {
+                return /^[1-6]$/.test(String(fielder || "")) ? "前" : "前方";
+            }
+            const labels = {
+                up: "後方",
+                left: "左方向",
+                right: "右方向"
+            };
+            return labels[direction] || "";
+        }
+
+        function getShareTargetPhrase(fielderShort, direction, fielder) {
+            if (!fielderShort) {
+                return "";
+            }
+            const directionPhrase = getShareDirectionPhrase(direction, fielder);
+            if (!directionPhrase) {
+                return fielderShort + "への";
+            }
+            if (direction === "down" && /^[1-6]$/.test(String(fielder || ""))) {
+                return fielderShort + "前の";
+            }
+            return fielderShort + directionPhrase + "への";
+        }
+
         function getShareBallTypeText(snapshot) {
             if (snapshot?.selectedBallType === "fly") {
                 return "飛";
@@ -9316,6 +9345,19 @@
                 return "ゴロ";
             }
             return "";
+        }
+
+        function getShareOutBallTypeText(snapshot) {
+            if (snapshot?.selectedBallType === "fly") {
+                return "フライアウト";
+            }
+            if (snapshot?.selectedBallType === "liner") {
+                return "ライナーアウト";
+            }
+            if (snapshot?.selectedBallType === "ground") {
+                return "ゴロアウト";
+            }
+            return "アウト";
         }
 
         function getShareErrorText(snapshot, fielderShort) {
@@ -9377,6 +9419,16 @@
             const runnerEvents = getShareRunnerEventText(snapshot);
             const runnerSuffix = runnerEvents.length ? "、" + runnerEvents.join("、") : "";
             const errorText = getShareErrorText(snapshot, fielderShort);
+            const playCode = snapshot.selectedHitType && snapshot.selectedHitType !== "none"
+                ? snapshot.selectedHitType
+                : snapshot.result;
+            if (playCode === "HR") {
+                const target = getShareTargetPhrase(fielderShort, snapshot.selectedDirection, fielder);
+                return target + "ホームラン！";
+            }
+            if (playCode === "RH") {
+                return "ランニングホームラン！";
+            }
             if (snapshot.selectedHitType === "BH" || (snapshot.result === "BH")) {
                 return (fielderShort ? fielderShort + (directionText || "前") : "") + "バントヒット";
             }
@@ -9395,9 +9447,11 @@
                     return errorText + runnerSuffix;
                 }
                 const ballType = getShareBallTypeText(snapshot);
-                return ballType
-                    ? fielderShort + directionText + ballType + runnerSuffix
-                    : fielderShort + directionText + "への打球" + runnerSuffix;
+                if (ballType) {
+                    const target = getShareTargetPhrase(fielderShort, snapshot.selectedDirection, fielder);
+                    return target + getShareOutBallTypeText(snapshot) + runnerSuffix;
+                }
+                return fielderShort + "への打球" + runnerSuffix;
             }
             const labels = {
                 "B": "四球",
