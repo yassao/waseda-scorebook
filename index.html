@@ -4135,7 +4135,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.79";
+        const APP_VERSION = "0.1.80";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4218,6 +4218,7 @@
             modifiers: {
                 foul: false,
                 bunt: false,
+                buntFailed: false,
                 sacrificeFly: false,
                 sacrificeBunt: false,
                 doublePlay: false,
@@ -4363,6 +4364,7 @@
                     { value: "throw_error_onbase", label: "送球エラー" },
                     { value: "receive_error_onbase", label: "捕球エラー" },
                     { value: "force_fc", label: "封殺＆Fc" },
+                    { value: "bunt_failed_fc", label: "バント失敗Fc" },
                     { value: "fc_all_safe", label: "Fcオールセーフ" },
                     { value: "dropped_third", label: "振り逃げ" }
                 ]
@@ -4376,6 +4378,9 @@
                     { value: "strikeout", label: "三振" },
                     { value: "sac_bunt", label: "犠打" },
                     { value: "sac_fly", label: "犠飛" },
+                    { value: "bunt_failed_out", label: "バント失敗" },
+                    { value: "bunt_fly_out", label: "バントフライ" },
+                    { value: "bunt_double_play", label: "バント併殺" },
                     { value: "double_play", label: "併殺" }
                 ]
             },
@@ -7478,6 +7483,7 @@
             state.modifiers = deepClone(snapshot.modifiers || {
                 foul: false,
                 bunt: false,
+                buntFailed: false,
                 sacrificeFly: false,
                 sacrificeBunt: false,
                 doublePlay: false,
@@ -7534,11 +7540,11 @@
             addRule(["盗塁", "スチール", "S"], { result: "S", note: "初期マスタ: 盗塁" });
             addRule(["犠牲フライ", "犠飛"], { fielder: "8", ballType: "fly", result: "OUT", modifiers: { sacrificeFly: true }, note: "初期マスタ: 犠飛" });
             addRule(["犠牲バント", "送りバント", "犠打"], { fielder: "1", ballType: "ground", result: "OUT", modifiers: { sacrificeBunt: true }, note: "初期マスタ: 犠打" });
-            addRule(["犠打失敗"], { fielder: "1", ballType: "ground", result: "Fc", modifiers: { sacrificeBunt: true }, note: "初期マスタ: 犠打失敗" });
+            addRule(["犠打失敗", "バント失敗"], { fielder: "1", ballType: "ground", result: "Fc", modifiers: { bunt: true, buntFailed: true }, runnerContext: { advances: ["打者走者一塁セーフ"], outsOnBases: ["三塁封殺"] }, note: "初期マスタ: バント失敗" });
             addRule(["野手選択", "フィルダースチョイス"], { ballType: "ground", result: "Fc", note: "初期マスタ: 野選" });
             addRule(["ダブルプレー", "併殺"], { fielder: "?", ballType: "ground", result: "OUT", outScore: "Ⅱ", fieldSequence: ["?"], modifiers: { doublePlay: true }, note: "初期マスタ: 併殺" });
             addRule(["ファールフライ"], { ballType: "fly", result: "OUT", modifiers: { foul: true }, note: "初期マスタ: ファールフライ" });
-            addRule(["バントフライ"], { ballType: "fly", result: "OUT", modifiers: { bunt: true }, note: "初期マスタ: バントフライ" });
+            addRule(["バントフライ"], { ballType: "fly", result: "OUT", modifiers: { bunt: true, buntFailed: true }, note: "初期マスタ: バントフライ" });
             addRule(["バントファールフライ"], { ballType: "fly", result: "OUT", modifiers: { bunt: true, foul: true }, note: "初期マスタ: バントファールフライ" });
             addRule(["テキサスヒット", "ポテンヒット"], { fielder: "8", result: "T", note: "初期マスタ: テキサスヒット" });
             addRule(["ランニングホームラン"], { fielder: "8", result: "RH", note: "初期マスタ: ランニングホームラン" });
@@ -9758,6 +9764,9 @@
             }
             if (snapshot.result === "Fc") {
                 const lead = fielderShort ? fielderShort + "ゴロ" : "ゴロ";
+                if (snapshot.modifiers?.buntFailed) {
+                    return "バント失敗、" + lead + runnerSuffix + "、打者走者一塁セーフ（野選）";
+                }
                 return lead + runnerSuffix + "、打者走者一塁セーフ（野選）";
             }
             if (snapshot.result === fielder && fielderShort) {
@@ -9767,6 +9776,9 @@
                 const ballType = getShareBallTypeText(snapshot);
                 if (ballType) {
                     const target = getShareTargetPhrase(fielderShort, snapshot.selectedDirection, fielder);
+                    if (snapshot.modifiers?.buntFailed) {
+                        return (snapshot.selectedBallType === "fly" ? "バントフライ" : "バント失敗、" + target + getShareOutBallTypeText(snapshot)) + runnerSuffix;
+                    }
                     return target + getShareOutBallTypeText(snapshot) + runnerSuffix;
                 }
                 return fielderShort + "への打球" + runnerSuffix;
@@ -11976,6 +11988,7 @@
                 "打者結果の1行目は、打者が打った結果を入力します。",
                 "＋で追加した行は、1行目に付随する進塁やアウトだけを入力します。",
                 "例: 1ヒット1エラーは「出塁: 安打」＋「進塁: 送球エラーで打者二塁」。",
+                "バント失敗は、打者が生きる時は「バント失敗Fc」、打者も絡む時は「バント失敗」「バントフライ」「バント併殺」を選びます。",
                 "標準進塁と違う走者の移動やアウトは、走者プレビューをタップして最終到達塁を補正します。",
                 "野手/連携は 8、63、643 のようにハイフンなしで入力できます。"
             ].join("\\n"));
@@ -13007,6 +13020,14 @@
                         parsed.runnerContext.outsOnBases.push(getForceOutLabelFromSequence(sequence));
                         parsed.runnerContext.advances.push("打者走者一塁セーフ");
                         break;
+                    case "bunt_failed_fc":
+                        parsed.result = parsed.result || "Fc";
+                        parsed.ballType = "ground";
+                        parsed.modifiers.bunt = true;
+                        parsed.modifiers.buntFailed = true;
+                        parsed.runnerContext.outsOnBases.push(getForceOutLabelFromSequence(sequence));
+                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        break;
                     case "fc_all_safe":
                         parsed.result = parsed.result || "Fc";
                         parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
@@ -13045,6 +13066,26 @@
                         parsed.result = parsed.result || "OUT";
                         parsed.ballType = "fly";
                         parsed.modifiers.sacrificeFly = true;
+                        break;
+                    case "bunt_failed_out":
+                        parsed.result = parsed.result || "OUT";
+                        parsed.ballType = "ground";
+                        parsed.modifiers.bunt = true;
+                        parsed.modifiers.buntFailed = true;
+                        break;
+                    case "bunt_fly_out":
+                        parsed.result = parsed.result || "OUT";
+                        parsed.ballType = "fly";
+                        parsed.modifiers.bunt = true;
+                        parsed.modifiers.buntFailed = true;
+                        break;
+                    case "bunt_double_play":
+                        parsed.result = parsed.result || "OUT";
+                        parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
+                        parsed.modifiers.bunt = true;
+                        parsed.modifiers.buntFailed = true;
+                        parsed.modifiers.doublePlay = true;
+                        parsed.outScore = "Ⅱ";
                         break;
                     case "double_play":
                         parsed.result = parsed.result || "OUT";
@@ -13280,9 +13321,15 @@
             let mainText = labels.join(" + ");
 
             if (parsed.result === "OUT" && parsed.modifiers?.doublePlay && sequencePhrase) {
-                mainText = sequencePhrase + "の併殺";
+                mainText = (parsed.modifiers?.buntFailed ? "バント失敗 " : "") + sequencePhrase + "の併殺";
             } else if (parsed.result === "OUT" && parsed.ballType === "ground" && sequencePhrase) {
-                mainText = sequencePhrase + "のゴロアウト";
+                mainText = (parsed.modifiers?.buntFailed ? "バント失敗 " : "") + sequencePhrase + "のゴロアウト";
+            } else if (parsed.result === "Fc" && parsed.modifiers?.buntFailed) {
+                mainText = "バント失敗 フィルダースチョイス";
+            } else if (parsed.result === "OUT" && parsed.modifiers?.buntFailed && parsed.ballType === "fly") {
+                mainText = "バントフライ";
+            } else if (parsed.result === "OUT" && parsed.modifiers?.buntFailed) {
+                mainText = "バント失敗";
             }
 
             if (fielderPhrase) {
@@ -13299,7 +13346,7 @@
                 } else if (parsed.result === "HR") {
                     mainText = fielderPhrase + directionPhrase + "本塁打";
                 } else if (parsed.result === "OUT" && parsed.ballType !== "none") {
-                    mainText = fielderPhrase + labels.join(" + ");
+                    mainText = fielderPhrase + (parsed.modifiers?.buntFailed ? mainText : labels.join(" + "));
                 } else if (parsed.result === "Fc" && parsed.errorMode) {
                     const errorPhrase = parsed.errorMode === "thrower"
                         ? "送球エラー"
@@ -13332,6 +13379,17 @@
             if (context?.advances?.includes("一走生還")) {
                 advanceText.push("一走生還");
             }
+            (context?.outsOnBases || []).forEach((label) => {
+                if (label === "二塁封殺") {
+                    advanceText.push("二塁封殺");
+                } else if (label === "三塁封殺") {
+                    advanceText.push("三塁封殺");
+                } else if (label === "本塁封殺") {
+                    advanceText.push("本塁封殺");
+                } else if (label) {
+                    advanceText.push(String(label));
+                }
+            });
             return [mainText, ...advanceText].filter(Boolean).join(" / ");
         }
 
@@ -13625,6 +13683,45 @@
                     runnerContext: dynamicRunnerContext,
                     note: normalized,
                     confidence: 0.8,
+                    source: "rule"
+                };
+            }
+
+            if (normalized.includes("バント失敗") || normalized.includes("犠打失敗")) {
+                const sequence = extractFieldSequenceFromText(normalized);
+                if (normalized.includes("併殺") || normalized.includes("ダブルプレー") || normalized.includes("ゲッツー")) {
+                    return {
+                        fielder: sequence?.[0] || dynamicFielder || "?",
+                        direction: dynamicDirection,
+                        ballType: normalized.includes("フライ") ? "fly" : "ground",
+                        result: "OUT",
+                        fieldSequence: sequence || (dynamicFielder ? [dynamicFielder] : ["?"]),
+                        modifiers: { bunt: true, buntFailed: true, doublePlay: true },
+                        runnerContext: dynamicRunnerContext,
+                        outScore: "Ⅱ",
+                        note: normalized,
+                        confidence: sequence ? 0.9 : 0.72,
+                        source: "rule"
+                    };
+                }
+                if (normalized.includes("フライ") || normalized.includes("飛")) {
+                    return {
+                        fielder: sequence?.[0] || dynamicFielder || "?",
+                        direction: dynamicDirection,
+                        ballType: "fly",
+                        result: "OUT",
+                        fieldSequence: sequence || (dynamicFielder ? [dynamicFielder] : undefined),
+                        modifiers: { bunt: true, buntFailed: true },
+                        runnerContext: dynamicRunnerContext,
+                        note: normalized,
+                        confidence: dynamicFielder ? 0.82 : 0.7,
+                        source: "rule"
+                    };
+                }
+                return {
+                    ...buildForceOutFcParsed(normalized, sequence, dynamicRunnerContext),
+                    modifiers: { bunt: true, buntFailed: true },
+                    note: normalized,
                     source: "rule"
                 };
             }
@@ -14307,6 +14404,7 @@
             return {
                 foul: text.includes("ファウル"),
                 bunt: text.includes("バント"),
+                buntFailed: text.includes("バント失敗"),
                 sacrificeFly: text.includes("犠飛"),
                 sacrificeBunt: text.includes("犠打")
             };
@@ -14320,6 +14418,9 @@
             }
             if (modifiers.bunt) {
                 labels.push("バント");
+            }
+            if (modifiers.buntFailed) {
+                labels.push("バント失敗");
             }
             if (modifiers.sacrificeFly) {
                 labels.push("犠飛");
@@ -14501,6 +14602,7 @@
             if (parsed.modifiers) {
                 state.modifiers.foul = Boolean(parsed.modifiers.foul);
                 state.modifiers.bunt = Boolean(parsed.modifiers.bunt);
+                state.modifiers.buntFailed = Boolean(parsed.modifiers.buntFailed);
                 state.modifiers.sacrificeFly = Boolean(parsed.modifiers.sacrificeFly);
                 state.modifiers.sacrificeBunt = Boolean(parsed.modifiers.sacrificeBunt);
                 state.modifiers.doublePlay = Boolean(parsed.modifiers.doublePlay);
@@ -14723,6 +14825,7 @@
         function resetModifiers() {
             state.modifiers.foul = false;
             state.modifiers.bunt = false;
+            state.modifiers.buntFailed = false;
             state.modifiers.sacrificeFly = false;
             state.modifiers.sacrificeBunt = false;
             state.modifiers.doublePlay = false;
