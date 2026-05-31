@@ -4200,7 +4200,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.89";
+        const APP_VERSION = "0.1.90";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7398,8 +7398,8 @@
                 ["8", "8 中"],
                 ["9", "9 右"],
                 ["DH", "DH"],
-                ["PH", "PH"],
-                ["PR", "PR"]
+                ["PH", "PH 代打"],
+                ["PR", "PR 代走"]
             ];
             const normalizedSelected = String(selectedValue || "").trim().toUpperCase();
             if (normalizedSelected && !options.some(([value]) => value === normalizedSelected)) {
@@ -10311,7 +10311,7 @@
             }
             const currentName = state.playerNames[half]?.[row] || "";
             const label = (state.teamNames[half] || (half === "top" ? "先攻" : "後攻")) + " " + (row + 1) + "番";
-            const nextName = window.prompt(label + "の代打/交代選手名を入力してください。現在: " + (currentName || "未登録"), "");
+            const nextName = window.prompt(label + "の代打/代走/交代選手名を入力してください。現在: " + (currentName || "未登録"), "");
             if (!nextName) {
                 return;
             }
