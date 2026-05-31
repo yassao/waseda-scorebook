@@ -1132,15 +1132,15 @@
 
             body.printing-scorebook .print-scorebook-page {
                 display: grid !important;
-                width: 198mm;
-                height: 282mm;
-                max-height: 282mm;
+                width: 190mm;
+                height: 270mm;
+                max-height: 270mm;
                 box-sizing: border-box;
                 margin: 0 auto !important;
-                padding: 0.8mm;
+                padding: 0.6mm;
                 background: #ffffff;
                 grid-template-rows: min-content minmax(0, 1fr) min-content minmax(0, 1fr);
-                gap: 0.75mm;
+                gap: 0.6mm;
                 align-content: center;
                 justify-content: center;
                 overflow: hidden;
@@ -1149,15 +1149,15 @@
                 page-break-after: avoid;
                 page-break-inside: avoid;
                 --sheet-green: #111111;
-                --sheet-order-w: 6.6mm;
-                --sheet-name-w: 20mm;
-                --sheet-number-w: 6.6mm;
-                --sheet-cell-w: 13.7mm;
-                --sheet-cell-h: 7.15mm;
-                --sheet-header-h: 5mm;
-                --sheet-font: 1.98mm;
-                --sheet-zoom: 0.57;
-                --print-content-w: 197.6mm;
+                --sheet-order-w: 6.35mm;
+                --sheet-name-w: 19.1mm;
+                --sheet-number-w: 6.35mm;
+                --sheet-cell-w: 13.15mm;
+                --sheet-cell-h: 6.82mm;
+                --sheet-header-h: 4.65mm;
+                --sheet-font: 1.9mm;
+                --sheet-zoom: 0.545;
+                --print-content-w: 189.2mm;
             }
 
             body.printing-scorebook .print-info-table,
@@ -1289,7 +1289,7 @@
 
             body.printing-scorebook .print-scorebook-page {
                 position: absolute !important;
-                top: 4mm;
+                top: 6mm;
                 left: 50%;
                 transform: translateX(-50%);
                 margin: 0 !important;
@@ -4156,7 +4156,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.84";
+        const APP_VERSION = "0.1.85";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
