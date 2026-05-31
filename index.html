@@ -515,6 +515,14 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .current-batter-pitcher::after {
+            content: " 変更";
+            color: #0f766e;
+            font-weight: 900;
         }
 
         .game-mini-score {
@@ -1956,6 +1964,7 @@
             background: #fff;
             border-left: 1px solid var(--sheet-green);
             border-top: 2px solid var(--sheet-green);
+            touch-action: manipulation;
         }
 
         .pitcher-book-label,
@@ -1972,6 +1981,10 @@
             font-weight: 800;
             line-height: 1.2;
             background: #fff;
+        }
+
+        .pitcher-book-cell {
+            cursor: pointer;
         }
 
         .pitcher-book-title {
@@ -3040,6 +3053,36 @@
             min-height: 260px;
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
             font-size: 14px;
+        }
+
+        .pitcher-change-dialog-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .pitcher-change-dialog-form label {
+            display: grid;
+            gap: 4px;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .pitcher-change-dialog-form .span-2 {
+            grid-column: span 2;
+        }
+
+        .pitcher-change-dialog-form input,
+        .pitcher-change-dialog-form select {
+            min-height: 44px;
+            border: 2px solid #d7e1ea;
+            border-radius: 12px;
+            padding: 8px 10px;
+            font-size: 16px;
+            font-weight: 800;
+            background: #fff;
+            color: #172331;
         }
 
         .inning-share-options {
@@ -4156,7 +4199,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.85";
+        const APP_VERSION = "0.1.86";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4309,6 +4352,7 @@
         let naturalLanguageParseTimer = null;
         let sheetCellPressTimer = null;
         let rosterNamePressTimer = null;
+        let pitcherBookPressTimer = null;
         let suppressSheetCellClick = false;
         let sheetPinchStartDistance = 0;
         let sheetPinchStartZoom = 1;
@@ -6362,15 +6406,32 @@
             }
         }
 
-        function addPitcherChangeFromForm() {
+        function savePitcherChange(teamHalf, changeInput) {
             state.gameInfo = normalizeGameInfo(state.gameInfo);
+            const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
+            const change = normalizePitcherChange(changeInput);
+            if (!change.name) {
+                return false;
+            }
+            if (!state.gameInfo.pitcherChanges[normalizedTeamHalf]) {
+                state.gameInfo.pitcherChanges[normalizedTeamHalf] = [];
+            }
+            state.gameInfo.pitcherChanges[normalizedTeamHalf].push(change);
+            renderPitcherChangeList();
+            renderCurrentBatterCard();
+            renderScoreSheet();
+            scheduleGameAutoSave();
+            return true;
+        }
+
+        function addPitcherChangeFromForm() {
             const teamHalf = document.getElementById("pitcherChangeTeam")?.value === "bottom" ? "bottom" : "top";
             const name = document.getElementById("pitcherChangeName")?.value.trim() || "";
             if (!name) {
                 alert("投手名を入力してください。");
                 return;
             }
-            const change = normalizePitcherChange({
+            const didSave = savePitcherChange(teamHalf, {
                 name,
                 throws: document.getElementById("pitcherChangeThrows")?.value || "",
                 inning: document.getElementById("pitcherChangeInning")?.value || getColumnInningLabel(),
@@ -6378,12 +6439,103 @@
                 battingOrder: document.getElementById("pitcherChangeBattingOrder")?.value || state.selectedSheetRow + 1,
                 note: document.getElementById("pitcherChangeNote")?.value.trim() || ""
             });
-            state.gameInfo.pitcherChanges[teamHalf].push(change);
-            ["pitcherChangeName", "pitcherChangeNote"].forEach((id) => setElementValue(id, ""));
-            renderPitcherChangeList();
-            renderCurrentBatterCard();
-            renderScoreSheet();
-            scheduleGameAutoSave();
+            if (didSave) {
+                ["pitcherChangeName", "pitcherChangeNote"].forEach((id) => setElementValue(id, ""));
+            }
+        }
+
+        function getPitcherChangeDialogContext(teamHalf, battingHalf = null) {
+            const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
+            const normalizedBattingHalf = battingHalf === "top" || battingHalf === "bottom"
+                ? battingHalf
+                : getOpponentHalf(normalizedTeamHalf);
+            const col = normalizedBattingHalf === state.activeHalf ? state.selectedSheetCol : 0;
+            const row = normalizedBattingHalf === state.activeHalf ? state.selectedSheetRow : 0;
+            const inningLabel = getInningLabels(normalizedBattingHalf)[col] || (col + 1);
+            return {
+                teamHalf: normalizedTeamHalf,
+                battingHalf: normalizedBattingHalf,
+                inning: inningLabel,
+                battingOrder: row + 1
+            };
+        }
+
+        function ensurePitcherChangeDialog() {
+            let backdrop = document.getElementById("pitcherChangeDialogBackdrop");
+            let popup = document.getElementById("pitcherChangeDialog");
+            if (!backdrop) {
+                backdrop = document.createElement("div");
+                backdrop.id = "pitcherChangeDialogBackdrop";
+                backdrop.className = "comment-popup-backdrop";
+                backdrop.onclick = closePitcherChangeDialog;
+                document.body.appendChild(backdrop);
+            }
+            if (!popup) {
+                popup = document.createElement("div");
+                popup.id = "pitcherChangeDialog";
+                popup.className = "comment-popup";
+                popup.setAttribute("aria-hidden", "true");
+                document.body.appendChild(popup);
+            }
+            return { backdrop, popup };
+        }
+
+        function openPitcherChangeDialogForHalf(teamHalf, battingHalf = null) {
+            cancelPitcherBookPress();
+            const context = getPitcherChangeDialogContext(teamHalf, battingHalf);
+            const { backdrop, popup } = ensurePitcherChangeDialog();
+            const teamName = state.teamNames[context.teamHalf] || (context.teamHalf === "top" ? "先攻" : "後攻");
+            const battingTeamName = state.teamNames[context.battingHalf] || (context.battingHalf === "top" ? "先攻" : "後攻");
+            popup.innerHTML = [
+                '<div class="comment-popup-title">投手交代: ' + escapeHtml(teamName) + '</div>',
+                '<div class="comment-popup-body">' + escapeHtml(context.inning + '回' + getHalfLabel(context.battingHalf) + '・' + battingTeamName + '攻撃 ' + context.battingOrder + '番から') + '</div>',
+                '<form class="pitcher-change-dialog-form" onsubmit="savePitcherChangeDialog(event)">',
+                    '<input type="hidden" id="pitcherChangeDialogTeam" value="' + escapeHtml(context.teamHalf) + '">',
+                    '<label>投げ方<select id="pitcherChangeDialogThrows"><option value="">未選択</option><option value="right">右</option><option value="left">左</option></select></label>',
+                    '<label>交代回<input id="pitcherChangeDialogInning" type="number" min="1" max="12" inputmode="numeric" value="' + escapeHtml(context.inning) + '"></label>',
+                    '<label class="span-2">投手名<input id="pitcherChangeDialogName" type="text" placeholder="例: 田中" autofocus></label>',
+                    '<label>表/裏<select id="pitcherChangeDialogHalf"><option value="top"' + (context.battingHalf === "top" ? " selected" : "") + '>表</option><option value="bottom"' + (context.battingHalf === "bottom" ? " selected" : "") + '>裏</option></select></label>',
+                    '<label>何番から<input id="pitcherChangeDialogBattingOrder" type="number" min="1" max="9" inputmode="numeric" value="' + escapeHtml(context.battingOrder) + '"></label>',
+                    '<label class="span-2">メモ<input id="pitcherChangeDialogNote" type="text" placeholder="例: 二死一二塁から"></label>',
+                    '<div class="comment-popup-actions span-2">',
+                        '<button type="button" onclick="closePitcherChangeDialog()">キャンセル</button>',
+                        '<button type="submit">記録する</button>',
+                    '</div>',
+                '</form>'
+            ].join("");
+            backdrop.classList.add("is-open");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            setTimeout(() => document.getElementById("pitcherChangeDialogName")?.focus(), 0);
+        }
+
+        function savePitcherChangeDialog(event) {
+            event?.preventDefault();
+            const teamHalf = document.getElementById("pitcherChangeDialogTeam")?.value === "bottom" ? "bottom" : "top";
+            const name = document.getElementById("pitcherChangeDialogName")?.value.trim() || "";
+            if (!name) {
+                alert("投手名を入力してください。");
+                return;
+            }
+            const didSave = savePitcherChange(teamHalf, {
+                name,
+                throws: document.getElementById("pitcherChangeDialogThrows")?.value || "",
+                inning: document.getElementById("pitcherChangeDialogInning")?.value || getColumnInningLabel(),
+                half: document.getElementById("pitcherChangeDialogHalf")?.value || state.activeHalf,
+                battingOrder: document.getElementById("pitcherChangeDialogBattingOrder")?.value || state.selectedSheetRow + 1,
+                note: document.getElementById("pitcherChangeDialogNote")?.value.trim() || ""
+            });
+            if (didSave) {
+                closePitcherChangeDialog();
+            }
+        }
+
+        function closePitcherChangeDialog() {
+            const popup = document.getElementById("pitcherChangeDialog");
+            const backdrop = document.getElementById("pitcherChangeDialogBackdrop");
+            popup?.classList.remove("is-open");
+            popup?.setAttribute("aria-hidden", "true");
+            backdrop?.classList.remove("is-open");
         }
 
         function deletePitcherChange(teamHalf, index) {
@@ -6872,13 +7024,14 @@
             }
             const batter = getCurrentBatterInfo();
             const pitcher = getCurrentOpponentPitcherName();
+            const opponentHalf = getOpponentHalf(batter.half);
             const name = batter.name || "未登録";
             const number = batter.number ? "#" + batter.number : "背番号未登録";
             const position = batter.position || "守備未登録";
             card.innerHTML = [
                 '<div class="current-batter-main"><small>' + batter.order + '番</small> ' + escapeHtml(name) + '</div>',
                 '<div class="current-batter-meta">' + escapeHtml(number) + ' / ' + escapeHtml(position) + '</div>',
-                '<div class="current-batter-pitcher">相手投手: ' + escapeHtml(pitcher || "未登録") + '</div>'
+                '<div class="current-batter-pitcher" role="button" tabindex="0" onclick="openPitcherChangeDialogForHalf(\'' + opponentHalf + '\', \'' + batter.half + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openPitcherChangeDialogForHalf(\'' + opponentHalf + '\', \'' + batter.half + '\');}">相手投手: ' + escapeHtml(pitcher || "未登録") + '</div>'
             ].join("");
         }
 
@@ -9091,6 +9244,14 @@
         function renderPitcherBook(target, half) {
             const section = document.createElement("div");
             section.className = "pitcher-book-section";
+            section.onpointerdown = () => startPitcherBookPress(half);
+            section.onpointerup = cancelPitcherBookPress;
+            section.onpointerleave = cancelPitcherBookPress;
+            section.onpointercancel = cancelPitcherBookPress;
+            section.oncontextmenu = (event) => {
+                event.preventDefault();
+                openPitcherChangeDialogForHalf(half, getOpponentHalf(half));
+            };
             const rows = getPitcherRowsForHalf(half);
             const pitcherStats = calculatePitcherStatsForTeam(half);
             const title = document.createElement("div");
@@ -10128,6 +10289,18 @@
         function cancelRosterNamePress() {
             clearTimeout(rosterNamePressTimer);
             rosterNamePressTimer = null;
+        }
+
+        function startPitcherBookPress(teamHalf) {
+            cancelPitcherBookPress();
+            pitcherBookPressTimer = setTimeout(() => {
+                openPitcherChangeDialogForHalf(teamHalf, getOpponentHalf(teamHalf));
+            }, 520);
+        }
+
+        function cancelPitcherBookPress() {
+            clearTimeout(pitcherBookPressTimer);
+            pitcherBookPressTimer = null;
         }
 
         function openPinchHitterDialog(half, row) {

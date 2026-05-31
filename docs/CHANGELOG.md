@@ -1,3 +1,12 @@
+## v0.1.86 [2026-05-31] 投手交代ダイアログの長押し起動を追加
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.85 [2026-05-31] AirPrint未選択時のPDF改ページを抑制
 
 **変更ファイル:**
