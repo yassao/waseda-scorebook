@@ -490,6 +490,7 @@
         }
 
         .current-batter-main {
+            grid-column: 1 / -1;
             min-width: 0;
             font-size: 14px;
             font-weight: 900;
@@ -507,7 +508,11 @@
         }
 
         .current-batter-meta {
-            text-align: right;
+            grid-column: 1 / -1;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .current-batter-pitcher {
@@ -4199,7 +4204,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.87";
+        const APP_VERSION = "0.1.88";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
