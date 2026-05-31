@@ -490,7 +490,6 @@
         }
 
         .current-batter-main {
-            grid-column: 1 / -1;
             min-width: 0;
             font-size: 14px;
             font-weight: 900;
@@ -508,11 +507,8 @@
         }
 
         .current-batter-meta {
-            grid-column: 1 / -1;
-            text-align: left;
+            text-align: right;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
         .current-batter-pitcher {
@@ -4204,7 +4200,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.88";
+        const APP_VERSION = "0.1.89";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7031,8 +7027,8 @@
             const pitcher = getCurrentOpponentPitcherName();
             const opponentHalf = getOpponentHalf(batter.half);
             const name = batter.name || "未登録";
-            const number = batter.number ? "#" + batter.number : "背番号未登録";
-            const position = batter.position || "守備未登録";
+            const number = batter.number ? "#" + batter.number : "背-";
+            const position = batter.position || "守-";
             card.innerHTML = [
                 '<div class="current-batter-main"><small>' + batter.order + '番</small> ' + escapeHtml(name) + '</div>',
                 '<div class="current-batter-meta">' + escapeHtml(number) + ' / ' + escapeHtml(position) + '</div>',
