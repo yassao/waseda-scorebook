@@ -4152,7 +4152,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.82";
+        const APP_VERSION = "0.1.83";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6495,6 +6495,27 @@
                 recorded[inningNumber - 1] = true;
             };
 
+            const addRunsFromSnapshot = (snapshot, inning, row, col) => {
+                let explicitScoreEvents = 0;
+                getRunnerStatusEvents(snapshot).forEach((event, eventIndex) => {
+                    if (event?.type === "score") {
+                        const scoreHalf = event.scoredHalf || half;
+                        if (scoreHalf !== half) {
+                            return;
+                        }
+                        explicitScoreEvents += 1;
+                        addRun(event.scoredInning || inning, row + ":" + col + ":" + eventIndex + ":" + JSON.stringify(event));
+                    } else if (event === "生還") {
+                        explicitScoreEvents += 1;
+                        addRun(inning, row + ":" + col + ":" + eventIndex + ":legacy-score");
+                    }
+                });
+
+                if (explicitScoreEvents === 0 && (snapshot.outScore === "●" || snapshot.outScore === "○")) {
+                    addRun(inning, row + ":" + col + ":outscore");
+                }
+            };
+
             for (let row = 0; row < 9; row += 1) {
                 for (let col = 0; col < MAX_INNINGS; col += 1) {
                     const snapshot = sheet[row]?.[col];
@@ -6509,21 +6530,7 @@
                             recorded[inningIndex] = true;
                         }
                     }
-                    getRunnerStatusEvents(snapshot).forEach((event, eventIndex) => {
-                        if (event?.type === "score") {
-                            const scoreHalf = event.scoredHalf || half;
-                            if (scoreHalf !== half) {
-                                return;
-                            }
-                            addRun(event.scoredInning || inning, row + ":" + col + ":" + eventIndex + ":" + JSON.stringify(event));
-                        } else if (event === "生還") {
-                            addRun(inning, row + ":" + col + ":" + eventIndex + ":legacy-score");
-                        }
-                    });
-
-                    if (snapshot.outScore === "●" || snapshot.outScore === "○") {
-                        addRun(inning, row + ":" + col + ":outscore");
-                    }
+                    addRunsFromSnapshot(snapshot, inning, row, col);
                 }
             }
 
