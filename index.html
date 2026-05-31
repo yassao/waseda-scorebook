@@ -363,6 +363,7 @@
         }
 
         .history-btn,
+        .header-home-btn,
         .workspace-toggle-btn,
         .input-layout-toggle-btn,
         .header-help-btn {
@@ -377,6 +378,13 @@
             font-weight: 800;
             line-height: 1;
             box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+        }
+
+        .header-home-btn svg {
+            width: 18px;
+            height: 18px;
+            display: block;
+            margin: 0 auto;
         }
 
         .header-help-btn {
@@ -3497,7 +3505,8 @@
                 font-size: 8px;
             }
 
-            .history-btn {
+            .history-btn,
+            .header-home-btn {
                 width: 30px;
                 min-height: 30px;
                 font-size: 16px;
@@ -3774,6 +3783,13 @@
         <header class="app-header">
             <div class="history-actions" aria-label="履歴操作">
                 <span id="appVersionBadge" class="app-version-badge">v0.1.52</span>
+                <button class="header-home-btn" onclick="saveCurrentGameAndShowStart()" aria-label="現在の試合を保存してホームへ戻る" title="保存してホーム">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 11.5 12 4l9 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M6.5 10.5V20h11v-9.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M10 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </button>
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
                 <button id="workspaceToggleBtn" class="workspace-toggle-btn" onclick="toggleTopWorkspace()" aria-label="入力とスコアブックを切替">スコアブック</button>
@@ -4136,7 +4152,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.81";
+        const APP_VERSION = "0.1.82";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -15565,6 +15581,8 @@
                     projected[1] = { ...projected[0], baseIndex: 1 };
                 }
                 projected[0] = null;
+            } else if (state.modifiers?.sacrificeFly && state.outScore) {
+                projected[2] = null;
             } else if (state.modifiers?.doublePlay && state.outScore) {
                 const snapshot = captureAtBatSnapshot();
                 const runnerOutEvents = resolveDoublePlayRunnerOutEvents(snapshot, projected.map((item) => item?.runnerRef || null));
