@@ -463,7 +463,7 @@
         .game-mini-status {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
-            gap: 6px;
+            gap: 3px;
             align-items: center;
             margin-top: 5px;
             padding: 5px 6px;
@@ -521,19 +521,21 @@
             display: grid;
             gap: 3px;
             font-size: 11px;
+            min-width: 0;
         }
 
         .game-mini-score-row {
             display: grid;
-            grid-template-columns: 1.3em 1fr 1.2em;
-            gap: 5px;
+            grid-template-columns: 0.75em minmax(0, 1fr) 0.85em;
+            gap: 2px;
             align-items: center;
+            min-width: 0;
         }
 
         .game-mini-team {
             overflow: hidden;
             color: #f8fafc;
-            font-size: 9px;
+            font-size: 10px;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
@@ -541,6 +543,7 @@
         .game-mini-run {
             color: #fff;
             font-size: 13px;
+            min-width: 0.85em;
             text-align: right;
         }
 
@@ -550,12 +553,12 @@
 
         .game-mini-side {
             display: grid;
-            gap: 3px;
+            gap: 2px;
             justify-items: end;
         }
 
         .game-mini-inning {
-            padding: 2px 5px;
+            padding: 1px 4px;
             border-radius: 999px;
             background: #273443;
             color: #f8fafc;
@@ -564,7 +567,7 @@
 
         .game-mini-bases {
             position: relative;
-            width: 34px;
+            width: 30px;
             height: 24px;
         }
 
@@ -599,16 +602,17 @@
 
         .game-mini-counts {
             display: flex;
-            gap: 4px;
-            font-size: 8px;
+            gap: 2px;
+            font-size: 7px;
             color: #cbd5e1;
+            white-space: nowrap;
         }
 
         .game-mini-dot {
             display: inline-block;
-            width: 7px;
-            height: 7px;
-            margin-left: 2px;
+            width: 6px;
+            height: 6px;
+            margin-left: 1px;
             border-radius: 50%;
             background: #334155;
             vertical-align: -1px;
@@ -4152,7 +4156,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.83";
+        const APP_VERSION = "0.1.84";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
