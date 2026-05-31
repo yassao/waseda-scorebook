@@ -933,7 +933,7 @@
         .global-apply-btn {
             width: 100%;
             height: 100%;
-            min-height: 48px;
+            min-height: 38px;
             border-color: var(--teal);
             background: #0f766e;
             color: white;
@@ -3219,9 +3219,10 @@
         }
 
         .tweet-comment-input {
-            min-height: 48px;
-            max-height: 72px;
-            padding: 17px 46px 16px 11px;
+            height: 38px;
+            min-height: 38px;
+            max-height: 48px;
+            padding: 13px 40px 6px 10px;
             border: 2px solid #d7e1ea;
             border-radius: 14px;
             background: #fff;
@@ -3257,8 +3258,8 @@
             right: 7px;
             top: 50%;
             transform: translateY(-50%);
-            min-height: 30px;
-            width: 30px;
+            min-height: 26px;
+            width: 26px;
             padding: 0;
             border-radius: 999px;
             font-size: 18px;
@@ -3963,7 +3964,7 @@
         <div class="global-apply-row">
             <div class="tweet-comment-row">
                 <div id="commentTargetLabel" class="tweet-target-label">対象: 1回 1番</div>
-                <textarea id="atBatCommentInput" class="tweet-comment-input" placeholder="一言メモ" rows="2" oninput="updateAtBatComment(this.value)"></textarea>
+                <textarea id="atBatCommentInput" class="tweet-comment-input" placeholder="一言メモ" rows="1" oninput="updateAtBatComment(this.value)"></textarea>
                 <div id="pitchMemoList" class="pitch-memo-list" aria-live="polite"></div>
                 <button class="small-btn tweet-draft-btn" onclick="registerPitchComment()" aria-label="この投球に一言メモ" title="この投球に一言メモ">↑</button>
             </div>
@@ -4135,7 +4136,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.80";
+        const APP_VERSION = "0.1.81";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6654,6 +6655,7 @@
             }
             state.playerNames[half][index] = value.trim();
             renderCurrentBatterCard();
+            updateCommentTargetLabel();
             renderScoreSheet();
             scheduleGameAutoSave();
         }
@@ -6756,6 +6758,7 @@
             state.playerNumbers[half][index] = value.trim();
             updateRegisteredPlayerNameOptions();
             renderCurrentBatterCard();
+            updateCommentTargetLabel();
             renderScoreSheet();
             scheduleGameAutoSave();
         }
@@ -6770,6 +6773,7 @@
             state.playerPositions[half][index] = value.trim();
             updateRegisteredPlayerNameOptions();
             renderCurrentBatterCard();
+            updateCommentTargetLabel();
             scheduleGameAutoSave();
         }
 
@@ -6782,6 +6786,7 @@
             const gameInfoPitcherId = half === "top" ? "gameInfoTopPitcher" : "gameInfoBottomPitcher";
             setElementValue(gameInfoPitcherId, state.gameInfo.pitchers[half]);
             renderCurrentBatterCard();
+            updateCommentTargetLabel();
             renderScoreSheet();
             scheduleGameAutoSave();
         }
@@ -7266,15 +7271,15 @@
                     const order = index + 1;
                     return [
                         `<div class="player-roster-order">${order}番</div>`,
-                        `<input id="playerName_${half}_${index}" class="player-name-field" list="registeredPlayerNameOptions" value="${escapeHtml(name)}" placeholder="名前" aria-label="${escapeHtml(teamLabel)} ${order}番選手名" onchange="updatePlayerNameFromInput('${half}', ${index}, this)">`,
-                        `<input id="playerNumber_${half}_${index}" class="player-name-field" value="${escapeHtml(numbers[index] || "")}" placeholder="背" inputmode="numeric" aria-label="${escapeHtml(teamLabel)} ${order}番背番号" onchange="updatePlayerNumber('${half}', ${index}, this.value)">`,
-                        `<select id="playerPosition_${half}_${index}" class="player-name-field" aria-label="${escapeHtml(teamLabel)} ${order}番守備位置" onchange="updatePlayerPosition('${half}', ${index}, this.value)">${getRosterPositionOptions(positions[index])}</select>`
+                        `<input id="playerName_${half}_${index}" class="player-name-field" list="registeredPlayerNameOptions" value="${escapeHtml(name)}" placeholder="名前" aria-label="${escapeHtml(teamLabel)} ${order}番選手名" oninput="updatePlayerNameFromInput('${half}', ${index}, this)">`,
+                        `<input id="playerNumber_${half}_${index}" class="player-name-field" value="${escapeHtml(numbers[index] || "")}" placeholder="背" inputmode="numeric" aria-label="${escapeHtml(teamLabel)} ${order}番背番号" oninput="updatePlayerNumber('${half}', ${index}, this.value)">`,
+                        `<select id="playerPosition_${half}_${index}" class="player-name-field" aria-label="${escapeHtml(teamLabel)} ${order}番守備位置" oninput="updatePlayerPosition('${half}', ${index}, this.value)" onchange="updatePlayerPosition('${half}', ${index}, this.value)">${getRosterPositionOptions(positions[index])}</select>`
                     ].join("");
                 }).join("");
                 return [
                     '<div class="player-roster-team' + (half === state.activeHalf ? ' is-active' : '') + '">',
                     '<div class="player-roster-team-title">' + escapeHtml(teamLabel) + (half === state.activeHalf ? ' 入力中' : '') + '</div>',
-                    '<label class="player-roster-pitcher"><span>投手</span><input class="player-name-field" list="registeredPlayerNameOptions" value="' + escapeHtml(pitcherName) + '" placeholder="投手名" aria-label="' + escapeHtml(teamLabel) + ' 投手名" onchange="updateTeamPitcherFromRoster(\'' + half + '\', this.value)"></label>',
+                    '<label class="player-roster-pitcher"><span>投手</span><input class="player-name-field" list="registeredPlayerNameOptions" value="' + escapeHtml(pitcherName) + '" placeholder="投手名" aria-label="' + escapeHtml(teamLabel) + ' 投手名" oninput="updateTeamPitcherFromRoster(\'' + half + '\', this.value)"></label>',
                     '<div class="player-roster-grid">',
                     inputs,
                     '</div>',
@@ -7861,10 +7866,10 @@
                 return "";
             }
             if (text === "2塁") {
-                return "(2)";
+                return "";
             }
             if (text === "3塁") {
-                return "(3)";
+                return "";
             }
             if (text === "残塁") {
                 return { kind: "leftOnBase", label: "ℓ" };
