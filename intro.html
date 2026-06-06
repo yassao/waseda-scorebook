@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スコアブック by CuViu 紹介</title>
+    <style>
+        :root {
+            --ink: #142231;
+            --muted: #607184;
+            --line: #d8e2ea;
+            --paper: #fffdf7;
+            --field: #0f7f72;
+            --field-dark: #0b5d54;
+            --accent: #d94b3d;
+            --blue: #1e6ad8;
+            --wash: #eef5f7;
+            --shadow: 0 20px 48px rgba(20, 34, 49, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 12% 0%, rgba(15, 127, 114, 0.16), transparent 32%),
+                radial-gradient(circle at 88% 12%, rgba(217, 75, 61, 0.12), transparent 28%),
+                linear-gradient(160deg, #fffaf0 0%, #e8f2f6 100%);
+            line-height: 1.75;
+        }
+
+        a {
+            color: inherit;
+        }
+
+        .page {
+            width: min(1080px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 28px 0 52px;
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+            gap: 28px;
+            align-items: center;
+            min-height: 64vh;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 13px;
+            border: 1px solid rgba(15, 127, 114, 0.24);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.74);
+            color: var(--field-dark);
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        h1 {
+            margin: 18px 0 12px;
+            font-size: clamp(40px, 7vw, 78px);
+            line-height: 1.02;
+            letter-spacing: -0.05em;
+        }
+
+        .brand-small {
+            font-size: 0.28em;
+            letter-spacing: 0.02em;
+            color: var(--muted);
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+
+        .lead {
+            max-width: 720px;
+            font-size: clamp(18px, 2.6vw, 25px);
+            color: #32465c;
+            font-weight: 800;
+        }
+
+        .sublead {
+            max-width: 760px;
+            margin: 18px 0 0;
+            color: var(--muted);
+            font-size: 16px;
+        }
+
+        .cta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 26px;
+        }
+
+        .cta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+            padding: 12px 20px;
+            border: 2px solid var(--ink);
+            border-radius: 16px;
+            background: var(--field);
+            color: white;
+            font-weight: 900;
+            text-decoration: none;
+            box-shadow: 0 10px 24px rgba(15, 127, 114, 0.18);
+        }
+
+        .cta.secondary {
+            background: rgba(255, 255, 255, 0.78);
+            color: var(--ink);
+            box-shadow: none;
+        }
+
+        .mock {
+            position: relative;
+            padding: 22px;
+            border-radius: 28px;
+            background: rgba(255, 255, 255, 0.82);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .mock::before {
+            content: "";
+            position: absolute;
+            inset: auto -20% -28% 18%;
+            height: 160px;
+            border-radius: 50%;
+            background: rgba(15, 127, 114, 0.14);
+        }
+
+        .score-card {
+            position: relative;
+            width: min(100%, 360px);
+            aspect-ratio: 1.1 / 1;
+            margin: 0 auto;
+            background: white;
+            border: 4px solid #101820;
+        }
+
+        .score-card .count {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 20%;
+            height: 100%;
+            border-right: 4px solid #101820;
+            padding: 12px 0 0 10px;
+            font-weight: 900;
+            line-height: 1.05;
+        }
+
+        .score-card .vline {
+            position: absolute;
+            left: 58%;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: #111;
+        }
+
+        .score-card .hline {
+            position: absolute;
+            left: 20%;
+            top: 50%;
+            width: 80%;
+            height: 2px;
+            background: #111;
+        }
+
+        .diamond {
+            position: absolute;
+            left: 40%;
+            top: 28%;
+            width: 33%;
+            aspect-ratio: 1;
+            border: 4px solid #111;
+            transform: rotate(45deg);
+            background: white;
+        }
+
+        .hit-line {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 55%;
+            height: 55%;
+            border-left: 6px solid var(--accent);
+            transform: skew(-45deg);
+            transform-origin: bottom right;
+        }
+
+        .result {
+            position: absolute;
+            right: 12%;
+            bottom: 10%;
+            font-size: 58px;
+            line-height: 1;
+            font-weight: 900;
+            color: var(--accent);
+        }
+
+        .dot {
+            position: absolute;
+            right: 12%;
+            bottom: 7%;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+
+        .section {
+            margin-top: 26px;
+            padding: 26px;
+            border-radius: 26px;
+            background: rgba(255, 255, 255, 0.82);
+            box-shadow: 0 10px 30px rgba(20, 34, 49, 0.08);
+        }
+
+        .section h2 {
+            margin: 0 0 14px;
+            font-size: clamp(24px, 4vw, 38px);
+            line-height: 1.2;
+            letter-spacing: -0.03em;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 18px;
+        }
+
+        .feature {
+            min-height: 160px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            background: linear-gradient(180deg, #ffffff 0%, #f7fbfc 100%);
+        }
+
+        .feature strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 18px;
+            line-height: 1.35;
+        }
+
+        .feature p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .highlight {
+            border-color: rgba(15, 127, 114, 0.4);
+            background: linear-gradient(180deg, rgba(234, 255, 249, 0.9) 0%, #ffffff 100%);
+        }
+
+        .pill-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .pill {
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: var(--wash);
+            color: #405469;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .roadmap {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .roadmap-card {
+            padding: 16px;
+            border-radius: 18px;
+            background: #101820;
+            color: white;
+        }
+
+        .roadmap-card small {
+            display: block;
+            color: #9fb0c2;
+            font-weight: 900;
+        }
+
+        .roadmap-card strong {
+            display: block;
+            margin-top: 5px;
+            font-size: 16px;
+        }
+
+        .note {
+            margin-top: 20px;
+            padding: 16px 18px;
+            border-left: 5px solid var(--field);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        footer {
+            padding: 28px 4px 0;
+            color: var(--muted);
+            font-size: 13px;
+            text-align: center;
+        }
+
+        @media (max-width: 840px) {
+            .hero {
+                grid-template-columns: 1fr;
+                min-height: auto;
+                padding-top: 10px;
+            }
+
+            .mock {
+                order: -1;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .roadmap {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .page {
+                width: min(100% - 20px, 1080px);
+                padding-top: 14px;
+            }
+
+            .section {
+                padding: 20px;
+                border-radius: 22px;
+            }
+
+            .roadmap {
+                grid-template-columns: 1fr;
+            }
+
+            .cta {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <section class="hero">
+            <div>
+                <span class="badge">高校野球・草野球の観戦記録をスマホで</span>
+                <h1>スコアブック<span class="brand-small">by CuViu</span></h1>
+                <p class="lead">スマホで記録し、AIで補助し、紙のように見返せる新しい野球スコアブックアプリ。</p>
+                <p class="sublead">
+                    早稲田式スコアブックをベースに、球場での入力、試合後の見返し、日刊スポーツやXの試合経過からの下書き作成までを目指しています。
+                    紙のスコアブックの良さを残しながら、Webアプリならではの便利さを足していきます。
+                </p>
+                <div class="cta-row">
+                    <a class="cta" href="./">アプリを開く</a>
+                    <a class="cta secondary" href="https://cuviu.jp/">CuViu.jpへ</a>
+                </div>
+            </div>
+            <div class="mock" aria-label="スコアブック表示イメージ">
+                <div class="score-card">
+                    <div class="count">×<br>○<br>●</div>
+                    <div class="vline"></div>
+                    <div class="hline"></div>
+                    <div class="diamond"></div>
+                    <div class="hit-line"></div>
+                    <div class="result">8</div>
+                    <div class="dot"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>一般ユーザーに伝えたい強み</h2>
+            <div class="feature-grid">
+                <article class="feature highlight">
+                    <strong>スマホだけで本格的なスコアブック</strong>
+                    <p>紙とペンを広げにくい球場でも、iPhoneやAndroidのブラウザから記録できます。</p>
+                </article>
+                <article class="feature highlight">
+                    <strong>紙のスコアブックに近い見た目</strong>
+                    <p>進塁線、アウトカウント、内野安打、併殺など、スコアブックらしい表現を重視しています。</p>
+                </article>
+                <article class="feature highlight">
+                    <strong>観戦メモやX投稿を下書き化</strong>
+                    <p>X / Twitterの試合経過や日刊スポーツの表から、スコアブックの下書きを作る機能を育てています。</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>主な機能</h2>
+            <div class="feature-grid">
+                <article class="feature">
+                    <strong>9人 × 12回のシート</strong>
+                    <p>通常の9回に加え、延長戦を見据えて12回まで表示できます。</p>
+                </article>
+                <article class="feature">
+                    <strong>先攻・後攻チーム対応</strong>
+                    <p>両チームのスコアブックを切り替えて管理できます。</p>
+                </article>
+                <article class="feature">
+                    <strong>BSOと自動判定</strong>
+                    <p>ボール、ストライク、アウトを入力し、三振や四球をスコアへ反映します。</p>
+                </article>
+                <article class="feature">
+                    <strong>打球結果の選択入力</strong>
+                    <p>安打、二塁打、本塁打、三振、四球、犠打、併殺、FCなどを選べます。</p>
+                </article>
+                <article class="feature">
+                    <strong>走者の進塁・アウト</strong>
+                    <p>ヒット、犠打、盗塁、暴投、失策進塁など、走者の動きを記録できます。</p>
+                </article>
+                <article class="feature">
+                    <strong>過去打席の編集</strong>
+                    <p>ヒットがエラーに訂正された場合など、後からセルを選んで修正できます。</p>
+                </article>
+                <article class="feature">
+                    <strong>自動保存</strong>
+                    <p>入力中のデータをブラウザへ保存し、閉じても続きから再開できます。</p>
+                </article>
+                <article class="feature">
+                    <strong>JSONバックアップ</strong>
+                    <p>試合データを書き出し・読み込みでき、将来の共有や統計機能の土台になります。</p>
+                </article>
+                <article class="feature">
+                    <strong>つぶやきコメント</strong>
+                    <p>各打席に「ナイスバッティング」などの一言メモを吹き出しで残せます。</p>
+                </article>
+                <article class="feature">
+                    <strong>日刊スポーツ取り込み</strong>
+                    <p>打者成績表を貼り付けて、大まかなスコアブック下書きを作れます。</p>
+                </article>
+                <article class="feature">
+                    <strong>X / Twitter取り込み</strong>
+                    <p>実況ポストや観戦メモを1イニング単位で取り込む機能を搭載しています。</p>
+                </article>
+                <article class="feature">
+                    <strong>AI整形プロンプト</strong>
+                    <p>ChatGPTなどで文章を取り込みやすい形式へ整えるためのプロンプトを生成できます。</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>こんな人に向いています</h2>
+            <div class="pill-list">
+                <span class="pill">高校野球を観戦する人</span>
+                <span class="pill">草野球チームの記録係</span>
+                <span class="pill">紙のスコアブックをスマホ化したい人</span>
+                <span class="pill">試合後に記録を共有したい人</span>
+                <span class="pill">X実況をあとで整理したい人</span>
+                <span class="pill">野球観戦メモを残したい人</span>
+            </div>
+            <p class="note">
+                現在はベータ開発中です。自動取り込みや複雑な走塁処理は、完全自動ではなく「下書き」として使い、あとから修正する前提で精度を高めています。
+            </p>
+        </section>
+
+        <section class="section">
+            <h2>今後の予定</h2>
+            <div class="roadmap">
+                <div class="roadmap-card">
+                    <small>Step 1</small>
+                    <strong>PDF出力</strong>
+                </div>
+                <div class="roadmap-card">
+                    <small>Step 2</small>
+                    <strong>X向け書き出し</strong>
+                </div>
+                <div class="roadmap-card">
+                    <small>Step 3</small>
+                    <strong>PWA・オフライン強化</strong>
+                </div>
+                <div class="roadmap-card">
+                    <small>Step 4</small>
+                    <strong>統計・共有機能</strong>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            &copy; CuViu. スコアブック by CuViu は開発中のベータ版です。
+        </footer>
+    </main>
+</body>
+</html>
