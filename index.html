@@ -102,6 +102,34 @@
             display: none;
         }
 
+        .start-home-link {
+            position: fixed;
+            left: max(18px, env(safe-area-inset-left));
+            top: calc(env(safe-area-inset-top) + 18px);
+            z-index: 2;
+            display: inline-flex;
+            align-items: center;
+            min-height: 38px;
+            padding: 8px 13px;
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.42);
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 900;
+            letter-spacing: 0.02em;
+            text-decoration: none;
+            text-shadow: 0 2px 12px rgba(20, 34, 49, 0.28);
+            box-shadow: 0 10px 24px rgba(34, 70, 118, 0.12);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+
+        .start-home-link:hover {
+            background: rgba(255, 255, 255, 0.56);
+            color: #ffffff;
+        }
+
         .start-card {
             position: relative;
             z-index: 1;
@@ -3605,6 +3633,12 @@
         }
 
         @media (max-width: 480px) {
+            .start-home-link {
+                min-height: 34px;
+                padding: 7px 11px;
+                font-size: 13px;
+            }
+
             .start-card h1 {
                 font-size: 34px;
                 letter-spacing: 0.02em;
@@ -3872,6 +3906,7 @@
 <body>
     <div class="container">
         <div id="startScreen" class="start-screen" aria-label="トップ画面">
+            <a class="start-home-link" href="https://cuviu.jp/">CuViu</a>
             <div class="start-card">
                 <div class="start-kicker">CuViu Scorebook</div>
                 <h1>スコアブック<small>by CuViu</small></h1>
@@ -4274,7 +4309,7 @@
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.92";
+        const APP_VERSION = "0.1.93";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
