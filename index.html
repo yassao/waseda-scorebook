@@ -4554,13 +4554,6 @@
                     <button class="btn-save-return" onclick="saveCurrentGameAndShowStart()">保存してトップへ</button>
                     <button class="btn-export" onclick="exportGameJson()">試合データ書き出し</button>
                 </div>
-
-                <p class="note">
-                    今回の修正では、ゴロ / フライ / ライナーを文字ではなくSVG図形で描画しています。
-                    これでフォント依存の非表示や、座標ずれが起きにくくなります。
-                </p>
-
-                <div class="footer">次の候補: 9人 × 9回グリッド、走者進塁線、保存機能</div>
             </div>
         </div>
     </div>
@@ -4569,7 +4562,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.95";
+        const APP_VERSION = "0.1.96";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
