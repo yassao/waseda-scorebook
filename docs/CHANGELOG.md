@@ -1,3 +1,12 @@
+## v0.1.94 [2026-06-08] 継投多数時のPDF詳細ページを追加
+
+**変更ファイル:**
+- docs/IMPLEMENTATION_PLAN.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.1.93 [2026-06-06] トップ画面にCuViuホームリンクを追加
 
 **変更ファイル:**
