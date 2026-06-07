@@ -1174,6 +1174,32 @@
             font-weight: 900;
         }
 
+        .pdf-export-options {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 10px;
+            color: #526273;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .pdf-export-options label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 34px;
+            padding: 7px 10px;
+            border: 1.5px solid #d9e4ec;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.78);
+        }
+
+        .pdf-export-options input {
+            width: 18px;
+            height: 18px;
+            accent-color: #0f766e;
+        }
+
         .print-scorebook-page {
             display: none;
         }
@@ -1335,6 +1361,128 @@
             body.printing-scorebook .print-extra-memo {
                 font-size: 1.85mm;
                 color: #333333;
+            }
+
+            body.printing-scorebook .print-text-summary-page.has-extra-page {
+                font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+                min-height: 270mm;
+                height: auto;
+                overflow: visible;
+            }
+
+            body.printing-scorebook .print-summary-scoreboard {
+                width: 100%;
+                margin: 0 0 3mm;
+                border-collapse: collapse;
+                table-layout: fixed;
+                font-size: 2.4mm;
+                line-height: 1.25;
+                font-weight: 800;
+            }
+
+            body.printing-scorebook .print-summary-scoreboard th,
+            body.printing-scorebook .print-summary-scoreboard td {
+                border: 0.3mm solid #d0d5dd;
+                padding: 0.8mm;
+                text-align: center;
+            }
+
+            body.printing-scorebook .print-summary-scoreboard th {
+                background: #edf2f7;
+                font-weight: 900;
+            }
+
+            body.printing-scorebook .print-summary-scoreboard .team-cell {
+                text-align: left;
+                color: #0b3fa6;
+                font-weight: 900;
+            }
+
+            body.printing-scorebook .print-summary-inning {
+                margin: 3mm 0 0;
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            body.printing-scorebook .print-summary-inning-title {
+                display: grid;
+                grid-template-columns: auto 1fr auto;
+                gap: 2.5mm;
+                align-items: center;
+                padding: 1.6mm 2mm;
+                border-top: 0.8mm solid #34449b;
+                background: #eeeeef;
+                font-size: 3mm;
+                font-weight: 900;
+            }
+
+            body.printing-scorebook .print-summary-inning-title.is-bottom {
+                border-top-color: #f28c00;
+            }
+
+            body.printing-scorebook .print-summary-pa {
+                padding: 1.9mm 1.8mm;
+                border-bottom: 0.25mm solid #e1e5ea;
+                font-size: 2.65mm;
+                line-height: 1.55;
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            body.printing-scorebook .print-summary-pa-main {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 1.6mm;
+                align-items: baseline;
+                font-weight: 800;
+            }
+
+            body.printing-scorebook .print-summary-order {
+                color: #444444;
+            }
+
+            body.printing-scorebook .print-summary-player {
+                color: #0039a6;
+                font-size: 2.85mm;
+                font-weight: 900;
+            }
+
+            body.printing-scorebook .print-summary-result {
+                color: #222222;
+            }
+
+            body.printing-scorebook .print-summary-comment {
+                margin-top: 0.5mm;
+                padding-left: 8mm;
+                color: #333333;
+                font-weight: 900;
+            }
+
+            body.printing-scorebook .print-summary-pitcher-change {
+                padding: 1.2mm 1.8mm;
+                color: #0b3fa6;
+                font-size: 2.35mm;
+                font-weight: 900;
+            }
+
+            body.printing-scorebook .print-summary-totals {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                width: 86mm;
+                margin: 2mm 0 0 4mm;
+                border: 0.3mm solid #d7dce2;
+                font-size: 2.4mm;
+                font-weight: 900;
+            }
+
+            body.printing-scorebook .print-summary-totals div {
+                padding: 1.1mm;
+                border-right: 0.3mm solid #d7dce2;
+                text-align: center;
+            }
+
+            body.printing-scorebook .print-summary-totals div:last-child {
+                border-right: 0;
             }
 
             html.has-extra-print-page,
@@ -4324,6 +4472,9 @@
                     </div>
                 </section>
                 <div class="pdf-action-row">
+                    <div class="pdf-export-options">
+                        <label><input id="pdfTextSummaryCheckbox" type="checkbox">テキスト速報ページも出力</label>
+                    </div>
                     <button type="button" class="pdf-export-btn" onclick="exportScorebookPdf()">PDF出力</button>
                 </div>
 
@@ -4415,9 +4566,10 @@
     </div>
     <div id="printScorebookPage" class="print-scorebook-page" aria-hidden="true"></div>
     <div id="printPitcherExtraPage" class="print-extra-page" aria-hidden="true"></div>
+    <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.94";
+        const APP_VERSION = "0.1.95";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6591,6 +6743,236 @@
             appendFieldingExtraSection(page, "bottom");
         }
 
+        function isPrintTextSummaryEnabled() {
+            const checkbox = document.getElementById("pdfTextSummaryCheckbox");
+            return Boolean(checkbox?.checked);
+        }
+
+        function getSummaryPitcherName(defenseHalf, battingHalf, inning) {
+            const info = normalizeGameInfo(state.gameInfo);
+            const targetOrder = (Number(inning) * 2) + (battingHalf === "bottom" ? 1 : 0);
+            const latest = (info.pitcherChanges?.[defenseHalf] || [])
+                .filter((change) => {
+                    const changeOrder = (Number(change.inning) * 2) + (change.half === "bottom" ? 1 : 0);
+                    return Number.isFinite(changeOrder) && changeOrder <= targetOrder;
+                })
+                .sort((a, b) => {
+                    const aOrder = (Number(a.inning) * 2) + (a.half === "bottom" ? 1 : 0);
+                    const bOrder = (Number(b.inning) * 2) + (b.half === "bottom" ? 1 : 0);
+                    return aOrder - bOrder;
+                })
+                .pop();
+            return latest?.name || info.pitchers?.[defenseHalf] || "未登録";
+        }
+
+        function getPrintSummaryPlayerName(half, row) {
+            return splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || "未登録";
+        }
+
+        function getPrintSummaryComment(snapshot) {
+            const pitchCommentText = (snapshot?.pitchComments || [])
+                .filter((item) => item?.text)
+                .map((item) => {
+                    const timing = getPitchCommentTimingLabel(item);
+                    return String(item.text).trim() + (timing ? "（" + timing + "）" : "");
+                })
+                .join(" / ");
+            const atBatComment = String(snapshot?.atBatComment || "").trim();
+            return [pitchCommentText, atBatComment].filter(Boolean).join(" / ");
+        }
+
+        function isPrintSummaryHit(snapshot) {
+            const hitType = snapshot?.selectedHitType || snapshot?.hitType || "";
+            const result = snapshot?.result || "";
+            return ["1B", "2B", "3B", "HR", "RH", "GR", "BH", "G"].includes(hitType)
+                || ["H", "BH", "G", "HR", "RH"].includes(result);
+        }
+
+        function isPrintSummaryWalk(snapshot) {
+            return ["B", "B'", "DB", "HP"].includes(snapshot?.result || "");
+        }
+
+        function getPrintSummaryRuns(snapshot) {
+            return getRunnerStatusEvents(snapshot).filter((event) => event?.type === "score" || event === "生還").length;
+        }
+
+        function getPrintSummaryInnings() {
+            const sections = [];
+            ["top", "bottom"].forEach((half) => {
+                const sheet = state.scoreSheets?.[half] || createEmptyScoreSheet();
+                for (let col = 0; col < MAX_INNINGS; col += 1) {
+                    const entries = [];
+                    for (let row = 0; row < 9; row += 1) {
+                        const snapshot = sheet[row]?.[col];
+                        if (snapshot) {
+                            entries.push({ row, col, snapshot });
+                        }
+                    }
+                    if (entries.length) {
+                        sections.push({
+                            half,
+                            inning: getInningLabels(half)[col] || (col + 1),
+                            col,
+                            entries
+                        });
+                    }
+                }
+            });
+            return sections.sort((a, b) => {
+                const inningDiff = Number(a.inning) - Number(b.inning);
+                if (inningDiff !== 0) {
+                    return inningDiff;
+                }
+                return a.half === b.half ? a.col - b.col : (a.half === "top" ? -1 : 1);
+            });
+        }
+
+        function appendPrintTextSummaryScoreboard(page) {
+            const innings = Array.from({ length: MAX_INNINGS }, (_, index) => index + 1);
+            const topLine = calculateLineScore("top");
+            const bottomLine = calculateLineScore("bottom");
+            const table = document.createElement("table");
+            table.className = "print-summary-scoreboard";
+            const header = document.createElement("tr");
+            appendPrintCell(header, "th", "");
+            innings.forEach((inning) => appendPrintCell(header, "th", inning));
+            appendPrintCell(header, "th", "計");
+            table.appendChild(header);
+            [["top", topLine], ["bottom", bottomLine]].forEach(([half, line]) => {
+                const tr = document.createElement("tr");
+                appendPrintCell(tr, "td", getTeamDisplayName(half), 1, "team-cell");
+                innings.forEach((inning) => {
+                    const value = line.recorded[inning - 1] ? line.scores[inning - 1] : "";
+                    appendPrintCell(tr, "td", value);
+                });
+                appendPrintCell(tr, "td", line.scores.reduce((sum, score) => sum + score, 0));
+                table.appendChild(tr);
+            });
+            page.appendChild(table);
+        }
+
+        function appendPrintTextSummaryGameInfo(page) {
+            const info = normalizeGameInfo(state.gameInfo);
+            const details = [
+                info.competition,
+                formatPrintDate(info.date),
+                info.venue,
+                [info.weather, info.wind].filter(Boolean).join(" / "),
+                info.startTime ? "開始 " + info.startTime : ""
+            ].filter(Boolean).join("　");
+            if (!details) {
+                return;
+            }
+            const box = document.createElement("div");
+            box.className = "print-extra-note";
+            box.textContent = details;
+            page.appendChild(box);
+        }
+
+        function appendPrintTextSummarySection(page, section) {
+            const defenseHalf = getOpponentHalf(section.half);
+            const pitcherChanges = getPitcherChangesForDraft(defenseHalf, section.half, section.inning);
+            const title = document.createElement("div");
+            title.className = "print-summary-inning-title" + (section.half === "bottom" ? " is-bottom" : "");
+            title.id = "summary-" + section.half + "-" + section.inning;
+            const inningLabel = document.createElement("span");
+            inningLabel.textContent = section.inning + "回" + getHalfLabel(section.half);
+            const teamLabel = document.createElement("span");
+            teamLabel.textContent = getTeamDisplayName(section.half) + "の攻撃";
+            const pitcherLabel = document.createElement("span");
+            pitcherLabel.textContent = "P " + getSummaryPitcherName(defenseHalf, section.half, section.inning);
+            title.append(inningLabel, teamLabel, pitcherLabel);
+            page.appendChild(title);
+
+            const totals = { runs: 0, hits: 0, walks: 0 };
+            section.entries.forEach((entry, entryIndex) => {
+                pitcherChanges
+                    .filter((change) => change.order === entry.row + 1)
+                    .forEach((change) => {
+                        const changeLine = document.createElement("div");
+                        changeLine.className = "print-summary-pitcher-change";
+                        changeLine.textContent = "P交代・" + change.name + (change.note ? "　" + change.note : "");
+                        page.appendChild(changeLine);
+                    });
+
+                totals.runs += getPrintSummaryRuns(entry.snapshot);
+                totals.hits += isPrintSummaryHit(entry.snapshot) ? 1 : 0;
+                totals.walks += isPrintSummaryWalk(entry.snapshot) ? 1 : 0;
+
+                const item = document.createElement("div");
+                item.className = "print-summary-pa";
+                const main = document.createElement("div");
+                main.className = "print-summary-pa-main";
+                const order = document.createElement("span");
+                order.className = "print-summary-order";
+                order.textContent = (entryIndex + 1) + " : " + (entry.row + 1) + "番";
+                const player = document.createElement("span");
+                player.className = "print-summary-player";
+                player.textContent = getPrintSummaryPlayerName(section.half, entry.row);
+                const result = document.createElement("span");
+                result.className = "print-summary-result";
+                result.textContent = getShareResultText(entry.snapshot) || "記録あり";
+                main.append(order, player, result);
+                item.appendChild(main);
+                const commentText = getPrintSummaryComment(entry.snapshot);
+                if (commentText) {
+                    const comment = document.createElement("div");
+                    comment.className = "print-summary-comment";
+                    comment.textContent = commentText;
+                    item.appendChild(comment);
+                }
+                page.appendChild(item);
+            });
+
+            const totalBox = document.createElement("div");
+            totalBox.className = "print-summary-totals";
+            ["得点 " + totals.runs, "安打 " + totals.hits, "四死球 " + totals.walks].forEach((text) => {
+                const cell = document.createElement("div");
+                cell.textContent = text;
+                totalBox.appendChild(cell);
+            });
+            page.appendChild(totalBox);
+        }
+
+        function renderPrintableTextSummaryPage() {
+            const page = document.getElementById("printTextSummaryPage");
+            if (!page) {
+                return;
+            }
+            page.replaceChildren();
+            if (!isPrintTextSummaryEnabled()) {
+                page.classList.remove("has-extra-page");
+                return;
+            }
+            page.classList.add("has-extra-page");
+            const title = document.createElement("div");
+            title.className = "print-extra-title";
+            title.textContent = "テキスト速報";
+            const note = document.createElement("div");
+            note.className = "print-extra-note";
+            note.textContent = "スコアブックの打席結果と一言メモから作成した試合サマリです。";
+            page.append(title, note);
+            appendPrintTextSummaryGameInfo(page);
+            appendPrintTextSummaryScoreboard(page);
+            const sections = getPrintSummaryInnings();
+            if (!sections.length) {
+                const empty = document.createElement("div");
+                empty.className = "print-extra-note";
+                empty.textContent = "打席記録はまだありません。";
+                page.appendChild(empty);
+            } else {
+                sections.forEach((section) => appendPrintTextSummarySection(page, section));
+            }
+        }
+
+        function syncExtraPrintPageClass() {
+            const hasExtra = Boolean(
+                document.querySelector(".print-extra-page.has-extra-page")
+            );
+            document.body.classList.toggle("has-extra-print-page", hasExtra);
+            document.documentElement.classList.toggle("has-extra-print-page", hasExtra);
+        }
+
         function renderPrintableScorebookPage() {
             const page = document.getElementById("printScorebookPage");
             if (!page) {
@@ -6603,6 +6985,8 @@
                 createPrintSheetBlock("bottom")
             );
             renderPrintablePitcherExtraPage();
+            renderPrintableTextSummaryPage();
+            syncExtraPrintPageClass();
         }
 
         function prepareScorebookPrintMode() {
