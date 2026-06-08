@@ -361,6 +361,17 @@
             background: #f8fafc;
         }
 
+        .saved-game-limit-notice {
+            padding: 10px 12px;
+            border: 1px solid #f59e0b;
+            border-radius: 14px;
+            background: #fffbeb;
+            color: #7c4a03;
+            font-size: 12px;
+            font-weight: 900;
+            line-height: 1.5;
+        }
+
         .saved-game-card {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
@@ -4610,13 +4621,14 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.99";
+        const APP_VERSION = "0.1.100";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
         const START_BLANK_GAME_SESSION_KEY = "cuviu_scorebook_start_blank_game_v1";
         const INNING_SHARE_DIALOG_STORAGE_KEY = "cuviu_scorebook_hide_inning_share_dialog_v1";
         const PDF_AD_UNWATCHED_COUNT_KEY = "cuviu_scorebook_pdf_ad_unwatched_count_v1";
+        const MAX_SAVED_GAME_SLOTS = 30;
         const AD_BREAK_INNINGS = [3, 6, 9];
         const INNING_AD_SECONDS = 15;
         const INNING_AD_SKIP_AFTER_SECONDS = 5;
@@ -5883,7 +5895,44 @@
         }
 
         function writeSavedGameSlots(slots) {
-            localStorage.setItem(SAVED_GAMES_STORAGE_KEY, JSON.stringify(slots));
+            localStorage.setItem(SAVED_GAMES_STORAGE_KEY, JSON.stringify(slots.slice(0, MAX_SAVED_GAME_SLOTS)));
+        }
+
+        function getSavedGameLimitNotice() {
+            return "無料版では内部保存は" + MAX_SAVED_GAME_SLOTS + "試合までです。必要な試合は「書出」で試合データとして保存し、不要な試合を削除してください。Pro版の保存上限拡張は準備中です。";
+        }
+
+        function showSavedGameLimitNotice() {
+            alert(
+                "保存済み試合が" + MAX_SAVED_GAME_SLOTS + "件に達しました。\n\n" +
+                getSavedGameLimitNotice()
+            );
+            setGameSaveStatus("保存上限に達しました。試合データを書き出してから不要な試合を削除してください。");
+            renderSavedGameSlots();
+        }
+
+        function getSavedGameDuplicateIndex(slots, data) {
+            const fingerprint = getGameStateFingerprint(data);
+            if (!fingerprint) {
+                return -1;
+            }
+            return slots.findIndex((slot) => getGameStateFingerprint(slot.data) === fingerprint);
+        }
+
+        function addSavedGameSlot(data, options = {}) {
+            const slots = getSavedGameSlots();
+            const duplicateIndex = getSavedGameDuplicateIndex(slots, data);
+            if (duplicateIndex >= 0) {
+                slots.splice(duplicateIndex, 1);
+            } else if (slots.length >= MAX_SAVED_GAME_SLOTS) {
+                if (options.silent) {
+                    return false;
+                }
+                showSavedGameLimitNotice();
+                return false;
+            }
+            writeSavedGameSlots([createSavedGameSlot(data), ...slots]);
+            return true;
         }
 
         function getSavedGameTeamLabel(data) {
@@ -5947,8 +5996,15 @@
                 const recoverySlot = createSavedGameSlot(currentData);
                 recoverySlot.title = "自動保存の退避: " + (recoverySlot.title || "無題の試合");
                 recoverySlot.summary = (recoverySlot.summary || "スコア未集計") + " / 別試合を開く前";
-                const slots = [recoverySlot, ...getSavedGameSlots()].slice(0, 30);
-                writeSavedGameSlots(slots);
+                const slots = getSavedGameSlots();
+                const duplicateIndex = getSavedGameDuplicateIndex(slots, currentData);
+                if (duplicateIndex >= 0) {
+                    slots.splice(duplicateIndex, 1);
+                } else if (slots.length >= MAX_SAVED_GAME_SLOTS) {
+                    alert("保存済み試合が" + MAX_SAVED_GAME_SLOTS + "件に達しているため、現在の自動保存を退避できませんでした。必要な試合を書き出してから不要な試合を削除してください。");
+                    return false;
+                }
+                writeSavedGameSlots([recoverySlot, ...slots]);
                 renderSavedGameSlots();
                 return true;
             } catch (error) {
@@ -5969,7 +6025,10 @@
                     container.innerHTML = '<div class="saved-game-empty">手動保存した試合はまだありません。入力画面の「保存 / 読込 試合データ」から現在の試合を保存できます。</div>';
                     return;
                 }
-                container.innerHTML = slots.map((slot) => {
+                const limitNotice = slots.length >= MAX_SAVED_GAME_SLOTS
+                    ? '<div class="saved-game-limit-notice">内部保存: ' + slots.length + ' / ' + MAX_SAVED_GAME_SLOTS + '<br>' + escapeHtml(getSavedGameLimitNotice()) + '</div>'
+                    : "";
+                container.innerHTML = limitNotice + slots.map((slot) => {
                     const id = escapeHtml(slot.id);
                     return `
                         <div class="saved-game-card">
@@ -5991,20 +6050,27 @@
         function saveCurrentGameToSlot() {
             try {
                 const data = createGameSaveData();
-                const slots = [createSavedGameSlot(data), ...getSavedGameSlots()].slice(0, 30);
-                writeSavedGameSlots(slots);
+                if (!addSavedGameSlot(data)) {
+                    updateStartScreenState();
+                    return false;
+                }
                 setGameSaveStatus("保存済み試合に追加しました: " + getSavedGameTeamLabel(data));
                 renderSavedGameSlots();
                 updateStartScreenState();
+                return true;
             } catch (error) {
                 console.warn("Manual save failed", error);
                 alert("試合データを保存できませんでした。端末の空き容量やブラウザ設定を確認してください。");
+                return false;
             }
         }
 
         function saveCurrentGameAndShowStart() {
-            saveCurrentGameToSlot();
+            const didSave = saveCurrentGameToSlot();
             saveGameToLocalStorage();
+            if (!didSave) {
+                renderSavedGameSlots();
+            }
             showStartScreen();
         }
 
@@ -6088,7 +6154,7 @@
                 '<div class="comment-popup-title">試合データ書き出し</div>',
                 '<div class="comment-popup-body">' + escapeHtml(downloaded ? "ファイル保存を試みました。保存先に見当たらない場合は、下の内容をコピーしてください。" : "このブラウザではファイル保存できませんでした。下の内容をコピーしてください。") + '<br>' + escapeHtml(filename) + '</div>',
                 '<textarea id="gameDataExportText" readonly onclick="this.select()">' + escapeHtml(json) + '</textarea>',
-                '<div id="gameDataExportCopyStatus" class="inning-share-options">不具合調査では、この内容をそのまま貼ると原因を追いやすくなります。</div>',
+                '<div id="gameDataExportCopyStatus" class="inning-share-options">必要ならこの内容をコピーして、別端末で読み込めます。</div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyGameDataExportText()">コピー</button>',
                 '<button type="button" class="btn-hit" onclick="closeGameDataExportPopup()">閉じる</button>',
