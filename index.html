@@ -4610,14 +4610,16 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.97";
+        const APP_VERSION = "0.1.98";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
         const START_BLANK_GAME_SESSION_KEY = "cuviu_scorebook_start_blank_game_v1";
         const INNING_SHARE_DIALOG_STORAGE_KEY = "cuviu_scorebook_hide_inning_share_dialog_v1";
+        const PDF_AD_UNWATCHED_COUNT_KEY = "cuviu_scorebook_pdf_ad_unwatched_count_v1";
         const AD_BREAK_INNINGS = [3, 6, 9];
         const PDF_AD_SECONDS = 15;
+        const PDF_AD_UNWATCHED_LIMIT = 5;
         const AD_GATE_CONFIG = {
             enabled: true,
             placeholderMode: true,
@@ -7038,11 +7040,54 @@
             syncExtraPrintPageClass();
         }
 
-        function shouldSkipAdGate() {
+        function isNetworkOnline() {
+            return typeof navigator === "undefined" || navigator.onLine !== false;
+        }
+
+        function getPdfAdUnwatchedCount() {
+            try {
+                return Math.max(0, Number(localStorage.getItem(PDF_AD_UNWATCHED_COUNT_KEY)) || 0);
+            } catch (error) {
+                return 0;
+            }
+        }
+
+        function setPdfAdUnwatchedCount(count) {
+            try {
+                localStorage.setItem(PDF_AD_UNWATCHED_COUNT_KEY, String(Math.max(0, Number(count) || 0)));
+            } catch (error) {
+                // localStorageを使えない環境では、試合記録の継続を優先します。
+            }
+        }
+
+        function incrementPdfAdUnwatchedCount() {
+            const nextCount = getPdfAdUnwatchedCount() + 1;
+            setPdfAdUnwatchedCount(nextCount);
+            return nextCount;
+        }
+
+        function resetPdfAdUnwatchedCount() {
+            setPdfAdUnwatchedCount(0);
+        }
+
+        function showPdfAdConnectionRequired(count) {
+            window.alert(
+                "広告を表示できませんでした。\n\n" +
+                "広告付き無料版の利用を継続するため、\n" +
+                "インターネットへ接続してください。\n\n" +
+                "接続後に再度PDF出力を行ってください。\n\n" +
+                "広告未視聴: " + count + "回"
+            );
+        }
+
+        function shouldSkipAdGate(options = {}) {
             if (!AD_GATE_CONFIG.enabled) {
                 return true;
             }
-            if (AD_GATE_CONFIG.skipWhenOffline && typeof navigator !== "undefined" && navigator.onLine === false) {
+            if (options.placement === "pdf") {
+                return false;
+            }
+            if (AD_GATE_CONFIG.skipWhenOffline && !isNetworkOnline()) {
                 return true;
             }
             return false;
@@ -7055,7 +7100,7 @@
         }
 
         function openAdGate(options = {}) {
-            if (shouldSkipAdGate()) {
+            if (shouldSkipAdGate(options)) {
                 return Promise.resolve(true);
             }
             const popup = document.getElementById("adGatePopup");
@@ -7176,11 +7221,20 @@
         }
 
         async function exportScorebookPdf() {
-            await openAdGate({
-                placement: "pdf",
-                skippable: false,
-                seconds: PDF_AD_SECONDS
-            });
+            if (!isNetworkOnline()) {
+                const count = incrementPdfAdUnwatchedCount();
+                if (count >= PDF_AD_UNWATCHED_LIMIT) {
+                    showPdfAdConnectionRequired(count);
+                    return;
+                }
+            } else {
+                await openAdGate({
+                    placement: "pdf",
+                    skippable: false,
+                    seconds: PDF_AD_SECONDS
+                });
+                resetPdfAdUnwatchedCount();
+            }
             prepareScorebookPrintMode();
             window.addEventListener("afterprint", cleanupScorebookPrintMode, { once: true });
             requestAnimationFrame(() => {
