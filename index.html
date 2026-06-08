@@ -3380,6 +3380,52 @@
             font-weight: 800;
         }
 
+        .ad-gate-popup .comment-popup-title small {
+            display: block;
+            margin-top: 4px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .ad-gate-box {
+            display: grid;
+            place-items: center;
+            min-height: 150px;
+            border: 2px dashed #94a3b8;
+            border-radius: 16px;
+            background:
+                linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(59, 130, 246, 0.08)),
+                #f8fafc;
+            color: #334155;
+            text-align: center;
+            font-weight: 900;
+        }
+
+        .ad-gate-box span {
+            display: block;
+            margin-top: 6px;
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .ad-gate-message {
+            margin-top: 10px;
+            color: #475569;
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.5;
+        }
+
+        .ad-gate-actions {
+            grid-template-columns: 1fr;
+        }
+
+        .ad-gate-countdown {
+            color: #0f766e;
+            font-weight: 900;
+        }
+
         .inning-share-popup textarea {
             min-height: 260px;
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -4294,6 +4340,8 @@
                     <div id="commentPopup" class="comment-popup" aria-hidden="true"></div>
                     <div id="inningSharePopupBackdrop" class="comment-popup-backdrop"></div>
                     <div id="inningSharePopup" class="comment-popup inning-share-popup" aria-hidden="true"></div>
+                    <div id="adGateBackdrop" class="comment-popup-backdrop"></div>
+                    <div id="adGatePopup" class="comment-popup ad-gate-popup" aria-hidden="true"></div>
                     <div id="aiPromptPopupBackdrop" class="ai-prompt-popup-backdrop" onclick="closeAiPromptPopup()"></div>
                     <div id="aiPromptPopup" class="ai-prompt-popup" aria-hidden="true"></div>
                     <div id="nlCorrectionPanel" class="nl-correction-panel">
@@ -4562,12 +4610,20 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.96";
+        const APP_VERSION = "0.1.97";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
         const START_BLANK_GAME_SESSION_KEY = "cuviu_scorebook_start_blank_game_v1";
         const INNING_SHARE_DIALOG_STORAGE_KEY = "cuviu_scorebook_hide_inning_share_dialog_v1";
+        const AD_BREAK_INNINGS = [3, 6, 9];
+        const PDF_AD_SECONDS = 15;
+        const AD_GATE_CONFIG = {
+            enabled: true,
+            placeholderMode: true,
+            skipWhenOffline: true
+        };
+        const shownAdBreakKeys = new Set();
 
         function setElementValue(id, value) {
             const element = document.getElementById(id);
@@ -6982,6 +7038,129 @@
             syncExtraPrintPageClass();
         }
 
+        function shouldSkipAdGate() {
+            if (!AD_GATE_CONFIG.enabled) {
+                return true;
+            }
+            if (AD_GATE_CONFIG.skipWhenOffline && typeof navigator !== "undefined" && navigator.onLine === false) {
+                return true;
+            }
+            return false;
+        }
+
+        function closeAdGate() {
+            document.getElementById("adGatePopup")?.classList.remove("is-open");
+            document.getElementById("adGatePopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("adGateBackdrop")?.classList.remove("is-open");
+        }
+
+        function openAdGate(options = {}) {
+            if (shouldSkipAdGate()) {
+                return Promise.resolve(true);
+            }
+            const popup = document.getElementById("adGatePopup");
+            const backdrop = document.getElementById("adGateBackdrop");
+            if (!popup || !backdrop) {
+                return Promise.resolve(true);
+            }
+            if (popup.parentElement !== document.body) {
+                document.body.appendChild(popup);
+            }
+            if (backdrop.parentElement !== document.body) {
+                document.body.appendChild(backdrop);
+            }
+
+            const placement = options.placement || "inning";
+            const skippable = Boolean(options.skippable);
+            const seconds = Math.max(0, Number(options.seconds) || 0);
+            const title = placement === "pdf" ? "PDF出力前の広告" : "イニング終了広告";
+            const message = placement === "pdf"
+                ? "無料版ではPDF生成前に広告を表示します。広告終了後にPDF出力へ進みます。"
+                : "無料版では3回・6回・9回終了時に広告を表示します。入力の途中ではなく、攻守交代の区切りで表示します。";
+            let remaining = seconds;
+            let timerId = null;
+            let finished = false;
+
+            return new Promise((resolve) => {
+                const finish = () => {
+                    if (finished) {
+                        return;
+                    }
+                    finished = true;
+                    if (timerId) {
+                        clearInterval(timerId);
+                        timerId = null;
+                    }
+                    closeAdGate();
+                    resolve(true);
+                };
+                const render = () => {
+                    const primaryText = remaining > 0
+                        ? "あと " + remaining + " 秒"
+                        : (placement === "pdf" ? "PDF出力へ進む" : "次の攻撃へ進む");
+                    popup.innerHTML = [
+                        '<div class="comment-popup-title">' + escapeHtml(title) + '<small>広告SDK接続前のプレースホルダー</small></div>',
+                        '<div class="ad-gate-box">CuViu 広告枠<span>ここに動画広告 / スポンサー広告を表示予定</span></div>',
+                        '<div class="ad-gate-message">' + escapeHtml(message) + '</div>',
+                        '<div class="comment-popup-actions ad-gate-actions">',
+                        '<button id="adGatePrimaryBtn" type="button" class="btn-hit"' + (remaining > 0 ? " disabled" : "") + '>' + escapeHtml(primaryText) + '</button>',
+                        skippable ? '<button id="adGateSkipBtn" type="button">スキップ</button>' : "",
+                        '</div>'
+                    ].join("");
+                    const primary = document.getElementById("adGatePrimaryBtn");
+                    const skip = document.getElementById("adGateSkipBtn");
+                    primary?.addEventListener("click", () => {
+                        if (remaining > 0) {
+                            return;
+                        }
+                        finish();
+                    });
+                    skip?.addEventListener("click", () => {
+                        finish();
+                    });
+                };
+
+                backdrop.classList.add("is-open");
+                popup.classList.add("is-open");
+                popup.setAttribute("aria-hidden", "false");
+                render();
+                if (remaining > 0) {
+                    timerId = setInterval(() => {
+                        remaining -= 1;
+                        render();
+                        if (remaining <= 0) {
+                            if (timerId) {
+                                clearInterval(timerId);
+                                timerId = null;
+                            }
+                            if (!skippable && placement === "pdf") {
+                                setTimeout(finish, 450);
+                            }
+                        }
+                    }, 1000);
+                }
+            });
+        }
+
+        function shouldShowInningAdBreak(transition) {
+            if (!transition) {
+                return false;
+            }
+            const inning = Number(transition.inning);
+            if (!AD_BREAK_INNINGS.includes(inning)) {
+                return false;
+            }
+            if (transition.endedHalf !== "bottom") {
+                return false;
+            }
+            const key = "inning:" + inning;
+            if (shownAdBreakKeys.has(key)) {
+                return false;
+            }
+            shownAdBreakKeys.add(key);
+            return true;
+        }
+
         function prepareScorebookPrintMode() {
             toggleTopWorkspace(true);
             renderPrintableScorebookPage();
@@ -6996,7 +7175,12 @@
             }, 900);
         }
 
-        function exportScorebookPdf() {
+        async function exportScorebookPdf() {
+            await openAdGate({
+                placement: "pdf",
+                skippable: false,
+                seconds: PDF_AD_SECONDS
+            });
             prepareScorebookPrintMode();
             window.addEventListener("afterprint", cleanupScorebookPrintMode, { once: true });
             requestAnimationFrame(() => {
@@ -11172,7 +11356,7 @@
             completeInningTransition();
         }
 
-        function completeInningTransition(transition = pendingInningTransition) {
+        function performInningTransition(transition) {
             if (!transition) {
                 closeInningSharePopup();
                 return;
@@ -11181,6 +11365,22 @@
             pendingInningTransition = null;
             activateHalf(transition.nextHalf, null, null, { skipSave: true });
             clearNaturalLanguageInput();
+        }
+
+        async function completeInningTransition(transition = pendingInningTransition) {
+            if (!transition) {
+                closeInningSharePopup();
+                return;
+            }
+            closeInningSharePopup();
+            if (shouldShowInningAdBreak(transition)) {
+                await openAdGate({
+                    placement: "inning",
+                    skippable: true,
+                    seconds: 0
+                });
+            }
+            performInningTransition(transition);
         }
 
         function handleSheetCellClick(event, row, col) {
