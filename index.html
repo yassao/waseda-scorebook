@@ -459,6 +459,23 @@
             white-space: nowrap;
         }
 
+        .scorebook-style-badge {
+            display: none;
+            padding: 3px 7px;
+            border-radius: 999px;
+            border: 1px solid rgba(14, 116, 144, 0.28);
+            background: rgba(224, 242, 254, 0.86);
+            color: #0e7490;
+            font-size: 9px;
+            font-weight: 900;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        body.keio-scorebook-style .scorebook-style-badge {
+            display: inline-flex;
+        }
+
         .history-btn,
         .header-home-btn,
         .workspace-toggle-btn,
@@ -4235,6 +4252,7 @@
         <header class="app-header">
             <div class="history-actions" aria-label="履歴操作">
                 <span id="appVersionBadge" class="app-version-badge">v0.1.52</span>
+                <span id="scorebookStyleBadge" class="scorebook-style-badge">慶応式 実験中</span>
                 <button class="header-home-btn" onclick="saveCurrentGameAndShowStart()" aria-label="現在の試合を保存してホームへ戻る" title="保存してホーム">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M3 11.5 12 4l9 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -4621,7 +4639,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.100";
+        const APP_VERSION = "0.1.101";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4740,6 +4758,7 @@
             atBatCommentMeta: null,
             activeHalf: "top",
             inputLayout: "right",
+            scorebookStyle: "waseda",
             gameInfo: createDefaultGameInfo(),
             teamNames: {
                 top: "先攻",
@@ -4802,6 +4821,7 @@
         let aiPromptTarget = "twitter";
         let currentAiPromptText = "";
         let isTwitterImporting = false;
+        let appVersionBadgeTapCount = 0;
 
         const SCORE_COLORS = {
             ink: "#111",
@@ -5120,6 +5140,68 @@
             return labels[col] || (col + 1);
         }
 
+        function normalizeScorebookStyle(value) {
+            return value === "keio" ? "keio" : "waseda";
+        }
+
+        function updateScorebookStyleUi() {
+            state.scorebookStyle = normalizeScorebookStyle(state.scorebookStyle);
+            document.body.classList.toggle("keio-scorebook-style", state.scorebookStyle === "keio");
+            const badge = document.getElementById("scorebookStyleBadge");
+            if (badge) {
+                badge.textContent = state.scorebookStyle === "keio" ? "慶応式 実験中" : "";
+            }
+        }
+
+        function setScorebookStyle(style, options = {}) {
+            const nextStyle = normalizeScorebookStyle(style);
+            if (state.scorebookStyle === nextStyle && !options.force) {
+                return;
+            }
+            state.scorebookStyle = nextStyle;
+            updateScorebookStyleUi();
+            renderScoreSheet();
+            updateDisplay();
+            scheduleGameAutoSave();
+            if (!options.silent) {
+                alert(nextStyle === "keio"
+                    ? "慶応式スコアブック表示（実験中）に切り替えました。入力ロジックは早稲田式と共通です。"
+                    : "早稲田式スコアブック表示に戻しました。");
+            }
+        }
+
+        function toggleExperimentalScorebookStyle() {
+            setScorebookStyle(state.scorebookStyle === "keio" ? "waseda" : "keio");
+        }
+
+        function applyScorebookStyleFromUrl() {
+            try {
+                const params = new URLSearchParams(window.location.search || "");
+                if (params.get("style") === "keio" || params.get("scorebook") === "keio") {
+                    state.scorebookStyle = "keio";
+                }
+            } catch (error) {
+                console.warn("Scorebook style query parse failed", error);
+            }
+        }
+
+        function initializeScorebookStyleHiddenToggle() {
+            const badge = document.getElementById("appVersionBadge");
+            if (!badge) {
+                return;
+            }
+            badge.addEventListener("click", () => {
+                appVersionBadgeTapCount += 1;
+                if (appVersionBadgeTapCount >= 7) {
+                    appVersionBadgeTapCount = 0;
+                    toggleExperimentalScorebookStyle();
+                }
+                setTimeout(() => {
+                    appVersionBadgeTapCount = 0;
+                }, 1800);
+            });
+        }
+
         function findColumnForInning(half, inning) {
             const labels = getInningLabels(half);
             const index = labels.findIndex((label) => label === inning);
@@ -5228,6 +5310,7 @@
                     atBatCommentMeta: deepClone(state.atBatCommentMeta),
                     activeHalf: state.activeHalf,
                     inputLayout: state.inputLayout || "right",
+                    scorebookStyle: state.scorebookStyle === "keio" ? "keio" : "waseda",
                     gameInfo: deepClone(state.gameInfo),
                     teamNames: deepClone(state.teamNames),
                     playerNames: deepClone(state.playerNames),
@@ -5263,6 +5346,7 @@
             }
             Object.assign(state, deepClone(snapshot.state));
             state.inputLayout = state.inputLayout === "left" ? "left" : "right";
+            state.scorebookStyle = state.scorebookStyle === "keio" ? "keio" : "waseda";
             state.gameInfo = normalizeGameInfo(state.gameInfo || snapshot.game || {});
             state.playerPositions = state.playerPositions || {
                 top: Array.from({ length: 9 }, () => ""),
@@ -5287,6 +5371,7 @@
                 battingOrderSelect.value = state.battingOrder;
             }
 
+            updateScorebookStyleUi();
             updateDisplay();
             renderScoreSheet();
             renderLineScoreBoard();
@@ -6268,6 +6353,7 @@
                 redoHistory.length = 0;
                 state.activeHalf = "top";
                 state.inputLayout = "right";
+                state.scorebookStyle = normalizeScorebookStyle(state.scorebookStyle);
                 state.gameInfo = createDefaultGameInfo();
                 state.teamNames = { top: "先攻", bottom: "後攻" };
                 state.playerNames = {
@@ -6319,6 +6405,7 @@
                 resetPlayParts();
                 ensureRunnerGuiStep();
                 resetState();
+                updateScorebookStyleUi();
                 renderPlayerRosterEditor();
                 renderLineScoreBoard();
                 renderScoreSheet();
@@ -10188,6 +10275,9 @@
         }
 
         function generateSheetCellSvg(snapshot) {
+            if (state.scorebookStyle === "keio") {
+                return generateKeioSheetCellSvg(snapshot);
+            }
             if (!snapshot) {
                 return [
                     '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
@@ -10348,6 +10438,141 @@
                     ? '<text x="178" y="178" text-anchor="middle" font-size="10" font-weight="700" fill="' + SCORE_COLORS.ink + '">' + fcContinuation + '</text>'
                     : "",
                 landingDot,
+                commentBubble,
+                '</svg>'
+            ].join("");
+        }
+
+        function getKeioResultLabel(snapshot) {
+            if (!snapshot) {
+                return "";
+            }
+            const result = snapshot.result || "";
+            if (result === "K") {
+                if (snapshot.modifiers?.threeBuntStrikeout) {
+                    return "3BT";
+                }
+                if (snapshot.modifiers?.droppedThirdStrike) {
+                    return "SO→";
+                }
+                return snapshot.modifiers?.swingStrikeout ? "SO" : "K";
+            }
+            if (snapshot.selectedHitType === "HR" || result === "HR") {
+                return "HR";
+            }
+            if (snapshot.selectedHitType === "3B") {
+                return "3B";
+            }
+            if (snapshot.selectedHitType === "2B") {
+                return "2B";
+            }
+            if (snapshot.selectedHitType === "1B" || result === "H") {
+                return "H";
+            }
+            if (snapshot.selectedHitType === "BH") {
+                return "BH";
+            }
+            if (result === "B" || result === "B'") {
+                return "BB";
+            }
+            if (result === "DB") {
+                return "DB";
+            }
+            if (snapshot.modifiers?.sacrificeBunt) {
+                return "SH";
+            }
+            if (snapshot.modifiers?.sacrificeFly) {
+                return "SF";
+            }
+            if (snapshot.modifiers?.doublePlay) {
+                return "DP";
+            }
+            if (result === "Fc") {
+                return "FC";
+            }
+            if (snapshot.selectedBallType === "fly") {
+                return (snapshot.selectedFielder || result || "") + "F";
+            }
+            if (snapshot.selectedBallType === "liner") {
+                return (snapshot.selectedFielder || result || "") + "L";
+            }
+            if (snapshot.selectedBallType === "ground") {
+                return (snapshot.selectedFielder || result || "") + "G";
+            }
+            return result || snapshot.selectedFielder || "";
+        }
+
+        function buildKeioAdvancePolyline(snapshot) {
+            const reachedBase = getNormalBatterBaseFromSnapshot(snapshot);
+            if (!reachedBase) {
+                return "";
+            }
+            const pointsByBase = [
+                "70,150 70,112",
+                "70,150 70,112 105,76",
+                "70,150 70,112 105,76 142,112",
+                "70,150 70,112 105,76 142,112 142,150"
+            ];
+            return '<polyline points="' + pointsByBase[Math.min(4, reachedBase) - 1] + '" fill="none" stroke="' + SCORE_COLORS.redLine + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>';
+        }
+
+        function generateKeioSheetCellSvg(snapshot) {
+            const baseStroke = snapshot ? "#111" : "#888";
+            if (!snapshot) {
+                return [
+                    '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
+                    '<rect x="5" y="5" width="210" height="180" fill="none" stroke="' + baseStroke + '" stroke-width="2"/>',
+                    '<rect x="34" y="36" width="142" height="112" fill="none" stroke="' + baseStroke + '" stroke-width="1.5" opacity="0.5"/>',
+                    '<rect x="96" y="22" width="24" height="24" fill="none" stroke="' + baseStroke + '" stroke-width="1.4" opacity="0.45"/>',
+                    '<rect x="148" y="84" width="24" height="24" fill="none" stroke="' + baseStroke + '" stroke-width="1.4" opacity="0.45"/>',
+                    '<rect x="96" y="136" width="24" height="24" fill="none" stroke="' + baseStroke + '" stroke-width="1.4" opacity="0.45"/>',
+                    '<rect x="36" y="84" width="24" height="24" fill="none" stroke="' + baseStroke + '" stroke-width="1.4" opacity="0.45"/>',
+                    '<text x="183" y="171" text-anchor="middle" font-size="11" font-weight="900" fill="#64748b">NPB</text>',
+                    '</svg>'
+                ].join("");
+            }
+
+            const resultLabel = getKeioResultLabel(snapshot);
+            const pitchMarks = (snapshot.pitches || []).slice(0, 9).map((pitch, index) => {
+                const x = 18 + (index % 3) * 15;
+                const y = 22 + Math.floor(index / 3) * 15;
+                const note = snapshot.pitchNotes?.[index] || "";
+                return getPitchMarkSvgMarkup(pitch, x, y, 0.58, note);
+            }).join("");
+            const centralOutScore = getCentralOutScoreForSnapshot(snapshot);
+            const resultColor = getSnapshotResultColor(snapshot);
+            const advanceLine = buildKeioAdvancePolyline(snapshot);
+            const runnerNote = buildRunnerNotesForSheet(snapshot);
+            const commentBubble = snapshot.atBatComment || (snapshot.pitchComments || []).some((item) => item?.text)
+                ? [
+                    '<g class="comment-bubble-mark" aria-hidden="true">',
+                    '<path d="M 185 12 Q 185 7 191 7 L 208 7 Q 214 7 214 13 L 214 24 Q 214 30 208 30 L 199 30 L 191 37 L 193 30 L 191 30 Q 185 30 185 24 Z" fill="#fffdf5" stroke="#334155" stroke-width="1.5"/>',
+                    '<text x="200" y="25" text-anchor="middle" font-size="14" font-weight="900" fill="#334155">…</text>',
+                    '</g>'
+                ].join("")
+                : "";
+            const outText = centralOutScore
+                ? '<text x="30" y="168" text-anchor="middle" font-size="22" font-weight="900" fill="#111">' + centralOutScore + '</text>'
+                : "";
+            const keioNote = snapshot.modifiers?.doublePlay
+                ? '<text x="168" y="144" text-anchor="middle" font-size="18" font-weight="900" fill="' + SCORE_COLORS.red + '">DP</text>'
+                : "";
+
+            return [
+                '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
+                '<rect x="5" y="5" width="210" height="180" fill="none" stroke="#111" stroke-width="2"/>',
+                '<rect x="34" y="36" width="142" height="112" fill="none" stroke="#111" stroke-width="1.5" opacity="0.72"/>',
+                '<rect x="96" y="22" width="24" height="24" fill="#fff" stroke="#111" stroke-width="1.6"/>',
+                '<rect x="148" y="84" width="24" height="24" fill="#fff" stroke="#111" stroke-width="1.6"/>',
+                '<rect x="96" y="136" width="24" height="24" fill="#fff" stroke="#111" stroke-width="1.6"/>',
+                '<rect x="36" y="84" width="24" height="24" fill="#fff" stroke="#111" stroke-width="1.6"/>',
+                advanceLine,
+                pitchMarks,
+                '<text x="105" y="101" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(resultLabel) + '</text>',
+                outText,
+                keioNote,
+                '<text x="183" y="171" text-anchor="middle" font-size="11" font-weight="900" fill="#0e7490">NPB</text>',
+                runnerNote,
                 commentBubble,
                 '</svg>'
             ].join("");
@@ -18005,6 +18230,7 @@
         if (appVersionBadge) {
             appVersionBadge.textContent = "v" + APP_VERSION;
         }
+        initializeScorebookStyleHiddenToggle();
         document.getElementById("naturalLanguageInput").addEventListener("input", scheduleNaturalLanguageParse);
         const shouldStartBlankGame = sessionStorage.getItem(START_BLANK_GAME_SESSION_KEY) === "1";
         if (shouldStartBlankGame) {
@@ -18013,6 +18239,8 @@
         } else {
             loadGameFromLocalStorage();
         }
+        applyScorebookStyleFromUrl();
+        updateScorebookStyleUi();
         renderPlayerRosterEditor();
         renderScoreSheet();
         updateDisplay();
