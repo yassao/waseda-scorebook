@@ -4642,7 +4642,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.103";
+        const APP_VERSION = "0.1.104";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10451,6 +10451,9 @@
                 return "";
             }
             const result = snapshot.result || "";
+            const sequence = Array.isArray(snapshot.fieldSequence) && snapshot.fieldSequence.length > 0
+                ? formatFieldSequenceForSheet(snapshot.fieldSequence)
+                : (snapshot.selectedFielder || result || "");
             if (result === "K") {
                 if (snapshot.modifiers?.threeBuntStrikeout) {
                     return "3BT";
@@ -10482,10 +10485,10 @@
                 return "D";
             }
             if (snapshot.modifiers?.sacrificeBunt) {
-                return "SH";
+                return sequence || "SH";
             }
             if (snapshot.modifiers?.sacrificeFly) {
-                return "SF";
+                return "F" + (snapshot.selectedFielder || result || "");
             }
             if (snapshot.modifiers?.doublePlay) {
                 return "DP";
@@ -10494,13 +10497,13 @@
                 return "Fc";
             }
             if (snapshot.selectedBallType === "fly") {
-                return (snapshot.selectedFielder || result || "") + "F";
+                return (snapshot.modifiers?.foul ? "FF" : "F") + (snapshot.selectedFielder || result || "");
             }
             if (snapshot.selectedBallType === "liner") {
-                return (snapshot.selectedFielder || result || "") + "L";
+                return "L" + (snapshot.selectedFielder || result || "");
             }
             if (snapshot.selectedBallType === "ground") {
-                return (snapshot.selectedFielder || result || "") + "G";
+                return sequence;
             }
             return result || snapshot.selectedFielder || "";
         }
@@ -10545,6 +10548,9 @@
             const keioNote = snapshot.modifiers?.doublePlay
                 ? '<text x="168" y="144" text-anchor="middle" font-size="18" font-weight="900" fill="' + SCORE_COLORS.red + '">DP</text>'
                 : "";
+            const sacrificeFrame = snapshot.modifiers?.sacrificeBunt || snapshot.modifiers?.sacrificeFly
+                ? '<rect x="76" y="74" width="58" height="36" rx="2" fill="none" stroke="#111" stroke-width="2"/>'
+                : "";
 
             return [
                 '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
@@ -10555,6 +10561,7 @@
                 '<rect x="96" y="136" width="24" height="24" fill="#fff" stroke="#111" stroke-width="1.6"/>',
                 '<rect x="36" y="84" width="24" height="24" fill="#fff" stroke="#111" stroke-width="1.6"/>',
                 pitchMarks,
+                sacrificeFrame,
                 '<text x="105" y="101" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(resultLabel) + '</text>',
                 outText,
                 keioNote,
