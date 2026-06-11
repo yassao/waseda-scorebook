@@ -4277,6 +4277,7 @@
                             <path d="M 0 0 L 10 5 L 0 10 z" fill="#111"></path>
                         </marker>
                     </defs>
+                    <g id="wasedaPreviewGroup">
                     <rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>
                     <rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>
                     <polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>
@@ -4313,6 +4314,8 @@
                         <circle id="rbiCircle" cx="58" cy="132" r="18" fill="none" stroke="#111" stroke-width="2"></circle>
                         <text id="rbiText" x="58" y="140" text-anchor="middle" font-size="24" font-weight="700" fill="#111"></text>
                     </g>
+                    </g>
+                    <g id="keioPreviewGroup" visibility="hidden"></g>
                 </svg>
             </div>
 
@@ -4639,7 +4642,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.102";
+        const APP_VERSION = "0.1.103";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -17672,6 +17675,22 @@
             });
         }
 
+        function updateScoreboxPreviewStyle() {
+            const useKeio = state.scorebookStyle === "keio";
+            const wasedaGroup = document.getElementById("wasedaPreviewGroup");
+            const keioGroup = document.getElementById("keioPreviewGroup");
+            wasedaGroup?.setAttribute("visibility", useKeio ? "hidden" : "visible");
+            keioGroup?.setAttribute("visibility", useKeio ? "visible" : "hidden");
+            if (!useKeio || !keioGroup) {
+                if (keioGroup) {
+                    keioGroup.innerHTML = "";
+                }
+                return;
+            }
+            const keioSvg = generateKeioSheetCellSvg(state).replace("<svg ", '<svg x="0" y="0" width="220" height="190" ');
+            keioGroup.innerHTML = keioSvg;
+        }
+
         function updateResultDecoration() {
             const resultDisplay = document.getElementById("resultDisplay");
             const prefixDisplay = document.getElementById("resultPrefixDisplay");
@@ -18015,6 +18034,7 @@
 
         function updateDisplay() {
             applyInputLayout();
+            updateScoreboxPreviewStyle();
             updatePitchDisplay();
             updateRunnerNotesDisplay();
             updateRunnerPreviewPanel();
