@@ -2315,6 +2315,24 @@
             display: block;
         }
 
+        .pitcher-change-marker.is-keio {
+            top: 1px;
+            left: 2px;
+            right: 2px;
+            height: auto;
+            padding: 1px 3px;
+            border-bottom: 1px solid #111;
+            background: rgba(255, 255, 255, 0.92);
+            color: #111;
+            font-size: calc(8px * var(--sheet-zoom));
+            font-weight: 900;
+            line-height: 1.15;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .pitcher-book-section {
             grid-column: 1 / -1;
             display: grid;
@@ -4642,7 +4660,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.105";
+        const APP_VERSION = "0.1.106";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10708,6 +10726,9 @@
                 return "";
             }
             const label = "P." + match.change.name;
+            if (state.scorebookStyle === "keio") {
+                return '<div class="pitcher-change-marker is-keio" aria-label="投手交代 ' + escapeHtml(label) + '">P:' + escapeHtml(match.change.name) + '</div>';
+            }
             return [
                 '<div class="pitcher-change-marker" aria-label="投手交代 ' + escapeHtml(label) + '">',
                 '<svg viewBox="0 0 100 44" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">',
