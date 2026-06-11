@@ -4639,7 +4639,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.101";
+        const APP_VERSION = "0.1.102";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10453,9 +10453,9 @@
                     return "3BT";
                 }
                 if (snapshot.modifiers?.droppedThirdStrike) {
-                    return "SO→";
+                    return "K";
                 }
-                return snapshot.modifiers?.swingStrikeout ? "SO" : "K";
+                return "SO";
             }
             if (snapshot.selectedHitType === "HR" || result === "HR") {
                 return "HR";
@@ -10476,7 +10476,7 @@
                 return "BB";
             }
             if (result === "DB") {
-                return "DB";
+                return "D";
             }
             if (snapshot.modifiers?.sacrificeBunt) {
                 return "SH";
@@ -10488,7 +10488,7 @@
                 return "DP";
             }
             if (result === "Fc") {
-                return "FC";
+                return "Fc";
             }
             if (snapshot.selectedBallType === "fly") {
                 return (snapshot.selectedFielder || result || "") + "F";
@@ -10500,20 +10500,6 @@
                 return (snapshot.selectedFielder || result || "") + "G";
             }
             return result || snapshot.selectedFielder || "";
-        }
-
-        function buildKeioAdvancePolyline(snapshot) {
-            const reachedBase = getNormalBatterBaseFromSnapshot(snapshot);
-            if (!reachedBase) {
-                return "";
-            }
-            const pointsByBase = [
-                "70,150 70,112",
-                "70,150 70,112 105,76",
-                "70,150 70,112 105,76 142,112",
-                "70,150 70,112 105,76 142,112 142,150"
-            ];
-            return '<polyline points="' + pointsByBase[Math.min(4, reachedBase) - 1] + '" fill="none" stroke="' + SCORE_COLORS.redLine + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>';
         }
 
         function generateKeioSheetCellSvg(snapshot) {
@@ -10541,7 +10527,6 @@
             }).join("");
             const centralOutScore = getCentralOutScoreForSnapshot(snapshot);
             const resultColor = getSnapshotResultColor(snapshot);
-            const advanceLine = buildKeioAdvancePolyline(snapshot);
             const runnerNote = buildRunnerNotesForSheet(snapshot);
             const commentBubble = snapshot.atBatComment || (snapshot.pitchComments || []).some((item) => item?.text)
                 ? [
@@ -10566,7 +10551,6 @@
                 '<rect x="148" y="84" width="24" height="24" fill="#fff" stroke="#111" stroke-width="1.6"/>',
                 '<rect x="96" y="136" width="24" height="24" fill="#fff" stroke="#111" stroke-width="1.6"/>',
                 '<rect x="36" y="84" width="24" height="24" fill="#fff" stroke="#111" stroke-width="1.6"/>',
-                advanceLine,
                 pitchMarks,
                 '<text x="105" y="101" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(resultLabel) + '</text>',
                 outText,
