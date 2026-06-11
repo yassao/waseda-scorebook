@@ -4660,7 +4660,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.106";
+        const APP_VERSION = "0.1.107";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9551,16 +9551,17 @@
                 return "";
             }
             if (event.kind === "score") {
-                return "R" + (event.advanceLabel ? ":" + event.advanceLabel : "");
+                return "得点" + (event.advanceLabel ? " " + event.advanceLabel : "");
             }
             if (event.kind === "advance") {
-                return "A" + event.base + (event.label ? ":" + event.label : "");
+                const baseNames = ["", "一進", "二進", "三進", "本進"];
+                return (baseNames[event.base] || "進塁") + (event.label ? " " + event.label : "");
             }
             if (event.kind === "out") {
-                return "O:" + (event.label || "アウト") + (event.by ? " (" + event.by + ")" : "");
+                return "走者アウト " + (event.label || "") + (event.by ? " (" + event.by + ")" : "");
             }
             if (event.kind === "leftOnBase") {
-                return "LOB";
+                return "残塁";
             }
             return typeof event === "string" ? event : "";
         }
@@ -10588,7 +10589,6 @@
                     '<rect x="148" y="84" width="24" height="24" fill="none" stroke="' + baseStroke + '" stroke-width="1.4" opacity="0.45"/>',
                     '<rect x="96" y="136" width="24" height="24" fill="none" stroke="' + baseStroke + '" stroke-width="1.4" opacity="0.45"/>',
                     '<rect x="36" y="84" width="24" height="24" fill="none" stroke="' + baseStroke + '" stroke-width="1.4" opacity="0.45"/>',
-                    '<text x="183" y="171" text-anchor="middle" font-size="11" font-weight="900" fill="#64748b">NPB</text>',
                     '</svg>'
                 ].join("");
             }
@@ -10634,7 +10634,6 @@
                 '<text x="105" y="101" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(resultLabel) + '</text>',
                 outText,
                 keioNote,
-                '<text x="183" y="171" text-anchor="middle" font-size="11" font-weight="900" fill="#0e7490">NPB</text>',
                 runnerNote,
                 commentBubble,
                 '</svg>'
