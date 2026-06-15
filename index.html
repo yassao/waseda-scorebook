@@ -452,11 +452,21 @@
         }
 
         .app-version-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 48px;
+            min-height: 34px;
+            padding: 0 2px;
             color: #64748b;
             font-size: 10px;
             font-weight: 900;
             line-height: 1;
             white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
         }
 
         .scorebook-style-badge {
@@ -4660,7 +4670,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.109";
+        const APP_VERSION = "0.1.110";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4843,6 +4853,8 @@
         let currentAiPromptText = "";
         let isTwitterImporting = false;
         let appVersionBadgeTapCount = 0;
+        let appVersionBadgeTapResetTimer = null;
+        let appVersionBadgeLastPointerTapAt = 0;
 
         const SCORE_COLORS = {
             ink: "#111",
@@ -5211,16 +5223,33 @@
             if (!badge) {
                 return;
             }
-            badge.addEventListener("click", () => {
+            const registerHiddenToggleTap = (event) => {
+                if (event?.type === "click" && Date.now() - appVersionBadgeLastPointerTapAt < 500) {
+                    return;
+                }
+                if (event?.type === "pointerup") {
+                    appVersionBadgeLastPointerTapAt = Date.now();
+                }
                 appVersionBadgeTapCount += 1;
                 if (appVersionBadgeTapCount >= 7) {
                     appVersionBadgeTapCount = 0;
+                    if (appVersionBadgeTapResetTimer) {
+                        clearTimeout(appVersionBadgeTapResetTimer);
+                        appVersionBadgeTapResetTimer = null;
+                    }
                     toggleExperimentalScorebookStyle();
+                    return;
                 }
-                setTimeout(() => {
+                if (appVersionBadgeTapResetTimer) {
+                    clearTimeout(appVersionBadgeTapResetTimer);
+                }
+                appVersionBadgeTapResetTimer = setTimeout(() => {
                     appVersionBadgeTapCount = 0;
+                    appVersionBadgeTapResetTimer = null;
                 }, 1800);
-            });
+            };
+            badge.addEventListener("pointerup", registerHiddenToggleTap);
+            badge.addEventListener("click", registerHiddenToggleTap);
         }
 
         function findColumnForInning(half, inning) {
