@@ -4685,7 +4685,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.111";
+        const APP_VERSION = "0.1.112";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10671,6 +10671,36 @@
             return result || snapshot.selectedFielder || "";
         }
 
+        function getKeioOnBaseSymbol(snapshot) {
+            const result = snapshot?.result || "";
+            const hitType = snapshot?.selectedHitType || "none";
+            if (hitType === "HR" || result === "HR") {
+                return "^H";
+            }
+            if (hitType === "3B") {
+                return "^3";
+            }
+            if (hitType === "2B") {
+                return "^2";
+            }
+            if (hitType === "1B" || hitType === "G" || hitType === "BH" || result === "H") {
+                return "^";
+            }
+            if (result === "B" || result === "B'") {
+                return "BB";
+            }
+            if (result === "DB") {
+                return "D";
+            }
+            if (result === "Fc") {
+                return "Fc";
+            }
+            if (result === "K" && snapshot?.modifiers?.droppedThirdStrike) {
+                return "K";
+            }
+            return "";
+        }
+
         function generateKeioSheetCellSvg(snapshot) {
             const baseStroke = snapshot ? "#111" : "#888";
             if (!snapshot) {
@@ -10693,10 +10723,12 @@
             const resultColor = getSnapshotResultColor(snapshot);
             const runnerNote = buildKeioRunnerNotesForSheet(snapshot);
             const resultBaseSlot = getKeioBaseSlot(getKeioBatterResultBase(snapshot));
-            const resultFontSize = resultLabel.length >= 3 ? 19 : 24;
+            const onBaseSymbol = getKeioOnBaseSymbol(snapshot);
+            const visibleResultLabel = onBaseSymbol || resultLabel;
+            const resultFontSize = visibleResultLabel.length >= 3 ? 19 : 24;
             const resultMarkup = resultBaseSlot
-                ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="' + resultFontSize + '" font-weight="900" fill="' + resultColor + '">' + escapeHtml(resultLabel) + '</text>'
-                : '<text x="110" y="112" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(resultLabel) + '</text>';
+                ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="' + resultFontSize + '" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>'
+                : '<text x="110" y="112" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>';
             const commentBubble = snapshot.atBatComment || (snapshot.pitchComments || []).some((item) => item?.text)
                 ? [
                     '<g class="comment-bubble-mark" aria-hidden="true">',
@@ -17833,6 +17865,13 @@
                 "M 125 5 L 35 95",
                 "M 35 95 L 125 185"
             ];
+
+            if (state.scorebookStyle === "keio") {
+                segments.forEach((segment) => {
+                    segment?.setAttribute("visibility", "hidden");
+                });
+                return;
+            }
 
             const visibleCount = getNormalBatterBaseFromSnapshot(state);
 
