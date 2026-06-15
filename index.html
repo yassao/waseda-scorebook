@@ -420,12 +420,12 @@
         }
 
         .app-header {
-            padding: 4px 16px 4px;
+            padding: 4px 10px 4px;
             color: #12202c;
             flex-shrink: 0;
             display: flex;
             align-items: center;
-            justify-content: flex-end;
+            justify-content: flex-start;
             gap: 12px;
             background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0));
         }
@@ -449,14 +449,26 @@
             align-items: center;
             gap: 6px;
             flex-shrink: 0;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .version-style-stack {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            min-width: 50px;
+            max-width: 68px;
+            flex-shrink: 0;
         }
 
         .app-version-badge {
             display: inline-flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             min-width: 48px;
-            min-height: 34px;
+            min-height: 18px;
             padding: 0 2px;
             color: #64748b;
             font-size: 10px;
@@ -471,14 +483,15 @@
 
         .scorebook-style-badge {
             display: none;
-            padding: 3px 7px;
+            margin-top: 1px;
+            padding: 2px 5px;
             border-radius: 999px;
             border: 1px solid rgba(14, 116, 144, 0.28);
             background: rgba(224, 242, 254, 0.86);
             color: #0e7490;
-            font-size: 9px;
+            font-size: 8px;
             font-weight: 900;
-            line-height: 1;
+            line-height: 1.05;
             white-space: nowrap;
         }
 
@@ -4279,8 +4292,6 @@
         </div>
         <header class="app-header">
             <div class="history-actions" aria-label="履歴操作">
-                <span id="appVersionBadge" class="app-version-badge">v0.1.52</span>
-                <span id="scorebookStyleBadge" class="scorebook-style-badge">慶応式 実験中</span>
                 <button class="header-home-btn" onclick="saveCurrentGameAndShowStart()" aria-label="現在の試合を保存してホームへ戻る" title="保存してホーム">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M3 11.5 12 4l9 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -4288,6 +4299,10 @@
                         <path d="M10 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
                     </svg>
                 </button>
+                <span class="version-style-stack">
+                    <span id="appVersionBadge" class="app-version-badge">v0.1.52</span>
+                    <span id="scorebookStyleBadge" class="scorebook-style-badge">慶応式 実験中</span>
+                </span>
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
                 <button id="workspaceToggleBtn" class="workspace-toggle-btn" onclick="toggleTopWorkspace()" aria-label="入力とスコアブックを切替">スコアブック</button>
@@ -4670,7 +4685,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.110";
+        const APP_VERSION = "0.1.111";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9697,19 +9712,17 @@
 
         function getKeioBaseSlot(base) {
             const slots = {
-                2: { labelX: 82, labelY: 58 },
-                1: { labelX: 138, labelY: 58 },
-                3: { labelX: 82, labelY: 123 },
-                4: { labelX: 138, labelY: 123 }
+                2: { labelX: 72, labelY: 36 },
+                1: { labelX: 148, labelY: 36 },
+                3: { labelX: 72, labelY: 112 },
+                4: { labelX: 148, labelY: 112 }
             };
             return slots[base] || null;
         }
 
         function buildKeioCellFrame(stroke, opacity = 1) {
             return [
-                '<rect x="46" y="32" width="128" height="128" fill="none" stroke="' + stroke + '" stroke-width="1.5" opacity="' + opacity + '"/>',
-                '<line x1="46" y1="66" x2="174" y2="66" stroke="' + stroke + '" stroke-width="1.5" opacity="' + opacity + '"/>',
-                '<line x1="110" y1="32" x2="110" y2="66" stroke="' + stroke + '" stroke-width="1.1" opacity="' + (opacity * 0.72) + '"/>'
+                '<line x1="5" y1="45" x2="215" y2="45" stroke="' + stroke + '" stroke-width="1.5" opacity="' + opacity + '"/>'
             ].join("");
         }
 
@@ -10670,11 +10683,11 @@
             }
 
             const resultLabel = getKeioResultLabel(snapshot);
-            const pitchMarks = (snapshot.pitches || []).slice(0, 9).map((pitch, index) => {
-                const x = 18 + (index % 3) * 15;
-                const y = 22 + Math.floor(index / 3) * 15;
+            const pitchMarks = (snapshot.pitches || []).slice(0, 14).map((pitch, index) => {
+                const x = 15 + index * 14;
+                const y = 24;
                 const note = snapshot.pitchNotes?.[index] || "";
-                return getPitchMarkSvgMarkup(pitch, x, y, 0.58, note);
+                return getPitchMarkSvgMarkup(pitch, x, y, 0.52, note);
             }).join("");
             const centralOutScore = getCentralOutScoreForSnapshot(snapshot);
             const resultColor = getSnapshotResultColor(snapshot);
@@ -10683,7 +10696,7 @@
             const resultFontSize = resultLabel.length >= 3 ? 19 : 24;
             const resultMarkup = resultBaseSlot
                 ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="' + resultFontSize + '" font-weight="900" fill="' + resultColor + '">' + escapeHtml(resultLabel) + '</text>'
-                : '<text x="110" y="101" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(resultLabel) + '</text>';
+                : '<text x="110" y="112" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(resultLabel) + '</text>';
             const commentBubble = snapshot.atBatComment || (snapshot.pitchComments || []).some((item) => item?.text)
                 ? [
                     '<g class="comment-bubble-mark" aria-hidden="true">',
