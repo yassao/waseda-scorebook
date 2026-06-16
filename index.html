@@ -4685,7 +4685,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.113";
+        const APP_VERSION = "0.1.114";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10617,6 +10617,7 @@
             const sequence = Array.isArray(snapshot.fieldSequence) && snapshot.fieldSequence.length > 0
                 ? formatFieldSequenceForSheet(snapshot.fieldSequence)
                 : (snapshot.selectedFielder || result || "");
+            const fieldSequence = Array.isArray(snapshot.fieldSequence) ? snapshot.fieldSequence : [];
             if (result === "K") {
                 if (snapshot.modifiers?.threeBuntStrikeout) {
                     return "3BT";
@@ -10651,7 +10652,7 @@
                 return sequence || "SH";
             }
             if (snapshot.modifiers?.sacrificeFly) {
-                return "F" + (snapshot.selectedFielder || result || "");
+                return "F-" + (snapshot.selectedFielder || result || "");
             }
             if (snapshot.modifiers?.doublePlay) {
                 return "DP";
@@ -10660,12 +10661,19 @@
                 return "Fc";
             }
             if (snapshot.selectedBallType === "fly") {
-                return (snapshot.modifiers?.foul ? "FF" : "F") + (snapshot.selectedFielder || result || "");
+                const fielder = snapshot.selectedFielder || result || "";
+                return (snapshot.modifiers?.foul ? "FF-" : "F-") + fielder;
             }
             if (snapshot.selectedBallType === "liner") {
                 return "L" + (snapshot.selectedFielder || result || "");
             }
             if (snapshot.selectedBallType === "ground") {
+                if (snapshot.baseCover && snapshot.baseCover !== "none") {
+                    return sequence + snapshot.baseCover;
+                }
+                if (fieldSequence.length === 2 && fieldSequence[0] === "3" && fieldSequence[1] === "1") {
+                    return "3-1A";
+                }
                 return sequence;
             }
             return result || snapshot.selectedFielder || "";
@@ -17912,7 +17920,9 @@
                 }
                 return;
             }
-            const keioSvg = generateKeioSheetCellSvg(state).replace("<svg ", '<svg x="0" y="0" width="220" height="190" ');
+            const previewSnapshot = captureAtBatSnapshot();
+            previewSnapshot.outScore = getCurrentOutScoreForDisplay();
+            const keioSvg = generateKeioSheetCellSvg(previewSnapshot).replace("<svg ", '<svg x="0" y="0" width="220" height="190" ');
             keioGroup.innerHTML = keioSvg;
         }
 
