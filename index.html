@@ -4685,7 +4685,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.116";
+        const APP_VERSION = "0.1.117";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4926,54 +4926,40 @@
             onBase: {
                 label: "出塁",
                 options: [
-                    { value: "hit_1b", label: "安打" },
-                    { value: "hit_2b", label: "二塁打" },
-                    { value: "hit_3b", label: "三塁打" },
-                    { value: "hit_hr", label: "本塁打" },
-                    { value: "walk", label: "四球" },
-                    { value: "intentional_walk", label: "敬遠" },
-                    { value: "hbp", label: "死球" },
-                    { value: "fielding_error_onbase", label: "打球処理エラー" },
-                    { value: "throw_error_onbase", label: "送球エラー" },
-                    { value: "receive_error_onbase", label: "捕球エラー" },
-                    { value: "force_fc", label: "封殺＆Fc" },
-                    { value: "bunt_failed_fc", label: "バント失敗Fc" },
-                    { value: "fc_all_safe", label: "Fcオールセーフ" },
-                    { value: "dropped_third", label: "振り逃げ" }
+                    { value: "hit_1b", label: "安打", group: "ヒット系" },
+                    { value: "hit_2b", label: "二塁打", group: "ヒット系" },
+                    { value: "hit_3b", label: "三塁打", group: "ヒット系" },
+                    { value: "hit_hr", label: "本塁打", group: "ヒット系" },
+                    { value: "other_bunt_hit", label: "バントヒット", group: "ヒット系" },
+                    { value: "other_texas_hit", label: "テキサスヒット", group: "ヒット系" },
+                    { value: "other_hard_hit", label: "強襲安打", group: "ヒット系" },
+                    { value: "walk", label: "四球", group: "四死球" },
+                    { value: "intentional_walk", label: "敬遠", group: "四死球" },
+                    { value: "hbp", label: "死球", group: "四死球" },
+                    { value: "fielding_error_onbase", label: "打球処理エラー", group: "エラー系" },
+                    { value: "throw_error_onbase", label: "送球エラー", group: "エラー系" },
+                    { value: "receive_error_onbase", label: "捕球エラー", group: "エラー系" },
+                    { value: "force_fc", label: "封殺＆Fc", group: "Fc系" },
+                    { value: "bunt_failed_fc", label: "バント失敗Fc", group: "Fc系" },
+                    { value: "fc_all_safe", label: "Fcオールセーフ", group: "Fc系" },
+                    { value: "dropped_third", label: "振り逃げ", group: "三振系" },
+                    { value: "other_interference", label: "打撃妨害", group: "その他の出塁" }
                 ]
             },
             out: {
                 label: "アウト",
                 options: [
-                    { value: "ground_out", label: "ゴロアウト" },
-                    { value: "fly_out", label: "フライアウト" },
-                    { value: "liner_out", label: "ライナーアウト" },
-                    { value: "dropped_third_out", label: "振り逃げ一塁アウト" },
-                    { value: "sac_bunt", label: "犠打" },
-                    { value: "sac_fly", label: "犠飛" },
-                    { value: "safety_bunt_failed", label: "セーフティ失敗" },
-                    { value: "bunt_failed_out", label: "バント失敗" },
-                    { value: "bunt_fly_out", label: "バントフライ" },
-                    { value: "bunt_double_play", label: "バント併殺" },
-                    { value: "double_play", label: "併殺" }
-                ]
-            },
-            other: {
-                label: "その他",
-                options: [
-                    { value: "other_wild_pitch", label: "暴投" },
-                    { value: "other_passed_ball", label: "捕逸" },
-                    { value: "other_balk", label: "ボーク" },
-                    { value: "other_stolen_base", label: "盗塁" },
-                    { value: "other_caught_stealing", label: "盗塁刺" },
-                    { value: "other_pickoff", label: "牽制" },
-                    { value: "other_tag_out", label: "タッグアウト" },
-                    { value: "other_bunt_hit", label: "バントヒット" },
-                    { value: "other_texas_hit", label: "テキサスヒット" },
-                    { value: "other_hard_hit", label: "強襲安打" },
-                    { value: "other_interference", label: "打撃妨害" },
-                    { value: "other_obstruction", label: "走塁妨害" },
-                    { value: "other_offensive_interference", label: "守備妨害" }
+                    { value: "ground_out", label: "ゴロアウト", group: "通常アウト" },
+                    { value: "fly_out", label: "フライアウト", group: "通常アウト" },
+                    { value: "liner_out", label: "ライナーアウト", group: "通常アウト" },
+                    { value: "double_play", label: "併殺", group: "通常アウト" },
+                    { value: "dropped_third_out", label: "振り逃げ一塁アウト", group: "三振系" },
+                    { value: "sac_bunt", label: "犠打", group: "犠打・犠飛" },
+                    { value: "sac_fly", label: "犠飛", group: "犠打・犠飛" },
+                    { value: "safety_bunt_failed", label: "セーフティ失敗", group: "バント失敗" },
+                    { value: "bunt_failed_out", label: "バント失敗", group: "バント失敗" },
+                    { value: "bunt_fly_out", label: "バントフライ", group: "バント失敗" },
+                    { value: "bunt_double_play", label: "バント併殺", group: "バント失敗" }
                 ]
             }
         };
@@ -13445,24 +13431,54 @@
             showPlayPartPopup();
         }
 
-        function renderPlayPartCategoryPopup(row) {
+        function renderPlayPartCategoryPopup(row, forceCategory = false) {
             const popup = document.getElementById("playPartPopup");
             const isAdditionalRow = row.dataset.role === "additional";
-            const groups = getPlayPartOptionGroups(isAdditionalRow, row.querySelector(".play-part-category")?.value || "");
+            const groups = getPlayPartOptionGroups(isAdditionalRow, "");
+            const selectedCategory = row.querySelector(".play-part-category")?.value || "";
+            if (selectedCategory && !forceCategory) {
+                renderPlayPartContentPopup(row);
+                return;
+            }
             const pieces = [renderPlayPartPopupHeader("打球結果")];
+            pieces.push('<div class="play-part-popup-section">' + (isAdditionalRow ? "追加する動き" : "まず選ぶ") + '</div>');
+            pieces.push('<div class="play-part-popup-grid">');
             Object.entries(groups).forEach(([category, config]) => {
-                pieces.push('<div class="play-part-popup-section">' + config.label + '</div>');
-                pieces.push('<div class="play-part-popup-grid">');
-                config.options.forEach((option) => {
-                    pieces.push(
-                        '<button type="button" class="play-part-popup-option" onclick=\'choosePlayPartResult(' +
-                        JSON.stringify(category) + ',' + JSON.stringify(option.value) +
-                        ')\'>' + option.label + '</button>'
-                    );
-                });
-                pieces.push('</div>');
+                pieces.push(
+                    '<button type="button" class="play-part-popup-option is-primary" onclick=\'choosePlayPartCategory(' +
+                    JSON.stringify(category) +
+                    ')\'>' + config.label + '</button>'
+                );
             });
+            pieces.push('</div>');
             popup.innerHTML = pieces.join("");
+        }
+
+        function renderGroupedPlayPartOptions(category, options) {
+            const pieces = [];
+            let currentGroup = "";
+            options.forEach((option) => {
+                const group = option.group || "";
+                if (group && group !== currentGroup) {
+                    if (currentGroup) {
+                        pieces.push('</div>');
+                    }
+                    currentGroup = group;
+                    pieces.push('<div class="play-part-popup-section">' + escapeHtml(group) + '</div>');
+                    pieces.push('<div class="play-part-popup-grid">');
+                } else if (!currentGroup && pieces.length === 0) {
+                    pieces.push('<div class="play-part-popup-grid">');
+                }
+                pieces.push(
+                    '<button type="button" class="play-part-popup-option" onclick=\'choosePlayPartResult(' +
+                    JSON.stringify(category) + ',' + JSON.stringify(option.value) +
+                    ')\'>' + option.label + '</button>'
+                );
+            });
+            if (pieces.length) {
+                pieces.push('</div>');
+            }
+            return pieces.join("");
         }
 
         function renderPlayPartContentPopup(row) {
@@ -13476,12 +13492,9 @@
             }
             popup.innerHTML = [
                 renderPlayPartPopupHeader("打球結果"),
-                '<button type="button" class="play-part-popup-back" onclick="renderPlayPartCategoryPopup(playPartPopupState.row)">← 分類に戻る</button>',
-                '<div class="play-part-popup-grid">',
-                ...config.options.map((option) =>
-                    '<button type="button" class="play-part-popup-option" onclick=\'choosePlayPartResult(' + JSON.stringify(category) + ',' + JSON.stringify(option.value) + ')\'>' + option.label + '</button>'
-                ),
-                '</div>'
+                '<button type="button" class="play-part-popup-back" onclick="renderPlayPartCategoryPopup(playPartPopupState.row, true)">← 分類に戻る</button>',
+                '<div class="play-part-popup-section">' + config.label + '</div>',
+                renderGroupedPlayPartOptions(category, config.options)
             ].join("");
         }
 
@@ -13990,6 +14003,7 @@
                 "振り逃げで一塁アウトは「アウト: 振り逃げ一塁アウト」を選び、必要なら野手/連携に 23 と入れます。",
                 "セーフティバントを試みてアウトなら「アウト: セーフティ失敗」を選び、野手/連携に 53 などを入れます。",
                 "バント失敗は、打者が生きる時は「バント失敗Fc」、打者も絡む時は「バント失敗」「バントフライ」「バント併殺」を選びます。",
+                "暴投・捕逸・ボーク・盗塁・牽制など、打者の結果ではない動きは走者をタップして記録します。",
                 "標準進塁と違う走者の移動やアウトは、走者プレビューをタップして最終到達塁を補正します。",
                 "野手/連携は 8、63、643 のようにハイフンなしで入力できます。"
             ].join("\\n"));
