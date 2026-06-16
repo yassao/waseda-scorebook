@@ -4685,7 +4685,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.112";
+        const APP_VERSION = "0.1.113";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10701,6 +10701,21 @@
             return "";
         }
 
+        function buildKeioBatterOutMarkup(resultLabel, outScore) {
+            const outCount = romanToOutCount(outScore);
+            if (!outCount || !resultLabel) {
+                return "";
+            }
+            const safeLabel = escapeHtml(resultLabel);
+            const labelFont = resultLabel.length >= 4 ? 22 : 28;
+            const lineHalfWidth = Math.max(26, Math.min(48, resultLabel.length * 12));
+            return [
+                '<text x="110" y="94" text-anchor="middle" font-size="' + labelFont + '" font-weight="900" fill="#111">' + safeLabel + '</text>',
+                '<line x1="' + (110 - lineHalfWidth) + '" y1="105" x2="' + (110 + lineHalfWidth) + '" y2="105" stroke="#111" stroke-width="2.4" stroke-linecap="round"/>',
+                '<text x="110" y="128" text-anchor="middle" font-size="22" font-weight="900" fill="#111">' + outCount + '</text>'
+            ].join("");
+        }
+
         function generateKeioSheetCellSvg(snapshot) {
             const baseStroke = snapshot ? "#111" : "#888";
             if (!snapshot) {
@@ -10725,10 +10740,13 @@
             const resultBaseSlot = getKeioBaseSlot(getKeioBatterResultBase(snapshot));
             const onBaseSymbol = getKeioOnBaseSymbol(snapshot);
             const visibleResultLabel = onBaseSymbol || resultLabel;
+            const isBatterOutResult = Boolean(centralOutScore && !resultBaseSlot && resultLabel);
             const resultFontSize = visibleResultLabel.length >= 3 ? 19 : 24;
-            const resultMarkup = resultBaseSlot
-                ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="' + resultFontSize + '" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>'
-                : '<text x="110" y="112" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>';
+            const resultMarkup = isBatterOutResult
+                ? buildKeioBatterOutMarkup(resultLabel, centralOutScore)
+                : resultBaseSlot
+                    ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="' + resultFontSize + '" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>'
+                    : '<text x="110" y="112" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>';
             const commentBubble = snapshot.atBatComment || (snapshot.pitchComments || []).some((item) => item?.text)
                 ? [
                     '<g class="comment-bubble-mark" aria-hidden="true">',
@@ -10737,7 +10755,7 @@
                     '</g>'
                 ].join("")
                 : "";
-            const outText = centralOutScore
+            const outText = centralOutScore && !isBatterOutResult
                 ? '<text x="30" y="168" text-anchor="middle" font-size="22" font-weight="900" fill="#111">' + centralOutScore + '</text>'
                 : "";
             const keioNote = snapshot.modifiers?.doublePlay
