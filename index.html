@@ -4685,7 +4685,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.1.117";
+        const APP_VERSION = "0.1.118";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9620,7 +9620,7 @@
 
             const rows = uniqueEvents.slice(0, 4).map(({ event, label }, index) => {
                 let x = 110;
-                let y = 151 - index * 13;
+                let y = 214 - index * 15;
                 let anchor = "middle";
                 let size = 9;
                 const base = event?.kind === "score"
@@ -9634,11 +9634,11 @@
                     y = slot.labelY + 14 + index * 2;
                     size = 8;
                 } else if (event?.kind === "out") {
-                    y = 151 - index * 12;
+                    y = 214 - index * 13;
                     size = 8;
                 } else if (event?.kind === "leftOnBase") {
                     x = 44;
-                    y = 170;
+                    y = 228;
                     anchor = "start";
                     size = 8;
                 }
@@ -9701,10 +9701,10 @@
 
         function getKeioBaseSlot(base) {
             const slots = {
-                2: { labelX: 72, labelY: 36 },
-                1: { labelX: 148, labelY: 36 },
-                3: { labelX: 72, labelY: 112 },
-                4: { labelX: 148, labelY: 112 }
+                2: { labelX: 68, labelY: 80 },
+                1: { labelX: 152, labelY: 80 },
+                3: { labelX: 68, labelY: 202 },
+                4: { labelX: 152, labelY: 202 }
             };
             return slots[base] || null;
         }
@@ -10755,21 +10755,21 @@
                 const detailFont = detailLabel.length >= 4 ? 17 : 20;
                 const lineHalfWidth = Math.max(28, Math.min(50, Math.max(resultLabel.length, detailLabel.length) * 10));
                 return [
-                    '<text x="110" y="78" text-anchor="middle" font-size="' + labelFont + '" font-weight="900" fill="#111">' + safeLabel + '</text>',
-                    '<text x="110" y="100" text-anchor="middle" font-size="' + detailFont + '" font-weight="900" fill="#111">' + safeDetail + '</text>',
-                    '<line x1="' + (110 - lineHalfWidth) + '" y1="110" x2="' + (110 + lineHalfWidth) + '" y2="110" stroke="#111" stroke-width="2.4" stroke-linecap="round"/>',
-                    '<text x="110" y="133" text-anchor="middle" font-size="21" font-weight="900" fill="#111">' + outCount + '</text>'
+                    '<text x="110" y="104" text-anchor="middle" font-size="' + labelFont + '" font-weight="900" fill="#111">' + safeLabel + '</text>',
+                    '<text x="110" y="129" text-anchor="middle" font-size="' + detailFont + '" font-weight="900" fill="#111">' + safeDetail + '</text>',
+                    '<line x1="' + (110 - lineHalfWidth) + '" y1="145" x2="' + (110 + lineHalfWidth) + '" y2="145" stroke="#111" stroke-width="2.4" stroke-linecap="round"/>',
+                    '<text x="110" y="174" text-anchor="middle" font-size="21" font-weight="900" fill="#111">' + outCount + '</text>'
                 ].join("");
             }
             const lineHalfWidth = Math.max(26, Math.min(48, resultLabel.length * 12));
             const resultBox = boxMain
-                ? '<rect x="' + (110 - lineHalfWidth - 10) + '" y="64" width="' + ((lineHalfWidth + 10) * 2) + '" height="36" rx="2" fill="none" stroke="#111" stroke-width="2"/>'
+                ? '<rect x="' + (110 - lineHalfWidth - 10) + '" y="94" width="' + ((lineHalfWidth + 10) * 2) + '" height="38" rx="2" fill="none" stroke="#111" stroke-width="2"/>'
                 : "";
             return [
                 resultBox,
-                '<text x="110" y="91" text-anchor="middle" font-size="' + labelFont + '" font-weight="900" fill="#111">' + safeLabel + '</text>',
-                '<line x1="' + (110 - lineHalfWidth) + '" y1="105" x2="' + (110 + lineHalfWidth) + '" y2="105" stroke="#111" stroke-width="2.4" stroke-linecap="round"/>',
-                '<text x="110" y="128" text-anchor="middle" font-size="22" font-weight="900" fill="#111">' + outCount + '</text>'
+                '<text x="110" y="123" text-anchor="middle" font-size="' + labelFont + '" font-weight="900" fill="#111">' + safeLabel + '</text>',
+                '<line x1="' + (110 - lineHalfWidth) + '" y1="143" x2="' + (110 + lineHalfWidth) + '" y2="143" stroke="#111" stroke-width="2.4" stroke-linecap="round"/>',
+                '<text x="110" y="173" text-anchor="middle" font-size="22" font-weight="900" fill="#111">' + outCount + '</text>'
             ].join("");
         }
 
@@ -10777,8 +10777,8 @@
             const baseStroke = snapshot ? "#111" : "#888";
             if (!snapshot) {
                 return [
-                    '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
-                    '<rect x="5" y="5" width="210" height="180" fill="none" stroke="' + baseStroke + '" stroke-width="2"/>',
+                    '<svg class="sheet-cell-svg" viewBox="5 5 210 240" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
+                    '<rect x="5" y="5" width="210" height="240" fill="none" stroke="' + baseStroke + '" stroke-width="2"/>',
                     buildKeioCellFrame(baseStroke, 0.48),
                     '</svg>'
                 ].join("");
@@ -10786,7 +10786,7 @@
 
             const resultLabel = getKeioResultLabel(snapshot);
             const pitchMarks = (snapshot.pitches || []).slice(0, 14).map((pitch, index) => {
-                const x = 15 + index * 14;
+                const x = 14 + index * 13.5;
                 const y = 24;
                 const note = snapshot.pitchNotes?.[index] || "";
                 return getPitchMarkSvgMarkup(pitch, x, y, 0.52, note);
@@ -10805,24 +10805,24 @@
                 ? buildKeioBatterOutMarkup(resultLabel, centralOutScore, batterOutDetailLabel, { boxMain: boxKeioBatterOutResult })
                 : resultBaseSlot
                     ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="' + resultFontSize + '" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>'
-                    : '<text x="110" y="112" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>';
+                    : '<text x="110" y="146" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>';
             const commentBubble = snapshot.atBatComment || (snapshot.pitchComments || []).some((item) => item?.text)
                 ? [
                     '<g class="comment-bubble-mark" aria-hidden="true">',
-                    '<path d="M 185 12 Q 185 7 191 7 L 208 7 Q 214 7 214 13 L 214 24 Q 214 30 208 30 L 199 30 L 191 37 L 193 30 L 191 30 Q 185 30 185 24 Z" fill="#fffdf5" stroke="#334155" stroke-width="1.5"/>',
-                    '<text x="200" y="25" text-anchor="middle" font-size="14" font-weight="900" fill="#334155">…</text>',
+                    '<path d="M 185 50 Q 185 45 191 45 L 208 45 Q 214 45 214 51 L 214 62 Q 214 68 208 68 L 199 68 L 191 75 L 193 68 L 191 68 Q 185 68 185 62 Z" fill="#fffdf5" stroke="#334155" stroke-width="1.5"/>',
+                    '<text x="200" y="63" text-anchor="middle" font-size="14" font-weight="900" fill="#334155">…</text>',
                     '</g>'
                 ].join("")
                 : "";
             const outText = centralOutScore && !isBatterOutResult
-                ? '<text x="30" y="168" text-anchor="middle" font-size="22" font-weight="900" fill="#111">' + centralOutScore + '</text>'
+                ? '<text x="30" y="226" text-anchor="middle" font-size="22" font-weight="900" fill="#111">' + centralOutScore + '</text>'
                 : "";
             const keioNote = snapshot.modifiers?.doublePlay
-                ? '<text x="168" y="144" text-anchor="middle" font-size="18" font-weight="900" fill="' + SCORE_COLORS.red + '">DP</text>'
+                ? '<text x="168" y="202" text-anchor="middle" font-size="18" font-weight="900" fill="' + SCORE_COLORS.red + '">DP</text>'
                 : "";
             return [
-                '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
-                '<rect x="5" y="5" width="210" height="180" fill="none" stroke="#111" stroke-width="2"/>',
+                '<svg class="sheet-cell-svg" viewBox="5 5 210 240" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
+                '<rect x="5" y="5" width="210" height="240" fill="none" stroke="#111" stroke-width="2"/>',
                 buildKeioCellFrame("#111", 0.72),
                 pitchMarks,
                 resultMarkup,
@@ -10854,8 +10854,13 @@
             const baseOrderW = compact ? 28 : 30;
             const baseNameW = compact ? 68 : 74;
             const baseNumberW = compact ? 26 : 28;
-            const baseCellW = compact ? 50 : 58;
-            const baseCellH = compact ? 46 : 52;
+            const useKeioSheet = state.scorebookStyle === "keio";
+            const baseCellW = useKeioSheet
+                ? (compact ? 52 : 60)
+                : (compact ? 50 : 58);
+            const baseCellH = useKeioSheet
+                ? (compact ? 66 : 76)
+                : (compact ? 46 : 52);
             const baseHeaderH = compact ? 24 : 28;
             const baseFont = compact ? 8 : 9;
 
@@ -11216,6 +11221,7 @@
                 return;
             }
 
+            updateSheetZoom();
             grid.innerHTML = "";
             const dualView = document.body.classList.contains("scorebook-view-mode");
             grid.classList.toggle("is-dual-view", dualView);
@@ -18046,8 +18052,10 @@
 
         function updateScoreboxPreviewStyle() {
             const useKeio = state.scorebookStyle === "keio";
+            const scoreboxSvg = document.getElementById("scoreboxSvg");
             const wasedaGroup = document.getElementById("wasedaPreviewGroup");
             const keioGroup = document.getElementById("keioPreviewGroup");
+            scoreboxSvg?.setAttribute("viewBox", useKeio ? "0 0 220 252" : "0 0 220 190");
             wasedaGroup?.setAttribute("visibility", useKeio ? "hidden" : "visible");
             keioGroup?.setAttribute("visibility", useKeio ? "visible" : "hidden");
             if (!useKeio || !keioGroup) {
@@ -18058,7 +18066,7 @@
             }
             const previewSnapshot = captureAtBatSnapshot();
             previewSnapshot.outScore = getCurrentOutScoreForDisplay();
-            const keioSvg = generateKeioSheetCellSvg(previewSnapshot).replace("<svg ", '<svg x="0" y="0" width="220" height="190" ');
+            const keioSvg = generateKeioSheetCellSvg(previewSnapshot).replace("<svg ", '<svg x="0" y="0" width="220" height="252" ');
             keioGroup.innerHTML = keioSvg;
         }
 
