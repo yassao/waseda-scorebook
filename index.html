@@ -4685,7 +4685,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.1";
+        const APP_VERSION = "0.2.2";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10708,6 +10708,96 @@
             return "";
         }
 
+        function isKeioHitSymbolSnapshot(snapshot) {
+            if (!snapshot) {
+                return false;
+            }
+            const result = snapshot.result || "";
+            const hitType = snapshot.selectedHitType || "none";
+            return ["1B", "2B", "3B", "HR", "G", "BH"].includes(hitType)
+                || result === "H"
+                || result === "HR";
+        }
+
+        function getKeioHitBaseLabel(snapshot) {
+            const result = snapshot?.result || "";
+            const hitType = snapshot?.selectedHitType || "none";
+            if (hitType === "HR" || result === "HR") {
+                return "H";
+            }
+            if (hitType === "3B") {
+                return "3";
+            }
+            if (hitType === "2B") {
+                return "2";
+            }
+            return "";
+        }
+
+        function getKeioHitFieldPoint(snapshot) {
+            const fielder = String(snapshot?.selectedFielder || snapshot?.fielder || snapshot?.result || "");
+            const direction = snapshot?.selectedDirection || "none";
+            const pointByFielder = {
+                "7": { x: 52, y: 196 },
+                "8": { x: 110, y: 106 },
+                "9": { x: 168, y: 196 }
+            };
+            const base = pointByFielder[fielder] || { x: 110, y: 160 };
+            const offsetByDirection = {
+                up: { x: 0, y: -18 },
+                down: { x: 0, y: 18 },
+                left: { x: -16, y: 4 },
+                right: { x: 16, y: 4 },
+                none: { x: 0, y: 0 },
+                "?": { x: 0, y: 0 }
+            };
+            const offset = offsetByDirection[direction] || offsetByDirection.none;
+            return {
+                x: Math.max(42, Math.min(178, base.x + offset.x)),
+                y: Math.max(86, Math.min(216, base.y + offset.y))
+            };
+        }
+
+        function getKeioHitBallMark(snapshot, color) {
+            const point = getKeioHitFieldPoint(snapshot);
+            if (snapshot?.selectedBallType === "fly") {
+                return '<circle cx="' + point.x + '" cy="' + point.y + '" r="5" fill="none" stroke="' + color + '" stroke-width="2"/>';
+            }
+            if (snapshot?.selectedBallType === "liner") {
+                return '<path d="M ' + (point.x - 6) + ' ' + point.y + ' L ' + (point.x + 6) + ' ' + point.y + '" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round"/>';
+            }
+            if (snapshot?.selectedBallType === "ground") {
+                return '<circle cx="' + point.x + '" cy="' + point.y + '" r="4" fill="' + color + '"/>';
+            }
+            return '<circle cx="' + point.x + '" cy="' + point.y + '" r="4" fill="' + color + '"/>';
+        }
+
+        function buildKeioHitMarkup(snapshot, resultBaseSlot, color) {
+            const baseLabel = getKeioHitBaseLabel(snapshot);
+            const isInfieldHit = ["G", "BH"].includes(snapshot?.selectedHitType || "");
+            const fieldShape = isInfieldHit
+                ? [
+                    '<path d="M 88 176 L 110 154 L 132 176 L 110 198 Z" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round"/>',
+                    '<text x="110" y="179" text-anchor="middle" font-size="13" font-weight="900" fill="' + color + '">' + (snapshot.selectedHitType === "BH" ? "BH" : "IF") + '</text>'
+                ].join("")
+                : [
+                    '<path d="M 46 206 L 110 104 L 174 206" fill="none" stroke="' + color + '" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>',
+                    '<text x="110" y="96" text-anchor="middle" font-size="9" font-weight="800" fill="' + color + '">中</text>',
+                    '<text x="40" y="218" text-anchor="middle" font-size="9" font-weight="800" fill="' + color + '">左</text>',
+                    '<text x="180" y="218" text-anchor="middle" font-size="9" font-weight="800" fill="' + color + '">右</text>',
+                    getKeioHitBallMark(snapshot, color)
+                ].join("");
+            const baseLabelMarkup = baseLabel && resultBaseSlot
+                ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="18" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
+                : "";
+            return [
+                '<g class="keio-hit-mark" aria-hidden="true">',
+                fieldShape,
+                baseLabelMarkup,
+                '</g>'
+            ].join("");
+        }
+
         function getKeioStrikeoutPutoutLabel(snapshot) {
             if (!snapshot || snapshot.result !== "K") {
                 return "";
@@ -10798,11 +10888,14 @@
             const onBaseSymbol = getKeioOnBaseSymbol(snapshot);
             const visibleResultLabel = onBaseSymbol || resultLabel;
             const isBatterOutResult = Boolean(centralOutScore && !resultBaseSlot && resultLabel);
+            const isKeioHitResult = Boolean(resultBaseSlot && isKeioHitSymbolSnapshot(snapshot));
             const batterOutDetailLabel = getKeioBatterOutDetailLabel(snapshot);
             const boxKeioBatterOutResult = Boolean(snapshot.modifiers?.sacrificeBunt || snapshot.modifiers?.sacrificeFly);
             const resultFontSize = visibleResultLabel.length >= 3 ? 19 : 24;
             const resultMarkup = isBatterOutResult
                 ? buildKeioBatterOutMarkup(resultLabel, centralOutScore, batterOutDetailLabel, { boxMain: boxKeioBatterOutResult })
+                : isKeioHitResult
+                    ? buildKeioHitMarkup(snapshot, resultBaseSlot, resultColor)
                 : resultBaseSlot
                     ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="' + resultFontSize + '" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>'
                     : '<text x="110" y="146" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>';
