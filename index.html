@@ -4301,7 +4301,7 @@
                 </button>
                 <span class="version-style-stack">
                     <span id="appVersionBadge" class="app-version-badge">v0.1.52</span>
-                    <span id="scorebookStyleBadge" class="scorebook-style-badge">慶応式 実験中</span>
+                    <span id="scorebookStyleBadge" class="scorebook-style-badge">実験中</span>
                 </span>
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
@@ -4685,7 +4685,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.4";
+        const APP_VERSION = "0.2.5";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5185,7 +5185,7 @@
             document.body.classList.toggle("keio-scorebook-style", state.scorebookStyle === "keio");
             const badge = document.getElementById("scorebookStyleBadge");
             if (badge) {
-                badge.textContent = state.scorebookStyle === "keio" ? "慶応式 実験中" : "";
+                badge.textContent = state.scorebookStyle === "keio" ? "実験中" : "";
             }
         }
 
@@ -5201,7 +5201,7 @@
             scheduleGameAutoSave();
             if (!options.silent) {
                 alert(nextStyle === "keio"
-                    ? "慶応式スコアブック表示（実験中）に切り替えました。入力ロジックは早稲田式と共通です。"
+                    ? "実験中のスコアブック表示に切り替えました。入力ロジックは通常表示と共通です。"
                     : "早稲田式スコアブック表示に戻しました。");
             }
         }
@@ -14097,16 +14097,16 @@
             window.alert([
                 "スコアブック by CuViu は現在ベータ版です。",
                 "",
-                "入力方法・早稲田式/慶応式の記号ルールは、今後この画面から確認できるマニュアルとして整備予定です。",
+                "入力方法や記号ルールは、今後この画面から確認できるマニュアルとして整備予定です。",
                 "",
                 "現時点の目安:",
                 "・B / S / 打球結果から打席を入力します。",
                 "・走者の進塁、アウト、盗塁、暴投、牽制などは走者表示をタップして補正します。",
                 "・入力後のセルは、スコアブック上でタップまたは長押しして修正できます。",
-                "・慶応式は実験中です。記号や配置は公式資料に合わせて調整中です。",
+                "・一部の表示モードは実験中です。記号や配置は調整中です。",
                 "",
                 "詳しいマニュアルは公開準備中です。"
-            ].join("\\n"));
+            ].join("\n"));
         }
 
         function createPlayPartFielderOptions(selectedValue = "") {
