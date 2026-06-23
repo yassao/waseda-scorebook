@@ -4685,7 +4685,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.2";
+        const APP_VERSION = "0.2.3";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10738,23 +10738,23 @@
             const fielder = String(snapshot?.selectedFielder || snapshot?.fielder || snapshot?.result || "");
             const direction = snapshot?.selectedDirection || "none";
             const pointByFielder = {
-                "7": { x: 52, y: 196 },
-                "8": { x: 110, y: 106 },
-                "9": { x: 168, y: 196 }
+                "7": { x: 82, y: 100 },
+                "8": { x: 110, y: 82 },
+                "9": { x: 138, y: 100 }
             };
-            const base = pointByFielder[fielder] || { x: 110, y: 160 };
+            const base = pointByFielder[fielder] || { x: 110, y: 94 };
             const offsetByDirection = {
-                up: { x: 0, y: -18 },
-                down: { x: 0, y: 18 },
-                left: { x: -16, y: 4 },
-                right: { x: 16, y: 4 },
+                up: { x: 0, y: -8 },
+                down: { x: 0, y: 8 },
+                left: { x: -10, y: 3 },
+                right: { x: 10, y: 3 },
                 none: { x: 0, y: 0 },
                 "?": { x: 0, y: 0 }
             };
             const offset = offsetByDirection[direction] || offsetByDirection.none;
             return {
-                x: Math.max(42, Math.min(178, base.x + offset.x)),
-                y: Math.max(86, Math.min(216, base.y + offset.y))
+                x: Math.max(70, Math.min(150, base.x + offset.x)),
+                y: Math.max(70, Math.min(112, base.y + offset.y))
             };
         }
 
@@ -10781,14 +10781,13 @@
                     '<text x="110" y="179" text-anchor="middle" font-size="13" font-weight="900" fill="' + color + '">' + (snapshot.selectedHitType === "BH" ? "BH" : "IF") + '</text>'
                 ].join("")
                 : [
-                    '<path d="M 46 206 L 110 104 L 174 206" fill="none" stroke="' + color + '" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>',
-                    '<text x="110" y="96" text-anchor="middle" font-size="9" font-weight="800" fill="' + color + '">中</text>',
-                    '<text x="40" y="218" text-anchor="middle" font-size="9" font-weight="800" fill="' + color + '">左</text>',
-                    '<text x="180" y="218" text-anchor="middle" font-size="9" font-weight="800" fill="' + color + '">右</text>',
+                    '<path d="M 72 116 L 110 72 L 148 116" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
                     getKeioHitBallMark(snapshot, color)
                 ].join("");
-            const baseLabelMarkup = baseLabel && resultBaseSlot
-                ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="18" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
+            const baseLabelMarkup = baseLabel && resultBaseSlot && !isInfieldHit
+                ? '<text x="110" y="108" text-anchor="middle" font-size="24" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
+                : baseLabel && resultBaseSlot
+                    ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="18" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
                 : "";
             return [
                 '<g class="keio-hit-mark" aria-hidden="true">',
