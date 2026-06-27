@@ -4685,7 +4685,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.5";
+        const APP_VERSION = "0.2.6";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9584,17 +9584,17 @@
                 return "";
             }
             if (event.kind === "score") {
-                return "得点" + (event.advanceLabel ? " " + event.advanceLabel : "");
+                return "○" + (event.advanceLabel ? " " + event.advanceLabel : "");
             }
             if (event.kind === "advance") {
                 const baseNames = ["", "一進", "二進", "三進", "本進"];
                 return (baseNames[event.base] || "進塁") + (event.label ? " " + event.label : "");
             }
             if (event.kind === "out") {
-                return "走者アウト " + (event.label || "") + (event.by ? " (" + event.by + ")" : "");
+                return (event.label || "アウト") + (event.by ? " (" + event.by + ")" : "");
             }
             if (event.kind === "leftOnBase") {
-                return "残塁";
+                return "ℓ";
             }
             return typeof event === "string" ? event : "";
         }
@@ -9623,6 +9623,15 @@
                 let y = 214 - index * 15;
                 let anchor = "middle";
                 let size = 9;
+                if (event?.kind === "score") {
+                    const advanceLabel = event.advanceLabel
+                        ? '<text x="110" y="166" text-anchor="middle" font-size="8" font-weight="800" fill="#111">' + escapeHtml(event.advanceLabel) + '</text>'
+                        : "";
+                    return '<text x="110" y="148" text-anchor="middle" font-size="21" font-weight="800" fill="#111">○</text>' + advanceLabel;
+                }
+                if (event?.kind === "leftOnBase") {
+                    return '<text x="110" y="148" text-anchor="middle" font-size="20" font-weight="800" fill="#111">ℓ</text>';
+                }
                 const base = event?.kind === "score"
                     ? 4
                     : event?.kind === "advance"
@@ -9635,11 +9644,6 @@
                     size = 8;
                 } else if (event?.kind === "out") {
                     y = 214 - index * 13;
-                    size = 8;
-                } else if (event?.kind === "leftOnBase") {
-                    x = 44;
-                    y = 228;
-                    anchor = "start";
                     size = 8;
                 }
                 return '<text x="' + x + '" y="' + y + '" text-anchor="' + anchor + '" font-size="' + size + '" font-weight="800" fill="#111">' +
@@ -10760,6 +10764,10 @@
 
         function getKeioHitBallMark(snapshot, color) {
             const point = getKeioHitFieldPoint(snapshot);
+            return getKeioBallMarkAtPoint(snapshot, color, point);
+        }
+
+        function getKeioBallMarkAtPoint(snapshot, color, point) {
             if (snapshot?.selectedBallType === "fly") {
                 return '<circle cx="' + point.x + '" cy="' + point.y + '" r="5" fill="none" stroke="' + color + '" stroke-width="2"/>';
             }
@@ -10772,13 +10780,32 @@
             return '<circle cx="' + point.x + '" cy="' + point.y + '" r="4" fill="' + color + '"/>';
         }
 
+        function getKeioInfieldHitFieldPoint(snapshot) {
+            const fielder = String(snapshot?.selectedFielder || snapshot?.fielder || snapshot?.result || "");
+            const pointByFielder = {
+                "1": { x: 110, y: 122 },
+                "2": { x: 110, y: 148 },
+                "3": { x: 132, y: 138 },
+                "4": { x: 124, y: 112 },
+                "5": { x: 88, y: 138 },
+                "6": { x: 96, y: 112 }
+            };
+            return pointByFielder[fielder] || { x: 110, y: 130 };
+        }
+
         function buildKeioHitMarkup(snapshot, resultBaseSlot, color) {
             const baseLabel = getKeioHitBaseLabel(snapshot);
-            const isInfieldHit = ["G", "BH"].includes(snapshot?.selectedHitType || "");
+            const hitType = snapshot?.selectedHitType || "";
+            const isInfieldHit = hitType === "G";
+            const isBuntHit = hitType === "BH";
             const fieldShape = isInfieldHit
                 ? [
-                    '<path d="M 88 176 L 110 154 L 132 176 L 110 198 Z" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round"/>',
-                    '<text x="110" y="179" text-anchor="middle" font-size="13" font-weight="900" fill="' + color + '">' + (snapshot.selectedHitType === "BH" ? "BH" : "IF") + '</text>'
+                    '<path d="M 88 132 L 110 110 L 132 132 L 110 154 Z" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round"/>',
+                    getKeioBallMarkAtPoint(snapshot, color, getKeioInfieldHitFieldPoint(snapshot))
+                ].join("")
+                : isBuntHit
+                ? [
+                    '<text x="110" y="126" text-anchor="middle" font-size="22" font-weight="900" fill="' + color + '">BH</text>'
                 ].join("")
                 : [
                     '<path d="M 72 116 L 110 72 L 148 116" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
