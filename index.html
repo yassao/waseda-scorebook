@@ -1326,7 +1326,7 @@
                 margin: 0 auto !important;
                 padding: 0.6mm;
                 background: #ffffff;
-                grid-template-rows: min-content minmax(0, 1fr) min-content minmax(0, 1fr);
+                grid-template-rows: min-content minmax(0, 1fr) min-content minmax(0, 1fr) min-content;
                 gap: 0.6mm;
                 align-content: center;
                 justify-content: center;
@@ -1632,6 +1632,20 @@
                 min-height: 3.55mm;
                 font-size: 1.62mm;
                 padding: 0.1mm;
+            }
+
+            body.printing-scorebook .print-free-footer {
+                width: var(--print-content-w);
+                margin: 0 auto;
+                padding: 0.45mm 0.8mm;
+                box-sizing: border-box;
+                border: 0.25mm solid #777777;
+                color: #555555;
+                font-size: 1.8mm;
+                line-height: 1.15;
+                text-align: center;
+                white-space: nowrap;
+                overflow: hidden;
             }
 
             .start-screen,
@@ -4711,7 +4725,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.7";
+        const APP_VERSION = "0.2.8";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6877,6 +6891,28 @@
             return block;
         }
 
+        function isScorebookProUser() {
+            return false;
+        }
+
+        function getPdfFooterText() {
+            if (isScorebookProUser()) {
+                return "";
+            }
+            return "スコアブック by CuViu Free（Pro版ではこの欄を編集できます）";
+        }
+
+        function createPrintFreeFooter() {
+            const text = getPdfFooterText();
+            if (!text) {
+                return document.createTextNode("");
+            }
+            const footer = document.createElement("div");
+            footer.className = "print-free-footer";
+            footer.textContent = text;
+            return footer;
+        }
+
         function getPitcherPrintRowsForHalf(half) {
             const info = normalizeGameInfo(state.gameInfo);
             const starterName = info.pitchers[half] || "";
@@ -7267,7 +7303,8 @@
                 createPrintInfoTable(),
                 createPrintSheetBlock("top"),
                 createPrintLineScoreTable(),
-                createPrintSheetBlock("bottom")
+                createPrintSheetBlock("bottom"),
+                createPrintFreeFooter()
             );
             renderPrintablePitcherExtraPage();
             renderPrintableTextSummaryPage();
