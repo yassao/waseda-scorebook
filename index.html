@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
     <title>スコアブック by CuViu</title>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2205703572993427" crossorigin="anonymous"></script>
     <style>
         :root {
             --bg-top: #eaf6ff;
@@ -3890,6 +3891,27 @@
             margin-top: 16px;
         }
 
+        .app-policy-footer {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 18px;
+            padding: 4px 0 2px;
+            font-size: 12px;
+            color: #6a7a89;
+        }
+
+        .app-policy-footer a {
+            color: inherit;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+
+        .app-auto-ad-anchor {
+            min-height: 1px;
+            margin-top: 14px;
+        }
+
         .options-menu {
             margin-bottom: 22px;
             border-radius: 14px;
@@ -4677,6 +4699,10 @@
                     <button class="btn-save-return" onclick="saveCurrentGameAndShowStart()">保存してトップへ</button>
                     <button class="btn-export" onclick="exportGameJson()">試合データ書き出し</button>
                 </div>
+                <div id="scorebookAdAnchor" class="app-auto-ad-anchor" aria-label="広告表示エリア"></div>
+                <div class="app-policy-footer">
+                    <a href="https://cuviu.jp/privacy-policy/" target="_blank" rel="noopener">プライバシーポリシー</a>
+                </div>
             </div>
         </div>
     </div>
@@ -4685,7 +4711,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.6";
+        const APP_VERSION = "0.2.7";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
