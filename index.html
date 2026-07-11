@@ -4730,7 +4730,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.11";
+        const APP_VERSION = "0.2.12";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9749,16 +9749,16 @@
             const playCode = snapshot?.selectedHitType && snapshot.selectedHitType !== "none"
                 ? snapshot.selectedHitType
                 : snapshot?.result;
-            if (playCode === "HR") {
+            if (playCode === "HR" || playCode === "RH") {
                 return 4;
             }
             if (playCode === "3B") {
                 return 3;
             }
-            if (playCode === "2B") {
+            if (playCode === "2B" || playCode === "GR") {
                 return 2;
             }
-            if (["1B", "G", "BH", "B", "DB", "HP", "IB", "IF", "Fc"].includes(playCode)) {
+            if (["1B", "G", "BH", "H", "T", "B", "DB", "HP", "IB", "IF", "Fc"].includes(playCode)) {
                 return 1;
             }
             if (playCode === "K" && snapshot?.modifiers?.droppedThirdStrike) {
@@ -9810,8 +9810,8 @@
         function getKeioBatterResultBase(snapshot) {
             const result = snapshot?.result || "";
             const hitType = snapshot?.selectedHitType || "none";
-            const reachesByResult = ["B", "B'", "DB", "Fc", "HP", "IB", "IF", "H", "HR"].includes(result);
-            const reachesByHitType = ["1B", "2B", "3B", "HR", "G", "BH"].includes(hitType);
+            const reachesByResult = ["B", "B'", "DB", "Fc", "HP", "IB", "IF", "H", "T", "G", "BH", "HR", "RH", "GR"].includes(result);
+            const reachesByHitType = ["1B", "2B", "3B", "HR", "RH", "GR", "G", "BH"].includes(hitType);
             const droppedThirdStrikeOnBase = result === "K"
                 && snapshot?.modifiers?.droppedThirdStrike
                 && !romanToOutCount(snapshot?.outScore);
@@ -10806,21 +10806,33 @@
             }
             const result = snapshot.result || "";
             const hitType = snapshot.selectedHitType || "none";
-            return ["1B", "2B", "3B", "HR", "G", "BH"].includes(hitType)
+            return ["1B", "2B", "3B", "HR", "RH", "GR", "G", "BH"].includes(hitType)
                 || result === "H"
-                || result === "HR";
+                || result === "T"
+                || result === "G"
+                || result === "BH"
+                || result === "HR"
+                || result === "RH"
+                || result === "GR";
+        }
+
+        function getKeioHitCode(snapshot) {
+            const hitType = snapshot?.selectedHitType || "none";
+            if (hitType && hitType !== "none") {
+                return hitType;
+            }
+            return snapshot?.result || "";
         }
 
         function getKeioHitBaseLabel(snapshot) {
-            const result = snapshot?.result || "";
-            const hitType = snapshot?.selectedHitType || "none";
-            if (hitType === "HR" || result === "HR") {
+            const hitCode = getKeioHitCode(snapshot);
+            if (hitCode === "HR" || hitCode === "RH") {
                 return "H";
             }
-            if (hitType === "3B") {
+            if (hitCode === "3B") {
                 return "3";
             }
-            if (hitType === "2B") {
+            if (hitCode === "2B" || hitCode === "GR") {
                 return "2";
             }
             return "";
@@ -10829,24 +10841,37 @@
         function getKeioHitFieldPoint(snapshot) {
             const fielder = String(snapshot?.selectedFielder || snapshot?.fielder || snapshot?.result || "");
             const direction = snapshot?.selectedDirection || "none";
-            const pointByFielder = {
-                "7": { x: 82, y: 100 },
-                "8": { x: 110, y: 82 },
-                "9": { x: 138, y: 100 }
+            const pointByFielderAndDirection = {
+                "7": {
+                    up: { x: 78, y: 76 },
+                    down: { x: 82, y: 108 },
+                    left: { x: 70, y: 108 },
+                    right: { x: 96, y: 94 },
+                    none: { x: 82, y: 98 },
+                    "?": { x: 82, y: 98 }
+                },
+                "8": {
+                    up: { x: 110, y: 74 },
+                    down: { x: 110, y: 110 },
+                    left: { x: 94, y: 92 },
+                    right: { x: 126, y: 92 },
+                    none: { x: 110, y: 94 },
+                    "?": { x: 110, y: 94 }
+                },
+                "9": {
+                    up: { x: 142, y: 76 },
+                    down: { x: 138, y: 108 },
+                    left: { x: 124, y: 94 },
+                    right: { x: 150, y: 108 },
+                    none: { x: 138, y: 98 },
+                    "?": { x: 138, y: 98 }
+                }
             };
-            const base = pointByFielder[fielder] || { x: 110, y: 94 };
-            const offsetByDirection = {
-                up: { x: 0, y: -8 },
-                down: { x: 0, y: 8 },
-                left: { x: -10, y: 3 },
-                right: { x: 10, y: 3 },
-                none: { x: 0, y: 0 },
-                "?": { x: 0, y: 0 }
-            };
-            const offset = offsetByDirection[direction] || offsetByDirection.none;
+            const byDirection = pointByFielderAndDirection[fielder] || pointByFielderAndDirection["8"];
+            const point = byDirection[direction] || byDirection.none;
             return {
-                x: Math.max(70, Math.min(150, base.x + offset.x)),
-                y: Math.max(70, Math.min(112, base.y + offset.y))
+                x: Math.max(66, Math.min(154, point.x)),
+                y: Math.max(70, Math.min(114, point.y))
             };
         }
 
@@ -10856,13 +10881,17 @@
         }
 
         function getKeioBallMarkAtPoint(snapshot, color, point) {
-            if (snapshot?.selectedBallType === "fly") {
+            const hitCode = getKeioHitCode(snapshot);
+            const ballType = snapshot?.selectedBallType && snapshot.selectedBallType !== "none"
+                ? snapshot.selectedBallType
+                : (["HR", "RH", "GR", "T"].includes(hitCode) ? "fly" : "ground");
+            if (ballType === "fly") {
                 return '<circle cx="' + point.x + '" cy="' + point.y + '" r="5" fill="none" stroke="' + color + '" stroke-width="2"/>';
             }
-            if (snapshot?.selectedBallType === "liner") {
-                return '<path d="M ' + (point.x - 6) + ' ' + point.y + ' L ' + (point.x + 6) + ' ' + point.y + '" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round"/>';
+            if (ballType === "liner") {
+                return '<path d="M ' + point.x + ' ' + (point.y - 6) + ' L ' + (point.x - 6) + ' ' + (point.y + 5) + ' L ' + (point.x + 6) + ' ' + (point.y + 5) + ' Z" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round"/>';
             }
-            if (snapshot?.selectedBallType === "ground") {
+            if (ballType === "ground") {
                 return '<circle cx="' + point.x + '" cy="' + point.y + '" r="4" fill="' + color + '"/>';
             }
             return '<circle cx="' + point.x + '" cy="' + point.y + '" r="4" fill="' + color + '"/>';
@@ -10883,24 +10912,30 @@
 
         function buildKeioHitMarkup(snapshot, resultBaseSlot, color) {
             const baseLabel = getKeioHitBaseLabel(snapshot);
-            const hitType = snapshot?.selectedHitType || "";
-            const isInfieldHit = hitType === "G";
-            const isBuntHit = hitType === "BH";
+            const hitCode = getKeioHitCode(snapshot);
+            const fielder = String(snapshot?.selectedFielder || snapshot?.fielder || "");
+            const isInfieldFielder = /^[1-6]$/.test(fielder);
+            const isInfieldHit = hitCode === "G"
+                || (isInfieldFielder && hitCode === "H")
+                || (isInfieldFielder && hitCode === "T" && snapshot?.selectedBallType === "ground");
+            const isBuntHit = hitCode === "BH";
             const fieldShape = isInfieldHit
                 ? [
-                    '<path d="M 88 132 L 110 110 L 132 132 L 110 154 Z" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round"/>',
+                    '<path d="M 82 136 L 110 108 L 138 136 L 110 164 Z" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round"/>',
                     getKeioBallMarkAtPoint(snapshot, color, getKeioInfieldHitFieldPoint(snapshot))
                 ].join("")
                 : isBuntHit
                 ? [
-                    '<text x="110" y="126" text-anchor="middle" font-size="22" font-weight="900" fill="' + color + '">BH</text>'
+                    '<path d="M 86 136 L 110 112 L 134 136" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+                    '<text x="110" y="156" text-anchor="middle" font-size="20" font-weight="900" fill="' + color + '">BH</text>',
+                    getKeioBallMarkAtPoint({ ...snapshot, selectedBallType: "ground" }, color, getKeioInfieldHitFieldPoint(snapshot))
                 ].join("")
                 : [
                     '<path d="M 72 116 L 110 72 L 148 116" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
                     getKeioHitBallMark(snapshot, color)
                 ].join("");
             const baseLabelMarkup = baseLabel && resultBaseSlot && !isInfieldHit
-                ? '<text x="110" y="108" text-anchor="middle" font-size="24" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
+                ? '<text x="110" y="110" text-anchor="middle" font-size="24" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
                 : baseLabel && resultBaseSlot
                     ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="18" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
                 : "";
@@ -16394,6 +16429,7 @@
                 return {
                     fielder: SHORT_FIELDER_MAP[homeRunMatch[1]],
                     direction: homeRunMatch[1] === "左" ? "left" : homeRunMatch[1] === "右" ? "right" : "none",
+                    ballType: "fly",
                     result: "HR",
                     runnerContext: detectRunnerContext(normalizedText),
                     note: normalizedText,
@@ -16402,14 +16438,45 @@
                 };
             }
 
+            const typedExtraBaseHitMatch = normalizedText.match(/^([左右中])([ゴ飛直])([23])$/);
+            if (typedExtraBaseHitMatch) {
+                const ballTypeMap = { ゴ: "ground", 飛: "fly", 直: "liner" };
+                return {
+                    fielder: SHORT_FIELDER_MAP[typedExtraBaseHitMatch[1]],
+                    direction: typedExtraBaseHitMatch[1] === "左" ? "left" : typedExtraBaseHitMatch[1] === "右" ? "right" : "none",
+                    ballType: ballTypeMap[typedExtraBaseHitMatch[2]] || "none",
+                    result: typedExtraBaseHitMatch[3] === "2" ? "2B" : "3B",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText,
+                    confidence: 0.94,
+                    source: "shorthand"
+                };
+            }
+
             const extraBaseHitMatch = normalizedText.match(/^([一二三遊投捕左右中1-9])([23])$/);
             if (extraBaseHitMatch) {
                 return {
                     fielder: SHORT_FIELDER_MAP[extraBaseHitMatch[1]],
+                    direction: ["左", "右"].includes(extraBaseHitMatch[1]) ? (extraBaseHitMatch[1] === "左" ? "left" : "right") : "none",
                     result: extraBaseHitMatch[2] === "2" ? "2B" : "3B",
                     runnerContext: detectRunnerContext(normalizedText),
                     note: normalizedText,
                     confidence: 0.92,
+                    source: "shorthand"
+                };
+            }
+
+            const typedOutfieldHitMatch = normalizedText.match(/^([左右中])([ゴ飛直])安$/);
+            if (typedOutfieldHitMatch) {
+                const ballTypeMap = { ゴ: "ground", 飛: "fly", 直: "liner" };
+                return {
+                    fielder: SHORT_FIELDER_MAP[typedOutfieldHitMatch[1]],
+                    direction: typedOutfieldHitMatch[1] === "左" ? "left" : typedOutfieldHitMatch[1] === "右" ? "right" : "down",
+                    ballType: ballTypeMap[typedOutfieldHitMatch[2]] || "none",
+                    result: "1B",
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText,
+                    confidence: 0.94,
                     source: "shorthand"
                 };
             }
@@ -16675,11 +16742,11 @@
             if (text.includes("ゴロ")) {
                 return "ground";
             }
-            if (text.includes("フライ")) {
-                return "fly";
-            }
-            if (text.includes("ライナー")) {
+            if (text.includes("ライナー") || /[投捕一二三遊左右中1-9]直|直安|直二塁打|直三塁打/.test(text)) {
                 return "liner";
+            }
+            if (text.includes("フライ") || text.includes("飛球")) {
+                return "fly";
             }
             return "none";
         }
