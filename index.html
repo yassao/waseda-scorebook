@@ -4817,7 +4817,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.18";
+        const APP_VERSION = "0.2.19";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9802,15 +9802,22 @@
                 return {
                     kind: "advance",
                     base: text.base,
+                    fromBase: text.fromBase || 0,
                     label: text.label || "(" + (text.by || "?") + ")",
+                    by: text.by || "",
+                    reason: text.reason || "",
                     color: getScoreTextColor(text.label || "")
                 };
             }
             if (text?.type === "score") {
                 return {
                     kind: "score",
+                    base: 4,
+                    fromBase: text.fromBase || 0,
                     label: "●",
                     advanceLabel: text.label || "",
+                    by: text.by || "",
+                    reason: text.reason || "",
                     color: getScoreTextColor(text.label || "")
                 };
             }
@@ -9820,7 +9827,11 @@
                     label: text.label || "アウト",
                     doublePlay: Boolean(text.doublePlay),
                     outScore: text.outScore || "",
-                    by: text.by || ""
+                    by: text.by || "",
+                    base: Number(text.base) || inferRunnerOutBaseFromLabel(text.label || "", text.baseIndex),
+                    baseIndex: Number.isInteger(Number(text.baseIndex)) ? Number(text.baseIndex) : -1,
+                    outType: text.outType || getRunnerOutTypeFromLabel(text.label || ""),
+                    reason: text.reason || ""
                 };
             }
             if (text === "1塁") {
@@ -9950,19 +9961,64 @@
             return parts.join("");
         }
 
+        function getKeioCompactRunnerLabel(label) {
+            const text = String(label || "").trim();
+            if (!text) {
+                return "";
+            }
+            const map = {
+                "送球間": "送",
+                "タッチアップ": "TU",
+                "走塁妨害": "OB",
+                "犠飛": "SF",
+                "本塁打": "HR"
+            };
+            return map[text] || text;
+        }
+
+        function getKeioCompactOutLabel(event) {
+            const label = String(event?.label || "").trim();
+            const outType = event?.outType || getRunnerOutTypeFromLabel(label);
+            if (outType === "force") {
+                return "封";
+            }
+            if (outType === "tag") {
+                return "T";
+            }
+            if (outType === "rundown") {
+                return "R";
+            }
+            if (outType === "pickoff") {
+                return "PO";
+            }
+            if (outType === "offbase") {
+                return "離";
+            }
+            if (outType === "interference") {
+                return "妨";
+            }
+            if (outType === "appeal") {
+                return "AP";
+            }
+            if (outType === "caughtStealing") {
+                return "CS";
+            }
+            return label || "O";
+        }
+
         function getKeioRunnerEventLabel(event) {
             if (!event) {
                 return "";
             }
             if (event.kind === "score") {
-                return "○" + (event.advanceLabel ? " " + event.advanceLabel : "");
+                return "○" + (event.advanceLabel ? " " + getKeioCompactRunnerLabel(event.advanceLabel) : "");
             }
             if (event.kind === "advance") {
-                const baseNames = ["", "一進", "二進", "三進", "本進"];
-                return (baseNames[event.base] || "進塁") + (event.label ? " " + event.label : "");
+                const label = getKeioCompactRunnerLabel(event.label);
+                return label || String(event.base || "") + "進";
             }
             if (event.kind === "out") {
-                return (event.label || "アウト") + (event.by ? " (" + event.by + ")" : "");
+                return getKeioCompactOutLabel(event);
             }
             if (event.kind === "leftOnBase") {
                 return "ℓ";
@@ -9981,43 +10037,52 @@
             const uniqueEvents = [];
             events.forEach((event) => {
                 const label = getKeioRunnerEventLabel(event);
-                if (label && !uniqueEvents.some((item) => item.label === label)) {
-                    uniqueEvents.push({ event, label });
+                const key = [
+                    event?.kind || "text",
+                    Number(event?.base) || 0,
+                    event?.outScore || "",
+                    label
+                ].join(":");
+                if (label && !uniqueEvents.some((item) => item.key === key)) {
+                    uniqueEvents.push({ event, label, key });
                 }
             });
             if (!uniqueEvents.length) {
                 return "";
             }
 
-            const rows = uniqueEvents.slice(0, 4).map(({ event, label }, index) => {
-                let x = 110;
-                let y = 214 - index * 15;
-                let anchor = "middle";
-                let size = 9;
+            const slotUseCounts = {};
+            const rows = uniqueEvents.slice(0, 6).map(({ event, label }, index) => {
                 if (event?.kind === "score") {
-                    const advanceLabel = event.advanceLabel
-                        ? '<text x="110" y="166" text-anchor="middle" font-size="8" font-weight="800" fill="#111">' + escapeHtml(event.advanceLabel) + '</text>'
+                    const slot = getKeioBaseSlot(4);
+                    const advanceLabel = event.advanceLabel && slot
+                        ? '<text x="' + slot.labelX + '" y="' + (slot.labelY + 18) + '" text-anchor="middle" font-size="8" font-weight="800" fill="#111">' + escapeHtml(getKeioCompactRunnerLabel(event.advanceLabel)) + '</text>'
                         : "";
                     return '<text x="110" y="148" text-anchor="middle" font-size="21" font-weight="800" fill="#111">○</text>' + advanceLabel;
                 }
                 if (event?.kind === "leftOnBase") {
                     return '<text x="110" y="148" text-anchor="middle" font-size="20" font-weight="800" fill="#111">ℓ</text>';
                 }
-                const base = event?.kind === "score"
-                    ? 4
-                    : event?.kind === "advance"
-                        ? event.base
-                        : 0;
+                const base = Number(event?.base) || 0;
                 const slot = getKeioBaseSlot(base);
                 if (slot) {
-                    x = slot.labelX;
-                    y = slot.labelY + 14 + index * 2;
-                    size = 8;
-                } else if (event?.kind === "out") {
-                    y = 214 - index * 13;
-                    size = 8;
+                    slotUseCounts[base] = slotUseCounts[base] || 0;
+                    const offset = Math.min(2, slotUseCounts[base]) * 10;
+                    slotUseCounts[base] += 1;
+                    const x = slot.labelX;
+                    const y = event?.kind === "out" ? slot.labelY + 13 + offset : slot.labelY + 14 + offset;
+                    if (event?.kind === "out") {
+                        const outCount = romanToOutCount(event.outScore);
+                        const lineWidth = Math.max(10, Math.min(22, label.length * 5));
+                        return [
+                            '<text x="' + x + '" y="' + y + '" text-anchor="middle" font-size="8" font-weight="800" fill="#111">' + escapeHtml(label) + '</text>',
+                            '<line x1="' + (x - lineWidth) + '" y1="' + (y + 4) + '" x2="' + (x + lineWidth) + '" y2="' + (y + 4) + '" stroke="#111" stroke-width="1.2" stroke-linecap="round"/>',
+                            outCount ? '<text x="' + x + '" y="' + (y + 15) + '" text-anchor="middle" font-size="8" font-weight="800" fill="#111">' + outCount + '</text>' : ""
+                        ].join("");
+                    }
+                    return '<text x="' + x + '" y="' + y + '" text-anchor="middle" font-size="8" font-weight="800" fill="#111">' + escapeHtml(label) + '</text>';
                 }
-                return '<text x="' + x + '" y="' + y + '" text-anchor="' + anchor + '" font-size="' + size + '" font-weight="800" fill="#111">' +
+                return '<text x="110" y="' + (214 - index * 13) + '" text-anchor="middle" font-size="8" font-weight="800" fill="#111">' +
                     escapeHtml(label) +
                     '</text>';
             }).join("");
@@ -10207,6 +10272,119 @@
             };
         }
 
+        function getBaseNumberFromIndex(baseIndex) {
+            const numericBaseIndex = Number(baseIndex);
+            return Number.isInteger(numericBaseIndex) && numericBaseIndex >= 0
+                ? Math.min(4, numericBaseIndex + 1)
+                : 0;
+        }
+
+        function inferBaseFromCoverCode(code) {
+            return {
+                A: 1,
+                B: 2,
+                C: 3,
+                D: 4,
+                H: 4
+            }[code] || 0;
+        }
+
+        function inferRunnerOutBaseFromLabel(label, sourceBaseIndex = -1) {
+            const text = String(label || "");
+            if (!text) {
+                return getBaseNumberFromIndex(sourceBaseIndex);
+            }
+            if (text.includes("一塁")) {
+                return 1;
+            }
+            if (text.includes("二塁")) {
+                return 2;
+            }
+            if (text.includes("三塁")) {
+                return 3;
+            }
+            if (text.includes("本塁") || text.includes("ホーム")) {
+                return 4;
+            }
+            const coverMatch = text.match(/(?:^|-)([1-9])([ABCDH])T?$/);
+            if (coverMatch) {
+                return inferBaseFromCoverCode(coverMatch[2]);
+            }
+            const finalFielderMatch = text.match(/(?:^|-)([1-9])T?$/);
+            if (finalFielderMatch) {
+                const finalFielder = finalFielderMatch[1];
+                if (finalFielder === "3") {
+                    return 1;
+                }
+                if (finalFielder === "4" || finalFielder === "6") {
+                    return 2;
+                }
+                if (finalFielder === "5") {
+                    return 3;
+                }
+                if (finalFielder === "2") {
+                    return 4;
+                }
+            }
+            if (text.includes("牽制") || text.includes("離塁")) {
+                return getBaseNumberFromIndex(sourceBaseIndex);
+            }
+            if (text.includes("CS") || text.includes("盗死") || text.includes("封殺") || text.includes("アウト") || text.includes("タッチ")) {
+                const sourceBase = getBaseNumberFromIndex(sourceBaseIndex);
+                return sourceBase ? Math.min(4, sourceBase + 1) : 0;
+            }
+            return getBaseNumberFromIndex(sourceBaseIndex);
+        }
+
+        function getRunnerOutTypeFromLabel(label) {
+            const text = String(label || "");
+            if (text.includes("封殺")) {
+                return "force";
+            }
+            if (text.includes("挟殺")) {
+                return "rundown";
+            }
+            if (text.includes("牽制") || /^1-[356]T$/.test(text) || text === "PO") {
+                return "pickoff";
+            }
+            if (text.includes("離塁")) {
+                return "offbase";
+            }
+            if (text.includes("守備妨害")) {
+                return "interference";
+            }
+            if (text.includes("アピール")) {
+                return "appeal";
+            }
+            if (text.includes("CS") || text.includes("盗死")) {
+                return "caughtStealing";
+            }
+            if (text.includes("タッチ") || /T$/.test(text)) {
+                return "tag";
+            }
+            return "";
+        }
+
+        function buildRunnerAdvanceEventMeta(fromIndex, toIndex, eventMeta = null) {
+            return {
+                ...(eventMeta || {}),
+                fromBase: getBaseNumberFromIndex(fromIndex),
+                base: toIndex >= 3 ? 4 : getBaseNumberFromIndex(toIndex)
+            };
+        }
+
+        function buildRunnerOutEventMeta(baseIndex, label = "", eventMeta = null) {
+            const sourceBaseIndex = Number.isInteger(Number(baseIndex)) ? Number(baseIndex) : -1;
+            const rawBase = Number(eventMeta?.base);
+            const rawOutType = eventMeta?.outType || "";
+            return {
+                ...(eventMeta || {}),
+                baseIndex: sourceBaseIndex,
+                base: Number.isInteger(rawBase) && rawBase > 0 ? rawBase : inferRunnerOutBaseFromLabel(label, sourceBaseIndex),
+                outType: rawOutType && rawOutType !== "auto" ? rawOutType : getRunnerOutTypeFromLabel(label)
+            };
+        }
+
         function findRunnerRefBaseIndex(runners, ref) {
             if (!ref) {
                 return -1;
@@ -10287,12 +10465,13 @@
             }
             const runnerRef = runners[fromIndex];
             runners[fromIndex] = null;
+            const moveMeta = buildRunnerAdvanceEventMeta(fromIndex, toIndex);
             if (toIndex >= 3) {
-                setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta() });
+                setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta(), ...moveMeta });
                 return;
             }
             runners[toIndex] = runnerRef;
-            setRunnerStatusForRef(runnerRef, { type: "advance", base: toIndex + 1, by: currentBatterNumberForRunnerEvent(), label });
+            setRunnerStatusForRef(runnerRef, { type: "advance", by: currentBatterNumberForRunnerEvent(), label, ...moveMeta });
         }
 
         function scoreRunnerFromBase(runners, baseIndex, label = null) {
@@ -10301,20 +10480,28 @@
             }
             const runnerRef = runners[baseIndex];
             runners[baseIndex] = null;
-            setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta() });
+            setRunnerStatusForRef(runnerRef, {
+                type: "score",
+                by: currentBatterNumberForRunnerEvent(),
+                label,
+                ...currentScoringMeta(),
+                ...buildRunnerAdvanceEventMeta(baseIndex, 3)
+            });
         }
 
         function moveRunnerRefToBase(runners, runnerRef, toIndex, label = null) {
             if (!runnerRef) {
                 return;
             }
+            const fromIndex = findRunnerRefBaseIndex(runners, runnerRef);
+            const moveMeta = buildRunnerAdvanceEventMeta(fromIndex, toIndex);
             removeRunnerRefFromBases(runners, runnerRef);
             if (toIndex >= 3) {
-                setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta() });
+                setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta(), ...moveMeta });
                 return;
             }
             runners[toIndex] = runnerRef;
-            setRunnerStatusForRef(runnerRef, { type: "advance", base: toIndex + 1, by: currentBatterNumberForRunnerEvent(), label });
+            setRunnerStatusForRef(runnerRef, { type: "advance", by: currentBatterNumberForRunnerEvent(), label, ...moveMeta });
         }
 
         function scoreRunnerRef(runners, runnerRef, label = null) {
@@ -10349,7 +10536,7 @@
                 outScore: outScore || "",
                 by: currentBatterNumberForRunnerEvent(),
                 doublePlay: Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]?.modifiers?.doublePlay),
-                ...(eventMeta || {})
+                ...buildRunnerOutEventMeta(baseIndex, label || "アウト", eventMeta)
             });
             rememberRetiredRunnerPreview(runnerRef, baseIndex >= 0 ? baseIndex : 0, label, outScore);
         }
@@ -10367,7 +10554,7 @@
                 outScore: outScore || "",
                 by: currentBatterNumberForRunnerEvent(),
                 doublePlay: Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]?.modifiers?.doublePlay),
-                ...(eventMeta || {})
+                ...buildRunnerOutEventMeta(baseIndex, label || "アウト", eventMeta)
             });
             rememberRetiredRunnerPreview(runnerRef, baseIndex, label, outScore);
         }
@@ -10622,7 +10809,8 @@
                         type: "out",
                         label: batterOutMatch[1] || sheetLabel || "アウト",
                         outScore: scoreOnRunner,
-                        by: currentBatterNumberForRunnerEvent()
+                        by: currentBatterNumberForRunnerEvent(),
+                        ...buildRunnerOutEventMeta(0, batterOutMatch[1] || sheetLabel || "アウト", { base: 1 })
                     });
                 } else if (parsedOut.sourceBaseIndex >= 0 && originalRunners[parsedOut.sourceBaseIndex]) {
                     removeRunnerRefAsOut(runners, originalRunners[parsedOut.sourceBaseIndex], sheetLabel, scoreOnRunner);
@@ -10631,7 +10819,13 @@
                     }
                 } else if (outLabelText === "一塁封殺" && batterRef) {
                     markRunnerOutOnSnapshot(batterRef, scoreOnRunner);
-                    setRunnerStatusForRef(batterRef, { type: "out", label: sheetLabel, outScore: scoreOnRunner, by: currentBatterNumberForRunnerEvent() });
+                    setRunnerStatusForRef(batterRef, {
+                        type: "out",
+                        label: sheetLabel,
+                        outScore: scoreOnRunner,
+                        by: currentBatterNumberForRunnerEvent(),
+                        ...buildRunnerOutEventMeta(0, sheetLabel, { base: 1, outType: "force" })
+                    });
                 } else if (outLabelText === "二盗死" || outLabelText === "二塁封殺" || outLabelText === "二塁アウト" || /^2-[46]T$/.test(outLabelText)) {
                     removeRunnerFromBase(runners, 0, sheetLabel, scoreOnRunner);
                     if (outLabelText === "二塁封殺") {
@@ -10664,23 +10858,27 @@
                     runners[1] = batterRef;
                     setRunnerStatusForRef(batterRef, {
                         type: "advance",
-                        base: 2,
                         by: currentBatterNumberForRunnerEvent(),
-                        label: advance.label || null
+                        label: advance.label || null,
+                        fromBase: 1,
+                        base: 2
                     });
                 } else if (advance.base === 3) {
                     runners[2] = batterRef;
                     setRunnerStatusForRef(batterRef, {
                         type: "advance",
-                        base: 3,
                         by: currentBatterNumberForRunnerEvent(),
-                        label: advance.label || null
+                        label: advance.label || null,
+                        fromBase: 1,
+                        base: 3
                     });
                 } else if (advance.base >= 4) {
                     setRunnerStatusForRef(batterRef, {
                         type: "score",
                         by: currentBatterNumberForRunnerEvent(),
                         label: advance.label || null,
+                        fromBase: 1,
+                        base: 4,
                         ...currentScoringMeta()
                     });
                 }
@@ -10717,7 +10915,7 @@
                 scoreRunnerFromBase(runners, 2);
                 scoreRunnerFromBase(runners, 1);
                 scoreRunnerFromBase(runners, 0);
-                setRunnerStatusForRef(batterRef, { type: "score", by: currentBatterNumberForRunnerEvent(), ...currentScoringMeta() });
+                setRunnerStatusForRef(batterRef, { type: "score", by: currentBatterNumberForRunnerEvent(), fromBase: 1, base: 4, label: "本塁打", ...currentScoringMeta() });
             } else if (["B", "HP", "IB", "IF"].includes(playCode)) {
                 if (runners[0] && runners[1] && runners[2]) {
                     scoreRunnerFromBase(runners, 2);
@@ -10763,7 +10961,7 @@
                 }
             } else if (snapshot.modifiers?.sacrificeFly && snapshot.outScore) {
                 if (runners[2]) {
-                    scoreRunnerFromBase(runners, 2);
+                    scoreRunnerFromBase(runners, 2, "犠飛");
                 }
             } else if (playCode === "S") {
                 if (runners[0]) {
@@ -10773,9 +10971,9 @@
                 }
             } else if (playCode === "CS") {
                 if (runners[0]) {
-                    removeRunnerFromBase(runners, 0, "CS");
+                    removeRunnerFromBase(runners, 0, "CS", getNextOutScoreForCell(row, col), { outType: "caughtStealing" });
                 } else if (runners[1]) {
-                    removeRunnerFromBase(runners, 1, "CS");
+                    removeRunnerFromBase(runners, 1, "CS", getNextOutScoreForCell(row, col), { outType: "caughtStealing" });
                 }
             }
 
@@ -15650,7 +15848,10 @@
             const runners = state.baseRunners.map((runner) => (runner ? { ...runner } : null));
             const runnerLabel = getRunnerRefLabel(runnerRef);
             ensurePitchForRunnerReason(reason, action);
-            const eventMeta = buildRunnerActionEventMeta(reason, action);
+            const eventMeta = {
+                ...(buildRunnerActionEventMeta(reason, action) || {}),
+                outType: action === "out" ? getRunnerGuiOutType(step) : ""
+            };
             markRunnerReasonOnLastPitch(reason, action);
 
             if (action === "out") {
@@ -15680,18 +15881,18 @@
 
             runners[fromIndex] = null;
             const label = getRunnerAdvanceLabel(reason, action, source, step);
+            const moveMeta = buildRunnerAdvanceEventMeta(fromIndex, targetIndex, eventMeta);
             let statusMessage = "";
             if (targetIndex >= 3) {
-                setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta(), ...(eventMeta || {}) });
+                setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta(), ...moveMeta });
                 statusMessage = runnerLabel + "→本塁" + (label ? "（" + label + "）" : "") + formatRunnerActionAttributionStatus(eventMeta);
             } else {
                 runners[targetIndex] = runnerRef;
                 setRunnerStatusForRef(runnerRef, {
                     type: "advance",
-                    base: targetIndex + 1,
                     by: currentBatterNumberForRunnerEvent(),
                     label,
-                    ...(eventMeta || {})
+                    ...moveMeta
                 });
                 statusMessage = runnerLabel + "→" + (targetIndex + 1) + "塁" + (label ? "（" + label + "）" : "") + formatRunnerActionAttributionStatus(eventMeta);
             }

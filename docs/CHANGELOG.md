@@ -1,3 +1,14 @@
+## v0.2.19 [2026-07-13] 走者イベントと慶応式表示を補強
+
+**変更ファイル:**
+- docs/CHANGELOG.md
+- docs/DEBUG_LOG.md
+- docs/KEIO_SCOREBOOK_NOTES.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.2.18 [2026-07-13] 走者補正の詳細理由を追加
 
 **変更ファイル:**
