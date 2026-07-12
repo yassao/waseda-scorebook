@@ -3743,7 +3743,7 @@
             height: 38px;
             min-height: 38px;
             max-height: 48px;
-            padding: 13px 40px 6px 10px;
+            padding: 13px 72px 6px 10px;
             border: 2px solid #d7e1ea;
             border-radius: 14px;
             background: #fff;
@@ -3762,7 +3762,7 @@
         .pitch-memo-list {
             position: absolute;
             left: 11px;
-            right: 46px;
+            right: 78px;
             bottom: 4px;
             overflow: hidden;
             color: #64748b;
@@ -3807,6 +3807,85 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+        }
+
+        .tweet-detail-btn {
+            position: absolute;
+            right: 39px;
+            top: 50%;
+            transform: translateY(-50%);
+            min-height: 26px;
+            width: 30px;
+            padding: 0;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .tweet-detail-btn.has-detail {
+            border-color: #0f7f72;
+            background: #e9faf5;
+            color: #0f7f72;
+        }
+
+        .play-detail-form {
+            display: grid;
+            gap: 10px;
+        }
+
+        .play-detail-form label {
+            display: grid;
+            gap: 4px;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .play-detail-form textarea,
+        .play-detail-form input,
+        .play-detail-form select {
+            width: 100%;
+            min-height: 42px;
+            border: 2px solid #d7e1ea;
+            border-radius: 12px;
+            padding: 8px 10px;
+            background: #fff;
+            color: #172331;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .play-detail-form textarea {
+            min-height: 66px;
+            resize: vertical;
+        }
+
+        .play-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .play-detail-list {
+            display: grid;
+            gap: 6px;
+        }
+
+        .play-detail-item {
+            padding: 8px 10px;
+            border: 1px solid #d7e1ea;
+            border-radius: 10px;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.45;
+        }
+
+        .play-detail-item strong {
+            color: #0f7f72;
+            margin-right: 6px;
         }
 
         .nl-actions {
@@ -4541,6 +4620,7 @@
                 <div id="commentTargetLabel" class="tweet-target-label">対象: 1回 1番</div>
                 <textarea id="atBatCommentInput" class="tweet-comment-input" placeholder="一言メモ" rows="1" oninput="updateAtBatComment(this.value)"></textarea>
                 <div id="pitchMemoList" class="pitch-memo-list" aria-live="polite"></div>
+                <button id="playDetailButton" class="small-btn tweet-detail-btn" onclick="openCurrentPlayDetailPopup()" aria-label="この打席の詳細入力" title="この打席の詳細入力">詳</button>
                 <button class="small-btn tweet-draft-btn" onclick="registerPitchComment()" aria-label="この投球に一言メモ" title="この投球に一言メモ">↑</button>
             </div>
             <button class="small-btn global-apply-btn" type="button" onclick="handleGlobalApplyButtonClick(event)">次打者へ</button>
@@ -4730,7 +4810,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.14";
+        const APP_VERSION = "0.2.15";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4813,6 +4893,85 @@
             };
         }
 
+        function createEmptyPlayDetails() {
+            return {
+                runnerMovement: "",
+                rbi: "",
+                earnedRun: "",
+                errorDetail: "",
+                runnerOutReason: "",
+                officialNote: ""
+            };
+        }
+
+        function normalizePlayDetails(details) {
+            const source = details || {};
+            return {
+                runnerMovement: String(source.runnerMovement || "").trim(),
+                rbi: ["yes", "no"].includes(source.rbi) ? source.rbi : "",
+                earnedRun: ["earned", "unearned"].includes(source.earnedRun) ? source.earnedRun : "",
+                errorDetail: String(source.errorDetail || "").trim(),
+                runnerOutReason: String(source.runnerOutReason || "").trim(),
+                officialNote: String(source.officialNote || "").trim()
+            };
+        }
+
+        function hasPlayDetails(details) {
+            const normalized = normalizePlayDetails(details);
+            return Boolean(
+                normalized.runnerMovement
+                || normalized.rbi
+                || normalized.earnedRun
+                || normalized.errorDetail
+                || normalized.runnerOutReason
+                || normalized.officialNote
+            );
+        }
+
+        function getRbiDetailLabel(value) {
+            return value === "yes" ? "打点あり" : value === "no" ? "打点なし" : "";
+        }
+
+        function getEarnedRunDetailLabel(value) {
+            return value === "earned" ? "自責点" : value === "unearned" ? "非自責点" : "";
+        }
+
+        function getPlayDetailsDisplayItems(details) {
+            const normalized = normalizePlayDetails(details);
+            const items = [];
+            if (normalized.runnerMovement) {
+                items.push({ label: "走者", text: normalized.runnerMovement });
+            }
+            const rbiLabel = getRbiDetailLabel(normalized.rbi);
+            if (rbiLabel) {
+                items.push({ label: "打点", text: rbiLabel });
+            }
+            const earnedRunLabel = getEarnedRunDetailLabel(normalized.earnedRun);
+            if (earnedRunLabel) {
+                items.push({ label: "得点", text: earnedRunLabel });
+            }
+            if (normalized.errorDetail) {
+                items.push({ label: "失策", text: normalized.errorDetail });
+            }
+            if (normalized.runnerOutReason) {
+                items.push({ label: "走者アウト", text: normalized.runnerOutReason });
+            }
+            if (normalized.officialNote) {
+                items.push({ label: "詳細", text: normalized.officialNote });
+            }
+            return items;
+        }
+
+        function formatPlayDetailsForShare(details) {
+            return getPlayDetailsDisplayItems(details).map((item) => item.text).join("、");
+        }
+
+        function formatPlayDetailsForComment(details) {
+            return getPlayDetailsDisplayItems(details)
+                .map((item) => item.label + ": " + item.text)
+                .join(" / ");
+        }
+
         const state = {
             pitches: [],
             pitchNotes: [],
@@ -4848,6 +5007,7 @@
             currentConfidence: 1,
             atBatComment: "",
             atBatCommentMeta: null,
+            playDetails: createEmptyPlayDetails(),
             activeHalf: "top",
             inputLayout: "right",
             scorebookStyle: "waseda",
@@ -5406,6 +5566,7 @@
                     currentConfidence: state.currentConfidence,
                     atBatComment: state.atBatComment,
                     atBatCommentMeta: deepClone(state.atBatCommentMeta),
+                    playDetails: deepClone(normalizePlayDetails(state.playDetails)),
                     activeHalf: state.activeHalf,
                     inputLayout: state.inputLayout || "right",
                     scorebookStyle: state.scorebookStyle === "keio" ? "keio" : "waseda",
@@ -5445,6 +5606,7 @@
             Object.assign(state, deepClone(snapshot.state));
             state.inputLayout = state.inputLayout === "left" ? "left" : "right";
             state.scorebookStyle = state.scorebookStyle === "keio" ? "keio" : "waseda";
+            state.playDetails = normalizePlayDetails(snapshot.state.playDetails);
             state.gameInfo = normalizeGameInfo(state.gameInfo || snapshot.game || {});
             state.playerPositions = state.playerPositions || {
                 top: Array.from({ length: 9 }, () => ""),
@@ -5906,6 +6068,23 @@
                                 source: snapshot.source || "manual"
                             });
                         }
+                        if (hasPlayDetails(snapshot.playDetails)) {
+                            const detailCommentId = "cm_" + String(commentSerial++).padStart(5, "0");
+                            commentIdsForPlateAppearance.push(detailCommentId);
+                            comments.push({
+                                id: detailCommentId,
+                                plateAppearanceId: paId,
+                                teamId,
+                                half,
+                                inning,
+                                inningColumn: col + 1,
+                                battingOrder,
+                                text: formatPlayDetailsForComment(snapshot.playDetails),
+                                timing: null,
+                                source: "play_detail",
+                                details: deepClone(normalizePlayDetails(snapshot.playDetails))
+                            });
+                        }
                         (snapshot.pitchComments || []).filter((item) => item?.text).forEach((pitchComment) => {
                             const pitchCommentId = "cm_" + String(commentSerial++).padStart(5, "0");
                             commentIdsForPlateAppearance.push(pitchCommentId);
@@ -5943,6 +6122,7 @@
                             batterResult: buildBatterResultModel(snapshot),
                             runnerContext: deepClone(snapshot.runnerContext || null),
                             runnerStatusEvents,
+                            playDetails: deepClone(normalizePlayDetails(snapshot.playDetails)),
                             outsBefore,
                             outsAfter,
                             runsScored: getRunnerStatusEvents(snapshot).filter((event) => event?.type === "score" || event === "生還").length,
@@ -7104,7 +7284,8 @@
                 })
                 .join(" / ");
             const atBatComment = String(snapshot?.atBatComment || "").trim();
-            return [pitchCommentText, atBatComment].filter(Boolean).join(" / ");
+            const playDetailText = formatPlayDetailsForComment(snapshot?.playDetails);
+            return [pitchCommentText, atBatComment, playDetailText].filter(Boolean).join(" / ");
         }
 
         function isPrintSummaryHit(snapshot) {
@@ -8290,6 +8471,17 @@
             label.textContent = "対象: " + inning + "回 " + order + "番 " + playerName + " / " + getCurrentCountLabel();
         }
 
+        function updatePlayDetailButtonState() {
+            const button = document.getElementById("playDetailButton");
+            if (!button) {
+                return;
+            }
+            const hasDetail = hasPlayDetails(state.playDetails);
+            button.classList.toggle("has-detail", hasDetail);
+            button.setAttribute("aria-label", hasDetail ? "この打席の詳細を編集" : "この打席の詳細入力");
+            button.setAttribute("title", hasDetail ? "この打席の詳細を編集" : "この打席の詳細入力");
+        }
+
         function renderPitchMemoList() {
             const container = document.getElementById("pitchMemoList");
             if (!container) {
@@ -9039,7 +9231,8 @@
                 runnerStatusEvents: [],
                 confidence: state.currentConfidence,
                 atBatComment: state.atBatComment,
-                atBatCommentMeta: state.atBatComment ? deepClone(state.atBatCommentMeta || captureCommentTimingMeta()) : null
+                atBatCommentMeta: state.atBatComment ? deepClone(state.atBatCommentMeta || captureCommentTimingMeta()) : null,
+                playDetails: deepClone(normalizePlayDetails(state.playDetails))
             };
         }
 
@@ -9067,6 +9260,7 @@
                 || state.runnerContextText
                 || state.runnerContext
                 || state.atBatComment
+                || hasPlayDetails(state.playDetails)
                 || (state.pitchComments || []).some((comment) => comment?.text)
             );
         }
@@ -9096,7 +9290,8 @@
                 runnerContext: snapshot.runnerContext || null,
                 confidence: snapshot.confidence || 1,
                 atBatComment: snapshot.atBatComment || "",
-                atBatCommentMeta: snapshot.atBatCommentMeta || null
+                atBatCommentMeta: snapshot.atBatCommentMeta || null,
+                playDetails: normalizePlayDetails(snapshot.playDetails)
             };
         }
 
@@ -9182,6 +9377,7 @@
             state.currentConfidence = snapshot.confidence || 1;
             state.atBatComment = snapshot.atBatComment || "";
             state.atBatCommentMeta = deepClone(snapshot.atBatCommentMeta || null);
+            state.playDetails = normalizePlayDetails(snapshot.playDetails);
 
             setElementValue("fielderSelect", state.selectedFielder);
             setElementValue("battingOrderSelect", state.battingOrder);
@@ -10650,7 +10846,7 @@
                     '<rect x="35" y="5" width="180" height="180" fill="url(#sheet-hatch-' + snapshot.battingOrder + '-' + displayedResult.replace(/[^A-Za-z0-9]/g, "") + ')" opacity="0.65"></rect>'
                 ].join("")
                 : "";
-            const commentBubble = snapshot.atBatComment || (snapshot.pitchComments || []).some((item) => item?.text)
+            const commentBubble = snapshotHasAnyComment(snapshot)
                 ? [
                     '<g class="comment-bubble-mark" aria-hidden="true">',
                     '<path d="M 186 14 Q 186 8 192 8 L 208 8 Q 214 8 214 14 L 214 24 Q 214 30 208 30 L 199 30 L 191 37 L 193 30 L 192 30 Q 186 30 186 24 Z" fill="#fffdf5" stroke="#334155" stroke-width="1.5"/>',
@@ -11048,7 +11244,7 @@
                 : resultBaseSlot
                     ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="' + resultFontSize + '" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>'
                     : '<text x="110" y="146" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>';
-            const commentBubble = snapshot.atBatComment || (snapshot.pitchComments || []).some((item) => item?.text)
+            const commentBubble = snapshotHasAnyComment(snapshot)
                 ? [
                     '<g class="comment-bubble-mark" aria-hidden="true">',
                     '<path d="M 185 50 Q 185 45 191 45 L 208 45 Q 214 45 214 51 L 214 62 Q 214 68 208 68 L 199 68 L 191 75 L 193 68 L 191 68 Q 185 68 185 62 Z" fill="#fffdf5" stroke="#334155" stroke-width="1.5"/>',
@@ -11522,7 +11718,7 @@
         }
 
         function isSheetCommentHit(event, snapshot) {
-            if (!snapshot?.atBatComment || !event?.currentTarget) {
+            if (!snapshotHasAnyComment(snapshot) || !event?.currentTarget) {
                 return false;
             }
             const rect = event.currentTarget.getBoundingClientRect();
@@ -11531,6 +11727,7 @@
 
         let commentPopupTarget = null;
         let cellActionTarget = null;
+        let playDetailPopupTarget = null;
         let pendingInningTransition = null;
 
         function getCellActionLabel(half, row, col) {
@@ -11557,6 +11754,7 @@
                 '<button type="button" onclick="editCellBatterResult()">打撃結果を編集</button>',
                 '<button type="button" onclick="editCellRunnerResult()">走塁結果を編集</button>',
                 '<button type="button" onclick="editCellComment()">一言メモを編集</button>',
+                '<button type="button" onclick="editCellPlayDetails()">詳細入力</button>',
                 '<button type="button" onclick="closeCellActionPopup()">閉じる</button>',
                 '</div>'
             ].join("");
@@ -11606,10 +11804,169 @@
             renderAtBatCommentPopup(true);
         }
 
+        function editCellPlayDetails() {
+            if (!cellActionTarget) {
+                return;
+            }
+            const target = cellActionTarget;
+            closeCellActionPopup();
+            openPlayDetailPopup(target);
+        }
+
+        function getPlayDetailTargetSnapshot(target) {
+            if (!target || target.mode === "current") {
+                return captureAtBatSnapshot();
+            }
+            return target.snapshot || state.scoreSheets?.[target.half]?.[target.row]?.[target.col] || null;
+        }
+
+        function getPlayDetailTargetLabel(target) {
+            const half = target?.half || state.activeHalf;
+            const row = Number.isInteger(target?.row) ? target.row : state.selectedSheetRow;
+            const col = Number.isInteger(target?.col) ? target.col : state.selectedSheetCol;
+            const playerName = splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || "選手名未登録";
+            return (half === "top" ? "先攻 " : "後攻 ") + getColumnInningLabel(col) + "回 " + (row + 1) + "番 " + playerName;
+        }
+
+        function getPlayDetailSelected(value, currentValue) {
+            return value === currentValue ? " selected" : "";
+        }
+
+        function openCurrentPlayDetailPopup() {
+            openPlayDetailPopup({
+                mode: "current",
+                half: state.activeHalf,
+                row: state.selectedSheetRow,
+                col: state.selectedSheetCol
+            });
+        }
+
+        function openPlayDetailPopup(target) {
+            playDetailPopupTarget = target || {
+                mode: "current",
+                half: state.activeHalf,
+                row: state.selectedSheetRow,
+                col: state.selectedSheetCol
+            };
+            const popup = document.getElementById("commentPopup");
+            const backdrop = document.getElementById("commentPopupBackdrop");
+            if (!popup || !backdrop) {
+                return;
+            }
+            if (popup.parentElement !== document.body) {
+                document.body.appendChild(popup);
+            }
+            if (backdrop.parentElement !== document.body) {
+                document.body.appendChild(backdrop);
+            }
+            backdrop.onclick = closePlayDetailPopup;
+            const snapshot = getPlayDetailTargetSnapshot(playDetailPopupTarget);
+            const details = normalizePlayDetails(
+                playDetailPopupTarget.mode === "current"
+                    ? state.playDetails
+                    : snapshot?.playDetails
+            );
+            popup.innerHTML = [
+                '<div class="comment-popup-title">詳細入力: ' + escapeHtml(getPlayDetailTargetLabel(playDetailPopupTarget)) + '</div>',
+                '<div class="comment-popup-body">ラフ入力の後から、公式記録やX下書きに残したい補足だけ入れます。</div>',
+                '<div class="play-detail-form">',
+                '<label>走者の動き<textarea id="playDetailRunnerMovement" placeholder="例: 二塁走者の山田が9番の二塁打で生還">' + escapeHtml(details.runnerMovement) + '</textarea></label>',
+                '<div class="play-detail-grid">',
+                '<label>打点<select id="playDetailRbi">',
+                '<option value=""' + getPlayDetailSelected("", details.rbi) + '>未指定</option>',
+                '<option value="yes"' + getPlayDetailSelected("yes", details.rbi) + '>打点あり</option>',
+                '<option value="no"' + getPlayDetailSelected("no", details.rbi) + '>打点なし</option>',
+                '</select></label>',
+                '<label>得点責任<select id="playDetailEarnedRun">',
+                '<option value=""' + getPlayDetailSelected("", details.earnedRun) + '>未指定</option>',
+                '<option value="earned"' + getPlayDetailSelected("earned", details.earnedRun) + '>自責点</option>',
+                '<option value="unearned"' + getPlayDetailSelected("unearned", details.earnedRun) + '>非自責点</option>',
+                '</select></label>',
+                '</div>',
+                '<label>失策・送球<input id="playDetailErrorDetail" type="text" value="' + escapeHtml(details.errorDetail) + '" placeholder="例: 6の一塁高送球E / 7落球E"></label>',
+                '<label>走者アウト<select id="playDetailRunnerOutReason">',
+                '<option value=""' + getPlayDetailSelected("", details.runnerOutReason) + '>未指定</option>',
+                '<option value="盗塁死"' + getPlayDetailSelected("盗塁死", details.runnerOutReason) + '>盗塁死</option>',
+                '<option value="牽制死"' + getPlayDetailSelected("牽制死", details.runnerOutReason) + '>牽制死</option>',
+                '<option value="走塁死"' + getPlayDetailSelected("走塁死", details.runnerOutReason) + '>走塁死</option>',
+                '<option value="フォースアウト"' + getPlayDetailSelected("フォースアウト", details.runnerOutReason) + '>フォースアウト</option>',
+                '<option value="打球接触アウト"' + getPlayDetailSelected("打球接触アウト", details.runnerOutReason) + '>打球接触アウト</option>',
+                '<option value="アピールアウト"' + getPlayDetailSelected("アピールアウト", details.runnerOutReason) + '>アピールアウト</option>',
+                '</select></label>',
+                '<label>公式メモ<textarea id="playDetailOfficialNote" placeholder="例: タッチアップ / インフィールドフライ / 守備妨害など">' + escapeHtml(details.officialNote) + '</textarea></label>',
+                '</div>',
+                '<div class="comment-popup-actions">',
+                '<button type="button" onclick="clearPlayDetailPopup()">クリア</button>',
+                '<button type="button" onclick="closePlayDetailPopup()">キャンセル</button>',
+                '<button type="button" class="btn-hit" onclick="savePlayDetailPopup()">保存</button>',
+                '</div>'
+            ].join("");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            backdrop.classList.add("is-open");
+        }
+
+        function readPlayDetailPopupValue() {
+            return normalizePlayDetails({
+                runnerMovement: document.getElementById("playDetailRunnerMovement")?.value || "",
+                rbi: document.getElementById("playDetailRbi")?.value || "",
+                earnedRun: document.getElementById("playDetailEarnedRun")?.value || "",
+                errorDetail: document.getElementById("playDetailErrorDetail")?.value || "",
+                runnerOutReason: document.getElementById("playDetailRunnerOutReason")?.value || "",
+                officialNote: document.getElementById("playDetailOfficialNote")?.value || ""
+            });
+        }
+
+        function applyPlayDetailsToTarget(details) {
+            const normalized = normalizePlayDetails(details);
+            const target = playDetailPopupTarget || { mode: "current" };
+            if (target.mode === "current") {
+                pushGameHistory();
+                state.playDetails = normalized;
+                const existingSnapshot = state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol];
+                if (existingSnapshot) {
+                    existingSnapshot.playDetails = deepClone(normalized);
+                }
+                return;
+            }
+            const sheet = state.scoreSheets?.[target.half];
+            if (sheet?.[target.row]?.[target.col]) {
+                pushGameHistory();
+                sheet[target.row][target.col].playDetails = deepClone(normalized);
+                playDetailPopupTarget.snapshot = sheet[target.row][target.col];
+                if (target.half === state.activeHalf && target.row === state.selectedSheetRow && target.col === state.selectedSheetCol) {
+                    state.playDetails = normalized;
+                }
+            }
+        }
+
+        function savePlayDetailPopup() {
+            applyPlayDetailsToTarget(readPlayDetailPopupValue());
+            saveActiveSelection();
+            renderScoreSheet();
+            updateDisplay();
+            closePlayDetailPopup();
+        }
+
+        function clearPlayDetailPopup() {
+            applyPlayDetailsToTarget(createEmptyPlayDetails());
+            saveActiveSelection();
+            renderScoreSheet();
+            updateDisplay();
+            closePlayDetailPopup();
+        }
+
+        function closePlayDetailPopup() {
+            document.getElementById("commentPopup")?.classList.remove("is-open");
+            document.getElementById("commentPopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("commentPopupBackdrop")?.classList.remove("is-open");
+            playDetailPopupTarget = null;
+        }
+
         function showAtBatCommentPopup(snapshot, half = state.activeHalf, row = state.selectedSheetRow, col = state.selectedSheetCol) {
             const comment = String(snapshot?.atBatComment || "").trim();
             const pitchComments = (snapshot?.pitchComments || []).filter((item) => item?.text);
-            if (!comment && !pitchComments.length) {
+            if (!comment && !pitchComments.length && !hasPlayDetails(snapshot?.playDetails)) {
                 return;
             }
             commentPopupTarget = { snapshot, half, row, col };
@@ -11618,6 +11975,7 @@
 
         function snapshotHasAnyComment(snapshot) {
             return Boolean(snapshot?.atBatComment)
+                || hasPlayDetails(snapshot?.playDetails)
                 || (snapshot?.pitchComments || []).some((item) => item?.text);
         }
 
@@ -11633,19 +11991,25 @@
             if (backdrop.parentElement !== document.body) {
                 document.body.appendChild(backdrop);
             }
+            backdrop.onclick = closeAtBatCommentPopup;
             const { snapshot, half, row, col } = commentPopupTarget;
             const playerName = state.playerNames?.[half]?.[row] || "選手名未登録";
             const label = (half === "top" ? "先攻 " : "後攻 ") + getColumnInningLabel(col) + "回 " + (row + 1) + "番 " + playerName;
             const comment = String(snapshot?.atBatComment || "").trim();
             const pitchComments = (snapshot?.pitchComments || []).filter((item) => item?.text);
+            const playDetailItems = getPlayDetailsDisplayItems(snapshot?.playDetails);
             const pitchCommentBody = pitchComments.length
                 ? '<div class="comment-popup-body">' + pitchComments.map((item) => escapeHtml(item.text) + '（' + escapeHtml(getPitchCommentTimingLabel(item)) + '）').join('<br>') + '</div>'
+                : "";
+            const playDetailBody = playDetailItems.length
+                ? '<div class="comment-popup-body play-detail-list">' + playDetailItems.map((item) => '<div class="play-detail-item"><strong>' + escapeHtml(item.label) + '</strong>' + escapeHtml(item.text) + '</div>').join("") + '</div>'
                 : "";
             const body = isEditing
                 ? '<textarea id="commentPopupTextarea">' + escapeHtml(comment) + '</textarea>'
                 : [
                     comment ? '<div class="comment-popup-body">' + escapeHtml(comment) + '</div>' : "",
-                    pitchCommentBody
+                    pitchCommentBody,
+                    playDetailBody
                 ].join("");
             const actions = isEditing
                 ? [
@@ -11655,6 +12019,7 @@
                 : [
                     '<button type="button" onclick="closeAtBatCommentPopup()">OK</button>',
                     '<button type="button" class="btn-hit" onclick="renderAtBatCommentPopup(true)">修正</button>',
+                    '<button type="button" onclick="editPlayDetailsFromCommentPopup()">詳細入力</button>',
                     '<button type="button" onclick="editScoreFromCommentPopup()">スコア編集</button>'
                 ];
             popup.innerHTML = [
@@ -11693,7 +12058,7 @@
             saveActiveSelection();
             renderScoreSheet();
             updateDisplay();
-            if (value) {
+            if (value || hasPlayDetails(commentPopupTarget?.snapshot?.playDetails)) {
                 renderAtBatCommentPopup(false);
             } else {
                 closeAtBatCommentPopup();
@@ -11707,6 +12072,15 @@
             const { row, col } = commentPopupTarget;
             closeAtBatCommentPopup();
             selectSheetCell(row, col);
+        }
+
+        function editPlayDetailsFromCommentPopup() {
+            if (!commentPopupTarget) {
+                return;
+            }
+            const target = commentPopupTarget;
+            closeAtBatCommentPopup();
+            openPlayDetailPopup(target);
         }
 
         function closeAtBatCommentPopup() {
@@ -12086,6 +12460,7 @@
             const playerName = splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || "未登録（" + (row + 1) + "番）";
             const result = [
                 getShareResultText(snapshot, { includeScoringEvents: false, includeLaterRunnerEvents: false }),
+                formatPlayDetailsForShare(snapshot?.playDetails),
                 ...extraResultTexts
             ].filter(Boolean).join("、");
             const atBatComment = String(snapshot?.atBatComment || "").trim();
@@ -18803,6 +19178,7 @@
             updateRunnerLiveStatus();
             updateHistoryButtons();
             updateCommentTargetLabel();
+            updatePlayDetailButtonState();
             renderPitchMemoList();
             renderGameMiniStatus();
             renderCurrentBatterCard();
@@ -18835,6 +19211,7 @@
             state.currentConfidence = 1;
             state.atBatComment = "";
             state.atBatCommentMeta = null;
+            state.playDetails = createEmptyPlayDetails();
 
             setElementValue("fielderSelect", "");
             setElementValue("battingOrderSelect", state.battingOrder);
