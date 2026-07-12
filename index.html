@@ -4810,7 +4810,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.16";
+        const APP_VERSION = "0.2.17";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9573,6 +9573,54 @@
             }
         }
 
+        function getRunnerSourceLabel(source) {
+            return {
+                r1: "一走",
+                r2: "二走",
+                r3: "三走",
+                batter: "打者走者"
+            }[source] || "";
+        }
+
+        function encodeRunnerOutContext(source, label) {
+            const sourceLabel = getRunnerSourceLabel(source);
+            const cleanLabel = String(label || "アウト").trim();
+            if (!sourceLabel || source === "batter") {
+                return cleanLabel;
+            }
+            return sourceLabel + ":" + cleanLabel;
+        }
+
+        function parseRunnerOutContextEntry(entry) {
+            const text = String(entry || "").trim();
+            const match = text.match(/^(一走|二走|三走|打者走者):(.+)$/);
+            if (!match) {
+                return {
+                    source: "",
+                    sourceBaseIndex: -1,
+                    label: text
+                };
+            }
+            const sourceMap = {
+                "一走": { source: "r1", sourceBaseIndex: 0 },
+                "二走": { source: "r2", sourceBaseIndex: 1 },
+                "三走": { source: "r3", sourceBaseIndex: 2 },
+                "打者走者": { source: "batter", sourceBaseIndex: -1 }
+            };
+            return {
+                ...(sourceMap[match[1]] || { source: "", sourceBaseIndex: -1 }),
+                label: match[2].trim()
+            };
+        }
+
+        function formatRunnerOutContextForDisplay(entry) {
+            const parsed = parseRunnerOutContextEntry(entry);
+            if (!parsed.source) {
+                return parsed.label;
+            }
+            return getRunnerSourceLabel(parsed.source) + parsed.label;
+        }
+
         function setOutScoreForRef(ref, text) {
             const snapshot = getSnapshotByRef(ref);
             if (snapshot) {
@@ -10120,6 +10168,75 @@
             };
         }
 
+        function findRunnerRefBaseIndex(runners, ref) {
+            if (!ref) {
+                return -1;
+            }
+            return runners.findIndex((runner) => runner?.row === ref.row && runner?.col === ref.col);
+        }
+
+        function getPreviousCompletedPlateRef(row = state.selectedSheetRow, col = state.selectedSheetCol, half = state.activeHalf) {
+            const sheet = state.scoreSheets?.[half] || createEmptyScoreSheet();
+            const inning = getColumnInningLabel(col, half);
+
+            for (let scanRow = row - 1; scanRow >= 0; scanRow -= 1) {
+                if (sheet[scanRow]?.[col]) {
+                    return { half, row: scanRow, col };
+                }
+            }
+
+            if (row === 0) {
+                for (let scanRow = 8; scanRow > 0; scanRow -= 1) {
+                    if (sheet[scanRow]?.[col]) {
+                        return { half, row: scanRow, col };
+                    }
+                }
+            }
+
+            for (let scanCol = col - 1; scanCol >= 0; scanCol -= 1) {
+                if (getColumnInningLabel(scanCol, half) !== inning) {
+                    continue;
+                }
+                for (let scanRow = 8; scanRow >= 0; scanRow -= 1) {
+                    if (sheet[scanRow]?.[scanCol]) {
+                        return { half, row: scanRow, col: scanCol };
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        function getRunnerActionAttribution(reason = "next") {
+            if (reason === "next" && !hasCurrentAtBatInput()) {
+                const previous = getPreviousCompletedPlateRef();
+                if (previous) {
+                    return {
+                        half: previous.half,
+                        inning: getColumnInningLabel(previous.col, previous.half),
+                        battingOrder: previous.row + 1
+                    };
+                }
+            }
+
+            return {
+                half: state.activeHalf,
+                inning: getColumnInningLabel(),
+                battingOrder: currentBatterNumberForRunnerEvent()
+            };
+        }
+
+        function buildRunnerActionEventMeta(reason, action) {
+            const pitchMeta = buildRunnerPitchEventMeta(reason, action) || {};
+            const attribution = getRunnerActionAttribution(reason);
+            return {
+                ...pitchMeta,
+                by: attribution.battingOrder,
+                scoredHalf: attribution.half,
+                scoredInning: attribution.inning
+            };
+        }
+
         function moveRunnerToBase(runners, fromIndex, toIndex, label = null) {
             if (!runners[fromIndex]) {
                 return;
@@ -10169,6 +10286,28 @@
                     runners[baseIndex] = null;
                 }
             }
+        }
+
+        function removeRunnerRefAsOut(runners, runnerRef, label, outScore, eventMeta = null) {
+            if (!runnerRef) {
+                return;
+            }
+            const baseIndex = findRunnerRefBaseIndex(runners, runnerRef);
+            if (baseIndex >= 0) {
+                runners[baseIndex] = null;
+            } else {
+                removeRunnerRefFromBases(runners, runnerRef);
+            }
+            markRunnerOutOnSnapshot(runnerRef, outScore);
+            setRunnerStatusForRef(runnerRef, {
+                type: "out",
+                label: label || "アウト",
+                outScore: outScore || "",
+                by: currentBatterNumberForRunnerEvent(),
+                doublePlay: Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]?.modifiers?.doublePlay),
+                ...(eventMeta || {})
+            });
+            rememberRetiredRunnerPreview(runnerRef, baseIndex >= 0 ? baseIndex : 0, label, outScore);
         }
 
         function removeRunnerFromBase(runners, baseIndex, label, outScore, eventMeta = null) {
@@ -10380,7 +10519,12 @@
             }
         }
 
-        function applyRunnerContextOverrides(runners, snapshot, batterRef, originalRunners = []) {
+        function getNextOutScoreForCell(row = state.selectedSheetRow, col = state.selectedSheetCol) {
+            const previousOuts = getPreviousOutCountForCell(row, col);
+            return outCountToRoman(Math.min(3, previousOuts + 1)) || "Ⅰ";
+        }
+
+        function applyRunnerContextOverrides(runners, snapshot, batterRef, originalRunners = [], row = state.selectedSheetRow, col = state.selectedSheetCol) {
             const context = snapshot.runnerContext;
             if (!context) {
                 return;
@@ -10422,9 +10566,11 @@
             });
 
             (context.outsOnBases || []).forEach((outLabel) => {
-                const scoreOnRunner = getNextOutScoreForRunnerGui();
-                const sheetLabel = resolveForceOutLabel(snapshot, outLabel);
-                const batterOutMatch = String(outLabel || "").match(/^打者走者(?:一塁|二塁|三塁|本塁)アウト(?::(.+))?$/);
+                const parsedOut = parseRunnerOutContextEntry(outLabel);
+                const outLabelText = parsedOut.label;
+                const scoreOnRunner = getNextOutScoreForCell(row, col);
+                const sheetLabel = resolveForceOutLabel(snapshot, outLabelText);
+                const batterOutMatch = String(outLabelText || "").match(/^打者走者(?:一塁|二塁|三塁|本塁)アウト(?::(.+))?$/);
                 if (batterOutMatch && batterRef) {
                     removeRunnerRefFromBases(runners, batterRef);
                     markRunnerOutOnSnapshot(batterRef, scoreOnRunner);
@@ -10434,22 +10580,27 @@
                         outScore: scoreOnRunner,
                         by: currentBatterNumberForRunnerEvent()
                     });
-                } else if (outLabel === "一塁封殺" && batterRef) {
+                } else if (parsedOut.sourceBaseIndex >= 0 && originalRunners[parsedOut.sourceBaseIndex]) {
+                    removeRunnerRefAsOut(runners, originalRunners[parsedOut.sourceBaseIndex], sheetLabel, scoreOnRunner);
+                    if (outLabelText.includes("封殺")) {
+                        advanceTrailingRunnersAfterForceOut(runners, parsedOut.sourceBaseIndex);
+                    }
+                } else if (outLabelText === "一塁封殺" && batterRef) {
                     markRunnerOutOnSnapshot(batterRef, scoreOnRunner);
                     setRunnerStatusForRef(batterRef, { type: "out", label: sheetLabel, outScore: scoreOnRunner, by: currentBatterNumberForRunnerEvent() });
-                } else if (outLabel === "二盗死" || outLabel === "二塁封殺" || outLabel === "二塁アウト" || /^2-[46]T$/.test(outLabel)) {
+                } else if (outLabelText === "二盗死" || outLabelText === "二塁封殺" || outLabelText === "二塁アウト" || /^2-[46]T$/.test(outLabelText)) {
                     removeRunnerFromBase(runners, 0, sheetLabel, scoreOnRunner);
-                    if (outLabel === "二塁封殺") {
+                    if (outLabelText === "二塁封殺") {
                         advanceTrailingRunnersAfterForceOut(runners, 0);
                     }
-                } else if (outLabel === "三盗死" || outLabel === "三塁封殺" || outLabel === "三塁アウト" || outLabel === "2-5T") {
+                } else if (outLabelText === "三盗死" || outLabelText === "三塁封殺" || outLabelText === "三塁アウト" || outLabelText === "2-5T") {
                     removeRunnerFromBase(runners, 1, sheetLabel, scoreOnRunner);
-                    if (outLabel === "三塁封殺") {
+                    if (outLabelText === "三塁封殺") {
                         advanceTrailingRunnersAfterForceOut(runners, 1);
                     }
-                } else if (outLabel === "本塁アウト" || outLabel === "本塁封殺" || outLabel === "2T") {
+                } else if (outLabelText === "本塁アウト" || outLabelText === "本塁封殺" || outLabelText === "2T") {
                     removeRunnerFromBase(runners, 2, sheetLabel, scoreOnRunner);
-                    if (outLabel === "本塁封殺") {
+                    if (outLabelText === "本塁封殺") {
                         advanceTrailingRunnersAfterForceOut(runners, 2);
                     }
                 }
@@ -10584,7 +10735,7 @@
                 }
             }
 
-            applyRunnerContextOverrides(runners, snapshot, batterRef, originalRunners);
+            applyRunnerContextOverrides(runners, snapshot, batterRef, originalRunners, row, col);
 
             if (snapshot.outScore === "Ⅲ") {
                 markLeftOnBaseRunners(runners);
@@ -15279,8 +15430,7 @@
         }
 
         function getNextOutScoreForRunnerGui() {
-            const previousOuts = getPreviousOutCountForCell(state.selectedSheetRow, state.selectedSheetCol);
-            return outCountToRoman(Math.min(3, previousOuts + 1)) || "Ⅰ";
+            return getNextOutScoreForCell();
         }
 
         function applyExistingRunnerGuiAction(source, action, reason, step = null) {
@@ -15297,7 +15447,7 @@
             const runners = state.baseRunners.map((runner) => (runner ? { ...runner } : null));
             const runnerLabel = getRunnerRefLabel(runnerRef);
             ensurePitchForRunnerReason(reason, action);
-            const eventMeta = buildRunnerPitchEventMeta(reason, action);
+            const eventMeta = buildRunnerActionEventMeta(reason, action);
             markRunnerReasonOnLastPitch(reason, action);
 
             if (action === "out") {
@@ -15307,6 +15457,7 @@
                 renderScoreSheet();
                 updateDisplay();
                 updateRunnerGuiStatus(runnerLabel + " " + outLabel);
+                scheduleGameAutoSave();
                 return true;
             }
 
@@ -15346,6 +15497,7 @@
             renderScoreSheet();
             updateDisplay();
             updateRunnerGuiStatus(statusMessage);
+            scheduleGameAutoSave();
             return true;
         }
 
@@ -15353,8 +15505,8 @@
             const step = getRunnerGuiStepFromControl(control);
             const source = step?.querySelector(".runnerGuiSource")?.value || "r1";
             const reason = step?.querySelector(".runnerGuiReason")?.value || "next";
-            const isRunnerPreviewPopup = Boolean(control.closest("#runnerActionPopup"));
-            if (reason !== "next" && applyExistingRunnerGuiAction(source, action, reason, step)) {
+            const shouldApplyToExistingRunner = reason !== "next" || (!hasCurrentAtBatInput() && source !== "batter");
+            if (shouldApplyToExistingRunner && applyExistingRunnerGuiAction(source, action, reason, step)) {
                 return;
             }
 
@@ -15369,8 +15521,9 @@
 
             let entry = "";
             if (action === "out") {
-                addUniqueContextEntry(context.outsOnBases, getRunnerOutLabel(reason, source, step));
-                entry = labels[source] + "アウト";
+                const outLabel = getRunnerOutLabel(reason, source, step);
+                addUniqueContextEntry(context.outsOnBases, encodeRunnerOutContext(source, outLabel));
+                entry = (labels[source] || "") + outLabel;
             } else if (source === "batter") {
                 const batterAdvance = {
                     "1": "打者走者一塁セーフ",
@@ -15400,6 +15553,7 @@
             updateDisplay();
             syncPreviewFromCurrentState("走者移動");
             updateRunnerGuiStatus(entry || "その移動はまだ対象外です");
+            scheduleGameAutoSave();
         }
 
         function updateRunnerGuiStatus(message) {
@@ -17354,7 +17508,7 @@
                 }).join(" / "));
             }
             if (context.outsOnBases?.length) {
-                parts.push(context.outsOnBases.join(" / "));
+                parts.push(context.outsOnBases.map(formatRunnerOutContextForDisplay).join(" / "));
             }
             if (context.scores) {
                 parts.push(context.scores + "点");
@@ -18400,7 +18554,15 @@
         function applyRunnerContextProjection(projected) {
             const originalRunners = state.baseRunners;
             (state.runnerContext?.outsOnBases || []).forEach((outLabel) => {
-                const label = String(outLabel || "");
+                const parsedOut = parseRunnerOutContextEntry(outLabel);
+                const label = parsedOut.label;
+                if (parsedOut.sourceBaseIndex >= 0) {
+                    removeProjectedRunner(projected, originalRunners[parsedOut.sourceBaseIndex]);
+                    if (label.includes("封殺")) {
+                        advanceProjectedTrailingRunnersAfterForceOut(projected, parsedOut.sourceBaseIndex);
+                    }
+                    return;
+                }
                 if (label === "二塁封殺" || label === "二塁アウト" || label === "二盗死" || /^2-[46]T$/.test(label)) {
                     removeProjectedRunnerAtBase(projected, 0);
                     if (label === "二塁封殺") {
@@ -18505,8 +18667,9 @@
             };
             return (state.runnerContext?.outsOnBases || [])
                 .map((outLabel) => {
-                    const label = String(outLabel || "");
-                    let baseIndex = baseIndexByOutLabel[label];
+                    const parsedOut = parseRunnerOutContextEntry(outLabel);
+                    const label = parsedOut.label;
+                    let baseIndex = parsedOut.sourceBaseIndex >= 0 ? parsedOut.sourceBaseIndex : baseIndexByOutLabel[label];
                     if (baseIndex === undefined) {
                         if (/^2-[46]T$/.test(label)) {
                             baseIndex = 0;
