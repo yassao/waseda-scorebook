@@ -3070,13 +3070,14 @@
         }
 
         .runner-gui-step:not(.is-detail-open) .runnerGuiReason,
+        .runner-gui-step:not(.is-detail-open) .runnerGuiOutType,
         .runner-gui-step:not(.is-detail-open) .runner-steal-detail {
             display: none;
         }
 
         .runner-gui-detail-toggle {
             grid-column: 1;
-            grid-row: 6;
+            grid-row: 7;
             min-height: 32px;
         }
 
@@ -3090,6 +3091,11 @@
 
         .runnerGuiErrorTarget {
             grid-row: 4;
+        }
+
+        .runnerGuiOutType {
+            grid-column: 1;
+            grid-row: 5;
         }
 
         .runner-gui select,
@@ -3111,7 +3117,7 @@
         .runner-diamond {
             position: relative;
             grid-column: 2;
-            grid-row: 1 / span 6;
+            grid-row: 1 / span 7;
             display: grid;
             grid-template-columns: repeat(3, 34px);
             grid-template-rows: repeat(3, 34px);
@@ -3166,7 +3172,7 @@
 
         .runner-out-btn {
             grid-column: 1;
-            grid-row: 5;
+            grid-row: 6;
         }
 
         .runner-gui-step:not(.is-detail-open) .runner-out-btn {
@@ -3297,7 +3303,8 @@
         .runner-action-popup .runnerGuiReason,
         .runner-action-popup .runnerGuiThrowTarget,
         .runner-action-popup .runnerGuiErrorTarget,
-        .runner-action-popup .runnerGuiErrorFielder {
+        .runner-action-popup .runnerGuiErrorFielder,
+        .runner-action-popup .runnerGuiOutType {
             grid-column: 1;
             grid-row: auto;
             display: block;
@@ -4810,7 +4817,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.17";
+        const APP_VERSION = "0.2.18";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9545,6 +9552,38 @@
             }).join("");
         }
 
+        function getBaseRunnerIntegrityWarnings(runners = state.baseRunners) {
+            const warnings = [];
+            const seen = new Map();
+            runners.forEach((runnerRef, baseIndex) => {
+                if (!runnerRef) {
+                    return;
+                }
+                const key = runnerRef.row + ":" + runnerRef.col;
+                if (seen.has(key)) {
+                    warnings.push(getRunnerRefLabel(runnerRef) + "が複数の塁にいます");
+                }
+                seen.set(key, baseIndex);
+                const snapshot = getSnapshotByRef(runnerRef);
+                const latestEvent = getRunnerStatusEvents(snapshot).slice(-1)[0];
+                if (latestEvent?.type === "score") {
+                    warnings.push(getRunnerRefLabel(runnerRef) + "は生還済みですが塁上に残っています");
+                } else if (latestEvent?.type === "out") {
+                    warnings.push(getRunnerRefLabel(runnerRef) + "はアウト記録済みですが塁上に残っています");
+                }
+            });
+            return Array.from(new Set(warnings));
+        }
+
+        function appendRunnerIntegrityWarnings(message) {
+            const warnings = getBaseRunnerIntegrityWarnings();
+            if (!warnings.length) {
+                return message;
+            }
+            const base = message || "";
+            return (base ? base + " " : "") + "確認: " + warnings.join(" / ");
+        }
+
         function getLatestRunnerBaseStatus(snapshot) {
             const events = getRunnerStatusEvents(snapshot);
             for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -10235,6 +10274,11 @@
                 scoredHalf: attribution.half,
                 scoredInning: attribution.inning
             };
+        }
+
+        function formatRunnerActionAttributionStatus(eventMeta) {
+            const order = Number(eventMeta?.by) || 0;
+            return order ? "（" + order + "番の打席として記録）" : "";
         }
 
         function moveRunnerToBase(runners, fromIndex, toIndex, label = null) {
@@ -12046,7 +12090,11 @@
                 '<option value="牽制死"' + getPlayDetailSelected("牽制死", details.runnerOutReason) + '>牽制死</option>',
                 '<option value="走塁死"' + getPlayDetailSelected("走塁死", details.runnerOutReason) + '>走塁死</option>',
                 '<option value="フォースアウト"' + getPlayDetailSelected("フォースアウト", details.runnerOutReason) + '>フォースアウト</option>',
+                '<option value="タッチアウト"' + getPlayDetailSelected("タッチアウト", details.runnerOutReason) + '>タッチアウト</option>',
+                '<option value="挟殺アウト"' + getPlayDetailSelected("挟殺アウト", details.runnerOutReason) + '>挟殺アウト</option>',
+                '<option value="離塁アウト"' + getPlayDetailSelected("離塁アウト", details.runnerOutReason) + '>離塁アウト</option>',
                 '<option value="打球接触アウト"' + getPlayDetailSelected("打球接触アウト", details.runnerOutReason) + '>打球接触アウト</option>',
+                '<option value="守備妨害アウト"' + getPlayDetailSelected("守備妨害アウト", details.runnerOutReason) + '>守備妨害アウト</option>',
                 '<option value="アピールアウト"' + getPlayDetailSelected("アピールアウト", details.runnerOutReason) + '>アピールアウト</option>',
                 '</select></label>',
                 '<label>公式メモ<textarea id="playDetailOfficialNote" placeholder="例: タッチアップ / インフィールドフライ / 守備妨害など">' + escapeHtml(details.officialNote) + '</textarea></label>',
@@ -12445,6 +12493,39 @@
             return target ? target + label : label;
         }
 
+        function formatShareRunnerOutText(label) {
+            const text = String(label || "").trim();
+            if (!text) {
+                return "走者アウト";
+            }
+            if (text.includes("1-2") || text.includes("2-2") || text.includes("3-2") || text.includes("5-2") || text.includes("6-2")) {
+                return "本塁封殺";
+            }
+            if (text.includes("封殺") || text.includes("アウト") || text.includes("盗死") || text.includes("牽制死") || text.includes("走塁死")) {
+                return text;
+            }
+            if (/T$/.test(text)) {
+                return text + "アウト";
+            }
+            return text + "アウト";
+        }
+
+        function getShareBaseAdvanceText(base, label = "") {
+            const baseText = base === 2 ? "二塁" : base === 3 ? "三塁" : base >= 4 ? "本塁" : "進塁";
+            return label ? label + "で" + baseText : baseText;
+        }
+
+        function getShareScoreAdvanceText(label = "") {
+            const text = String(label || "").trim();
+            if (!text) {
+                return "生還";
+            }
+            if (text === "送球間" || text === "タッチアップ") {
+                return text + "に生還";
+            }
+            return text + "で生還";
+        }
+
         function getShareRunnerEventText(snapshot, options = {}) {
             const includeScoringEvents = options.includeScoringEvents !== false;
             const includeLaterRunnerEvents = options.includeLaterRunnerEvents !== false;
@@ -12454,18 +12535,12 @@
             events.forEach((event) => {
                 const byOrder = Number(event?.by) || 0;
                 if (event?.type === "out") {
-                    const label = String(event.label || "");
-                    if (label.includes("1-2") || label.includes("2-2") || label.includes("3-2") || label.includes("5-2") || label.includes("6-2")) {
-                        parts.push("本塁封殺");
-                    } else if (label) {
-                        parts.push(label + "アウト");
-                    } else {
-                        parts.push("走者アウト");
-                    }
+                    parts.push(formatShareRunnerOutText(event.label));
                 } else if (event?.type === "advance" && event.base > 1 && (includeLaterRunnerEvents || !byOrder || byOrder === selfOrder)) {
-                    parts.push((event.base === 2 ? "二塁" : event.base === 3 ? "三塁" : "進塁"));
+                    parts.push(getShareBaseAdvanceText(event.base, event.label));
                 } else if ((event?.type === "score" || event === "生還") && includeScoringEvents) {
-                    parts.push(byOrder && byOrder !== selfOrder ? byOrder + "番の打席で生還" : "生還");
+                    const scoreText = getShareScoreAdvanceText(event?.label);
+                    parts.push(byOrder && byOrder !== selfOrder ? byOrder + "番の打席で" + scoreText : scoreText);
                 }
             });
             if (snapshot?.modifiers?.doublePlay) {
@@ -15011,6 +15086,9 @@
                 '<option value="bk">ボーク</option>',
                 '<option value="pickoff">牽制</option>',
                 '<option value="error">失策</option>',
+                '<option value="throw">送球間</option>',
+                '<option value="tagup">タッチアップ</option>',
+                '<option value="obstruction">走塁妨害</option>',
                 '</select>',
                 '<select class="runnerGuiThrowTarget runner-steal-detail" aria-label="盗塁送球先">',
                 '<option value="auto">送球先 自動</option>',
@@ -15034,6 +15112,16 @@
                 '<option value="7">7 左翼手</option>',
                 '<option value="8">8 中堅手</option>',
                 '<option value="9">9 右翼手</option>',
+                '</select>',
+                '<select class="runnerGuiOutType" aria-label="アウト種類">',
+                '<option value="auto">アウト種類 自動</option>',
+                '<option value="force">封殺</option>',
+                '<option value="tag">タッチアウト</option>',
+                '<option value="rundown">挟殺アウト</option>',
+                '<option value="pickoff">牽制アウト</option>',
+                '<option value="offbase">離塁アウト</option>',
+                '<option value="interference">守備妨害アウト</option>',
+                '<option value="appeal">アピールアウト</option>',
                 '</select>',
                 '<button type="button" class="runner-gui-detail-toggle" onclick="toggleRunnerGuiDetail(this)">詳細</button>',
                 '<div class="runner-diamond" aria-label="到達塁">',
@@ -15102,6 +15190,9 @@
                 '<option value="bk">ボーク</option>',
                 '<option value="pickoff">牽制</option>',
                 '<option value="error">失策</option>',
+                '<option value="throw">送球間</option>',
+                '<option value="tagup">タッチアップ</option>',
+                '<option value="obstruction">走塁妨害</option>',
                 '</select>',
                 '<select class="runnerGuiThrowTarget runner-steal-detail runner-popup-hidden-select" aria-label="盗塁送球先">',
                 '<option value="auto">送球先 自動</option>',
@@ -15126,6 +15217,16 @@
                 '<option value="8">8 中堅手</option>',
                 '<option value="9">9 右翼手</option>',
                 '</select>',
+                '<select class="runnerGuiOutType runner-popup-hidden-select" aria-label="アウト種類">',
+                '<option value="auto">アウト種類 自動</option>',
+                '<option value="force">封殺</option>',
+                '<option value="tag">タッチアウト</option>',
+                '<option value="rundown">挟殺アウト</option>',
+                '<option value="pickoff">牽制アウト</option>',
+                '<option value="offbase">離塁アウト</option>',
+                '<option value="interference">守備妨害アウト</option>',
+                '<option value="appeal">アピールアウト</option>',
+                '</select>',
                 '<div class="runner-choice-section">',
                 '<div class="runner-choice-title">理由</div>',
                 '<div class="runner-choice-grid">',
@@ -15136,6 +15237,22 @@
                 '<button type="button" class="runner-choice-btn" data-runner-reason="bk" onclick="setRunnerPopupReason(this, \'bk\')">ボーク</button>',
                 '<button type="button" class="runner-choice-btn" data-runner-reason="pickoff" onclick="setRunnerPopupReason(this, \'pickoff\')">牽制</button>',
                 '<button type="button" class="runner-choice-btn" data-runner-reason="error" onclick="setRunnerPopupReason(this, \'error\')">失策</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-reason="throw" onclick="setRunnerPopupReason(this, \'throw\')">送球間</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-reason="tagup" onclick="setRunnerPopupReason(this, \'tagup\')">タッチアップ</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-reason="obstruction" onclick="setRunnerPopupReason(this, \'obstruction\')">走塁妨害</button>',
+                '</div>',
+                '</div>',
+                '<div class="runner-choice-section">',
+                '<div class="runner-choice-title">アウト種類</div>',
+                '<div class="runner-choice-grid">',
+                '<button type="button" class="runner-choice-btn is-active" data-runner-out-type="auto" onclick="setRunnerPopupOutType(this, \'auto\')">自動</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-out-type="force" onclick="setRunnerPopupOutType(this, \'force\')">封殺</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-out-type="tag" onclick="setRunnerPopupOutType(this, \'tag\')">タッチ</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-out-type="rundown" onclick="setRunnerPopupOutType(this, \'rundown\')">挟殺</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-out-type="pickoff" onclick="setRunnerPopupOutType(this, \'pickoff\')">牽制</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-out-type="offbase" onclick="setRunnerPopupOutType(this, \'offbase\')">離塁</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-out-type="interference" onclick="setRunnerPopupOutType(this, \'interference\')">守備妨害</button>',
+                '<button type="button" class="runner-choice-btn" data-runner-out-type="appeal" onclick="setRunnerPopupOutType(this, \'appeal\')">アピール</button>',
                 '</div>',
                 '</div>',
                 '<div class="runner-choice-section runner-error-fielder-section" id="runnerErrorFielderSection">',
@@ -15208,6 +15325,20 @@
                 select.value = fielder;
             }
             popup.querySelectorAll(".runner-error-fielder-btn").forEach((choice) => {
+                choice.classList.toggle("is-active", choice === button);
+            });
+        }
+
+        function setRunnerPopupOutType(button, outType) {
+            const popup = button.closest("#runnerActionPopup");
+            if (!popup) {
+                return;
+            }
+            const select = popup.querySelector(".runnerGuiOutType");
+            if (select) {
+                select.value = outType;
+            }
+            popup.querySelectorAll(".runner-choice-btn[data-runner-out-type]").forEach((choice) => {
                 choice.classList.toggle("is-active", choice === button);
             });
         }
@@ -15320,6 +15451,13 @@
             return /^[1-9]$/.test(selected) ? selected : "?";
         }
 
+        function getRunnerGuiOutType(step = null) {
+            const selected = step?.querySelector(".runnerGuiOutType")?.value || "auto";
+            return ["auto", "force", "tag", "rundown", "pickoff", "offbase", "interference", "appeal"].includes(selected)
+                ? selected
+                : "auto";
+        }
+
         function buildStealErrorLabel(source, action, step = null) {
             const target = getRunnerGuiThrowTarget(source, action, step);
             return getRunnerGuiErrorTarget(step) === "receiver"
@@ -15349,13 +15487,69 @@
                 const fielder = getRunnerGuiErrorFielder(step);
                 return fielder === "?" ? "?E" : fielder + "E";
             }
+            if (reason === "throw") {
+                return "送球間";
+            }
+            if (reason === "tagup") {
+                return "タッチアップ";
+            }
+            if (reason === "obstruction") {
+                return "走塁妨害";
+            }
             if (action === "score") {
                 return null;
             }
             return null;
         }
 
+        function appendRunnerAdvanceLabel(baseText, label) {
+            return label ? baseText + ":" + label : baseText;
+        }
+
+        function getRunnerOutTargetBaseLabel(source, step = null) {
+            const projectedBaseIndex = Number(step?.dataset?.projectedBaseIndex);
+            if (Number.isInteger(projectedBaseIndex) && projectedBaseIndex >= 0) {
+                return ["二塁", "三塁", "本塁"][Math.min(2, projectedBaseIndex)] || "塁";
+            }
+            return {
+                batter: "一塁",
+                r1: "二塁",
+                r2: "三塁",
+                r3: "本塁"
+            }[source] || "塁";
+        }
+
+        function getRunnerOutLabelByType(outType, baseLabel) {
+            if (outType === "force") {
+                return baseLabel + "封殺";
+            }
+            if (outType === "tag") {
+                return baseLabel + "タッチアウト";
+            }
+            if (outType === "rundown") {
+                return baseLabel + "挟殺アウト";
+            }
+            if (outType === "pickoff") {
+                return baseLabel + "牽制アウト";
+            }
+            if (outType === "offbase") {
+                return baseLabel + "離塁アウト";
+            }
+            if (outType === "interference") {
+                return "守備妨害アウト";
+            }
+            if (outType === "appeal") {
+                return baseLabel + "アピールアウト";
+            }
+            return "";
+        }
+
         function getRunnerOutLabel(reason, source, step = null) {
+            const outType = getRunnerGuiOutType(step);
+            const typedLabel = getRunnerOutLabelByType(outType, getRunnerOutTargetBaseLabel(source, step));
+            if (typedLabel) {
+                return typedLabel;
+            }
             if (reason === "steal") {
                 return "2-" + getRunnerGuiThrowTarget(source, "out", step) + "T";
             }
@@ -15397,6 +15591,15 @@
             }
             if (reason === "error") {
                 return "E";
+            }
+            if (reason === "throw") {
+                return "";
+            }
+            if (reason === "tagup") {
+                return "";
+            }
+            if (reason === "obstruction") {
+                return "";
             }
             return "";
         }
@@ -15456,7 +15659,7 @@
                 setBaseRunners(runners);
                 renderScoreSheet();
                 updateDisplay();
-                updateRunnerGuiStatus(runnerLabel + " " + outLabel);
+                updateRunnerGuiStatus(runnerLabel + " " + outLabel + formatRunnerActionAttributionStatus(eventMeta));
                 scheduleGameAutoSave();
                 return true;
             }
@@ -15480,7 +15683,7 @@
             let statusMessage = "";
             if (targetIndex >= 3) {
                 setRunnerStatusForRef(runnerRef, { type: "score", by: currentBatterNumberForRunnerEvent(), label, ...currentScoringMeta(), ...(eventMeta || {}) });
-                statusMessage = runnerLabel + "→本塁" + (label ? "（" + label + "）" : "");
+                statusMessage = runnerLabel + "→本塁" + (label ? "（" + label + "）" : "") + formatRunnerActionAttributionStatus(eventMeta);
             } else {
                 runners[targetIndex] = runnerRef;
                 setRunnerStatusForRef(runnerRef, {
@@ -15490,7 +15693,7 @@
                     label,
                     ...(eventMeta || {})
                 });
-                statusMessage = runnerLabel + "→" + (targetIndex + 1) + "塁" + (label ? "（" + label + "）" : "");
+                statusMessage = runnerLabel + "→" + (targetIndex + 1) + "塁" + (label ? "（" + label + "）" : "") + formatRunnerActionAttributionStatus(eventMeta);
             }
 
             setBaseRunners(runners);
@@ -15531,7 +15734,8 @@
                     "3": "打者走者三塁セーフ",
                     score: "打者走者生還"
                 };
-                addUniqueContextEntry(context.advances, batterAdvance[action]);
+                const advanceLabel = getRunnerAdvanceLabel(reason, action, source, step);
+                addUniqueContextEntry(context.advances, appendRunnerAdvanceLabel(batterAdvance[action], advanceLabel));
                 entry = labels[source] + "→" + (action === "score" ? "本塁" : action + "塁");
             } else {
                 const runnerAdvance = {
@@ -15540,7 +15744,8 @@
                     r3: { score: "三走生還" }
                 };
                 if (runnerAdvance[source]?.[action]) {
-                    addUniqueContextEntry(context.advances, runnerAdvance[source][action]);
+                    const advanceLabel = getRunnerAdvanceLabel(reason, action, source, step);
+                    addUniqueContextEntry(context.advances, appendRunnerAdvanceLabel(runnerAdvance[source][action], advanceLabel));
                     entry = labels[source] + "→" + (action === "score" ? "本塁" : action + "塁");
                 }
             }
@@ -15562,14 +15767,16 @@
                 return;
             }
             if (message) {
-                status.textContent = message.includes("対象外") || message.includes("戻しました") || message.includes("移動先") || message.includes("消去")
-                    ? message
-                    : message + " を追記しました。";
+                const displayMessage = appendRunnerIntegrityWarnings(message);
+                status.textContent = displayMessage.includes("対象外") || displayMessage.includes("戻しました") || displayMessage.includes("移動先") || displayMessage.includes("消去") || displayMessage.includes("確認:")
+                    ? displayMessage
+                    : displayMessage + " を追記しました。";
                 return;
             }
-            status.textContent = state.runnerContextText && state.runnerContextText !== "なし"
+            const baseText = state.runnerContextText && state.runnerContextText !== "なし"
                 ? "追記済み: " + state.runnerContextText
                 : "走者の移動は元の打者セルへ追記します。";
+            status.textContent = appendRunnerIntegrityWarnings(baseText);
         }
 
         function updateAtBatComment(value) {
@@ -17500,7 +17707,7 @@
             }
             if (context.advances?.length) {
                 parts.push(context.advances.map((advance) => {
-                    if (typeof advance === "string" && /^打者走者(?:二塁|三塁)セーフ:|^打者走者生還:/.test(advance)) {
+                    if (typeof advance === "string" && advance.includes(":")) {
                         const baseText = advance.split(":")[0];
                         return baseText + "（" + advance.split(":").slice(1).join(":") + "）";
                     }
