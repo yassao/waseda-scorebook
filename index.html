@@ -4810,7 +4810,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.15";
+        const APP_VERSION = "0.2.16";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11034,40 +11034,44 @@
             return "";
         }
 
+        function getKeioHitStrokeColor() {
+            return SCORE_COLORS.ink;
+        }
+
         function getKeioHitFieldPoint(snapshot) {
             const fielder = String(snapshot?.selectedFielder || snapshot?.fielder || snapshot?.result || "");
             const direction = snapshot?.selectedDirection || "none";
             const pointByFielderAndDirection = {
                 "7": {
-                    up: { x: 78, y: 76 },
-                    down: { x: 82, y: 108 },
-                    left: { x: 70, y: 108 },
+                    up: { x: 82, y: 78 },
+                    down: { x: 88, y: 107 },
+                    left: { x: 76, y: 104 },
                     right: { x: 96, y: 94 },
-                    none: { x: 82, y: 98 },
-                    "?": { x: 82, y: 98 }
+                    none: { x: 88, y: 98 },
+                    "?": { x: 88, y: 98 }
                 },
                 "8": {
-                    up: { x: 110, y: 74 },
-                    down: { x: 110, y: 110 },
-                    left: { x: 94, y: 92 },
-                    right: { x: 126, y: 92 },
-                    none: { x: 110, y: 94 },
-                    "?": { x: 110, y: 94 }
+                    up: { x: 110, y: 76 },
+                    down: { x: 110, y: 108 },
+                    left: { x: 96, y: 94 },
+                    right: { x: 124, y: 94 },
+                    none: { x: 110, y: 96 },
+                    "?": { x: 110, y: 96 }
                 },
                 "9": {
-                    up: { x: 142, y: 76 },
-                    down: { x: 138, y: 108 },
+                    up: { x: 138, y: 78 },
+                    down: { x: 132, y: 107 },
                     left: { x: 124, y: 94 },
-                    right: { x: 150, y: 108 },
-                    none: { x: 138, y: 98 },
-                    "?": { x: 138, y: 98 }
+                    right: { x: 144, y: 104 },
+                    none: { x: 132, y: 98 },
+                    "?": { x: 132, y: 98 }
                 }
             };
             const byDirection = pointByFielderAndDirection[fielder] || pointByFielderAndDirection["8"];
             const point = byDirection[direction] || byDirection.none;
             return {
-                x: Math.max(66, Math.min(154, point.x)),
-                y: Math.max(70, Math.min(114, point.y))
+                x: Math.max(74, Math.min(146, point.x)),
+                y: Math.max(74, Math.min(110, point.y))
             };
         }
 
@@ -11096,19 +11100,20 @@
         function getKeioInfieldHitFieldPoint(snapshot) {
             const fielder = String(snapshot?.selectedFielder || snapshot?.fielder || snapshot?.result || "");
             const pointByFielder = {
-                "1": { x: 110, y: 122 },
-                "2": { x: 110, y: 148 },
-                "3": { x: 132, y: 138 },
-                "4": { x: 124, y: 112 },
-                "5": { x: 88, y: 138 },
-                "6": { x: 96, y: 112 }
+                "1": { x: 110, y: 116 },
+                "2": { x: 110, y: 134 },
+                "3": { x: 129, y: 128 },
+                "4": { x: 122, y: 108 },
+                "5": { x: 91, y: 128 },
+                "6": { x: 98, y: 108 }
             };
-            return pointByFielder[fielder] || { x: 110, y: 130 };
+            return pointByFielder[fielder] || { x: 110, y: 118 };
         }
 
-        function buildKeioHitMarkup(snapshot, resultBaseSlot, color) {
+        function buildKeioHitMarkup(snapshot, resultBaseSlot) {
             const baseLabel = getKeioHitBaseLabel(snapshot);
             const hitCode = getKeioHitCode(snapshot);
+            const color = getKeioHitStrokeColor();
             const fielder = String(snapshot?.selectedFielder || snapshot?.fielder || "");
             const isInfieldFielder = /^[1-6]$/.test(fielder);
             const isInfieldHit = hitCode === "G"
@@ -11117,23 +11122,23 @@
             const isBuntHit = hitCode === "BH";
             const fieldShape = isInfieldHit
                 ? [
-                    '<path d="M 82 136 L 110 108 L 138 136 L 110 164 Z" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round"/>',
+                    '<path d="M 86 118 L 110 94 L 134 118 L 110 142 Z" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round"/>',
                     getKeioBallMarkAtPoint(snapshot, color, getKeioInfieldHitFieldPoint(snapshot))
                 ].join("")
                 : isBuntHit
                 ? [
-                    '<path d="M 86 136 L 110 112 L 134 136" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
-                    '<text x="110" y="156" text-anchor="middle" font-size="20" font-weight="900" fill="' + color + '">BH</text>',
+                    '<path d="M 78 120 L 110 86 L 142 120" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+                    '<text x="110" y="139" text-anchor="middle" font-size="16" font-weight="900" fill="' + color + '">BH</text>',
                     getKeioBallMarkAtPoint({ ...snapshot, selectedBallType: "ground" }, color, getKeioInfieldHitFieldPoint(snapshot))
                 ].join("")
                 : [
-                    '<path d="M 72 116 L 110 72 L 148 116" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+                    '<path d="M 74 120 L 110 78 L 146 120" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
                     getKeioHitBallMark(snapshot, color)
                 ].join("");
             const baseLabelMarkup = baseLabel && resultBaseSlot && !isInfieldHit
-                ? '<text x="110" y="110" text-anchor="middle" font-size="24" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
+                ? '<text x="110" y="112" text-anchor="middle" font-size="22" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
                 : baseLabel && resultBaseSlot
-                    ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="18" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
+                    ? '<text x="110" y="128" text-anchor="middle" font-size="18" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
                 : "";
             return [
                 '<g class="keio-hit-mark" aria-hidden="true">',
