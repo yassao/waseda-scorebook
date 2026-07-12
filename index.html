@@ -4730,7 +4730,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.13";
+        const APP_VERSION = "0.2.14";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11915,10 +11915,14 @@
             return target ? target + label : label;
         }
 
-        function getShareRunnerEventText(snapshot) {
+        function getShareRunnerEventText(snapshot, options = {}) {
+            const includeScoringEvents = options.includeScoringEvents !== false;
+            const includeLaterRunnerEvents = options.includeLaterRunnerEvents !== false;
+            const selfOrder = Number(snapshot?.battingOrder) || 0;
             const events = getRunnerStatusEvents(snapshot);
             const parts = [];
             events.forEach((event) => {
+                const byOrder = Number(event?.by) || 0;
                 if (event?.type === "out") {
                     const label = String(event.label || "");
                     if (label.includes("1-2") || label.includes("2-2") || label.includes("3-2") || label.includes("5-2") || label.includes("6-2")) {
@@ -11928,10 +11932,10 @@
                     } else {
                         parts.push("走者アウト");
                     }
-                } else if (event?.type === "advance" && event.base > 1) {
+                } else if (event?.type === "advance" && event.base > 1 && (includeLaterRunnerEvents || !byOrder || byOrder === selfOrder)) {
                     parts.push((event.base === 2 ? "二塁" : event.base === 3 ? "三塁" : "進塁"));
-                } else if (event?.type === "score" || event === "生還") {
-                    parts.push("生還");
+                } else if ((event?.type === "score" || event === "生還") && includeScoringEvents) {
+                    parts.push(byOrder && byOrder !== selfOrder ? byOrder + "番の打席で生還" : "生還");
                 }
             });
             if (snapshot?.modifiers?.doublePlay) {
@@ -11943,7 +11947,7 @@
             return Array.from(new Set(parts));
         }
 
-        function getShareResultText(snapshot) {
+        function getShareResultText(snapshot, options = {}) {
             if (!snapshot) {
                 return "";
             }
@@ -11957,7 +11961,7 @@
             const fielder = sequence[0] || snapshot.selectedFielder || snapshot.fielder || "";
             const fielderShort = getShareFielderShortName(fielder);
             const directionText = getShareDirectionText(snapshot.selectedDirection, fielder);
-            const runnerEvents = getShareRunnerEventText(snapshot);
+            const runnerEvents = getShareRunnerEventText(snapshot, options);
             const runnerSuffix = runnerEvents.length ? "、" + runnerEvents.join("、") : "";
             const errorText = getShareErrorText(snapshot, fielderShort);
             const playCode = snapshot.selectedHitType && snapshot.selectedHitType !== "none"
@@ -12028,9 +12032,62 @@
             return labels[displayed] || labels[snapshot.result] || displayed;
         }
 
-        function formatSnapshotForInningDraft(half, row, snapshot) {
+        function getSharePlayerNameForRow(half, row) {
+            return splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || "未登録（" + (row + 1) + "番）";
+        }
+
+        function getShareRunnerBaseBeforeScore(snapshot, scoreEventIndex) {
+            const events = getRunnerStatusEvents(snapshot);
+            let latestBase = 0;
+            for (let index = 0; index < scoreEventIndex; index += 1) {
+                const event = events[index];
+                if (event === "1塁") {
+                    latestBase = 1;
+                } else if (event === "2塁") {
+                    latestBase = 2;
+                } else if (event === "3塁") {
+                    latestBase = 3;
+                } else if (event?.type === "advance" && event.base >= 1 && event.base <= 3) {
+                    latestBase = event.base;
+                }
+            }
+            const labels = {
+                1: "一塁",
+                2: "二塁",
+                3: "三塁"
+            };
+            return labels[latestBase] || "";
+        }
+
+        function buildShareScoringDetailsByBatter(entries, half) {
+            const details = new Map();
+            entries.forEach((entry) => {
+                const runnerName = getSharePlayerNameForRow(half, entry.row);
+                getRunnerStatusEvents(entry.snapshot).forEach((event, eventIndex) => {
+                    if (event?.type !== "score" && event !== "生還") {
+                        return;
+                    }
+                    const byOrder = Number(event?.by) || 0;
+                    if (!byOrder || byOrder === entry.row + 1) {
+                        return;
+                    }
+                    const baseLabel = getShareRunnerBaseBeforeScore(entry.snapshot, eventIndex);
+                    const text = (baseLabel ? baseLabel + "走者の" : "") + runnerName + "が生還";
+                    if (!details.has(byOrder)) {
+                        details.set(byOrder, []);
+                    }
+                    details.get(byOrder).push(text);
+                });
+            });
+            return details;
+        }
+
+        function formatSnapshotForInningDraft(half, row, snapshot, extraResultTexts = []) {
             const playerName = splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || "未登録（" + (row + 1) + "番）";
-            const result = getShareResultText(snapshot);
+            const result = [
+                getShareResultText(snapshot, { includeScoringEvents: false, includeLaterRunnerEvents: false }),
+                ...extraResultTexts
+            ].filter(Boolean).join("、");
             const atBatComment = String(snapshot?.atBatComment || "").trim();
             const pitchCommentText = (snapshot?.pitchComments || [])
                 .filter((item) => item?.text)
@@ -12051,6 +12108,7 @@
             const entries = getInningDraftEntries(transition);
             const firstOrder = entries.length ? entries[0].row + 1 : transition.endedRow + 1;
             const pitcherChanges = getPitcherChangesForDraft(defenseHalf, battingHalf, transition.inning);
+            const scoringDetailsByBatter = buildShareScoringDetailsByBatter(entries, battingHalf);
             const lines = [
                 transition.inning + "回" + getHalfLabel(battingHalf) + "・" + battingTeam + "攻撃",
                 "P" + getPitcherNameForDefenseHalf(defenseHalf)
@@ -12066,7 +12124,12 @@
                     .forEach((change) => {
                         lines.push("P交代・" + change.name + (change.note ? "　" + change.note : ""));
                     });
-                lines.push(formatSnapshotForInningDraft(battingHalf, entry.row, entry.snapshot));
+                lines.push(formatSnapshotForInningDraft(
+                    battingHalf,
+                    entry.row,
+                    entry.snapshot,
+                    scoringDetailsByBatter.get(entry.row + 1) || []
+                ));
             });
 
             lines.push(getTeamDisplayName("top") + getInningTotalRuns("top") + "-" + getInningTotalRuns("bottom") + getTeamDisplayName("bottom"));
