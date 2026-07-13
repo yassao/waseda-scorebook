@@ -4966,7 +4966,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.27";
+        const APP_VERSION = "0.2.28";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11638,8 +11638,8 @@
             const isInfieldHit = snapshot.selectedHitType === "G" || snapshot.selectedHitType === "BH";
             const isHitResult = ["1B", "2B", "3B", "HR", "G", "BH"].includes(snapshot.selectedHitType)
                 || ["H", "T", "HR", "RH", "GR"].includes(snapshot.result);
-            const resultX = isInfieldHit ? 178 : (isHitResult ? 156 : 170);
-            const resultY = isHitResult ? 148 : 160;
+            const resultX = isInfieldHit ? 178 : (isHitResult ? 178 : 170);
+            const resultY = isHitResult ? 166 : 160;
             const showLandingDot = Boolean(snapshot.selectedDirection && snapshot.selectedDirection !== "none" && snapshot.selectedDirection !== "?")
                 && (
                     ["1B", "2B", "3B", "G", "BH"].includes(snapshot.selectedHitType)
@@ -11664,10 +11664,10 @@
                 ? (function () {
                     const dotMap = isHitResult && !isInfieldHit
                         ? {
-                            up: { x: 178, y: 124 },
-                            down: { x: 166, y: 166 },
-                            left: { x: 166, y: 132 },
-                            right: { x: 188, y: 138 }
+                            up: { x: 190, y: 152 },
+                            down: { x: 190, y: 174 },
+                            left: { x: 190, y: 162 },
+                            right: { x: 198, y: 162 }
                         }
                         : {
                             up: { x: resultX, y: 134 },
