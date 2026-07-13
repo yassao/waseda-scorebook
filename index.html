@@ -27,7 +27,7 @@
             --sheet-name-w: 74px;
             --sheet-number-w: 28px;
             --sheet-cell-w: 58px;
-            --sheet-cell-h: 56px;
+            --sheet-cell-h: 52px;
             --sheet-header-h: 28px;
             --sheet-font: 9px;
             --sheet-zoom: 1;
@@ -4502,7 +4502,7 @@
                 --sheet-name-w: 68px;
                 --sheet-number-w: 26px;
                 --sheet-cell-w: 50px;
-                --sheet-cell-h: 50px;
+                --sheet-cell-h: 46px;
                 --sheet-header-h: 24px;
                 --sheet-font: 8px;
             }
@@ -4966,7 +4966,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.26";
+        const APP_VERSION = "0.2.27";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10289,7 +10289,7 @@
                     }
                     parts.push('<text x="' + outPosition.x + '" y="' + outPosition.y + '" text-anchor="middle" font-size="15" font-weight="800" fill="#111">' + event.label + '</text>');
                     if (event.by) {
-                        parts.push('<text x="' + (outPosition.x + 19) + '" y="' + (outPosition.y - 13) + '" text-anchor="middle" font-size="12" font-weight="800" fill="#111">(' + event.by + ')</text>');
+                        parts.push('<text x="' + (outPosition.x + 16) + '" y="' + (outPosition.y - 8) + '" text-anchor="middle" font-size="11.5" font-weight="800" fill="#111" stroke="#fff" stroke-width="3" paint-order="stroke fill">(' + event.by + ')</text>');
                     }
                     return;
                 }
@@ -11605,12 +11605,12 @@
             if (!snapshot) {
                 return [
                     '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
-                    '<rect x="5" y="5" width="30" height="180" fill="none" stroke="#777" stroke-width="2"/>',
-                    '<rect x="35" y="5" width="180" height="180" fill="none" stroke="#777" stroke-width="2"/>',
+                    '<rect x="5" y="5" width="30" height="178" fill="none" stroke="#777" stroke-width="2"/>',
+                    '<rect x="35" y="5" width="180" height="178" fill="none" stroke="#777" stroke-width="2"/>',
                     '<polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#777" stroke-width="2"/>',
                     '<line x1="125" y1="50" x2="125" y2="5" stroke="#777" stroke-width="1"/>',
                     '<line x1="170" y1="95" x2="215" y2="95" stroke="#777" stroke-width="1"/>',
-                    '<line x1="125" y1="140" x2="125" y2="185" stroke="#777" stroke-width="1"/>',
+                    '<line x1="125" y1="140" x2="125" y2="183" stroke="#777" stroke-width="1"/>',
                     '<line x1="80" y1="95" x2="35" y2="95" stroke="#777" stroke-width="1"/>',
                     '</svg>'
                 ].join("");
@@ -11636,7 +11636,10 @@
                 '<path d="' + path + '" fill="none" stroke="' + lineColor + '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'
             ).join("");
             const isInfieldHit = snapshot.selectedHitType === "G" || snapshot.selectedHitType === "BH";
-            const resultX = isInfieldHit ? 178 : 170;
+            const isHitResult = ["1B", "2B", "3B", "HR", "G", "BH"].includes(snapshot.selectedHitType)
+                || ["H", "T", "HR", "RH", "GR"].includes(snapshot.result);
+            const resultX = isInfieldHit ? 178 : (isHitResult ? 156 : 170);
+            const resultY = isHitResult ? 148 : 160;
             const showLandingDot = Boolean(snapshot.selectedDirection && snapshot.selectedDirection !== "none" && snapshot.selectedDirection !== "?")
                 && (
                     ["1B", "2B", "3B", "G", "BH"].includes(snapshot.selectedHitType)
@@ -11659,12 +11662,19 @@
                 : "";
             const landingDot = showLandingDot
                 ? (function () {
-                    const dotMap = {
-                        up: { x: resultX, y: 134 },
-                        down: { x: resultX, y: 169 },
-                        left: { x: resultX - 16, y: 152 },
-                        right: { x: resultX + 16, y: 152 }
-                    };
+                    const dotMap = isHitResult && !isInfieldHit
+                        ? {
+                            up: { x: 178, y: 124 },
+                            down: { x: 166, y: 166 },
+                            left: { x: 166, y: 132 },
+                            right: { x: 188, y: 138 }
+                        }
+                        : {
+                            up: { x: resultX, y: 134 },
+                            down: { x: resultX, y: 169 },
+                            left: { x: resultX - 16, y: 152 },
+                            right: { x: resultX + 16, y: 152 }
+                        };
                     const dot = dotMap[snapshot.selectedDirection];
                     return dot
                         ? '<circle cx="' + dot.x + '" cy="' + dot.y + '" r="3.3" fill="' + SCORE_COLORS.redLine + '"/>'
@@ -11698,14 +11708,17 @@
             const centralOutScore = getCentralOutScoreForSnapshot(snapshot);
             const inningSlash = centralOutScore === "Ⅲ"
                 ? [
-                    '<line x1="140" y1="185" x2="209" y2="116" stroke="#111" stroke-width="2.8"/>',
-                    '<line x1="152" y1="185" x2="221" y2="116" stroke="#111" stroke-width="2.8"/>'
+                    '<line x1="140" y1="183" x2="209" y2="114" stroke="#111" stroke-width="2.8"/>',
+                    '<line x1="152" y1="183" x2="221" y2="114" stroke="#111" stroke-width="2.8"/>'
                 ].join("")
                 : "";
 
             const outColor = centralOutScore === "●" ? SCORE_COLORS.red : centralOutScore === "○" ? SCORE_COLORS.blue : SCORE_COLORS.ink;
+            const prefixX = prefixText === "DP" ? 156 : 152;
+            const prefixY = prefixText === "DP" ? 146 : 128;
+            const prefixFontSize = prefixText === "DP" ? 13 : 16;
             const prefix = prefixText
-                ? '<text x="152" y="128" font-size="16" font-weight="800" fill="' + (prefixText === "BH" ? SCORE_COLORS.red : SCORE_COLORS.ink) + '" transform="rotate(-45 152 128)">' + prefixText + '</text>'
+                ? '<text x="' + prefixX + '" y="' + prefixY + '" font-size="' + prefixFontSize + '" font-weight="800" fill="' + (prefixText === "BH" ? SCORE_COLORS.red : SCORE_COLORS.ink) + '" transform="rotate(-45 ' + prefixX + ' ' + prefixY + ')">' + prefixText + '</text>'
                 : "";
             const runnerNote = buildRunnerNotesForSheet(snapshot);
             const extraAdvanceArrowMarkerId = "sheet-extra-advance-arrow-" + String(snapshot.battingOrder || "x") + "-" + String(snapshot.sheetCol || snapshot.inning || "x") + "-" + String(displayedResult).replace(/[^A-Za-z0-9]/g, "");
@@ -11738,14 +11751,14 @@
                 '<svg class="sheet-cell-svg" viewBox="5 5 210 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
                 extraAdvanceArrowDefs,
                 lowConfidenceOverlay,
-                '<rect x="5" y="5" width="30" height="180" fill="none" stroke="#111" stroke-width="2"/>',
-                '<rect x="35" y="5" width="180" height="180" fill="none" stroke="#111" stroke-width="2"/>',
+                '<rect x="5" y="5" width="30" height="178" fill="none" stroke="#111" stroke-width="2"/>',
+                '<rect x="35" y="5" width="180" height="178" fill="none" stroke="#111" stroke-width="2"/>',
                 '<polygon points="125,50 170,95 125,140 80,95" fill="none" stroke="#111" stroke-width="2"/>',
                 hitLines,
                 inningSlash,
                 '<line x1="125" y1="50" x2="125" y2="5" stroke="#111" stroke-width="1"/>',
                 '<line x1="170" y1="95" x2="215" y2="95" stroke="#111" stroke-width="1"/>',
-                '<line x1="125" y1="140" x2="125" y2="185" stroke="#111" stroke-width="1"/>',
+                '<line x1="125" y1="140" x2="125" y2="183" stroke="#111" stroke-width="1"/>',
                 '<line x1="80" y1="95" x2="35" y2="95" stroke="#111" stroke-width="1"/>',
                 extraAdvanceArrow,
                 runnerNote,
@@ -11757,8 +11770,8 @@
                 prefix,
                 infieldHitArc,
                 snapshot.result === "K"
-                    ? buildStrikeoutResultSvg(snapshot, resultX, 160, resultColor)
-                    : '<text x="' + resultX + '" y="160" text-anchor="middle" font-size="' + displayedResultFontSize + '" font-weight="800" fill="' + resultColor + '">' + displayedResult + '</text>',
+                    ? buildStrikeoutResultSvg(snapshot, resultX, resultY, resultColor)
+                    : '<text x="' + resultX + '" y="' + resultY + '" text-anchor="middle" font-size="' + displayedResultFontSize + '" font-weight="800" fill="' + resultColor + '">' + displayedResult + '</text>',
                 fcContinuation
                     ? '<text x="178" y="178" text-anchor="middle" font-size="12" font-weight="800" fill="' + SCORE_COLORS.ink + '">' + fcContinuation + '</text>'
                     : "",
@@ -12193,7 +12206,7 @@
                 : (compact ? 50 : 58);
             const baseCellH = useKeioSheet
                 ? (compact ? 86 : 100)
-                : (compact ? 52 : 58);
+                : (compact ? 46 : 52);
             const baseHeaderH = compact ? 24 : 28;
             const baseFont = compact ? 8 : 9;
 
