@@ -14,6 +14,7 @@ REMOTE_FILE="$REMOTE_DIR/index.html"
 REMOTE_TMP="$REMOTE_DIR/index.html.tmp"
 REMOTE_FEEDBACK_FILE="$REMOTE_DIR/feedback.php"
 REMOTE_FEEDBACK_TMP="$REMOTE_DIR/feedback.php.tmp"
+REMOTE_FEEDBACK_STORE_DIR="${CUVIU_FEEDBACK_STORE_DIR:-/home/cuviu001/cuviu.jp/scorebook-feedback}"
 
 if [[ ! -f "$LOCAL_FILE" ]]; then
   echo "ローカルの index.html が見つかりません: $LOCAL_FILE" >&2
@@ -29,7 +30,7 @@ fi
 echo "Deploying $LOCAL_FILE"
 echo "  -> $SSH_USER@$SSH_HOST:$REMOTE_FILE"
 
-ssh -i "$SSH_KEY" -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p '$REMOTE_DIR'"
+ssh -i "$SSH_KEY" -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p '$REMOTE_DIR' '$REMOTE_FEEDBACK_STORE_DIR/attachments' '$REMOTE_FEEDBACK_STORE_DIR/by-category' && chmod 700 '$REMOTE_FEEDBACK_STORE_DIR' '$REMOTE_FEEDBACK_STORE_DIR/attachments' '$REMOTE_FEEDBACK_STORE_DIR/by-category'"
 scp -i "$SSH_KEY" -P "$SSH_PORT" "$LOCAL_FILE" "$SSH_USER@$SSH_HOST:$REMOTE_TMP"
 ssh -i "$SSH_KEY" -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mv '$REMOTE_TMP' '$REMOTE_FILE'"
 

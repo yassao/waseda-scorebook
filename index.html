@@ -4949,7 +4949,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.20";
+        const APP_VERSION = "0.2.21";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7078,6 +7078,15 @@
                 alert("フィードバックフォームを開けませんでした。");
                 return;
             }
+            const form = document.getElementById("feedbackForm");
+            if (form) {
+                form.dataset.sent = "";
+            }
+            const submitButton = document.getElementById("feedbackSubmitBtn");
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = "匿名で送信";
+            }
             setFeedbackStatus("");
             updateFeedbackJsonMeta();
             backdrop.classList.add("is-open");
@@ -7094,6 +7103,10 @@
 
         async function sendFeedback(event) {
             event?.preventDefault?.();
+            const form = document.getElementById("feedbackForm");
+            if (form?.dataset.sent === "true") {
+                return false;
+            }
             const comment = (document.getElementById("feedbackComment")?.value || "").trim();
             if (!comment) {
                 setFeedbackStatus("コメントを入力してください。短くても大丈夫です。", true);
@@ -7143,7 +7156,13 @@
                 if (!response.ok || result.ok === false) {
                     throw new Error(result.message || "送信に失敗しました。");
                 }
-                setFeedbackStatus("送信しました。匿名フィードバックとして開発用メールに届きます。ありがとうございます。");
+                if (form) {
+                    form.dataset.sent = "true";
+                }
+                const savedToDatabase = result.databaseSaved !== false;
+                setFeedbackStatus(savedToDatabase
+                    ? "送信しました。匿名フィードバックとして開発用メールとフィードバック台帳に届きます。ありがとうございます。"
+                    : "送信しました。メールには届きますが、台帳保存は失敗しました。こちらで確認します。");
                 setGameSaveStatus("フィードバックを送信しました。");
                 const screenshotInput = document.getElementById("feedbackScreenshot");
                 if (screenshotInput) {
@@ -7154,8 +7173,9 @@
                 setFeedbackStatus((error && error.message ? error.message : "送信できませんでした。") + " 通信状態を確認して、必要なら試合データを書き出して送ってください。", true);
             } finally {
                 if (submitButton) {
-                    submitButton.disabled = false;
-                    submitButton.textContent = "匿名で送信";
+                    const sent = form?.dataset.sent === "true";
+                    submitButton.disabled = sent;
+                    submitButton.textContent = sent ? "送信済み" : "匿名で送信";
                 }
             }
             return false;

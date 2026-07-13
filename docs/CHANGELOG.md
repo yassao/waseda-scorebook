@@ -1,3 +1,18 @@
+## v0.2.21 [2026-07-13] フィードバック台帳と二重送信防止を追加
+
+**変更ファイル:**
+- .gitignore
+- docs/CHANGELOG.md
+- docs/DEBUG_LOG.md
+- docs/FEEDBACK_DB.md
+- docs/VERSION
+- feedback.php
+- index.html
+- scripts/README.md
+- scripts/deploy-cuviu.sh
+
+---
+
 ## v0.2.20 [2026-07-13] 匿名フィードバックフォームを追加
 
 **変更ファイル:**
