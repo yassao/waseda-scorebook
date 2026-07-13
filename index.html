@@ -2779,6 +2779,14 @@
             line-height: 1.2;
         }
 
+        .play-part-popup-option:disabled,
+        .play-part-popup-option.is-disabled {
+            opacity: 0.42;
+            background: #f4f7fa;
+            color: #64748b;
+            border-color: #e2e8f0;
+        }
+
         .play-part-popup-option.is-primary {
             background: #ecfdf5;
             border-color: #86efac;
@@ -4966,7 +4974,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.30";
+        const APP_VERSION = "0.2.31";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5150,6 +5158,7 @@
                 sacrificeFly: false,
                 sacrificeBunt: false,
                 doublePlay: false,
+                triplePlay: false,
                 threeBuntStrikeout: false,
                 swingStrikeout: false,
                 droppedThirdStrike: false
@@ -5314,6 +5323,7 @@
                     { value: "fly_out", label: "フライアウト", group: "通常アウト" },
                     { value: "liner_out", label: "ライナーアウト", group: "通常アウト" },
                     { value: "double_play", label: "併殺", group: "通常アウト" },
+                    { value: "triple_play", label: "三重殺", group: "通常アウト" },
                     { value: "dropped_third_out", label: "振り逃げ一塁アウト", group: "三振系" },
                     { value: "sac_bunt", label: "犠打", group: "犠打・犠飛" },
                     { value: "sac_fly", label: "犠飛", group: "犠打・犠飛" },
@@ -9714,6 +9724,7 @@
                 sacrificeFly: false,
                 sacrificeBunt: false,
                 doublePlay: false,
+                triplePlay: false,
                 threeBuntStrikeout: false,
                 swingStrikeout: false,
                 droppedThirdStrike: false
@@ -9771,6 +9782,7 @@
             addRule(["犠打失敗", "バント失敗"], { fielder: "1", ballType: "ground", result: "Fc", modifiers: { bunt: true, buntFailed: true }, runnerContext: { advances: ["打者走者一塁セーフ"], outsOnBases: ["三塁封殺"] }, note: "初期マスタ: バント失敗" });
             addRule(["野手選択", "フィルダースチョイス"], { ballType: "ground", result: "Fc", note: "初期マスタ: 野選" });
             addRule(["ダブルプレー", "併殺"], { fielder: "?", ballType: "ground", result: "OUT", outScore: "Ⅱ", fieldSequence: ["?"], modifiers: { doublePlay: true }, note: "初期マスタ: 併殺" });
+            addRule(["トリプルプレー", "三重殺"], { fielder: "?", ballType: "ground", result: "OUT", outScore: "Ⅲ", fieldSequence: ["?"], modifiers: { triplePlay: true }, note: "初期マスタ: 三重殺" });
             addRule(["ファールフライ"], { ballType: "fly", result: "OUT", modifiers: { foul: true }, note: "初期マスタ: ファールフライ" });
             addRule(["バントフライ"], { ballType: "fly", result: "OUT", modifiers: { bunt: true, buntFailed: true }, note: "初期マスタ: バントフライ" });
             addRule(["バントファールフライ"], { ballType: "fly", result: "OUT", modifiers: { bunt: true, foul: true }, note: "初期マスタ: バントファールフライ" });
@@ -10168,6 +10180,7 @@
                     kind: "out",
                     label: text.label || "アウト",
                     doublePlay: Boolean(text.doublePlay),
+                    triplePlay: Boolean(text.triplePlay),
                     outScore: text.outScore || "",
                     by: text.by || "",
                     base: Number(text.base) || inferRunnerOutBaseFromLabel(text.label || "", text.baseIndex),
@@ -10283,9 +10296,10 @@
                 }
                 if (event?.kind === "out") {
                     const outPosition = getRunnerOutNotePosition(event.label);
-                    if (event.doublePlay) {
+                    if (event.doublePlay || event.triplePlay) {
+                        const multiPlayText = event.triplePlay ? "TP" : "DP";
                         parts.push('<path d="M 30 66 C 18 76 18 134 30 144" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round"/>');
-                        parts.push('<text x="22" y="106" text-anchor="middle" font-size="12.5" font-weight="800" fill="#111">DP</text>');
+                        parts.push('<text x="22" y="106" text-anchor="middle" font-size="12.5" font-weight="800" fill="#111">' + multiPlayText + '</text>');
                     }
                     parts.push('<text x="' + outPosition.x + '" y="' + outPosition.y + '" text-anchor="middle" font-size="15" font-weight="800" fill="#111">' + event.label + '</text>');
                     if (event.by) {
@@ -11021,6 +11035,7 @@
                 outScore: outScore || "",
                 by: currentBatterNumberForRunnerEvent(),
                 doublePlay: Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]?.modifiers?.doublePlay),
+                triplePlay: Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]?.modifiers?.triplePlay),
                 ...buildRunnerOutEventMeta(baseIndex, label || "アウト", eventMeta)
             });
             rememberRetiredRunnerPreview(runnerRef, baseIndex >= 0 ? baseIndex : 0, label, outScore);
@@ -11039,6 +11054,7 @@
                 outScore: outScore || "",
                 by: currentBatterNumberForRunnerEvent(),
                 doublePlay: Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]?.modifiers?.doublePlay),
+                triplePlay: Boolean(state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol]?.modifiers?.triplePlay),
                 ...buildRunnerOutEventMeta(baseIndex, label || "アウト", eventMeta)
             });
             rememberRetiredRunnerPreview(runnerRef, baseIndex, label, outScore);
@@ -11115,7 +11131,7 @@
             }[receiver];
         }
 
-        function resolveDoublePlayRunnerOutEvents(snapshot, runners) {
+        function resolveDoublePlayRunnerOutEvents(snapshot, runners, maxEvents = 2) {
             const sequence = snapshot.fieldSequence || [];
             const events = [];
             const usedBases = new Set();
@@ -11131,8 +11147,8 @@
                         label: formatFieldSequenceForSheet(sequence.slice(index - 1, index + 1))
                     });
                 }
-                if (events.length >= 2) {
-                    return events.slice(0, 2);
+                if (events.length >= maxEvents) {
+                    return events.slice(0, maxEvents);
                 }
                 if (events.length > 0) {
                     return events;
@@ -11149,9 +11165,18 @@
             return events;
         }
 
+        function resolveTriplePlayRunnerOutEvents(snapshot, runners) {
+            return resolveDoublePlayRunnerOutEvents(snapshot, runners, 3);
+        }
+
         function isDoublePlayBatterOutAtFirst(snapshot) {
             const sequence = snapshot?.fieldSequence || [];
             return Boolean(snapshot?.modifiers?.doublePlay && sequence.length >= 3 && sequence[sequence.length - 1] === "3");
+        }
+
+        function isTriplePlayBatterOutAtFirst(snapshot) {
+            const sequence = snapshot?.fieldSequence || [];
+            return Boolean(snapshot?.modifiers?.triplePlay && sequence.length >= 3 && sequence[sequence.length - 1] === "3");
         }
 
         function getDoublePlayInterpretationText(snapshot, runners = state.baseRunners) {
@@ -11173,6 +11198,23 @@
                 return sequenceText + ": " + runnerEvents.map((event) => event.label).join("、") + "で走者2人アウト。打者走者は一塁残り";
             }
             return sequenceText + ": 最後が3ではないため打者走者セーフ候補ですが、走者2人アウトを特定できません";
+        }
+
+        function getTriplePlayInterpretationText(snapshot, runners = state.baseRunners) {
+            if (!snapshot?.modifiers?.triplePlay) {
+                return "";
+            }
+            const sequence = snapshot.fieldSequence || [];
+            const sequenceText = formatFieldSequenceForSheet(sequence);
+            if (sequence.length < 3) {
+                return sequenceText ? sequenceText + ": 三重殺として判定" : "三重殺として判定";
+            }
+            const runnerEvents = resolveTriplePlayRunnerOutEvents(snapshot, runners);
+            const runnerText = runnerEvents.length ? runnerEvents.map((event) => event.label).join("、") : "走者";
+            if (sequence[sequence.length - 1] === "3") {
+                return sequenceText + ": " + runnerText + "＋打者走者一塁アウト";
+            }
+            return sequenceText + ": " + runnerText + "で走者アウト。打者走者は一塁残り候補";
         }
 
         function shouldConfirmAmbiguousDoublePlay(snapshot, runners = state.baseRunners) {
@@ -11413,6 +11455,22 @@
                 }
                 runners[0] = batterRef;
                 setRunnerStatusForRef(batterRef, "1塁");
+            } else if (snapshot.modifiers?.triplePlay && snapshot.outScore) {
+                const runnerOutEvents = resolveTriplePlayRunnerOutEvents(snapshot, runners);
+                const batterOutAtFirst = isTriplePlayBatterOutAtFirst(snapshot);
+                const eventCount = batterOutAtFirst ? runnerOutEvents.length + 1 : runnerOutEvents.length;
+                runnerOutEvents.forEach((event, eventIndex) => {
+                    removeRunnerFromBase(
+                        runners,
+                        event.baseIndex,
+                        event.label,
+                        getOutScoreForDoublePlayRunner(snapshot, eventIndex, eventCount)
+                    );
+                });
+                if (!batterOutAtFirst && runnerOutEvents.length >= 3) {
+                    runners[0] = batterRef;
+                    setRunnerStatusForRef(batterRef, "1塁");
+                }
             } else if (snapshot.modifiers?.doublePlay && snapshot.outScore) {
                 const runnerOutEvents = resolveDoublePlayRunnerOutEvents(snapshot, runners);
                 const batterOutAtFirst = isDoublePlayBatterOutAtFirst(snapshot);
@@ -11563,6 +11621,9 @@
 
         function getSnapshotPrefixText(snapshot) {
             const isInfieldHit = snapshot.selectedHitType === "G" || snapshot.selectedHitType === "BH";
+            if (snapshot.modifiers?.triplePlay) {
+                return "TP";
+            }
             if (snapshot.modifiers?.doublePlay) {
                 return "DP";
             }
@@ -11714,9 +11775,10 @@
                 : "";
 
             const outColor = centralOutScore === "●" ? SCORE_COLORS.red : centralOutScore === "○" ? SCORE_COLORS.blue : SCORE_COLORS.ink;
-            const prefixX = prefixText === "DP" ? 156 : 152;
-            const prefixY = prefixText === "DP" ? 146 : 128;
-            const prefixFontSize = prefixText === "DP" ? 13 : 16;
+            const isMultiPlayPrefix = prefixText === "DP" || prefixText === "TP";
+            const prefixX = isMultiPlayPrefix ? 156 : 152;
+            const prefixY = isMultiPlayPrefix ? 146 : 128;
+            const prefixFontSize = isMultiPlayPrefix ? 13 : 16;
             const prefix = prefixText
                 ? '<text x="' + prefixX + '" y="' + prefixY + '" font-size="' + prefixFontSize + '" font-weight="800" fill="' + (prefixText === "BH" ? SCORE_COLORS.red : SCORE_COLORS.ink) + '" transform="rotate(-45 ' + prefixX + ' ' + prefixY + ')">' + prefixText + '</text>'
                 : "";
@@ -11832,6 +11894,9 @@
             }
             if (snapshot.modifiers?.sacrificeFly) {
                 return "F-" + (snapshot.selectedFielder || result || "");
+            }
+            if (snapshot.modifiers?.triplePlay) {
+                return sequence || "TP";
             }
             if (snapshot.modifiers?.doublePlay) {
                 return sequence || "DP";
@@ -12162,8 +12227,9 @@
             const outText = centralOutScore && !isBatterOutResult
                 ? '<text x="30" y="226" text-anchor="middle" font-size="25" font-weight="900" fill="#111">' + centralOutScore + '</text>'
                 : "";
-            const keioNote = snapshot.modifiers?.doublePlay
-                ? '<text x="168" y="202" text-anchor="middle" font-size="20" font-weight="900" fill="' + SCORE_COLORS.red + '">DP</text>'
+            const multiPlayNote = snapshot.modifiers?.triplePlay ? "TP" : snapshot.modifiers?.doublePlay ? "DP" : "";
+            const keioNote = multiPlayNote
+                ? '<text x="168" y="202" text-anchor="middle" font-size="20" font-weight="900" fill="' + SCORE_COLORS.red + '">' + multiPlayNote + '</text>'
                 : "";
             return [
                 '<svg class="sheet-cell-svg" viewBox="5 5 210 240" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
@@ -13289,6 +13355,7 @@
         function getShareRunnerOutDetailText(event, runnerName) {
             const outText = formatShareRunnerOutText(event?.label);
             const forceLike = Boolean(event?.doublePlay)
+                || Boolean(event?.triplePlay)
                 || event?.outType === "force"
                 || String(event?.label || "").includes("封殺");
             const naturalOutText = forceLike
@@ -13332,7 +13399,9 @@
                     parts.push(byOrder && byOrder !== selfOrder ? byOrder + "番の打席で" + scoreText : scoreText);
                 }
             });
-            if (snapshot?.modifiers?.doublePlay) {
+            if (snapshot?.modifiers?.triplePlay) {
+                parts.push("トリプルプレー！");
+            } else if (snapshot?.modifiers?.doublePlay) {
                 parts.push("併殺");
             }
             if (getSnapshotOutCount(snapshot) >= 3) {
@@ -14242,7 +14311,7 @@
             }
             let outs = 0;
             if (parsed.result === "K" || parsed.result === "OUT") {
-                outs += parsed.modifiers?.doublePlay ? 2 : 1;
+                outs += parsed.modifiers?.triplePlay ? 3 : parsed.modifiers?.doublePlay ? 2 : 1;
             }
             if (Array.isArray(parsed.runnerContext?.outsOnBases)) {
                 outs += parsed.runnerContext.outsOnBases.length;
@@ -15023,6 +15092,40 @@
                 || ADDITIONAL_PLAY_PART_OPTIONS[category];
         }
 
+        function getActiveRunnerCountForPlayParts() {
+            return (state.baseRunners || []).filter(Boolean).length;
+        }
+
+        function getCurrentPlayPartOutCount() {
+            return Math.max(0, Math.min(3, getPreviousOutCountForCell(state.selectedSheetRow, state.selectedSheetCol) || 0));
+        }
+
+        function getPlayPartDisabledReason(value) {
+            const runnerCount = getActiveRunnerCountForPlayParts();
+            const outCount = getCurrentPlayPartOutCount();
+            if (value === "double_play" || value === "bunt_double_play") {
+                if (runnerCount < 1) {
+                    return "走者がいる時だけ選べます";
+                }
+                if (outCount >= 2) {
+                    return "2アウトでは併殺になりません";
+                }
+            }
+            if (value === "triple_play") {
+                if (runnerCount < 2) {
+                    return "走者が2人以上いる時だけ選べます";
+                }
+                if (outCount !== 0) {
+                    return "無死の時だけ三重殺になります";
+                }
+            }
+            return "";
+        }
+
+        function isPlayPartOptionDisabled(value) {
+            return Boolean(getPlayPartDisabledReason(value));
+        }
+
         function createPlayPartCategoryOptions(selectedValue = "", isAdditionalRow = false) {
             return [
                 '<option value="">分類</option>',
@@ -15040,7 +15143,7 @@
             return [
                 '<option value="">内容</option>',
                 ...config.options.map((option) =>
-                    '<option value="' + option.value + '"' + (option.value === selectedValue ? " selected" : "") + '>' + option.label + '</option>'
+                    '<option value="' + option.value + '"' + (option.value === selectedValue ? " selected" : "") + (isPlayPartOptionDisabled(option.value) ? " disabled" : "") + '>' + option.label + '</option>'
                 )
             ].join("");
         }
@@ -15206,6 +15309,10 @@
             let currentGroup = "";
             options.forEach((option) => {
                 const group = option.group || "";
+                const disabledReason = getPlayPartDisabledReason(option.value);
+                const disabledAttrs = disabledReason
+                    ? ' disabled aria-disabled="true" class="play-part-popup-option is-disabled" title="' + escapeHtml(disabledReason) + '"'
+                    : ' class="play-part-popup-option"';
                 if (group && group !== currentGroup) {
                     if (currentGroup) {
                         pieces.push('</div>');
@@ -15217,9 +15324,9 @@
                     pieces.push('<div class="play-part-popup-grid">');
                 }
                 pieces.push(
-                    '<button type="button" class="play-part-popup-option" onclick=\'choosePlayPartResult(' +
+                    '<button type="button"' + disabledAttrs + ' onclick=\'choosePlayPartResult(' +
                     JSON.stringify(category) + ',' + JSON.stringify(option.value) +
-                    ')\'>' + option.label + '</button>'
+                    ')\'>' + escapeHtml(option.label) + '</button>'
                 );
             });
             if (pieces.length) {
@@ -15262,6 +15369,9 @@
         function choosePlayPartResult(category, value) {
             const row = playPartPopupState.row;
             if (!row) {
+                return;
+            }
+            if (isPlayPartOptionDisabled(value)) {
                 return;
             }
             const categorySelect = row.querySelector(".play-part-category");
@@ -17011,6 +17121,12 @@
                         parsed.modifiers.doublePlay = true;
                         parsed.outScore = "Ⅱ";
                         break;
+                    case "triple_play":
+                        parsed.result = parsed.result || "OUT";
+                        parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
+                        parsed.modifiers.triplePlay = true;
+                        parsed.outScore = "Ⅲ";
+                        break;
                     case "other_wild_pitch":
                         parsed.result = parsed.result || "W";
                         break;
@@ -17162,6 +17278,7 @@
                 parsed.result === "OUT"
                 && parsed.ballType === "ground"
                 && !parsed.modifiers.doublePlay
+                && !parsed.modifiers.triplePlay
             ) {
                 parsed.fieldSequence = buildDefaultFirstBaseSequence(parsed.fielder, parsed.fieldSequence);
                 parsed.fielder = parsed.fieldSequence[0] || parsed.fielder;
@@ -17240,6 +17357,8 @@
 
             if (parsed.result === "K" && parsed.modifiers?.droppedThirdStrike && sequencePhrase) {
                 mainText = "振り逃げ " + sequencePhrase + "で一塁アウト";
+            } else if (parsed.result === "OUT" && parsed.modifiers?.triplePlay && sequencePhrase) {
+                mainText = sequencePhrase + "の三重殺";
             } else if (parsed.result === "OUT" && parsed.modifiers?.doublePlay && sequencePhrase) {
                 mainText = (parsed.modifiers?.safetyBuntFailed ? "セーフティバント失敗 " : parsed.modifiers?.buntFailed ? "バント失敗 " : "") + sequencePhrase + "の併殺";
             } else if (parsed.result === "OUT" && parsed.modifiers?.safetyBuntFailed && sequencePhrase) {
@@ -17375,6 +17494,10 @@
                 }),
                 "走者状況: " + (state.runnerContextText || "なし")
             ];
+            const triplePlayText = getTriplePlayInterpretationText(captureAtBatSnapshot());
+            if (triplePlayText) {
+                lines.push("三重殺判定: " + triplePlayText);
+            }
             const doublePlayText = getDoublePlayInterpretationText(captureAtBatSnapshot());
             if (doublePlayText) {
                 lines.push("併殺判定: " + doublePlayText);
@@ -17627,6 +17750,21 @@
 
             if (normalized.includes("バント失敗") || normalized.includes("犠打失敗")) {
                 const sequence = extractFieldSequenceFromText(normalized);
+                if (normalized.includes("トリプルプレー") || normalized.includes("三重殺")) {
+                    return {
+                        fielder: sequence?.[0] || dynamicFielder || "?",
+                        direction: dynamicDirection,
+                        ballType: normalized.includes("フライ") ? "fly" : "ground",
+                        result: "OUT",
+                        fieldSequence: sequence || (dynamicFielder ? [dynamicFielder] : ["?"]),
+                        modifiers: { bunt: true, buntFailed: true, triplePlay: true },
+                        runnerContext: dynamicRunnerContext,
+                        outScore: "Ⅲ",
+                        note: normalized,
+                        confidence: sequence ? 0.9 : 0.72,
+                        source: "rule"
+                    };
+                }
                 if (normalized.includes("併殺") || normalized.includes("ダブルプレー") || normalized.includes("ゲッツー")) {
                     return {
                         fielder: sequence?.[0] || dynamicFielder || "?",
@@ -17674,6 +17812,22 @@
                     runnerContext: dynamicRunnerContext,
                     note: normalized,
                     confidence: 0.78,
+                    source: "rule"
+                };
+            }
+
+            if (normalized.includes("トリプルプレー") || normalized.includes("三重殺")) {
+                return {
+                    fielder: dynamicFielder || "?",
+                    direction: dynamicDirection,
+                    ballType: dynamicBallType || "ground",
+                    result: "OUT",
+                    fieldSequence: dynamicFielder ? [dynamicFielder] : ["?"],
+                    modifiers: { triplePlay: true },
+                    runnerContext: dynamicRunnerContext,
+                    outScore: "Ⅲ",
+                    note: normalized,
+                    confidence: dynamicFielder ? 0.82 : 0.68,
                     source: "rule"
                 };
             }
@@ -17890,11 +18044,36 @@
             }
 
             const normalizedText = normalizeBaseballDigits(text);
+            const isTriplePlayText = normalizedText.includes("トリプルプレー") || normalizedText.includes("三重殺");
             const isDoublePlayText = normalizedText.includes("ダブルプレー") || normalizedText.includes("併殺");
+            const sequenceTriplePlayMatch = normalizedText.match(/([1-9](?:[-ー－−‐‑‒–—―][1-9]){2,4}).*(トリプルプレー|三重殺)/);
+            const compactSequenceTriplePlayMatch = !sequenceTriplePlayMatch && isTriplePlayText
+                ? normalizedText.match(/([1-9]{3,5}).*(トリプルプレー|三重殺)/)
+                : null;
             const sequenceDoublePlayMatch = normalizedText.match(/([1-9](?:[-ー－−‐‑‒–—―][1-9]){1,3}).*(ダブルプレー|併殺)/);
             const compactSequenceDoublePlayMatch = !sequenceDoublePlayMatch && isDoublePlayText
                 ? normalizedText.match(/([1-9]{3,4}).*(ダブルプレー|併殺)/)
                 : null;
+
+            if (sequenceTriplePlayMatch || compactSequenceTriplePlayMatch) {
+                const fieldSequence = sequenceTriplePlayMatch
+                    ? sequenceTriplePlayMatch[1]
+                        .replace(/[-ー－−‐‑‒–—―]/g, "-")
+                        .split("-")
+                    : compactSequenceTriplePlayMatch[1].split("");
+                return {
+                    fielder: fieldSequence[0],
+                    ballType: "ground",
+                    result: "OUT",
+                    fieldSequence,
+                    outScore: "Ⅲ",
+                    modifiers: { triplePlay: true },
+                    runnerContext: detectRunnerContext(normalizedText),
+                    note: normalizedText,
+                    confidence: 0.98,
+                    source: "shorthand"
+                };
+            }
 
             if (sequenceDoublePlayMatch || compactSequenceDoublePlayMatch) {
                 const fieldSequence = sequenceDoublePlayMatch
@@ -18395,7 +18574,8 @@
                 buntFailed: text.includes("バント失敗"),
                 safetyBuntFailed: text.includes("セーフティ") && (text.includes("失敗") || text.includes("アウト")),
                 sacrificeFly: text.includes("犠飛"),
-                sacrificeBunt: text.includes("犠打")
+                sacrificeBunt: text.includes("犠打"),
+                triplePlay: text.includes("トリプルプレー") || text.includes("三重殺")
             };
         }
 
@@ -18422,6 +18602,9 @@
             }
             if (modifiers.doublePlay) {
                 labels.push("DP");
+            }
+            if (modifiers.triplePlay) {
+                labels.push("TP");
             }
             if (modifiers.threeBuntStrikeout) {
                 labels.push("スリーバント失敗");
@@ -18577,6 +18760,7 @@
                 parsed.result === "OUT"
                 && parsed.ballType === "ground"
                 && !parsed.modifiers?.doublePlay
+                && !parsed.modifiers?.triplePlay
                 && /^[1-6]$/.test(state.selectedFielder || "")
                 && state.fieldSequence.length <= 1
             ) {
@@ -18599,6 +18783,7 @@
                 state.modifiers.sacrificeFly = Boolean(parsed.modifiers.sacrificeFly);
                 state.modifiers.sacrificeBunt = Boolean(parsed.modifiers.sacrificeBunt);
                 state.modifiers.doublePlay = Boolean(parsed.modifiers.doublePlay);
+                state.modifiers.triplePlay = Boolean(parsed.modifiers.triplePlay);
                 state.modifiers.threeBuntStrikeout = Boolean(parsed.modifiers.threeBuntStrikeout);
                 state.modifiers.swingStrikeout = Boolean(parsed.modifiers.swingStrikeout);
                 state.modifiers.droppedThirdStrike = Boolean(parsed.modifiers.droppedThirdStrike);
@@ -18823,6 +19008,7 @@
             state.modifiers.sacrificeFly = false;
             state.modifiers.sacrificeBunt = false;
             state.modifiers.doublePlay = false;
+            state.modifiers.triplePlay = false;
             state.modifiers.threeBuntStrikeout = false;
             state.modifiers.swingStrikeout = false;
             state.modifiers.droppedThirdStrike = false;
@@ -19556,6 +19742,18 @@
                 projected[0] = null;
             } else if (state.modifiers?.sacrificeFly && state.outScore) {
                 projected[2] = null;
+            } else if (state.modifiers?.triplePlay && state.outScore) {
+                const snapshot = captureAtBatSnapshot();
+                const runnerOutEvents = resolveTriplePlayRunnerOutEvents(snapshot, projected.map((item) => item?.runnerRef || null));
+                const batterOutAtFirst = isTriplePlayBatterOutAtFirst(snapshot);
+                runnerOutEvents.forEach((event) => removeProjectedRunnerAtBase(projected, event.baseIndex));
+                if (!batterOutAtFirst && runnerOutEvents.length >= 3) {
+                    projected[0] = {
+                        runnerRef: getSheetRef(state.selectedSheetRow, state.selectedSheetCol),
+                        baseIndex: 0,
+                        sourceBaseIndex: 0
+                    };
+                }
             } else if (state.modifiers?.doublePlay && state.outScore) {
                 const snapshot = captureAtBatSnapshot();
                 const runnerOutEvents = resolveDoublePlayRunnerOutEvents(snapshot, projected.map((item) => item?.runnerRef || null));
@@ -19659,6 +19857,25 @@
         function getLiveRunnerOutPreviewItems() {
             if (!hasCurrentAtBatInput()) {
                 return [];
+            }
+            if (state.modifiers?.triplePlay && state.outScore) {
+                const snapshot = captureAtBatSnapshot();
+                return resolveTriplePlayRunnerOutEvents(snapshot, state.baseRunners)
+                    .map((event, eventIndex, events) => {
+                        const runnerRef = state.baseRunners[event.baseIndex];
+                        if (!runnerRef) {
+                            return null;
+                        }
+                        return {
+                            runnerRef: { ...runnerRef },
+                            baseIndex: event.baseIndex,
+                            label: event.label,
+                            outScore: getOutScoreForDoublePlayRunner(snapshot, eventIndex, isTriplePlayBatterOutAtFirst(snapshot) ? events.length + 1 : events.length),
+                            retired: true,
+                            live: true
+                        };
+                    })
+                    .filter(Boolean);
             }
             if (state.modifiers?.doublePlay && state.outScore) {
                 const snapshot = captureAtBatSnapshot();
