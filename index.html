@@ -27,7 +27,7 @@
             --sheet-name-w: 74px;
             --sheet-number-w: 28px;
             --sheet-cell-w: 58px;
-            --sheet-cell-h: 52px;
+            --sheet-cell-h: 56px;
             --sheet-header-h: 28px;
             --sheet-font: 9px;
             --sheet-zoom: 1;
@@ -1328,15 +1328,15 @@
 
             body.printing-scorebook .print-scorebook-page {
                 display: grid !important;
-                width: 190mm;
-                height: 270mm;
-                max-height: 270mm;
+                width: 198mm;
+                height: 274mm;
+                max-height: 274mm;
                 box-sizing: border-box;
                 margin: 0 auto !important;
-                padding: 0.6mm;
+                padding: 0.4mm;
                 background: #ffffff;
                 grid-template-rows: min-content minmax(0, 1fr) min-content minmax(0, 1fr) min-content;
-                gap: 0.6mm;
+                gap: 0.45mm;
                 align-content: center;
                 justify-content: center;
                 overflow: hidden;
@@ -1345,15 +1345,15 @@
                 page-break-after: avoid;
                 page-break-inside: avoid;
                 --sheet-green: #111111;
-                --sheet-order-w: 6.35mm;
-                --sheet-name-w: 19.1mm;
-                --sheet-number-w: 6.35mm;
-                --sheet-cell-w: 13.15mm;
-                --sheet-cell-h: 6.82mm;
-                --sheet-header-h: 4.65mm;
-                --sheet-font: 1.9mm;
-                --sheet-zoom: 0.545;
-                --print-content-w: 189.2mm;
+                --sheet-order-w: 6.2mm;
+                --sheet-name-w: 18.4mm;
+                --sheet-number-w: 5.9mm;
+                --sheet-cell-w: 13.95mm;
+                --sheet-cell-h: 10.4mm;
+                --sheet-header-h: 4.4mm;
+                --sheet-font: 2.05mm;
+                --sheet-zoom: 0.66;
+                --print-content-w: 197.9mm;
             }
 
             body.printing-scorebook .print-extra-page.has-extra-page {
@@ -1638,8 +1638,8 @@
 
             body.printing-scorebook .print-sheet-grid .pitcher-book-cell,
             body.printing-scorebook .print-sheet-grid .pitcher-book-label {
-                min-height: 3.55mm;
-                font-size: 1.62mm;
+                min-height: 3.35mm;
+                font-size: 1.72mm;
                 padding: 0.1mm;
             }
 
@@ -4502,7 +4502,7 @@
                 --sheet-name-w: 68px;
                 --sheet-number-w: 26px;
                 --sheet-cell-w: 50px;
-                --sheet-cell-h: 46px;
+                --sheet-cell-h: 50px;
                 --sheet-header-h: 24px;
                 --sheet-font: 8px;
             }
@@ -4966,7 +4966,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.24";
+        const APP_VERSION = "0.2.25";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10261,7 +10261,7 @@
             const parts = [];
             const hasLeftOnBase = uniqueEvents.some((event) => event?.kind === "leftOnBase");
             if (hasLeftOnBase) {
-                parts.push('<text x="125" y="106" text-anchor="middle" font-size="28" font-weight="700" fill="#111">ℓ</text>');
+                parts.push('<text x="125" y="106" text-anchor="middle" font-size="32" font-weight="800" fill="#111">ℓ</text>');
             }
 
             uniqueEvents.forEach((event, index) => {
@@ -10269,32 +10269,32 @@
                     return;
                 }
                 if (event?.kind === "score") {
-                    parts.push('<text x="125" y="106" text-anchor="middle" font-size="24" font-weight="700" fill="' + SCORE_COLORS.red + '">●</text>');
+                    parts.push('<text x="125" y="106" text-anchor="middle" font-size="30" font-weight="800" fill="' + SCORE_COLORS.red + '">●</text>');
                     if (event.advanceLabel) {
                         const position = getAdvanceNotePosition(4);
-                        parts.push('<text x="' + position.x + '" y="' + position.y + '" text-anchor="middle" font-size="13" font-weight="700" fill="' + (event.color || SCORE_COLORS.ink) + '">' + event.advanceLabel + '</text>');
+                        parts.push('<text x="' + position.x + '" y="' + position.y + '" text-anchor="middle" font-size="15" font-weight="800" fill="' + (event.color || SCORE_COLORS.ink) + '">' + event.advanceLabel + '</text>');
                     }
                     return;
                 }
                 if (event?.kind === "advance") {
                     const position = getAdvanceNotePosition(event.base);
-                    parts.push('<text x="' + position.x + '" y="' + position.y + '" text-anchor="middle" font-size="13" font-weight="700" fill="' + (event.color || SCORE_COLORS.ink) + '">' + event.label + '</text>');
+                    parts.push('<text x="' + position.x + '" y="' + position.y + '" text-anchor="middle" font-size="15" font-weight="800" fill="' + (event.color || SCORE_COLORS.ink) + '">' + event.label + '</text>');
                     return;
                 }
                 if (event?.kind === "out") {
                     const outPosition = getRunnerOutNotePosition(event.label);
                     if (event.doublePlay) {
                         parts.push('<path d="M 30 66 C 18 76 18 134 30 144" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round"/>');
-                        parts.push('<text x="22" y="106" text-anchor="middle" font-size="11" font-weight="700" fill="#111">DP</text>');
+                        parts.push('<text x="22" y="106" text-anchor="middle" font-size="12.5" font-weight="800" fill="#111">DP</text>');
                     }
-                    parts.push('<text x="' + outPosition.x + '" y="' + outPosition.y + '" text-anchor="middle" font-size="13" font-weight="700" fill="#111">' + event.label + '</text>');
+                    parts.push('<text x="' + outPosition.x + '" y="' + outPosition.y + '" text-anchor="middle" font-size="15" font-weight="800" fill="#111">' + event.label + '</text>');
                     if (event.by) {
-                        parts.push('<text x="' + (outPosition.x + 18) + '" y="' + (outPosition.y - 12) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#111">(' + event.by + ')</text>');
+                        parts.push('<text x="' + (outPosition.x + 19) + '" y="' + (outPosition.y - 13) + '" text-anchor="middle" font-size="12" font-weight="800" fill="#111">(' + event.by + ')</text>');
                     }
                     return;
                 }
                 parts.push(
-                    '<text x="178" y="' + (24 + index * 16) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#111">' +
+                    '<text x="178" y="' + (24 + index * 16) + '" text-anchor="middle" font-size="15" font-weight="800" fill="#111">' +
                     event +
                     '</text>'
                 );
@@ -10483,7 +10483,7 @@
             return [
                 '<g class="keio-play-details" aria-hidden="true">',
                 lines.slice(0, 2).map((line, index) => (
-                    '<text x="110" y="' + (223 + index * 11) + '" text-anchor="middle" font-size="8.5" font-weight="800" fill="#0f5bd6">' +
+                    '<text x="110" y="' + (223 + index * 11) + '" text-anchor="middle" font-size="9.5" font-weight="800" fill="#0f5bd6">' +
                     escapeHtml(line) +
                     '</text>'
                 )).join(""),
@@ -10541,12 +10541,12 @@
                 if (event?.kind === "score") {
                     const slot = getKeioBaseSlot(4);
                     const advanceLabel = event.advanceLabel && slot
-                        ? '<text x="' + slot.labelX + '" y="' + (slot.labelY + 18) + '" text-anchor="middle" font-size="8" font-weight="800" fill="#111">' + escapeHtml(getKeioCompactRunnerLabel(event.advanceLabel)) + '</text>'
+                        ? '<text x="' + slot.labelX + '" y="' + (slot.labelY + 18) + '" text-anchor="middle" font-size="9.5" font-weight="900" fill="#111">' + escapeHtml(getKeioCompactRunnerLabel(event.advanceLabel)) + '</text>'
                         : "";
-                    return '<text x="110" y="148" text-anchor="middle" font-size="21" font-weight="800" fill="#111">○</text>' + advanceLabel;
+                    return '<text x="110" y="148" text-anchor="middle" font-size="25" font-weight="900" fill="#111">○</text>' + advanceLabel;
                 }
                 if (event?.kind === "leftOnBase") {
-                    return '<text x="110" y="148" text-anchor="middle" font-size="20" font-weight="800" fill="#111">ℓ</text>';
+                    return '<text x="110" y="148" text-anchor="middle" font-size="24" font-weight="900" fill="#111">ℓ</text>';
                 }
                 const base = Number(event?.base) || 0;
                 const slot = getKeioBaseSlot(base);
@@ -10560,14 +10560,14 @@
                         const outCount = romanToOutCount(event.outScore);
                         const lineWidth = Math.max(10, Math.min(22, label.length * 5));
                         return [
-                            '<text x="' + x + '" y="' + y + '" text-anchor="middle" font-size="8" font-weight="800" fill="#111">' + escapeHtml(label) + '</text>',
-                            '<line x1="' + (x - lineWidth) + '" y1="' + (y + 4) + '" x2="' + (x + lineWidth) + '" y2="' + (y + 4) + '" stroke="#111" stroke-width="1.2" stroke-linecap="round"/>',
-                            outCount ? '<text x="' + x + '" y="' + (y + 15) + '" text-anchor="middle" font-size="8" font-weight="800" fill="#111">' + outCount + '</text>' : ""
+                            '<text x="' + x + '" y="' + y + '" text-anchor="middle" font-size="9.5" font-weight="900" fill="#111">' + escapeHtml(label) + '</text>',
+                            '<line x1="' + (x - lineWidth) + '" y1="' + (y + 4) + '" x2="' + (x + lineWidth) + '" y2="' + (y + 4) + '" stroke="#111" stroke-width="1.5" stroke-linecap="round"/>',
+                            outCount ? '<text x="' + x + '" y="' + (y + 16) + '" text-anchor="middle" font-size="9.5" font-weight="900" fill="#111">' + outCount + '</text>' : ""
                         ].join("");
                     }
-                    return '<text x="' + x + '" y="' + y + '" text-anchor="middle" font-size="8" font-weight="800" fill="#111">' + escapeHtml(label) + '</text>';
+                    return '<text x="' + x + '" y="' + y + '" text-anchor="middle" font-size="9.5" font-weight="900" fill="#111">' + escapeHtml(label) + '</text>';
                 }
-                return '<text x="110" y="' + (214 - index * 13) + '" text-anchor="middle" font-size="8" font-weight="800" fill="#111">' +
+                return '<text x="110" y="' + (214 - index * 13) + '" text-anchor="middle" font-size="9.5" font-weight="900" fill="#111">' +
                     escapeHtml(label) +
                     '</text>';
             }).join("");
@@ -10636,7 +10636,7 @@
 
         function buildKeioCellFrame(stroke, opacity = 1) {
             return [
-                '<line x1="5" y1="45" x2="215" y2="45" stroke="' + stroke + '" stroke-width="1.5" opacity="' + opacity + '"/>'
+                '<line x1="5" y1="45" x2="215" y2="45" stroke="' + stroke + '" stroke-width="1.8" opacity="' + opacity + '"/>'
             ].join("");
         }
 
@@ -11592,9 +11592,9 @@
                 : "";
             return [
                 isSwingStrikeout && !isDroppedThird
-                    ? '<circle cx="' + x + '" cy="' + (y - 8) + '" r="18" fill="none" stroke="' + color + '" stroke-width="2.2"/>'
+                    ? '<circle cx="' + x + '" cy="' + (y - 8) + '" r="21" fill="none" stroke="' + color + '" stroke-width="2.7"/>'
                     : "",
-                '<text x="' + x + '" y="' + y + '" text-anchor="middle" font-size="24" font-weight="700" fill="' + color + '"' + transform + '>K</text>'
+                '<text x="' + x + '" y="' + y + '" text-anchor="middle" font-size="31" font-weight="800" fill="' + color + '"' + transform + '>K</text>'
             ].join("");
         }
 
@@ -11628,12 +11628,12 @@
             const pitchMarks = (snapshot.pitches || []).slice(0, 9).map((pitch, index) => {
                 const y = 20 + index * 16;
                 const note = snapshot.pitchNotes?.[index] || "";
-                return getPitchMarkSvgMarkup(pitch, 20, y, 0.78, note);
+                return getPitchMarkSvgMarkup(pitch, 20, y, 0.92, note);
             }).join("");
 
             const lineColor = SCORE_COLORS.redLine;
             const hitLines = paths.map((path) =>
-                '<path d="' + path + '" fill="none" stroke="' + lineColor + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
+                '<path d="' + path + '" fill="none" stroke="' + lineColor + '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'
             ).join("");
             const isInfieldHit = snapshot.selectedHitType === "G" || snapshot.selectedHitType === "BH";
             const resultX = isInfieldHit ? 178 : 170;
@@ -11654,7 +11654,7 @@
                     const arcStartY = centerY + delta;
                     const arcEndX = centerX + delta;
                     const arcEndY = centerY - delta;
-                    return '<path d="M ' + arcStartX + ' ' + arcStartY + ' A ' + radius + ' ' + radius + ' 0 0 0 ' + arcEndX + ' ' + arcEndY + '" fill="none" stroke="' + SCORE_COLORS.redLine + '" stroke-width="2"/>';
+                    return '<path d="M ' + arcStartX + ' ' + arcStartY + ' A ' + radius + ' ' + radius + ' 0 0 0 ' + arcEndX + ' ' + arcEndY + '" fill="none" stroke="' + SCORE_COLORS.redLine + '" stroke-width="2.7"/>';
                 }())
                 : "";
             const landingDot = showLandingDot
@@ -11667,45 +11667,45 @@
                     };
                     const dot = dotMap[snapshot.selectedDirection];
                     return dot
-                        ? '<circle cx="' + dot.x + '" cy="' + dot.y + '" r="2.5" fill="' + SCORE_COLORS.redLine + '"/>'
+                        ? '<circle cx="' + dot.x + '" cy="' + dot.y + '" r="3.3" fill="' + SCORE_COLORS.redLine + '"/>'
                         : "";
                 }())
                 : "";
 
             const ballTypeDecoration = (function () {
                 if (snapshot.result === "K" && snapshot.modifiers?.threeBuntStrikeout) {
-                    return '<path d="M 154 172 Q 170 179 186 172" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+                    return '<path d="M 154 172 Q 170 179 186 172" fill="none" stroke="#111" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>';
                 }
                 if (snapshot.selectedBallType === "fly") {
-                    return '<path d="M 158 144 Q 170 136 182 144" fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+                    return '<path d="M 158 144 Q 170 136 182 144" fill="none" stroke="#222" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>';
                 }
                 if (snapshot.selectedBallType === "liner") {
-                    return '<path d="M 158 144 L 182 144" fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+                    return '<path d="M 158 144 L 182 144" fill="none" stroke="#222" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>';
                 }
                 if (snapshot.selectedBallType === "ground" && !isInfieldHit && snapshot.result !== "Fc") {
-                    return '<path d="M 160 170 Q 170 177 180 170" fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+                    return '<path d="M 160 170 Q 170 177 180 170" fill="none" stroke="#222" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>';
                 }
                 return "";
             }());
 
             const sacrificeBox = snapshot.modifiers?.sacrificeBunt && snapshot.selectedBallType === "ground"
-                ? '<rect x="152" y="136" width="36" height="40" fill="none" stroke="' + SCORE_COLORS.blue + '" stroke-width="2"/>'
+                ? '<rect x="152" y="136" width="36" height="40" fill="none" stroke="' + SCORE_COLORS.blue + '" stroke-width="2.7"/>'
                 : "";
             const sacrificeFlyTriangle = snapshot.modifiers?.sacrificeFly && snapshot.selectedBallType === "fly"
-                ? '<polygon points="148,174 170,136 192,174" fill="none" stroke="' + SCORE_COLORS.blue + '" stroke-width="2"/>'
+                ? '<polygon points="148,174 170,136 192,174" fill="none" stroke="' + SCORE_COLORS.blue + '" stroke-width="2.7"/>'
                 : "";
 
             const centralOutScore = getCentralOutScoreForSnapshot(snapshot);
             const inningSlash = centralOutScore === "Ⅲ"
                 ? [
-                    '<line x1="140" y1="185" x2="209" y2="116" stroke="#111" stroke-width="2"/>',
-                    '<line x1="152" y1="185" x2="221" y2="116" stroke="#111" stroke-width="2"/>'
+                    '<line x1="140" y1="185" x2="209" y2="116" stroke="#111" stroke-width="2.8"/>',
+                    '<line x1="152" y1="185" x2="221" y2="116" stroke="#111" stroke-width="2.8"/>'
                 ].join("")
                 : "";
 
             const outColor = centralOutScore === "●" ? SCORE_COLORS.red : centralOutScore === "○" ? SCORE_COLORS.blue : SCORE_COLORS.ink;
             const prefix = prefixText
-                ? '<text x="152" y="128" font-size="14" font-weight="700" fill="' + (prefixText === "BH" ? SCORE_COLORS.red : SCORE_COLORS.ink) + '" transform="rotate(-45 152 128)">' + prefixText + '</text>'
+                ? '<text x="152" y="128" font-size="16" font-weight="800" fill="' + (prefixText === "BH" ? SCORE_COLORS.red : SCORE_COLORS.ink) + '" transform="rotate(-45 152 128)">' + prefixText + '</text>'
                 : "";
             const runnerNote = buildRunnerNotesForSheet(snapshot);
             const extraAdvanceArrowMarkerId = "sheet-extra-advance-arrow-" + String(snapshot.battingOrder || "x") + "-" + String(snapshot.sheetCol || snapshot.inning || "x") + "-" + String(displayedResult).replace(/[^A-Za-z0-9]/g, "");
@@ -11724,6 +11724,7 @@
                     '<rect x="35" y="5" width="180" height="180" fill="url(#sheet-hatch-' + snapshot.battingOrder + '-' + displayedResult.replace(/[^A-Za-z0-9]/g, "") + ')" opacity="0.65"></rect>'
                 ].join("")
                 : "";
+            const displayedResultFontSize = displayedResult.length >= 5 ? 20 : displayedResult.length >= 3 ? 23 : 30;
             const commentBubble = snapshotHasAnyComment(snapshot)
                 ? [
                     '<g class="comment-bubble-mark" aria-hidden="true">',
@@ -11749,7 +11750,7 @@
                 extraAdvanceArrow,
                 runnerNote,
                 pitchMarks,
-                '<text x="125" y="106" text-anchor="middle" font-size="28" font-weight="700" fill="' + outColor + '">' + centralOutScore + '</text>',
+                '<text x="125" y="106" text-anchor="middle" font-size="33" font-weight="800" fill="' + outColor + '">' + centralOutScore + '</text>',
                 sacrificeBox,
                 sacrificeFlyTriangle,
                 ballTypeDecoration,
@@ -11757,9 +11758,9 @@
                 infieldHitArc,
                 snapshot.result === "K"
                     ? buildStrikeoutResultSvg(snapshot, resultX, 160, resultColor)
-                    : '<text x="' + resultX + '" y="160" text-anchor="middle" font-size="24" font-weight="700" fill="' + resultColor + '">' + displayedResult + '</text>',
+                    : '<text x="' + resultX + '" y="160" text-anchor="middle" font-size="' + displayedResultFontSize + '" font-weight="800" fill="' + resultColor + '">' + displayedResult + '</text>',
                 fcContinuation
-                    ? '<text x="178" y="178" text-anchor="middle" font-size="10" font-weight="700" fill="' + SCORE_COLORS.ink + '">' + fcContinuation + '</text>'
+                    ? '<text x="178" y="178" text-anchor="middle" font-size="12" font-weight="800" fill="' + SCORE_COLORS.ink + '">' + fcContinuation + '</text>'
                     : "",
                 landingDot,
                 commentBubble,
@@ -11964,15 +11965,15 @@
                 ? snapshot.selectedBallType
                 : (["HR", "RH", "GR", "T"].includes(hitCode) ? "fly" : "ground");
             if (ballType === "fly") {
-                return '<circle cx="' + point.x + '" cy="' + point.y + '" r="5" fill="none" stroke="' + color + '" stroke-width="2"/>';
+                return '<circle cx="' + point.x + '" cy="' + point.y + '" r="6" fill="none" stroke="' + color + '" stroke-width="2.5"/>';
             }
             if (ballType === "liner") {
-                return '<path d="M ' + point.x + ' ' + (point.y - 6) + ' L ' + (point.x - 6) + ' ' + (point.y + 5) + ' L ' + (point.x + 6) + ' ' + (point.y + 5) + ' Z" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round"/>';
+                return '<path d="M ' + point.x + ' ' + (point.y - 7) + ' L ' + (point.x - 7) + ' ' + (point.y + 6) + ' L ' + (point.x + 7) + ' ' + (point.y + 6) + ' Z" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linejoin="round"/>';
             }
             if (ballType === "ground") {
-                return '<circle cx="' + point.x + '" cy="' + point.y + '" r="4" fill="' + color + '"/>';
+                return '<circle cx="' + point.x + '" cy="' + point.y + '" r="5" fill="' + color + '"/>';
             }
-            return '<circle cx="' + point.x + '" cy="' + point.y + '" r="4" fill="' + color + '"/>';
+            return '<circle cx="' + point.x + '" cy="' + point.y + '" r="5" fill="' + color + '"/>';
         }
 
         function getKeioInfieldHitFieldPoint(snapshot) {
@@ -12000,23 +12001,23 @@
             const isBuntHit = hitCode === "BH";
             const fieldShape = isInfieldHit
                 ? [
-                    '<path d="M 86 118 L 110 94 L 134 118 L 110 142 Z" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round"/>',
+                    '<path d="M 82 118 L 110 90 L 138 118 L 110 146 Z" fill="none" stroke="' + color + '" stroke-width="3" stroke-linejoin="round"/>',
                     getKeioBallMarkAtPoint(snapshot, color, getKeioInfieldHitFieldPoint(snapshot))
                 ].join("")
                 : isBuntHit
                 ? [
-                    '<path d="M 78 120 L 110 86 L 142 120" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
-                    '<text x="110" y="139" text-anchor="middle" font-size="16" font-weight="900" fill="' + color + '">BH</text>',
+                    '<path d="M 72 120 L 110 78 L 148 120" fill="none" stroke="' + color + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>',
+                    '<text x="110" y="140" text-anchor="middle" font-size="19" font-weight="900" fill="' + color + '">BH</text>',
                     getKeioBallMarkAtPoint({ ...snapshot, selectedBallType: "ground" }, color, getKeioInfieldHitFieldPoint(snapshot))
                 ].join("")
                 : [
-                    '<path d="M 74 120 L 110 78 L 146 120" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+                    '<path d="M 68 120 L 110 72 L 152 120" fill="none" stroke="' + color + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>',
                     getKeioHitBallMark(snapshot, color)
                 ].join("");
             const baseLabelMarkup = baseLabel && resultBaseSlot && !isInfieldHit
-                ? '<text x="110" y="112" text-anchor="middle" font-size="22" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
+                ? '<text x="110" y="112" text-anchor="middle" font-size="28" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
                 : baseLabel && resultBaseSlot
-                    ? '<text x="110" y="128" text-anchor="middle" font-size="18" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
+                    ? '<text x="110" y="130" text-anchor="middle" font-size="21" font-weight="900" fill="' + color + '">' + baseLabel + '</text>'
                 : "";
             return [
                 '<g class="keio-hit-mark" aria-hidden="true">',
@@ -12066,32 +12067,32 @@
                 return "";
             }
             const safeLabel = escapeHtml(resultLabel);
-            const labelFont = resultLabel.length >= 4 ? 22 : 28;
+            const labelFont = resultLabel.length >= 4 ? 24 : 32;
             const safeDetail = escapeHtml(detailLabel || "");
             const boxMain = Boolean(options.boxMain);
             if (safeDetail) {
-                const detailFont = detailLabel.length >= 4 ? 17 : 20;
+                const detailFont = detailLabel.length >= 4 ? 19 : 23;
                 const lineHalfWidth = Math.max(28, Math.min(50, Math.max(resultLabel.length, detailLabel.length) * 10));
                 const resultBox = boxMain
-                    ? '<rect x="' + (110 - lineHalfWidth - 10) + '" y="84" width="' + ((lineHalfWidth + 10) * 2) + '" height="54" rx="2" fill="none" stroke="#111" stroke-width="2"/>'
+                    ? '<rect x="' + (110 - lineHalfWidth - 10) + '" y="82" width="' + ((lineHalfWidth + 10) * 2) + '" height="58" rx="2" fill="none" stroke="#111" stroke-width="2.5"/>'
                     : "";
                 return [
                     resultBox,
-                    '<text x="110" y="104" text-anchor="middle" font-size="' + labelFont + '" font-weight="900" fill="#111">' + safeLabel + '</text>',
-                    '<text x="110" y="129" text-anchor="middle" font-size="' + detailFont + '" font-weight="900" fill="#111">' + safeDetail + '</text>',
-                    '<line x1="' + (110 - lineHalfWidth) + '" y1="145" x2="' + (110 + lineHalfWidth) + '" y2="145" stroke="#111" stroke-width="2.4" stroke-linecap="round"/>',
-                    '<text x="110" y="174" text-anchor="middle" font-size="21" font-weight="900" fill="#111">' + outCount + '</text>'
+                    '<text x="110" y="105" text-anchor="middle" font-size="' + labelFont + '" font-weight="900" fill="#111">' + safeLabel + '</text>',
+                    '<text x="110" y="132" text-anchor="middle" font-size="' + detailFont + '" font-weight="900" fill="#111">' + safeDetail + '</text>',
+                    '<line x1="' + (110 - lineHalfWidth) + '" y1="149" x2="' + (110 + lineHalfWidth) + '" y2="149" stroke="#111" stroke-width="3" stroke-linecap="round"/>',
+                    '<text x="110" y="180" text-anchor="middle" font-size="25" font-weight="900" fill="#111">' + outCount + '</text>'
                 ].join("");
             }
             const lineHalfWidth = Math.max(26, Math.min(48, resultLabel.length * 12));
             const resultBox = boxMain
-                ? '<rect x="' + (110 - lineHalfWidth - 10) + '" y="94" width="' + ((lineHalfWidth + 10) * 2) + '" height="38" rx="2" fill="none" stroke="#111" stroke-width="2"/>'
+                ? '<rect x="' + (110 - lineHalfWidth - 10) + '" y="92" width="' + ((lineHalfWidth + 10) * 2) + '" height="42" rx="2" fill="none" stroke="#111" stroke-width="2.5"/>'
                 : "";
             return [
                 resultBox,
-                '<text x="110" y="123" text-anchor="middle" font-size="' + labelFont + '" font-weight="900" fill="#111">' + safeLabel + '</text>',
-                '<line x1="' + (110 - lineHalfWidth) + '" y1="143" x2="' + (110 + lineHalfWidth) + '" y2="143" stroke="#111" stroke-width="2.4" stroke-linecap="round"/>',
-                '<text x="110" y="173" text-anchor="middle" font-size="22" font-weight="900" fill="#111">' + outCount + '</text>'
+                '<text x="110" y="125" text-anchor="middle" font-size="' + labelFont + '" font-weight="900" fill="#111">' + safeLabel + '</text>',
+                '<line x1="' + (110 - lineHalfWidth) + '" y1="147" x2="' + (110 + lineHalfWidth) + '" y2="147" stroke="#111" stroke-width="3" stroke-linecap="round"/>',
+                '<text x="110" y="179" text-anchor="middle" font-size="26" font-weight="900" fill="#111">' + outCount + '</text>'
             ].join("");
         }
 
@@ -12111,7 +12112,7 @@
                 const x = 14 + index * 13.5;
                 const y = 24;
                 const note = snapshot.pitchNotes?.[index] || "";
-                return getPitchMarkSvgMarkup(pitch, x, y, 0.52, note);
+                return getPitchMarkSvgMarkup(pitch, x, y, 0.62, note);
             }).join("");
             const centralOutScore = getCentralOutScoreForSnapshot(snapshot);
             const resultColor = getSnapshotResultColor(snapshot);
@@ -12129,14 +12130,14 @@
                 || snapshot.modifiers?.safetyBuntFailed
                 || snapshot.modifiers?.buntFailed
             );
-            const resultFontSize = visibleResultLabel.length >= 3 ? 19 : 24;
+            const resultFontSize = visibleResultLabel.length >= 3 ? 22 : 28;
             const resultMarkup = isBatterOutResult
                 ? buildKeioBatterOutMarkup(resultLabel, centralOutScore, batterOutDetailLabel, { boxMain: boxKeioBatterOutResult })
                 : isKeioHitResult
                     ? buildKeioHitMarkup(snapshot, resultBaseSlot, resultColor)
                 : resultBaseSlot
                     ? '<text x="' + resultBaseSlot.labelX + '" y="' + resultBaseSlot.labelY + '" text-anchor="middle" font-size="' + resultFontSize + '" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>'
-                    : '<text x="110" y="146" text-anchor="middle" font-size="28" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>';
+                    : '<text x="110" y="148" text-anchor="middle" font-size="32" font-weight="900" fill="' + resultColor + '">' + escapeHtml(visibleResultLabel) + '</text>';
             const commentBubble = snapshotHasAnyComment(snapshot)
                 ? [
                     '<g class="comment-bubble-mark" aria-hidden="true">',
@@ -12146,10 +12147,10 @@
                 ].join("")
                 : "";
             const outText = centralOutScore && !isBatterOutResult
-                ? '<text x="30" y="226" text-anchor="middle" font-size="22" font-weight="900" fill="#111">' + centralOutScore + '</text>'
+                ? '<text x="30" y="226" text-anchor="middle" font-size="25" font-weight="900" fill="#111">' + centralOutScore + '</text>'
                 : "";
             const keioNote = snapshot.modifiers?.doublePlay
-                ? '<text x="168" y="202" text-anchor="middle" font-size="18" font-weight="900" fill="' + SCORE_COLORS.red + '">DP</text>'
+                ? '<text x="168" y="202" text-anchor="middle" font-size="20" font-weight="900" fill="' + SCORE_COLORS.red + '">DP</text>'
                 : "";
             return [
                 '<svg class="sheet-cell-svg" viewBox="5 5 210 240" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">',
@@ -12188,11 +12189,11 @@
             const baseNumberW = compact ? 26 : 28;
             const useKeioSheet = state.scorebookStyle === "keio";
             const baseCellW = useKeioSheet
-                ? (compact ? 52 : 60)
+                ? (compact ? 54 : 62)
                 : (compact ? 50 : 58);
             const baseCellH = useKeioSheet
-                ? (compact ? 66 : 76)
-                : (compact ? 46 : 52);
+                ? (compact ? 76 : 88)
+                : (compact ? 50 : 56);
             const baseHeaderH = compact ? 24 : 28;
             const baseFont = compact ? 8 : 9;
 
