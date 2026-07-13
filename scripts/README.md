@@ -1,6 +1,6 @@
 # CuViu デプロイ手順
 
-`index.html` を Xserver の `cuviu.jp/apps/scorebook/` に反映します。
+`index.html` と、存在する場合はフィードバック受け口の `feedback.php` を Xserver の `cuviu.jp/apps/scorebook/` に反映します。
 
 ```zsh
 zsh scripts/deploy-cuviu.sh

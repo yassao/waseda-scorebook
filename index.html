@@ -504,6 +504,7 @@
         .header-home-btn,
         .workspace-toggle-btn,
         .input-layout-toggle-btn,
+        .header-feedback-btn,
         .header-help-btn {
             width: 34px;
             min-height: 34px;
@@ -528,6 +529,14 @@
         .header-help-btn {
             background: #e8f1f8;
             color: #334155;
+        }
+
+        .header-feedback-btn {
+            background: #fff8e6;
+            color: #7c4a03;
+            border-color: #d69700;
+            font-size: 11px;
+            letter-spacing: 0.02em;
         }
 
         .workspace-toggle-btn {
@@ -3528,6 +3537,80 @@
             font-size: 14px;
         }
 
+        .feedback-popup {
+            width: min(620px, calc(100vw - 24px));
+        }
+
+        .feedback-form {
+            display: grid;
+            gap: 12px;
+        }
+
+        .feedback-form label {
+            display: grid;
+            gap: 6px;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .feedback-form textarea {
+            min-height: 150px;
+        }
+
+        .feedback-file-input {
+            width: 100%;
+            min-height: 46px;
+            border: 2px solid #d7e1ea;
+            border-radius: 12px;
+            padding: 9px 10px;
+            background: #fff;
+            color: #172331;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .feedback-note,
+        .feedback-json-meta,
+        .feedback-status {
+            border-radius: 12px;
+            padding: 10px 12px;
+            color: #334155;
+            background: #f8fafc;
+            border: 1px solid #d7e1ea;
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.55;
+        }
+
+        .feedback-note {
+            background: #eef8f6;
+            border-color: #b6e2da;
+            color: #0f4f4a;
+        }
+
+        .feedback-status {
+            display: none;
+        }
+
+        .feedback-status.is-open {
+            display: block;
+        }
+
+        .feedback-status.is-error {
+            border-color: #fecaca;
+            background: #fff7f7;
+            color: #b91c1c;
+        }
+
+        .feedback-honeypot {
+            position: absolute;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+        }
+
         .pitcher-change-dialog-form {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -4133,6 +4216,10 @@
                 padding: 3px 12px;
             }
 
+            .history-actions {
+                gap: 4px;
+            }
+
             .app-header h1 {
                 font-size: 22px;
             }
@@ -4141,11 +4228,33 @@
                 font-size: 8px;
             }
 
+            .version-style-stack {
+                min-width: 44px;
+                max-width: 52px;
+            }
+
+            .app-version-badge {
+                min-width: 42px;
+                font-size: 9px;
+            }
+
             .history-btn,
-            .header-home-btn {
+            .header-home-btn,
+            .header-feedback-btn,
+            .header-help-btn {
                 width: 30px;
                 min-height: 30px;
                 font-size: 16px;
+            }
+
+            .header-feedback-btn {
+                font-size: 10px;
+            }
+
+            .workspace-toggle-btn {
+                min-height: 30px;
+                padding: 0 8px;
+                font-size: 11px;
             }
 
             .input-layout-toggle-btn {
@@ -4434,6 +4543,7 @@
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
                 <button id="workspaceToggleBtn" class="workspace-toggle-btn" onclick="toggleTopWorkspace()" aria-label="入力とスコアブックを切替">スコアブック</button>
                 <button id="inputLayoutToggleBtn" class="input-layout-toggle-btn" onclick="toggleInputLayout()" aria-label="右手入力と左手入力を切替">右手</button>
+                <button class="header-feedback-btn" onclick="openFeedbackPopup()" aria-label="フィードバックを送る">FB</button>
                 <button class="header-help-btn" onclick="showPlayBuilderHelp()" aria-label="ヘルプ">?</button>
             </div>
         </header>
@@ -4544,6 +4654,28 @@
                     <div id="inningSharePopup" class="comment-popup inning-share-popup" aria-hidden="true"></div>
                     <div id="adGateBackdrop" class="comment-popup-backdrop"></div>
                     <div id="adGatePopup" class="comment-popup ad-gate-popup" aria-hidden="true"></div>
+                    <div id="feedbackPopupBackdrop" class="comment-popup-backdrop" onclick="closeFeedbackPopup()"></div>
+                    <div id="feedbackPopup" class="comment-popup feedback-popup" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="feedbackPopupTitle">
+                        <div id="feedbackPopupTitle" class="comment-popup-title">フィードバック送信</div>
+                        <form id="feedbackForm" class="feedback-form" onsubmit="sendFeedback(event)">
+                            <div class="feedback-note">送信者名・メールアドレスは不要です。匿名フィードバックとして、現在の試合データJSONを自動添付して送信します。</div>
+                            <label>コメント
+                                <textarea id="feedbackComment" name="comment" placeholder="気になった場面、入力したかったプレー、期待した表示などを書いてください。" required></textarea>
+                            </label>
+                            <label>スクリーンショット（任意）
+                                <input id="feedbackScreenshot" class="feedback-file-input" name="screenshot" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif">
+                            </label>
+                            <label class="feedback-honeypot">空欄のまま送信
+                                <input id="feedbackWebsite" name="website" type="text" autocomplete="off" tabindex="-1">
+                            </label>
+                            <div id="feedbackJsonMeta" class="feedback-json-meta">試合データJSONを準備します。</div>
+                            <div id="feedbackStatus" class="feedback-status" aria-live="polite"></div>
+                            <div class="comment-popup-actions">
+                                <button type="button" onclick="closeFeedbackPopup()">閉じる</button>
+                                <button id="feedbackSubmitBtn" type="submit" class="btn-hit">匿名で送信</button>
+                            </div>
+                        </form>
+                    </div>
                     <div id="aiPromptPopupBackdrop" class="ai-prompt-popup-backdrop" onclick="closeAiPromptPopup()"></div>
                     <div id="aiPromptPopup" class="ai-prompt-popup" aria-hidden="true"></div>
                     <div id="nlCorrectionPanel" class="nl-correction-panel">
@@ -4817,7 +4949,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.19";
+        const APP_VERSION = "0.2.20";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6854,6 +6986,179 @@
                 console.warn("Export auto saved game failed", error);
                 setStartNewGameConfirmStatus("自動保存データの読み取りに失敗しました。", true);
             }
+        }
+
+        function ensureFeedbackPopupLayer() {
+            const backdrop = document.getElementById("feedbackPopupBackdrop");
+            const popup = document.getElementById("feedbackPopup");
+            if (backdrop && backdrop.parentElement !== document.body) {
+                document.body.appendChild(backdrop);
+            }
+            if (popup && popup.parentElement !== document.body) {
+                document.body.appendChild(popup);
+            }
+            return { backdrop, popup };
+        }
+
+        function getFeedbackContext() {
+            const half = state.activeHalf === "bottom" ? "bottom" : "top";
+            const row = Math.max(0, Math.min(8, Number(state.selectedSheetRow) || 0));
+            const inning = getColumnInningLabel(state.selectedSheetCol, half);
+            const battingOrder = row + 1;
+            const playerName = state.playerNames?.[half]?.[row] || "";
+            const teamName = state.teamNames?.[half] || (half === "top" ? "先攻" : "後攻");
+            return {
+                appVersion: APP_VERSION,
+                scorebookStyle: normalizeScorebookStyle(state.scorebookStyle),
+                half,
+                halfLabel: getHalfLabel(half),
+                inning,
+                battingOrder,
+                playerName,
+                teamName,
+                url: window.location.href,
+                userAgent: navigator.userAgent || ""
+            };
+        }
+
+        function formatFeedbackJsonSize(byteLength) {
+            if (byteLength >= 1024 * 1024) {
+                return (byteLength / 1024 / 1024).toFixed(1) + "MB";
+            }
+            if (byteLength >= 1024) {
+                return Math.round(byteLength / 1024) + "KB";
+            }
+            return byteLength + "B";
+        }
+
+        function getFeedbackExportFileName(context) {
+            const stamp = new Date()
+                .toISOString()
+                .replace(/[-:]/g, "")
+                .replace(/\..+$/, "")
+                .replace("T", "-");
+            const inning = String(context.inning || "?").replace(/[^\dA-Za-z_-]/g, "");
+            const half = context.half === "bottom" ? "bottom" : "top";
+            return "cuviu-scorebook-feedback-" + stamp + "-" + inning + half + ".json";
+        }
+
+        function setFeedbackStatus(message, isError = false) {
+            const status = document.getElementById("feedbackStatus");
+            if (!status) {
+                return;
+            }
+            status.textContent = message || "";
+            status.classList.toggle("is-open", Boolean(message));
+            status.classList.toggle("is-error", Boolean(isError));
+        }
+
+        function updateFeedbackJsonMeta(context = getFeedbackContext()) {
+            const meta = document.getElementById("feedbackJsonMeta");
+            if (!meta) {
+                return;
+            }
+            try {
+                const json = JSON.stringify(createGameSaveData(), null, 2);
+                const bytes = new Blob([json]).size;
+                const playerLabel = context.playerName
+                    ? context.battingOrder + "番 " + context.playerName
+                    : context.battingOrder + "番 選手名未登録";
+                meta.textContent = "自動添付: 試合データJSON " + formatFeedbackJsonSize(bytes) + " / " +
+                    context.inning + "回" + context.halfLabel + " " + context.teamName + "攻撃 / " + playerLabel;
+            } catch (error) {
+                console.warn("Feedback JSON preview failed", error);
+                meta.textContent = "自動添付: 試合データJSONを送信時に作成します。";
+            }
+        }
+
+        function openFeedbackPopup() {
+            flushGameAutoSave();
+            const { backdrop, popup } = ensureFeedbackPopupLayer();
+            if (!backdrop || !popup) {
+                alert("フィードバックフォームを開けませんでした。");
+                return;
+            }
+            setFeedbackStatus("");
+            updateFeedbackJsonMeta();
+            backdrop.classList.add("is-open");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            setTimeout(() => document.getElementById("feedbackComment")?.focus(), 80);
+        }
+
+        function closeFeedbackPopup() {
+            document.getElementById("feedbackPopup")?.classList.remove("is-open");
+            document.getElementById("feedbackPopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("feedbackPopupBackdrop")?.classList.remove("is-open");
+        }
+
+        async function sendFeedback(event) {
+            event?.preventDefault?.();
+            const comment = (document.getElementById("feedbackComment")?.value || "").trim();
+            if (!comment) {
+                setFeedbackStatus("コメントを入力してください。短くても大丈夫です。", true);
+                return false;
+            }
+            if (typeof fetch !== "function" || typeof FormData !== "function") {
+                setFeedbackStatus("このブラウザでは送信機能を使えません。試合データを書き出してコメントと一緒に送ってください。", true);
+                return false;
+            }
+            const submitButton = document.getElementById("feedbackSubmitBtn");
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = "送信中...";
+            }
+            try {
+                flushGameAutoSave();
+                const context = getFeedbackContext();
+                const data = createGameSaveData();
+                const json = JSON.stringify(data, null, 2);
+                const formData = new FormData();
+                formData.append("comment", comment);
+                formData.append("appVersion", APP_VERSION);
+                formData.append("scorebookStyle", context.scorebookStyle);
+                formData.append("half", context.half);
+                formData.append("halfLabel", context.halfLabel);
+                formData.append("inning", String(context.inning || ""));
+                formData.append("battingOrder", String(context.battingOrder || ""));
+                formData.append("playerName", context.playerName || "");
+                formData.append("teamName", context.teamName || "");
+                formData.append("url", context.url || "");
+                formData.append("userAgent", context.userAgent || "");
+                formData.append("website", document.getElementById("feedbackWebsite")?.value || "");
+                formData.append(
+                    "gameJson",
+                    new Blob([json], { type: "application/json" }),
+                    getFeedbackExportFileName(context)
+                );
+                const screenshot = document.getElementById("feedbackScreenshot")?.files?.[0];
+                if (screenshot) {
+                    formData.append("screenshot", screenshot, screenshot.name);
+                }
+                const response = await fetch("feedback.php", {
+                    method: "POST",
+                    body: formData
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok || result.ok === false) {
+                    throw new Error(result.message || "送信に失敗しました。");
+                }
+                setFeedbackStatus("送信しました。匿名フィードバックとして開発用メールに届きます。ありがとうございます。");
+                setGameSaveStatus("フィードバックを送信しました。");
+                const screenshotInput = document.getElementById("feedbackScreenshot");
+                if (screenshotInput) {
+                    screenshotInput.value = "";
+                }
+            } catch (error) {
+                console.warn("Feedback send failed", error);
+                setFeedbackStatus((error && error.message ? error.message : "送信できませんでした。") + " 通信状態を確認して、必要なら試合データを書き出して送ってください。", true);
+            } finally {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = "匿名で送信";
+                }
+            }
+            return false;
         }
 
         function triggerImportGameJson(options = {}) {
