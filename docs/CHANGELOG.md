@@ -1,3 +1,14 @@
+## v0.2.23 [2026-07-13] 慶応式の詳細入力表示を補強
+
+**変更ファイル:**
+- docs/CHANGELOG.md
+- docs/DEBUG_LOG.md
+- docs/KEIO_SCOREBOOK_NOTES.md
+- docs/VERSION
+- index.html
+
+---
+
 ## v0.2.22 [2026-07-13] フィードバック台帳ビューアを追加
 
 **変更ファイル:**

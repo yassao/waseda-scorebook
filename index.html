@@ -4949,7 +4949,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.22";
+        const APP_VERSION = "0.2.23";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10301,8 +10301,25 @@
             return map[text] || text;
         }
 
+        function getKeioRunnerOutRouteLabel(label) {
+            const text = String(label || "").trim();
+            if (!text) {
+                return "";
+            }
+            const routeMatch = text.match(/([1-9][ABCDH]?(?:-[1-9][ABCDH]?)+)T?$/);
+            if (routeMatch) {
+                return routeMatch[1];
+            }
+            const caughtStealingMatch = text.match(/^CS[:：]?\s*([1-9][ABCDH]?(?:-[1-9][ABCDH]?)+)$/);
+            return caughtStealingMatch ? caughtStealingMatch[1] : "";
+        }
+
         function getKeioCompactOutLabel(event) {
             const label = String(event?.label || "").trim();
+            const routeLabel = getKeioRunnerOutRouteLabel(label);
+            if (routeLabel) {
+                return routeLabel;
+            }
             const outType = event?.outType || getRunnerOutTypeFromLabel(label);
             if (outType === "force") {
                 return "封";
@@ -10329,6 +10346,124 @@
                 return "CS";
             }
             return label || "O";
+        }
+
+        function getKeioCompactDetailText(text, maxLength = 10) {
+            const normalized = String(text || "").replace(/\s+/g, "").trim();
+            if (!normalized) {
+                return "";
+            }
+            return normalized.length > maxLength ? normalized.slice(0, maxLength - 1) + "…" : normalized;
+        }
+
+        function getKeioRunnerOutReasonCode(reason) {
+            const text = String(reason || "");
+            if (!text) {
+                return "";
+            }
+            if (text.includes("盗塁")) {
+                return "CS";
+            }
+            if (text.includes("牽制")) {
+                return "PO";
+            }
+            if (text.includes("フォース")) {
+                return "FO";
+            }
+            if (text.includes("タッチ")) {
+                return "TO";
+            }
+            if (text.includes("挟殺")) {
+                return "R";
+            }
+            if (text.includes("離塁")) {
+                return "離";
+            }
+            if (text.includes("妨害") || text.includes("接触")) {
+                return "妨";
+            }
+            if (text.includes("アピール")) {
+                return "AP";
+            }
+            if (text.includes("走塁")) {
+                return "RO";
+            }
+            return getKeioCompactDetailText(text, 6);
+        }
+
+        function getKeioOfficialNoteCode(note) {
+            const text = String(note || "").trim();
+            if (!text) {
+                return "";
+            }
+            const upper = text.toUpperCase();
+            if (upper.includes("PH") || text.includes("代打")) {
+                return "PH";
+            }
+            if (upper.includes("PR") || text.includes("代走")) {
+                return "PR";
+            }
+            if (upper.includes("IF") || text.includes("インフィールド")) {
+                return "IF";
+            }
+            if (upper.includes("OB") || text.includes("走塁妨害")) {
+                return "OB";
+            }
+            if (upper.includes("INT") || text.includes("守備妨害")) {
+                return "INT";
+            }
+            if (text.includes("アピール")) {
+                return "AP";
+            }
+            return getKeioCompactDetailText(text, 8);
+        }
+
+        function getKeioPlayDetailBadges(snapshot) {
+            const details = normalizePlayDetails(snapshot?.playDetails);
+            const badges = [];
+            if (details.errorDetail) {
+                const errorText = getKeioCompactDetailText(details.errorDetail, 10);
+                badges.push(/^(?:E|[1-9]E)/i.test(errorText) ? errorText : "E:" + errorText);
+            }
+            if (details.rbi === "yes") {
+                badges.push("RBI");
+            } else if (details.rbi === "no") {
+                badges.push("RBI-");
+            }
+            if (details.earnedRun === "earned") {
+                badges.push("ER");
+            } else if (details.earnedRun === "unearned") {
+                badges.push("UER");
+            }
+            const outReason = getKeioRunnerOutReasonCode(details.runnerOutReason);
+            if (outReason) {
+                badges.push(outReason);
+            }
+            const officialNote = getKeioOfficialNoteCode(details.officialNote);
+            if (officialNote) {
+                badges.push(officialNote);
+            }
+            return [...new Set(badges.filter(Boolean))].slice(0, 6);
+        }
+
+        function buildKeioPlayDetailsMarkup(snapshot) {
+            const badges = getKeioPlayDetailBadges(snapshot);
+            if (!badges.length) {
+                return "";
+            }
+            const lines = [];
+            for (let index = 0; index < badges.length; index += 3) {
+                lines.push(badges.slice(index, index + 3).join(" "));
+            }
+            return [
+                '<g class="keio-play-details" aria-hidden="true">',
+                lines.slice(0, 2).map((line, index) => (
+                    '<text x="110" y="' + (223 + index * 11) + '" text-anchor="middle" font-size="8.5" font-weight="800" fill="#0f5bd6">' +
+                    escapeHtml(line) +
+                    '</text>'
+                )).join(""),
+                '</g>'
+            ].join("");
         }
 
         function getKeioRunnerEventLabel(event) {
@@ -11952,6 +12087,7 @@
             const centralOutScore = getCentralOutScoreForSnapshot(snapshot);
             const resultColor = getSnapshotResultColor(snapshot);
             const runnerNote = buildKeioRunnerNotesForSheet(snapshot);
+            const playDetailNote = buildKeioPlayDetailsMarkup(snapshot);
             const resultBaseSlot = getKeioBaseSlot(getKeioBatterResultBase(snapshot));
             const onBaseSymbol = getKeioOnBaseSymbol(snapshot);
             const visibleResultLabel = onBaseSymbol || resultLabel;
@@ -11990,6 +12126,7 @@
                 outText,
                 keioNote,
                 runnerNote,
+                playDetailNote,
                 commentBubble,
                 '</svg>'
             ].join("");
