@@ -4966,7 +4966,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.28";
+        const APP_VERSION = "0.2.29";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -13237,10 +13237,38 @@
             return target ? target + label : label;
         }
 
+        function getShareBaseNameFromCoverCode(code) {
+            const map = {
+                A: "一塁",
+                B: "二塁",
+                C: "三塁",
+                D: "本塁",
+                H: "本塁"
+            };
+            return map[String(code || "").toUpperCase()] || "";
+        }
+
+        function getShareBaseCoverOutText(text) {
+            const normalized = String(text || "").replace(/\s+/g, "");
+            const coverMatch = normalized.match(/(?:^|[-→])\d([ABCDH])(?:アウト)?(?:$|[-→])/i);
+            const baseName = coverMatch ? getShareBaseNameFromCoverCode(coverMatch[1]) : "";
+            return baseName ? baseName + "でアウト" : "";
+        }
+
         function formatShareRunnerOutText(label) {
             const text = String(label || "").trim();
             if (!text) {
                 return "走者アウト";
+            }
+            const baseCoverText = getShareBaseCoverOutText(text);
+            if (baseCoverText) {
+                return baseCoverText;
+            }
+            if (/^CS$/i.test(text)) {
+                return "盗塁死";
+            }
+            if (/^PO$/i.test(text)) {
+                return "牽制アウト";
             }
             if (text.includes("1-2") || text.includes("2-2") || text.includes("3-2") || text.includes("5-2") || text.includes("6-2")) {
                 return "本塁封殺";
