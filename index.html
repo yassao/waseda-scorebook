@@ -4974,7 +4974,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.31";
+        const APP_VERSION = "0.2.32";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -4982,9 +4982,9 @@
         const INNING_SHARE_DIALOG_STORAGE_KEY = "cuviu_scorebook_hide_inning_share_dialog_v1";
         const PDF_AD_UNWATCHED_COUNT_KEY = "cuviu_scorebook_pdf_ad_unwatched_count_v1";
         const MAX_SAVED_GAME_SLOTS = 30;
-        const INNING_AD_SECONDS = 15;
-        const INNING_AD_SKIP_AFTER_SECONDS = 5;
-        const PDF_AD_SECONDS = 15;
+        const INNING_AD_SECONDS = 0;
+        const INNING_AD_SKIP_AFTER_SECONDS = 0;
+        const PDF_AD_SECONDS = 0;
         const PDF_AD_UNWATCHED_LIMIT = 5;
         const AD_GATE_CONFIG = {
             enabled: true,
@@ -7952,10 +7952,10 @@
             const skippable = Boolean(options.skippable);
             const seconds = Math.max(0, Number(options.seconds) || 0);
             const skipAfterSeconds = skippable ? Math.max(0, Number(options.skipAfterSeconds) || 0) : Infinity;
-            const title = placement === "pdf" ? "PDF出力前の広告" : "イニング終了広告";
+            const title = placement === "pdf" ? "PDF出力前の広告枠" : "イニング終了広告枠";
             const message = placement === "pdf"
-                ? "無料版ではPDF生成前に広告を表示します。広告終了後にPDF出力へ進みます。"
-                : "無料版では各イニング裏終了時に広告を表示します。5秒後にスキップできます。";
+                ? "広告枠を表示しています。待ち時間なしでPDF出力へ進めます。"
+                : "広告枠を表示しています。待ち時間なしで次の攻撃へ進めます。";
             let remaining = seconds;
             let timerId = null;
             let finished = false;
@@ -7974,22 +7974,11 @@
                     resolve(true);
                 };
                 const updatePrimaryButton = () => {
-                    const elapsed = seconds - remaining;
-                    const canSkip = skippable && elapsed >= skipAfterSeconds;
-                    const primaryText = (() => {
-                        if (placement === "pdf") {
-                            return remaining > 0 ? "あと " + remaining + " 秒" : "PDF出力へ進む";
-                        }
-                        if (canSkip) {
-                            return "スキップして次へ";
-                        }
-                        const skipWait = Math.max(0, skipAfterSeconds - elapsed);
-                        return "スキップまで " + skipWait + " 秒";
-                    })();
+                    const primaryText = placement === "pdf" ? "PDF出力へ進む" : "次の攻撃へ進む";
                     const primary = document.getElementById("adGatePrimaryBtn");
                     if (primary) {
                         primary.textContent = primaryText;
-                        primary.disabled = (placement === "pdf" && remaining > 0) || (skippable && !canSkip);
+                        primary.disabled = false;
                     }
                 };
 
@@ -8065,20 +8054,13 @@
         }
 
         async function exportScorebookPdf() {
-            if (!isNetworkOnline()) {
-                const count = incrementPdfAdUnwatchedCount();
-                if (count >= PDF_AD_UNWATCHED_LIMIT) {
-                    showPdfAdConnectionRequired(count);
-                    return;
-                }
-            } else {
-                await openAdGate({
-                    placement: "pdf",
-                    skippable: false,
-                    seconds: PDF_AD_SECONDS
-                });
-                resetPdfAdUnwatchedCount();
-            }
+            await openAdGate({
+                placement: "pdf",
+                skippable: true,
+                seconds: PDF_AD_SECONDS,
+                skipAfterSeconds: 0
+            });
+            resetPdfAdUnwatchedCount();
             prepareScorebookPrintMode();
             window.addEventListener("afterprint", cleanupScorebookPrintMode, { once: true });
             requestAnimationFrame(() => {
