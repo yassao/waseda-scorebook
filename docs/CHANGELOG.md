@@ -1,3 +1,17 @@
+## v0.2.22 [2026-07-13] フィードバック台帳ビューアを追加
+
+**変更ファイル:**
+- docs/CHANGELOG.md
+- docs/DEBUG_LOG.md
+- docs/FEEDBACK_DB.md
+- docs/VERSION
+- feedback_admin.php
+- index.html
+- scripts/README.md
+- scripts/deploy-cuviu.sh
+
+---
+
 ## v0.2.21 [2026-07-13] フィードバック台帳と二重送信防止を追加
 
 **変更ファイル:**

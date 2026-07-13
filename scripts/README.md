@@ -1,6 +1,6 @@
 # CuViu デプロイ手順
 
-`index.html` と、存在する場合はフィードバック受け口の `feedback.php` を Xserver の `cuviu.jp/apps/scorebook/` に反映します。
+`index.html` と、存在する場合はフィードバック受け口の `feedback.php` / 台帳ビューアの `feedback_admin.php` を Xserver の `cuviu.jp/apps/scorebook/` に反映します。
 あわせて、フィードバック台帳用の非公開ディレクトリ `/home/cuviu001/cuviu.jp/scorebook-feedback/` を作成します。
 
 ```zsh

@@ -17,6 +17,30 @@
 - `summary.json`: 件数サマリ
 - `attachments/<feedback-id>.json`: 自動添付された試合データ
 - `attachments/<feedback-id>.<ext>`: 任意スクリーンショット
+- `admin-token.txt`: 外部閲覧用の管理トークン
+
+## ブラウザで見る
+
+管理ページ:
+
+```text
+https://cuviu.jp/apps/scorebook/feedback_admin.php
+```
+
+試合データJSONとスクリーンショットを扱うため、管理トークンで保護します。トークンは公開ディレクトリ外に保存します。
+
+```zsh
+ssh -i ~/.ssh/xserver_cuviu -p 10022 cuviu001@sv16692.xserver.jp \
+  "cat /home/cuviu001/cuviu.jp/scorebook-feedback/admin-token.txt"
+```
+
+最初にトークン付きURLで開くと、以後はCookieで閲覧できます。
+
+```text
+https://cuviu.jp/apps/scorebook/feedback_admin.php?token=ここにトークン
+```
+
+Codexへ依頼するときは、管理ページに表示される `FB <feedback-id> を確認して対応してください。` の行をそのまま貼り付ける想定です。
 
 ## カテゴリ
 
