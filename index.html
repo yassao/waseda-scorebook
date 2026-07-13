@@ -2362,7 +2362,8 @@
             display: block;
         }
 
-        .pitcher-change-marker.is-keio {
+        .pitcher-change-marker.is-keio,
+        .fielding-change-marker.is-keio {
             top: 1px;
             left: 2px;
             right: 2px;
@@ -2378,6 +2379,22 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .fielding-change-marker {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 22%;
+            height: 18%;
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        .fielding-change-marker.is-keio {
+            top: calc(12px * var(--sheet-zoom));
+            color: #0f5bd6;
+            border-bottom-color: #0f5bd6;
         }
 
         .pitcher-book-section {
@@ -4949,7 +4966,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.23";
+        const APP_VERSION = "0.2.24";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10296,7 +10313,12 @@
                 "タッチアップ": "TU",
                 "走塁妨害": "OB",
                 "犠飛": "SF",
-                "本塁打": "HR"
+                "本塁打": "HR",
+                "暴投": "WP",
+                "捕逸": "PB",
+                "ボーク": "BK",
+                "失策": "E",
+                "野選": "FC"
             };
             return map[text] || text;
         }
@@ -10421,6 +10443,9 @@
         function getKeioPlayDetailBadges(snapshot) {
             const details = normalizePlayDetails(snapshot?.playDetails);
             const badges = [];
+            if (details.runnerMovement) {
+                badges.push("走:" + getKeioCompactDetailText(details.runnerMovement, 8));
+            }
             if (details.errorDetail) {
                 const errorText = getKeioCompactDetailText(details.errorDetail, 10);
                 badges.push(/^(?:E|[1-9]E)/i.test(errorText) ? errorText : "E:" + errorText);
@@ -11795,7 +11820,7 @@
                 return "F-" + (snapshot.selectedFielder || result || "");
             }
             if (snapshot.modifiers?.doublePlay) {
-                return "DP";
+                return sequence || "DP";
             }
             if (result === "Fc") {
                 return "Fc";
@@ -12047,7 +12072,11 @@
             if (safeDetail) {
                 const detailFont = detailLabel.length >= 4 ? 17 : 20;
                 const lineHalfWidth = Math.max(28, Math.min(50, Math.max(resultLabel.length, detailLabel.length) * 10));
+                const resultBox = boxMain
+                    ? '<rect x="' + (110 - lineHalfWidth - 10) + '" y="84" width="' + ((lineHalfWidth + 10) * 2) + '" height="54" rx="2" fill="none" stroke="#111" stroke-width="2"/>'
+                    : "";
                 return [
+                    resultBox,
                     '<text x="110" y="104" text-anchor="middle" font-size="' + labelFont + '" font-weight="900" fill="#111">' + safeLabel + '</text>',
                     '<text x="110" y="129" text-anchor="middle" font-size="' + detailFont + '" font-weight="900" fill="#111">' + safeDetail + '</text>',
                     '<line x1="' + (110 - lineHalfWidth) + '" y1="145" x2="' + (110 + lineHalfWidth) + '" y2="145" stroke="#111" stroke-width="2.4" stroke-linecap="round"/>',
@@ -12094,7 +12123,12 @@
             const isBatterOutResult = Boolean(centralOutScore && !resultBaseSlot && resultLabel);
             const isKeioHitResult = Boolean(resultBaseSlot && isKeioHitSymbolSnapshot(snapshot));
             const batterOutDetailLabel = getKeioBatterOutDetailLabel(snapshot);
-            const boxKeioBatterOutResult = Boolean(snapshot.modifiers?.sacrificeBunt || snapshot.modifiers?.sacrificeFly);
+            const boxKeioBatterOutResult = Boolean(
+                snapshot.modifiers?.sacrificeBunt
+                || snapshot.modifiers?.sacrificeFly
+                || snapshot.modifiers?.safetyBuntFailed
+                || snapshot.modifiers?.buntFailed
+            );
             const resultFontSize = visibleResultLabel.length >= 3 ? 19 : 24;
             const resultMarkup = isBatterOutResult
                 ? buildKeioBatterOutMarkup(resultLabel, centralOutScore, batterOutDetailLabel, { boxMain: boxKeioBatterOutResult })
@@ -12217,6 +12251,22 @@
             }) || null;
         }
 
+        function getFieldingChangeForSheetCell(sheetHalf, row, col) {
+            const info = normalizeGameInfo(state.gameInfo);
+            const inningLabel = String(getInningLabels(sheetHalf)[col] || (col + 1));
+            const battingOrder = row + 1;
+            const changes = ["top", "bottom"].flatMap((teamHalf) => (
+                (info.fieldingChanges[teamHalf] || []).map((change, index) => ({ teamHalf, change, index }))
+            ));
+            return changes.find(({ change }) => {
+                const changeInning = String(change.inning || "");
+                const changeOrder = Number(change.battingOrder) || 1;
+                return change.half === sheetHalf
+                    && changeInning === inningLabel
+                    && changeOrder === battingOrder;
+            }) || null;
+        }
+
         function renderPitcherChangeMarker(match) {
             if (!match?.change?.name) {
                 return "";
@@ -12233,6 +12283,23 @@
                 '</svg>',
                 '</div>'
             ].join("");
+        }
+
+        function renderFieldingChangeMarker(match) {
+            if (state.scorebookStyle !== "keio" || !match?.change) {
+                return "";
+            }
+            const change = match.change;
+            const positionText = formatFieldingPositionText(change);
+            const label = [
+                change.playerName || "",
+                positionText,
+                change.note || ""
+            ].filter(Boolean).join(" ");
+            if (!label) {
+                return "";
+            }
+            return '<div class="fielding-change-marker is-keio" aria-label="守備変更 ' + escapeHtml(label) + '">守:' + escapeHtml(label) + '</div>';
         }
 
         function compareSheetPosition(a, b) {
@@ -12488,7 +12555,10 @@
                         snapshot = liveCurrentSnapshot;
                     }
                     const pitcherChangeMatch = getPitcherChangeForSheetCell(half, row, col);
-                    button.innerHTML = generateSheetCellSvg(snapshot) + renderPitcherChangeMarker(pitcherChangeMatch);
+                    const fieldingChangeMatch = getFieldingChangeForSheetCell(half, row, col);
+                    button.innerHTML = generateSheetCellSvg(snapshot)
+                        + renderPitcherChangeMarker(pitcherChangeMatch)
+                        + renderFieldingChangeMarker(fieldingChangeMatch);
                     const hasComment = Boolean(snapshot?.atBatComment)
                         || (snapshot?.pitchComments || []).some((comment) => comment?.text);
                     button.disabled = !canEditCell && !hasComment;
