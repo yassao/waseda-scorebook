@@ -4966,7 +4966,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.29";
+        const APP_VERSION = "0.2.30";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -13282,6 +13282,21 @@
             return text + "アウト";
         }
 
+        function getShareRunnerNameForRow(half, row) {
+            return splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || (row + 1) + "番走者";
+        }
+
+        function getShareRunnerOutDetailText(event, runnerName) {
+            const outText = formatShareRunnerOutText(event?.label);
+            const forceLike = Boolean(event?.doublePlay)
+                || event?.outType === "force"
+                || String(event?.label || "").includes("封殺");
+            const naturalOutText = forceLike
+                ? outText.replace(/^(一塁|二塁|三塁|本塁)でアウト$/, "$1フォースアウト")
+                : outText;
+            return runnerName + "が" + naturalOutText;
+        }
+
         function getShareBaseAdvanceText(base, label = "") {
             const baseText = base === 2 ? "二塁" : base === 3 ? "三塁" : base >= 4 ? "本塁" : "進塁";
             return label ? label + "で" + baseText : baseText;
@@ -13307,7 +13322,9 @@
             events.forEach((event) => {
                 const byOrder = Number(event?.by) || 0;
                 if (event?.type === "out") {
-                    parts.push(formatShareRunnerOutText(event.label));
+                    if (includeLaterRunnerEvents || !byOrder || byOrder === selfOrder) {
+                        parts.push(formatShareRunnerOutText(event.label));
+                    }
                 } else if (event?.type === "advance" && event.base > 1 && (includeLaterRunnerEvents || !byOrder || byOrder === selfOrder)) {
                     parts.push(getShareBaseAdvanceText(event.base, event.label));
                 } else if ((event?.type === "score" || event === "生還") && includeScoringEvents) {
@@ -13459,6 +13476,27 @@
             return details;
         }
 
+        function buildShareRunnerOutDetailsByBatter(entries, half) {
+            const details = new Map();
+            entries.forEach((entry) => {
+                const runnerName = getShareRunnerNameForRow(half, entry.row);
+                getRunnerStatusEvents(entry.snapshot).forEach((event) => {
+                    if (event?.type !== "out") {
+                        return;
+                    }
+                    const byOrder = Number(event?.by) || 0;
+                    if (!byOrder || byOrder === entry.row + 1) {
+                        return;
+                    }
+                    if (!details.has(byOrder)) {
+                        details.set(byOrder, []);
+                    }
+                    details.get(byOrder).push(getShareRunnerOutDetailText(event, runnerName));
+                });
+            });
+            return details;
+        }
+
         function formatSnapshotForInningDraft(half, row, snapshot, extraResultTexts = []) {
             const playerName = splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || "未登録（" + (row + 1) + "番）";
             const result = [
@@ -13487,6 +13525,7 @@
             const firstOrder = entries.length ? entries[0].row + 1 : transition.endedRow + 1;
             const pitcherChanges = getPitcherChangesForDraft(defenseHalf, battingHalf, transition.inning);
             const scoringDetailsByBatter = buildShareScoringDetailsByBatter(entries, battingHalf);
+            const runnerOutDetailsByBatter = buildShareRunnerOutDetailsByBatter(entries, battingHalf);
             const lines = [
                 transition.inning + "回" + getHalfLabel(battingHalf) + "・" + battingTeam + "攻撃",
                 "P" + getPitcherNameForDefenseHalf(defenseHalf)
@@ -13506,7 +13545,10 @@
                     battingHalf,
                     entry.row,
                     entry.snapshot,
-                    scoringDetailsByBatter.get(entry.row + 1) || []
+                    [
+                        ...(runnerOutDetailsByBatter.get(entry.row + 1) || []),
+                        ...(scoringDetailsByBatter.get(entry.row + 1) || [])
+                    ]
                 ));
             });
 
