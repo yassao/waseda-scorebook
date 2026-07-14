@@ -5004,7 +5004,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.40";
+        const APP_VERSION = "0.2.41";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10328,6 +10328,44 @@
             return Math.max(romanToOutCount(snapshot.outScore), runnerOutCount);
         }
 
+        function getManualRunnerOutCount(snapshot) {
+            return getRunnerStatusEvents(snapshot)
+                .filter((event) => isManualRunnerStatusEvent(event) && event?.type === "out")
+                .length;
+        }
+
+        function snapshotHasCentralBatterOut(snapshot) {
+            if (!snapshot || !romanToOutCount(snapshot.outScore) || isBatterSafeFielderChoice(snapshot)) {
+                return false;
+            }
+            const type = getSnapshotBatterResultType(snapshot);
+            if (["out", "strikeout", "dropped_third_strike", "sacrifice_bunt", "sacrifice_fly"].includes(type)) {
+                return true;
+            }
+            if (type === "fielder_choice") {
+                return (snapshot.runnerContext?.outsOnBases || [])
+                    .some((label) => String(label || "").startsWith("打者走者"));
+            }
+            return Boolean(snapshot.outScore);
+        }
+
+        function getSnapshotPlayOutDelta(snapshot) {
+            if (!snapshot) {
+                return 0;
+            }
+            if (snapshot.modifiers?.triplePlay) {
+                return 3;
+            }
+            if (snapshot.modifiers?.doublePlay) {
+                return 2;
+            }
+            const batterOuts = snapshotHasCentralBatterOut(snapshot) ? 1 : 0;
+            const runnerContextOuts = (snapshot.runnerContext?.outsOnBases || [])
+                .filter((label) => !String(label || "").startsWith("打者走者"))
+                .length;
+            return Math.min(3, batterOuts + runnerContextOuts + getManualRunnerOutCount(snapshot));
+        }
+
         function getCentralOutScoreForSnapshot(snapshot) {
             if (!snapshot) {
                 return "";
@@ -11844,7 +11882,7 @@
 
             applyRunnerContextOverrides(runners, snapshot, batterRef, originalRunners, row, col);
 
-            if (snapshot.outScore === "Ⅲ") {
+            if (getSnapshotOutCount(snapshot) >= 3) {
                 markLeftOnBaseRunners(runners);
                 setBaseRunners([null, null, null]);
                 return;
@@ -11939,6 +11977,67 @@
             snapshot.runnerStatusText = manualEvents[manualEvents.length - 1] || "";
         }
 
+        function rebuildInningOutScoresFromPlayDeltas(cells, sheet) {
+            let outsBefore = 0;
+            let endCell = null;
+            cells.forEach((cell) => {
+                const snapshot = sheet[cell.row]?.[cell.col];
+                if (!snapshot) {
+                    return;
+                }
+                const playOuts = getSnapshotPlayOutDelta(snapshot);
+                if (playOuts > 0 && romanToOutCount(snapshot.outScore)) {
+                    snapshot.outScore = outCountToRoman(Math.min(3, outsBefore + playOuts));
+                }
+                outsBefore = Math.min(3, outsBefore + playOuts);
+                if (!endCell && outsBefore >= 3) {
+                    endCell = { ...cell };
+                }
+            });
+            return endCell;
+        }
+
+        function getInningEndTransition(half, inning, endCell) {
+            if (!endCell) {
+                return null;
+            }
+            const normalizedHalf = half === "bottom" ? "bottom" : "top";
+            const inningNumber = Number(inning) || getColumnInningLabel(endCell.col, normalizedHalf);
+            return {
+                endedHalf: normalizedHalf,
+                nextHalf: normalizedHalf === "top" ? "bottom" : "top",
+                inning: inningNumber,
+                endedRow: endCell.row,
+                endedCol: endCell.col,
+                nextBatterRow: (endCell.row + 1) % 9,
+                nextInningCol: findColumnForInning(normalizedHalf, inningNumber + 1)
+            };
+        }
+
+        function applyCorrectionInningTransitionState(transition) {
+            if (!transition) {
+                return;
+            }
+            state.selectionsByHalf[transition.endedHalf] = {
+                row: transition.nextBatterRow,
+                col: transition.nextInningCol
+            };
+            state.retiredRunnerPreviewsByHalf[transition.endedHalf] = [];
+            if (state.activeHalf === transition.endedHalf) {
+                state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[transition.endedHalf];
+            }
+        }
+
+        function formatCorrectionInningTransitionStatus(transition) {
+            if (!transition) {
+                return "修正を保存しました。攻守交代せず、この打席開始時の走者を再表示しています。";
+            }
+            return "修正を保存しました。"
+                + transition.inning + "回" + getHalfLabel(transition.endedHalf)
+                + "は" + (transition.endedRow + 1) + "番で3アウトです。"
+                + "次は" + getTeamDisplayName(transition.nextHalf) + "の攻撃です。";
+        }
+
         function rebuildRunnerStatusEventsForInning(half = state.activeHalf, inning = getColumnInningLabel()) {
             const normalizedHalf = half === "bottom" ? "bottom" : "top";
             const sheet = state.scoreSheets?.[normalizedHalf] || createEmptyScoreSheet();
@@ -11962,8 +12061,10 @@
             state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[normalizedHalf];
             setBaseRunners([null, null, null]);
 
+            let endCell = null;
             try {
                 cells.forEach((cell) => preserveManualRunnerStatusEvents(sheet[cell.row]?.[cell.col]));
+                endCell = rebuildInningOutScoresFromPlayDeltas(cells, sheet);
                 cells.forEach((cell) => {
                     const snapshot = sheet[cell.row]?.[cell.col];
                     if (!snapshot) {
@@ -11985,6 +12086,7 @@
                 state.selectedSheetCol = originalState.selectedSheetCol;
                 state.battingOrder = originalState.battingOrder;
             }
+            return getInningEndTransition(normalizedHalf, inning, endCell);
         }
 
         function rebuildBaseRunnersForHalf(half = state.activeHalf) {
@@ -14733,10 +14835,11 @@
             }
             const snapshot = saveCurrentToSheet();
             if (isCorrectionEdit) {
-                rebuildRunnerStatusEventsForInning(
+                const correctionTransition = rebuildRunnerStatusEventsForInning(
                     state.activeHalf,
                     getColumnInningLabel(state.selectedSheetCol, state.activeHalf)
                 );
+                applyCorrectionInningTransitionState(correctionTransition);
                 rebuildBaseRunnerContextBeforeCell(state.activeHalf, state.selectedSheetRow, state.selectedSheetCol);
                 applyAtBatSnapshot(snapshot);
                 renderScoreSheet();
@@ -14744,7 +14847,7 @@
                 renderGameMiniStatus();
                 updateDisplay();
                 scheduleGameAutoSave();
-                updateRunnerGuiStatus("修正を保存しました。攻守交代せず、この打席開始時の走者を再表示しています。");
+                updateRunnerGuiStatus(formatCorrectionInningTransitionStatus(correctionTransition));
                 return;
             }
             advanceAfterSave(snapshot);
