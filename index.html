@@ -5004,7 +5004,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.39";
+        const APP_VERSION = "0.2.40";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -14720,7 +14720,17 @@
                 syncPreviewFromCurrentState("確認");
                 return;
             }
+            const correctionInning = getColumnInningLabel(state.selectedSheetCol, state.activeHalf);
+            const hadScoreOverride = isCorrectionEdit && hasScoreOverride(state.activeHalf, correctionInning);
+            if (hadScoreOverride && !clearScoreOverrideForInningIfNeeded(state.activeHalf, correctionInning, false)) {
+                updateRunnerGuiStatus("確認: 得点板の直接補正を維持したため、修正保存を中止しました");
+                return;
+            }
             pushGameHistory();
+            if (hadScoreOverride) {
+                ensureScoreOverridesByHalf();
+                state.scoreOverridesByHalf[state.activeHalf][correctionInning - 1] = null;
+            }
             const snapshot = saveCurrentToSheet();
             if (isCorrectionEdit) {
                 rebuildRunnerStatusEventsForInning(
