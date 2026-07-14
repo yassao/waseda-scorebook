@@ -5004,7 +5004,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.35";
+        const APP_VERSION = "0.2.36";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11856,6 +11856,20 @@
             state.correctionEditContext = null;
         }
 
+        function ensureCorrectionEditContextForSavedCell(row = state.selectedSheetRow, col = state.selectedSheetCol, half = state.activeHalf) {
+            if (isCorrectionEditContextForCell(row, col, half)) {
+                return true;
+            }
+            const normalizedHalf = half === "bottom" ? "bottom" : "top";
+            if (!state.scoreSheets?.[normalizedHalf]?.[row]?.[col]) {
+                return false;
+            }
+            const draftSnapshot = captureAtBatSnapshot();
+            rebuildBaseRunnerContextBeforeCell(normalizedHalf, row, col);
+            applyAtBatSnapshot(draftSnapshot);
+            return true;
+        }
+
         function rebuildBaseRunnersForHalf(half = state.activeHalf) {
             const sheet = state.scoreSheets[half] || createEmptyScoreSheet();
             state.baseRunnersByHalf[half] = [null, null, null];
@@ -13099,7 +13113,6 @@
                 '<div class="cell-action-buttons">',
                 '<button type="button" onclick="editCellBatterResult()">打撃結果を編集</button>',
                 '<button type="button" onclick="editCellRunnerResult()">走塁結果を編集</button>',
-                '<button type="button" onclick="editCellScoreEvents()">この打席の得点を修正</button>',
                 '<button type="button" onclick="editCellComment()">一言メモを編集</button>',
                 '<button type="button" onclick="editCellPlayDetails()">詳細入力</button>',
                 '<button type="button" onclick="closeCellActionPopup()">閉じる</button>',
@@ -13491,7 +13504,6 @@
                     '<button type="button" onclick="closeAtBatCommentPopup()">OK</button>',
                     '<button type="button" class="btn-hit" onclick="renderAtBatCommentPopup(true)">修正</button>',
                     '<button type="button" onclick="editPlayDetailsFromCommentPopup()">詳細入力</button>',
-                    '<button type="button" onclick="editScoreFromCommentPopup()">打席得点</button>',
                     '<button type="button" onclick="editInputFromCommentPopup()">入力画面で編集</button>'
                 ];
             popup.innerHTML = [
@@ -14484,7 +14496,7 @@
         }
 
         function saveAndAdvanceCurrentPlate() {
-            const isCorrectionEdit = isCorrectionEditContextForCell();
+            const isCorrectionEdit = ensureCorrectionEditContextForSavedCell();
             if (isCorrectionEdit) {
                 setBaseRunners(deepClone(state.correctionEditContext.baseRunnersBefore || [null, null, null]));
             }
@@ -19282,7 +19294,7 @@
             const preservedPitchComments = deepClone(state.pitchComments || []);
             const preservedStrikes = state.strikes;
             const preservedBalls = state.balls;
-            resetState();
+            resetState({ preserveCorrectionContext: true });
             if (preservedPitches.length > 0) {
                 state.pitches = preservedPitches;
                 state.pitchNotes = preservedPitchNotes;
@@ -21155,8 +21167,10 @@
             requestAnimationFrame(updateResultDecoration);
         }
 
-        function resetState() {
-            clearCorrectionEditContext();
+        function resetState(options = {}) {
+            if (!options.preserveCorrectionContext) {
+                clearCorrectionEditContext();
+            }
             state.pitches = [];
             state.pitchNotes = [];
             state.pitchComments = [];
