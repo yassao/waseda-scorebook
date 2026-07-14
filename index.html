@@ -5004,7 +5004,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.38";
+        const APP_VERSION = "0.2.39";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10224,6 +10224,19 @@
             return "";
         }
 
+        function isManualRunnerStatusEvent(event) {
+            return Boolean(event?.manualScoreCorrection || event?.manualRunnerTerminal);
+        }
+
+        function splitManualRunnerStatusTail(events) {
+            const sourceEvents = Array.isArray(events) ? [...events] : [];
+            const manualTail = [];
+            while (sourceEvents.length && isManualRunnerStatusEvent(sourceEvents[sourceEvents.length - 1])) {
+                manualTail.unshift(sourceEvents.pop());
+            }
+            return { sourceEvents, manualTail };
+        }
+
         function setRunnerStatusForRef(ref, text) {
             if (isRunnerContextRebuild) {
                 return;
@@ -10233,12 +10246,14 @@
                 if (!Array.isArray(snapshot.runnerStatusEvents)) {
                     snapshot.runnerStatusEvents = snapshot.runnerStatusText ? [snapshot.runnerStatusText] : [];
                 }
-                const lastKey = JSON.stringify(snapshot.runnerStatusEvents[snapshot.runnerStatusEvents.length - 1]);
+                const { sourceEvents, manualTail } = splitManualRunnerStatusTail(snapshot.runnerStatusEvents);
+                const lastKey = JSON.stringify(sourceEvents[sourceEvents.length - 1]);
                 const nextKey = JSON.stringify(text);
                 if (lastKey !== nextKey) {
-                    snapshot.runnerStatusEvents.push(text);
+                    sourceEvents.push(text);
                 }
-                snapshot.runnerStatusText = text;
+                snapshot.runnerStatusEvents = [...sourceEvents, ...manualTail];
+                snapshot.runnerStatusText = snapshot.runnerStatusEvents[snapshot.runnerStatusEvents.length - 1] || "";
             }
         }
 
@@ -11911,6 +11926,65 @@
             rebuildBaseRunnerContextBeforeCell(normalizedHalf, row, col);
             applyAtBatSnapshot(draftSnapshot);
             return true;
+        }
+
+        function preserveManualRunnerStatusEvents(snapshot) {
+            if (!snapshot) {
+                return;
+            }
+            const manualEvents = getRunnerStatusEvents(snapshot)
+                .filter(isManualRunnerStatusEvent)
+                .map((event) => deepClone(event));
+            snapshot.runnerStatusEvents = manualEvents;
+            snapshot.runnerStatusText = manualEvents[manualEvents.length - 1] || "";
+        }
+
+        function rebuildRunnerStatusEventsForInning(half = state.activeHalf, inning = getColumnInningLabel()) {
+            const normalizedHalf = half === "bottom" ? "bottom" : "top";
+            const sheet = state.scoreSheets?.[normalizedHalf] || createEmptyScoreSheet();
+            const originalState = {
+                activeHalf: state.activeHalf,
+                scoreSheet: state.scoreSheet,
+                baseRunners: deepClone(state.baseRunners),
+                baseRunnersByHalf: deepClone(state.baseRunnersByHalf),
+                retiredRunnerPreviews: deepClone(state.retiredRunnerPreviews),
+                retiredRunnerPreviewsByHalf: deepClone(state.retiredRunnerPreviewsByHalf),
+                selectedSheetRow: state.selectedSheetRow,
+                selectedSheetCol: state.selectedSheetCol,
+                battingOrder: state.battingOrder
+            };
+            const cells = getOrderedCellsForInning(normalizedHalf, inning)
+                .filter((cell) => sheet[cell.row]?.[cell.col]);
+
+            state.activeHalf = normalizedHalf;
+            syncActiveHalfRefs();
+            state.retiredRunnerPreviewsByHalf[normalizedHalf] = [];
+            state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[normalizedHalf];
+            setBaseRunners([null, null, null]);
+
+            try {
+                cells.forEach((cell) => preserveManualRunnerStatusEvents(sheet[cell.row]?.[cell.col]));
+                cells.forEach((cell) => {
+                    const snapshot = sheet[cell.row]?.[cell.col];
+                    if (!snapshot) {
+                        return;
+                    }
+                    state.selectedSheetRow = cell.row;
+                    state.selectedSheetCol = cell.col;
+                    state.battingOrder = String(cell.row + 1);
+                    updateBaseRunnersForSnapshot(cell.row, cell.col, snapshot);
+                });
+            } finally {
+                state.activeHalf = originalState.activeHalf;
+                state.scoreSheet = originalState.scoreSheet;
+                state.baseRunners = originalState.baseRunners;
+                state.baseRunnersByHalf = originalState.baseRunnersByHalf;
+                state.retiredRunnerPreviews = originalState.retiredRunnerPreviews;
+                state.retiredRunnerPreviewsByHalf = originalState.retiredRunnerPreviewsByHalf;
+                state.selectedSheetRow = originalState.selectedSheetRow;
+                state.selectedSheetCol = originalState.selectedSheetCol;
+                state.battingOrder = originalState.battingOrder;
+            }
         }
 
         function rebuildBaseRunnersForHalf(half = state.activeHalf) {
@@ -14649,6 +14723,10 @@
             pushGameHistory();
             const snapshot = saveCurrentToSheet();
             if (isCorrectionEdit) {
+                rebuildRunnerStatusEventsForInning(
+                    state.activeHalf,
+                    getColumnInningLabel(state.selectedSheetCol, state.activeHalf)
+                );
                 rebuildBaseRunnerContextBeforeCell(state.activeHalf, state.selectedSheetRow, state.selectedSheetCol);
                 applyAtBatSnapshot(snapshot);
                 renderScoreSheet();
