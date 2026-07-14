@@ -2142,6 +2142,19 @@
             color: #a35b00;
         }
 
+        .line-score-note {
+            display: none;
+            margin: 2px 0 0;
+            color: #8a5a00;
+            font-size: clamp(8px, 1.45vw, 10px);
+            font-weight: 800;
+            line-height: 1.25;
+        }
+
+        .line-score-note.is-visible {
+            display: block;
+        }
+
         .sheet-viewport {
             overflow: auto;
             max-height: 72dvh;
@@ -4637,6 +4650,7 @@
             <section class="nl-quick-panel">
                 <div class="nl-panel is-compact">
                     <div id="lineScoreBoard" class="line-score-board" aria-label="点数板"></div>
+                    <div id="lineScoreBoardNote" class="line-score-note"></div>
                     <div id="currentBatterCard" class="current-batter-card" aria-label="現在の打者"></div>
                     <div id="gameMiniStatus" class="game-mini-status" aria-label="試合状況"></div>
                     <div class="pitch-input-panel">
@@ -4990,7 +5004,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.33";
+        const APP_VERSION = "0.2.34";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8859,6 +8873,42 @@
             return overrides[inning - 1] !== null;
         }
 
+        function getScoreOverrideSummary() {
+            const items = [];
+            ["top", "bottom"].forEach((half) => {
+                const overrides = normalizeScoreOverrides(state.scoreOverridesByHalf?.[half]);
+                const teamName = state.teamNames[half] || (half === "top" ? "先攻" : "後攻");
+                overrides.forEach((value, index) => {
+                    if (value !== null) {
+                        items.push(teamName + (index + 1) + "回=" + value);
+                    }
+                });
+            });
+            return items;
+        }
+
+        function clearScoreOverrideForInningIfNeeded(half, inning, apply = true) {
+            const normalizedHalf = half === "bottom" ? "bottom" : "top";
+            const inningNumber = Number(inning);
+            if (!Number.isInteger(inningNumber) || inningNumber < 1 || inningNumber > MAX_INNINGS) {
+                return true;
+            }
+            ensureScoreOverridesByHalf();
+            if (state.scoreOverridesByHalf[normalizedHalf][inningNumber - 1] === null) {
+                return true;
+            }
+            const teamName = state.teamNames[normalizedHalf] || (normalizedHalf === "top" ? "先攻" : "後攻");
+            const ok = window.confirm(
+                teamName + " " + inningNumber + "回は得点板を直接補正中です。\n\n" +
+                "このままだと、スコアブック側を修正しても得点板の表示は直接補正値が優先されます。\n" +
+                "自動集計へ戻してから、この打席の得点修正を反映しますか？"
+            );
+            if (ok && apply) {
+                state.scoreOverridesByHalf[normalizedHalf][inningNumber - 1] = null;
+            }
+            return ok;
+        }
+
         function promptScoreOverride(half, inning) {
             const normalizedHalf = half === "bottom" ? "bottom" : "top";
             const inningNumber = Number(inning);
@@ -8938,6 +8988,15 @@
                 buildRow(state.teamNames.top || "先攻", topLine, false, "top"),
                 buildRow(state.teamNames.bottom || "後攻", bottomLine, false, "bottom")
             ].join("");
+
+            const note = document.getElementById("lineScoreBoardNote");
+            if (note) {
+                const summary = getScoreOverrideSummary();
+                note.textContent = summary.length
+                    ? "黄色=得点板を直接補正中: " + summary.join(" / ")
+                    : "";
+                note.classList.toggle("is-visible", summary.length > 0);
+            }
         }
 
         function renderGameMiniStatus() {
@@ -12937,6 +12996,7 @@
                 '<div class="cell-action-buttons">',
                 '<button type="button" onclick="editCellBatterResult()">打撃結果を編集</button>',
                 '<button type="button" onclick="editCellRunnerResult()">走塁結果を編集</button>',
+                '<button type="button" onclick="editCellScoreEvents()">この打席の得点を修正</button>',
                 '<button type="button" onclick="editCellComment()">一言メモを編集</button>',
                 '<button type="button" onclick="editCellPlayDetails()">詳細入力</button>',
                 '<button type="button" onclick="closeCellActionPopup()">閉じる</button>',
@@ -12976,6 +13036,126 @@
                 commentLabel.textContent = "対象: " + label + "（走塁編集）";
             }
             window.alert("このマスを走塁結果の修正対象として開きました。右側の走者プレビューから、到達塁・アウト・得点などを修正してください。");
+        }
+
+        function isScoreEvent(event) {
+            return event?.type === "score" || event === "生還";
+        }
+
+        function getSnapshotScoreEventCount(snapshot) {
+            return getRunnerStatusEvents(snapshot).filter(isScoreEvent).length;
+        }
+
+        function buildManualScoreCorrectionEvent(half, row, col, snapshot, index) {
+            return {
+                type: "score",
+                by: Number(snapshot?.battingOrder) || row + 1,
+                label: "得点補正",
+                scoredHalf: half,
+                scoredInning: getInningLabels(half)[col] || (col + 1),
+                manualScoreCorrection: true,
+                correctionIndex: index + 1
+            };
+        }
+
+        function refreshAfterScorebookCorrection(half, row, col, message = "") {
+            if (half === state.activeHalf && row === state.selectedSheetRow && col === state.selectedSheetCol) {
+                const snapshot = state.scoreSheets?.[half]?.[row]?.[col];
+                if (snapshot) {
+                    applyAtBatSnapshot(snapshot);
+                }
+            }
+            saveActiveSelection();
+            renderScoreSheet();
+            renderLineScoreBoard();
+            renderGameMiniStatus();
+            updateGameFlowDisplay();
+            updateDisplay();
+            scheduleGameAutoSave();
+            if (message) {
+                updateRunnerGuiStatus(message);
+            }
+        }
+
+        function setScoreEventsForCell(target, runCount) {
+            if (!target) {
+                return false;
+            }
+            const half = target.half === "bottom" ? "bottom" : "top";
+            const row = target.row;
+            const col = target.col;
+            const sheet = state.scoreSheets?.[half];
+            const snapshot = sheet?.[row]?.[col] || target.snapshot;
+            if (!snapshot) {
+                return false;
+            }
+            const events = getRunnerStatusEvents(snapshot)
+                .filter((event) => !isScoreEvent(event))
+                .map((event) => deepClone(event));
+            for (let index = 0; index < runCount; index += 1) {
+                events.push(buildManualScoreCorrectionEvent(half, row, col, snapshot, index));
+            }
+            snapshot.runnerStatusEvents = events;
+            snapshot.runnerStatusText = events[events.length - 1] || "";
+            if (sheet?.[row]) {
+                sheet[row][col] = snapshot;
+            }
+            target.snapshot = snapshot;
+            return true;
+        }
+
+        function promptCellScoreEvents(target) {
+            if (!target) {
+                return;
+            }
+            const half = target.half === "bottom" ? "bottom" : "top";
+            const row = target.row;
+            const col = target.col;
+            const snapshot = state.scoreSheets?.[half]?.[row]?.[col] || target.snapshot;
+            if (!snapshot) {
+                window.alert("このマスにはまだ記録がありません。先に打席を保存してください。");
+                return;
+            }
+            const currentRuns = getSnapshotScoreEventCount(snapshot);
+            const label = getCellActionLabel(half, row, col);
+            const input = window.prompt(
+                label + " で入った得点数を修正します。\n\n" +
+                "0〜4の数字を入れると、この打席の得点イベントを置き換え、得点板へ反映します。\n" +
+                "細かい走者線はあとから走塁編集で直せます。",
+                String(currentRuns)
+            );
+            if (input === null) {
+                return;
+            }
+            const trimmed = input.trim();
+            const value = Number(trimmed);
+            if (!Number.isInteger(value) || value < 0 || value > 4 || trimmed === "") {
+                window.alert("0〜4の整数で入力してください。");
+                return;
+            }
+            const inningNumber = getInningLabels(half)[col] || (col + 1);
+            const hadScoreOverride = hasScoreOverride(half, inningNumber);
+            if (!clearScoreOverrideForInningIfNeeded(half, inningNumber, false)) {
+                return;
+            }
+            pushGameHistory();
+            if (hadScoreOverride) {
+                ensureScoreOverridesByHalf();
+                state.scoreOverridesByHalf[half][inningNumber - 1] = null;
+            }
+            if (!setScoreEventsForCell(target, value)) {
+                return;
+            }
+            refreshAfterScorebookCorrection(half, row, col, "この打席の得点を" + value + "点に修正しました");
+        }
+
+        function editCellScoreEvents() {
+            if (!cellActionTarget) {
+                return;
+            }
+            const target = cellActionTarget;
+            closeCellActionPopup();
+            promptCellScoreEvents(target);
         }
 
         function editCellComment() {
@@ -13208,7 +13388,8 @@
                     '<button type="button" onclick="closeAtBatCommentPopup()">OK</button>',
                     '<button type="button" class="btn-hit" onclick="renderAtBatCommentPopup(true)">修正</button>',
                     '<button type="button" onclick="editPlayDetailsFromCommentPopup()">詳細入力</button>',
-                    '<button type="button" onclick="editScoreFromCommentPopup()">スコア編集</button>'
+                    '<button type="button" onclick="editScoreFromCommentPopup()">打席得点</button>',
+                    '<button type="button" onclick="editInputFromCommentPopup()">入力画面で編集</button>'
                 ];
             popup.innerHTML = [
                 '<div class="comment-popup-title">一言メモ: ' + escapeHtml(label) + '</div>',
@@ -13254,6 +13435,15 @@
         }
 
         function editScoreFromCommentPopup() {
+            if (!commentPopupTarget) {
+                return;
+            }
+            const target = commentPopupTarget;
+            closeAtBatCommentPopup();
+            promptCellScoreEvents(target);
+        }
+
+        function editInputFromCommentPopup() {
             if (!commentPopupTarget) {
                 return;
             }
@@ -13569,7 +13759,7 @@
                 } else if (event?.type === "advance" && event.base > 1 && (includeLaterRunnerEvents || !byOrder || byOrder === selfOrder)) {
                     parts.push(getShareBaseAdvanceText(event.base, event.label));
                 } else if ((event?.type === "score" || event === "生還") && includeScoringEvents) {
-                    const scoreText = getShareScoreAdvanceText(event?.label);
+                    const scoreText = event?.manualScoreCorrection ? "生還" : getShareScoreAdvanceText(event?.label);
                     parts.push(byOrder && byOrder !== selfOrder ? byOrder + "番の打席で" + scoreText : scoreText);
                 }
             });
