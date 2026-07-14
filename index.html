@@ -2132,6 +2132,16 @@
             color: #c62828;
         }
 
+        .line-score-cell.is-score-editable {
+            cursor: pointer;
+            -webkit-tap-highlight-color: rgba(15, 127, 114, 0.16);
+        }
+
+        .line-score-cell.is-score-override {
+            background: #fff8df;
+            color: #a35b00;
+        }
+
         .sheet-viewport {
             overflow: auto;
             max-height: 72dvh;
@@ -4836,6 +4846,12 @@
                                     <label>後攻投手<input id="gameInfoBottomPitcher" type="text" oninput="updateGameInfoField('pitchers.bottom', this.value)"></label>
                                     <label>一塁側<select id="gameInfoFirstBench" onchange="updateGameInfoField('benches.firstBaseSideTeamId', this.value)"><option value="team_top">先攻</option><option value="team_bottom">後攻</option></select></label>
                                     <label>三塁側<select id="gameInfoThirdBench" onchange="updateGameInfoField('benches.thirdBaseSideTeamId', this.value)"><option value="team_bottom">後攻</option><option value="team_top">先攻</option></select></label>
+                                    <label>試合終了<select id="gameRuleEndReason" onchange="updateGameInfoField('rules.endReason', this.value)"><option value="">通常</option><option value="called">コールド</option><option value="suspended">継続試合/中断</option><option value="forfeit">没収試合</option></select></label>
+                                    <label>コールド基準<input id="gameRuleCalledRule" type="text" placeholder="例: 5回10点 / 7回7点" oninput="updateGameInfoField('rules.calledRule', this.value)"></label>
+                                    <label>延長TB<select id="gameRuleTiebreak" onchange="updateGameInfoField('rules.tiebreakEnabled', this.value)"><option value="">なし/未定</option><option value="1">あり</option></select></label>
+                                    <label>TB開始回<input id="gameRuleTiebreakStart" type="number" min="1" max="15" inputmode="numeric" placeholder="例: 10" oninput="updateGameInfoField('rules.tiebreakStartInning', this.value)"></label>
+                                    <label>TB走者<select id="gameRuleTiebreakRunners" onchange="updateGameInfoField('rules.tiebreakRunners', this.value)"><option value="">未設定</option><option value="second">無死二塁</option><option value="first_second">無死一二塁</option></select></label>
+                                    <label class="span-2">試合規定メモ<input id="gameRuleNote" type="text" placeholder="例: 8回コールド、延長10回からタイブレーク" oninput="updateGameInfoField('rules.note', this.value)"></label>
                                     <div class="pitcher-change-panel">
                                         <div class="pitcher-change-title">投手交代</div>
                                         <div class="pitcher-change-form">
@@ -4974,7 +4990,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.32";
+        const APP_VERSION = "0.2.33";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5053,6 +5069,14 @@
                 benches: {
                     firstBaseSideTeamId: "team_top",
                     thirdBaseSideTeamId: "team_bottom"
+                },
+                rules: {
+                    endReason: "",
+                    calledRule: "",
+                    tiebreakEnabled: "",
+                    tiebreakStartInning: "",
+                    tiebreakRunners: "",
+                    note: ""
                 }
             };
         }
@@ -5154,6 +5178,7 @@
                 foul: false,
                 bunt: false,
                 buntFailed: false,
+                squeezeFailed: false,
                 safetyBuntFailed: false,
                 sacrificeFly: false,
                 sacrificeBunt: false,
@@ -5198,6 +5223,10 @@
                 bottom: null
             },
             inningLabelsByHalf: {
+                top: [],
+                bottom: []
+            },
+            scoreOverridesByHalf: {
                 top: [],
                 bottom: []
             },
@@ -5311,6 +5340,7 @@
                     { value: "receive_error_onbase", label: "捕球エラー", group: "エラー系" },
                     { value: "force_fc", label: "封殺＆Fc", group: "Fc系" },
                     { value: "bunt_failed_fc", label: "バント失敗Fc", group: "Fc系" },
+                    { value: "squeeze_failed_fc", label: "スクイズ失敗Fc", group: "Fc系" },
                     { value: "fc_all_safe", label: "Fcオールセーフ", group: "Fc系" },
                     { value: "dropped_third", label: "振り逃げ", group: "三振系" },
                     { value: "other_interference", label: "打撃妨害", group: "その他の出塁" }
@@ -5328,6 +5358,7 @@
                     { value: "sac_bunt", label: "犠打", group: "犠打・犠飛" },
                     { value: "sac_fly", label: "犠飛", group: "犠打・犠飛" },
                     { value: "safety_bunt_failed", label: "セーフティ失敗", group: "バント失敗" },
+                    { value: "squeeze_failed_out", label: "スクイズ失敗", group: "バント失敗" },
                     { value: "bunt_failed_out", label: "バント失敗", group: "バント失敗" },
                     { value: "bunt_fly_out", label: "バントフライ", group: "バント失敗" },
                     { value: "bunt_double_play", label: "バント併殺", group: "バント失敗" }
@@ -5424,10 +5455,10 @@
 
         function extractFieldSequenceFromText(text) {
             const normalized = normalizeBaseballDigits(text || "");
-            const sequenceMatch = normalized.match(/([1-9](?:[-ー－−‐‑‒–—―][1-9]){1,3})/);
+            const sequenceMatch = normalized.match(/([1-9](?:[-ー－−‐‑‒–—―→⇒>＞][1-9]){1,3})/);
             if (sequenceMatch) {
                 return sequenceMatch[1]
-                    .replace(/[-ー－−‐‑‒–—―]/g, "-")
+                    .replace(/[-ー－−‐‑‒–—―→⇒>＞]/g, "-")
                     .split("-");
             }
             const compactMatch = normalized.match(/([1-9]{2,4})/);
@@ -5460,6 +5491,25 @@
                 runnerContext: mergeParsedRunnerContext(baseContext || detectRunnerContext(text), forceOutContextFromSequence(sequence)),
                 note: text,
                 confidence: sequence[0] === "?" ? 0.72 : 0.92,
+                source: "rule"
+            };
+        }
+
+        function buildSqueezeFailedFcParsed(text, fieldSequence = null, baseContext = null, fallbackFielder = "1") {
+            const sequence = fieldSequence || extractFieldSequenceFromText(text) || [fallbackFielder || "1", "2"];
+            const context = createEmptyRunnerContext();
+            addUniqueContextEntry(context.outsOnBases, getForceOutLabelFromSequence(sequence));
+            addUniqueContextEntry(context.advances, "打者走者一塁セーフ");
+            return {
+                fielder: sequence[0] || fallbackFielder || "1",
+                direction: "none",
+                ballType: "ground",
+                result: "Fc",
+                fieldSequence: sequence,
+                modifiers: { bunt: true, buntFailed: true, squeezeFailed: true },
+                runnerContext: mergeParsedRunnerContext(baseContext || detectRunnerContext(text), context),
+                note: text,
+                confidence: sequence[0] === "?" ? 0.72 : 0.93,
                 source: "rule"
             };
         }
@@ -5533,6 +5583,30 @@
 
         function createDefaultInningLabels() {
             return Array.from({ length: MAX_INNINGS }, (_, index) => index + 1);
+        }
+
+        function createEmptyScoreOverrides() {
+            return Array.from({ length: MAX_INNINGS }, () => null);
+        }
+
+        function normalizeScoreOverrides(overrides) {
+            const values = Array.isArray(overrides) ? overrides : [];
+            return Array.from({ length: MAX_INNINGS }, (_, index) => {
+                const value = values[index];
+                if (value === "" || value === null || value === undefined) {
+                    return null;
+                }
+                const number = Number(value);
+                return Number.isInteger(number) && number >= 0 ? number : null;
+            });
+        }
+
+        function ensureScoreOverridesByHalf() {
+            if (!state.scoreOverridesByHalf) {
+                state.scoreOverridesByHalf = { top: [], bottom: [] };
+            }
+            state.scoreOverridesByHalf.top = normalizeScoreOverrides(state.scoreOverridesByHalf.top);
+            state.scoreOverridesByHalf.bottom = normalizeScoreOverrides(state.scoreOverridesByHalf.bottom);
         }
 
         function getInningLabels(half = state.activeHalf) {
@@ -5696,6 +5770,7 @@
             if (!state.scoreSheets[state.activeHalf]) {
                 state.scoreSheets[state.activeHalf] = createEmptyScoreSheet();
             }
+            ensureScoreOverridesByHalf();
             if (!state.baseRunnersByHalf[state.activeHalf]) {
                 state.baseRunnersByHalf[state.activeHalf] = [null, null, null];
             }
@@ -5743,6 +5818,7 @@
                     playerPositions: deepClone(state.playerPositions),
                     scoreSheets: deepClone(state.scoreSheets),
                     inningLabelsByHalf: deepClone(state.inningLabelsByHalf),
+                    scoreOverridesByHalf: deepClone(state.scoreOverridesByHalf),
                     baseRunnersByHalf: deepClone(state.baseRunnersByHalf),
                     retiredRunnerPreviewsByHalf: deepClone(state.retiredRunnerPreviewsByHalf),
                     selectionsByHalf: deepClone(state.selectionsByHalf),
@@ -5774,6 +5850,7 @@
             state.scorebookStyle = state.scorebookStyle === "keio" ? "keio" : "waseda";
             state.playDetails = normalizePlayDetails(snapshot.state.playDetails);
             state.gameInfo = normalizeGameInfo(state.gameInfo || snapshot.game || {});
+            ensureScoreOverridesByHalf();
             state.playerPositions = state.playerPositions || {
                 top: Array.from({ length: 9 }, () => ""),
                 bottom: Array.from({ length: 9 }, () => "")
@@ -5951,6 +6028,8 @@
                     firstBaseSideTeamId: info.benches.firstBaseSideTeamId || "team_top",
                     thirdBaseSideTeamId: info.benches.thirdBaseSideTeamId || "team_bottom"
                 },
+                rules: deepClone(info.rules),
+                scoreOverrides: deepClone(state.scoreOverridesByHalf),
                 topTeamId: "team_top",
                 bottomTeamId: "team_bottom",
                 currentHalf: state.activeHalf,
@@ -6820,6 +6899,10 @@
                     top: createDefaultInningLabels(),
                     bottom: createDefaultInningLabels()
                 };
+                state.scoreOverridesByHalf = {
+                    top: createEmptyScoreOverrides(),
+                    bottom: createEmptyScoreOverrides()
+                };
                 state.baseRunnersByHalf = {
                     top: [null, null, null],
                     bottom: [null, null, null]
@@ -6937,6 +7020,9 @@
             }
             if (!snapshot.state.gameInfo && data.game) {
                 snapshot.state.gameInfo = deepClone(data.game);
+            }
+            if (!snapshot.state.scoreOverridesByHalf && data.game?.scoreOverrides) {
+                snapshot.state.scoreOverridesByHalf = deepClone(data.game.scoreOverrides);
             }
             return snapshot;
         }
@@ -7342,6 +7428,26 @@
             return "";
         }
 
+        function getGameEndReasonLabel(value) {
+            return {
+                called: "コールド",
+                suspended: "継続試合/中断",
+                forfeit: "没収試合"
+            }[value] || "";
+        }
+
+        function getTiebreakRulePrintText(rules = {}) {
+            if (!rules.tiebreakEnabled) {
+                return "";
+            }
+            const runners = {
+                second: "無死二塁",
+                first_second: "無死一二塁"
+            }[rules.tiebreakRunners] || "";
+            const start = rules.tiebreakStartInning ? rules.tiebreakStartInning + "回から" : "";
+            return [start, runners].filter(Boolean).join(" ");
+        }
+
         function createPrintInfoTable() {
             const info = normalizeGameInfo(state.gameInfo);
             const table = document.createElement("table");
@@ -7379,6 +7485,12 @@
                     ["後攻", getTeamDisplayName("bottom")],
                     ["先攻P", info.pitchers.top],
                     ["後攻P", info.pitchers.bottom]
+                ],
+                [
+                    ["試合終了", getGameEndReasonLabel(info.rules.endReason)],
+                    ["コールド", info.rules.calledRule],
+                    ["TB", getTiebreakRulePrintText(info.rules), 2],
+                    ["規定メモ", info.rules.note, 8]
                 ]
             ];
 
@@ -8202,6 +8314,10 @@
                 benches: {
                     ...defaults.benches,
                     ...(gameInfo?.benches || {})
+                },
+                rules: {
+                    ...defaults.rules,
+                    ...(gameInfo?.rules || {})
                 }
             };
         }
@@ -8209,11 +8325,18 @@
         function updateGameInfoField(path, value) {
             state.gameInfo = normalizeGameInfo(state.gameInfo);
             const parts = String(path || "").split(".");
-            if (parts.length === 2) {
-                state.gameInfo[parts[0]][parts[1]] = value;
-            } else if (parts[0]) {
-                state.gameInfo[parts[0]] = value;
+            if (!parts[0]) {
+                return;
             }
+            let target = state.gameInfo;
+            for (let index = 0; index < parts.length - 1; index += 1) {
+                const key = parts[index];
+                if (!target[key] || typeof target[key] !== "object") {
+                    target[key] = {};
+                }
+                target = target[key];
+            }
+            target[parts[parts.length - 1]] = value;
             renderCurrentBatterCard();
             renderScoreSheet();
             if (parts[0] === "pitchers" && document.getElementById("playerRosterDetails")?.open) {
@@ -8244,7 +8367,13 @@
                 gameInfoTopPitcher: info.pitchers.top,
                 gameInfoBottomPitcher: info.pitchers.bottom,
                 gameInfoFirstBench: info.benches.firstBaseSideTeamId,
-                gameInfoThirdBench: info.benches.thirdBaseSideTeamId
+                gameInfoThirdBench: info.benches.thirdBaseSideTeamId,
+                gameRuleEndReason: info.rules.endReason,
+                gameRuleCalledRule: info.rules.calledRule,
+                gameRuleTiebreak: info.rules.tiebreakEnabled,
+                gameRuleTiebreakStart: info.rules.tiebreakStartInning,
+                gameRuleTiebreakRunners: info.rules.tiebreakRunners,
+                gameRuleNote: info.rules.note
             };
             Object.entries(fieldMap).forEach(([id, value]) => setElementValue(id, value || ""));
             setPitcherChangeFormDefaults();
@@ -8714,7 +8843,58 @@
                 recorded[index] = true;
             }
 
+            const overrides = normalizeScoreOverrides(state.scoreOverridesByHalf?.[half]);
+            overrides.forEach((value, index) => {
+                if (value !== null) {
+                    scores[index] = value;
+                    recorded[index] = true;
+                }
+            });
+
             return { scores, recorded };
+        }
+
+        function hasScoreOverride(half, inning) {
+            const overrides = normalizeScoreOverrides(state.scoreOverridesByHalf?.[half]);
+            return overrides[inning - 1] !== null;
+        }
+
+        function promptScoreOverride(half, inning) {
+            const normalizedHalf = half === "bottom" ? "bottom" : "top";
+            const inningNumber = Number(inning);
+            if (!Number.isInteger(inningNumber) || inningNumber < 1 || inningNumber > MAX_INNINGS) {
+                return;
+            }
+            ensureScoreOverridesByHalf();
+            const currentLine = calculateLineScore(normalizedHalf);
+            const currentValue = currentLine.scores[inningNumber - 1] || 0;
+            const existing = state.scoreOverridesByHalf[normalizedHalf][inningNumber - 1];
+            const teamName = state.teamNames[normalizedHalf] || (normalizedHalf === "top" ? "先攻" : "後攻");
+            const input = prompt(
+                teamName + " " + inningNumber + "回の得点を直接補正します。\n\n" +
+                "空欄で自動集計に戻します。現在: " + currentValue,
+                existing === null ? String(currentValue) : String(existing)
+            );
+            if (input === null) {
+                return;
+            }
+            const trimmed = input.trim();
+            let nextValue = null;
+            if (trimmed === "") {
+                nextValue = null;
+            } else {
+                const value = Number(trimmed);
+                if (!Number.isInteger(value) || value < 0 || value > 99) {
+                    alert("0〜99の整数で入力してください。");
+                    return;
+                }
+                nextValue = value;
+            }
+            pushGameHistory();
+            state.scoreOverridesByHalf[normalizedHalf][inningNumber - 1] = nextValue;
+            renderLineScoreBoard();
+            renderGameMiniStatus();
+            scheduleGameAutoSave();
         }
 
         function renderLineScoreBoard() {
@@ -8726,7 +8906,7 @@
             const innings = Array.from({ length: MAX_INNINGS }, (_, index) => index + 1);
             const topLine = calculateLineScore("top");
             const bottomLine = calculateLineScore("bottom");
-            const buildRow = (label, line, isHeader = false) => {
+            const buildRow = (label, line, isHeader = false, half = "") => {
                 const scores = line.scores || [];
                 const recorded = line.recorded || [];
                 const cells = [
@@ -8735,7 +8915,18 @@
                         const value = isHeader
                             ? inning
                             : (recorded[inning - 1] ? scores[inning - 1] : "");
-                        return '<div class="line-score-cell">' + value + '</div>';
+                        const isOverride = !isHeader && hasScoreOverride(half, inning);
+                        const classes = ["line-score-cell"];
+                        if (!isHeader) {
+                            classes.push("is-score-editable");
+                        }
+                        if (isOverride) {
+                            classes.push("is-score-override");
+                        }
+                        const action = !isHeader
+                            ? ' onclick="promptScoreOverride(\'' + half + '\',' + inning + ')" title="タップして得点を直接補正"'
+                            : "";
+                        return '<div class="' + classes.join(" ") + '"' + action + '>' + value + '</div>';
                     }),
                     '<div class="line-score-cell">' + (isHeader ? "計" : scores.reduce((sum, score) => sum + score, 0)) + '</div>'
                 ];
@@ -8744,8 +8935,8 @@
 
             board.innerHTML = [
                 buildRow("回", { scores: innings, recorded: innings.map(() => true) }, true),
-                buildRow(state.teamNames.top || "先攻", topLine),
-                buildRow(state.teamNames.bottom || "後攻", bottomLine)
+                buildRow(state.teamNames.top || "先攻", topLine, false, "top"),
+                buildRow(state.teamNames.bottom || "後攻", bottomLine, false, "bottom")
             ].join("");
         }
 
@@ -9762,6 +9953,7 @@
             addRule(["犠牲フライ", "犠飛"], { fielder: "8", ballType: "fly", result: "OUT", modifiers: { sacrificeFly: true }, note: "初期マスタ: 犠飛" });
             addRule(["犠牲バント", "送りバント", "犠打"], { fielder: "1", ballType: "ground", result: "OUT", modifiers: { sacrificeBunt: true }, note: "初期マスタ: 犠打" });
             addRule(["犠打失敗", "バント失敗"], { fielder: "1", ballType: "ground", result: "Fc", modifiers: { bunt: true, buntFailed: true }, runnerContext: { advances: ["打者走者一塁セーフ"], outsOnBases: ["三塁封殺"] }, note: "初期マスタ: バント失敗" });
+            addRule(["スクイズ失敗", "スクイズ失敗Fc", "スクイズ失敗FC"], { fielder: "1", ballType: "ground", result: "Fc", fieldSequence: ["1", "2"], modifiers: { bunt: true, buntFailed: true, squeezeFailed: true }, runnerContext: { advances: ["打者走者一塁セーフ"], outsOnBases: ["本塁封殺"] }, note: "初期マスタ: スクイズ失敗" });
             addRule(["野手選択", "フィルダースチョイス"], { ballType: "ground", result: "Fc", note: "初期マスタ: 野選" });
             addRule(["ダブルプレー", "併殺"], { fielder: "?", ballType: "ground", result: "OUT", outScore: "Ⅱ", fieldSequence: ["?"], modifiers: { doublePlay: true }, note: "初期マスタ: 併殺" });
             addRule(["トリプルプレー", "三重殺"], { fielder: "?", ballType: "ground", result: "OUT", outScore: "Ⅲ", fieldSequence: ["?"], modifiers: { triplePlay: true }, note: "初期マスタ: 三重殺" });
@@ -17022,6 +17214,20 @@
                         parsed.runnerContext.outsOnBases.push(getForceOutLabelFromSequence(sequence));
                         parsed.runnerContext.advances.push("打者走者一塁セーフ");
                         break;
+                    case "squeeze_failed_fc":
+                        if (sequence.length < 2) {
+                            sequence = [parsed.fielder && parsed.fielder !== "?" ? parsed.fielder : "1", "2"];
+                            parsed.fieldSequence = sequence;
+                            parsed.fielder = sequence[0];
+                        }
+                        parsed.result = parsed.result || "Fc";
+                        parsed.ballType = "ground";
+                        parsed.modifiers.bunt = true;
+                        parsed.modifiers.buntFailed = true;
+                        parsed.modifiers.squeezeFailed = true;
+                        parsed.runnerContext.outsOnBases.push(getForceOutLabelFromSequence(sequence));
+                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        break;
                     case "fc_all_safe":
                         parsed.result = parsed.result || "Fc";
                         parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
@@ -17076,6 +17282,19 @@
                         parsed.modifiers.safetyBuntFailed = true;
                         parsed.fieldSequence = sequence.length >= 2 ? sequence : (sequence.length ? sequence : (parsed.fielder ? [parsed.fielder] : ["?"]));
                         parsed.fielder = parsed.fieldSequence[0] || parsed.fielder || "?";
+                        break;
+                    case "squeeze_failed_out":
+                        if (sequence.length < 2) {
+                            sequence = [parsed.fielder && parsed.fielder !== "?" ? parsed.fielder : "1", "2"];
+                            parsed.fieldSequence = sequence;
+                            parsed.fielder = sequence[0];
+                        }
+                        parsed.result = parsed.result || "OUT";
+                        parsed.ballType = "ground";
+                        parsed.modifiers.bunt = true;
+                        parsed.modifiers.buntFailed = true;
+                        parsed.modifiers.squeezeFailed = true;
+                        parsed.runnerContext.outsOnBases.push(getForceOutLabelFromSequence(sequence));
                         break;
                     case "bunt_failed_out":
                         parsed.result = parsed.result || "OUT";
@@ -17342,13 +17561,15 @@
             } else if (parsed.result === "OUT" && parsed.modifiers?.triplePlay && sequencePhrase) {
                 mainText = sequencePhrase + "の三重殺";
             } else if (parsed.result === "OUT" && parsed.modifiers?.doublePlay && sequencePhrase) {
-                mainText = (parsed.modifiers?.safetyBuntFailed ? "セーフティバント失敗 " : parsed.modifiers?.buntFailed ? "バント失敗 " : "") + sequencePhrase + "の併殺";
+                mainText = (parsed.modifiers?.squeezeFailed ? "スクイズ失敗 " : parsed.modifiers?.safetyBuntFailed ? "セーフティバント失敗 " : parsed.modifiers?.buntFailed ? "バント失敗 " : "") + sequencePhrase + "の併殺";
             } else if (parsed.result === "OUT" && parsed.modifiers?.safetyBuntFailed && sequencePhrase) {
                 mainText = "セーフティバント失敗 " + sequencePhrase + "でアウト";
+            } else if (parsed.result === "OUT" && parsed.modifiers?.squeezeFailed && sequencePhrase) {
+                mainText = "スクイズ失敗 " + sequencePhrase + "でアウト";
             } else if (parsed.result === "OUT" && parsed.ballType === "ground" && sequencePhrase) {
-                mainText = (parsed.modifiers?.buntFailed ? "バント失敗 " : "") + sequencePhrase + "のゴロアウト";
+                mainText = (parsed.modifiers?.squeezeFailed ? "スクイズ失敗 " : parsed.modifiers?.buntFailed ? "バント失敗 " : "") + sequencePhrase + "のゴロアウト";
             } else if (parsed.result === "Fc" && parsed.modifiers?.buntFailed) {
-                mainText = "バント失敗 フィルダースチョイス";
+                mainText = parsed.modifiers?.squeezeFailed ? "スクイズ失敗 フィルダースチョイス" : "バント失敗 フィルダースチョイス";
             } else if (parsed.result === "OUT" && parsed.modifiers?.buntFailed && parsed.ballType === "fly") {
                 mainText = "バントフライ";
             } else if (parsed.result === "OUT" && parsed.modifiers?.buntFailed) {
@@ -17574,6 +17795,32 @@
             const dynamicModifiers = detectParsedModifiers(normalized);
             const dynamicRunnerContext = detectRunnerContext(normalized);
             const numberedSingleMatch = normalized.match(/(?:安打|ヒット)([1-9])|([1-9])(?:安打|ヒット)/);
+
+            if (normalized.includes("スクイズ")) {
+                const explicitSequence = extractFieldSequenceFromText(normalized);
+                const firstReceiver = Array.isArray(explicitSequence) ? explicitSequence[1] : "";
+                const isPlateForce = firstReceiver === "2" || normalized.includes("本塁") || normalized.includes("ホーム");
+                const isFailedSqueeze = normalized.includes("失敗") || normalized.includes("送球アウト") || normalized.includes("アウト") || isPlateForce;
+                const batterRetired = /(?:打者|打者走者|一塁|1塁)(?:が|は)?アウト/.test(normalized);
+                const sequence = explicitSequence || (dynamicFielder ? [dynamicFielder, "2"] : ["1", "2"]);
+                if (isFailedSqueeze && !batterRetired) {
+                    return buildSqueezeFailedFcParsed(normalized, sequence, dynamicRunnerContext, dynamicFielder || "1");
+                }
+                if (isFailedSqueeze) {
+                    return {
+                        fielder: sequence[0] || dynamicFielder || "1",
+                        direction: dynamicDirection,
+                        ballType: "ground",
+                        result: "OUT",
+                        fieldSequence: sequence,
+                        modifiers: { bunt: true, buntFailed: true, squeezeFailed: true },
+                        runnerContext: dynamicRunnerContext,
+                        note: normalized,
+                        confidence: 0.84,
+                        source: "rule"
+                    };
+                }
+            }
 
             if (normalized.includes("バントヒット")) {
                 return {
@@ -18553,7 +18800,8 @@
             return {
                 foul: text.includes("ファウル"),
                 bunt: text.includes("バント"),
-                buntFailed: text.includes("バント失敗"),
+                buntFailed: text.includes("バント失敗") || text.includes("スクイズ失敗"),
+                squeezeFailed: text.includes("スクイズ失敗"),
                 safetyBuntFailed: text.includes("セーフティ") && (text.includes("失敗") || text.includes("アウト")),
                 sacrificeFly: text.includes("犠飛"),
                 sacrificeBunt: text.includes("犠打"),
@@ -18572,6 +18820,9 @@
             }
             if (modifiers.buntFailed) {
                 labels.push("バント失敗");
+            }
+            if (modifiers.squeezeFailed) {
+                labels.push("スクイズ失敗");
             }
             if (modifiers.safetyBuntFailed) {
                 labels.push("セーフティ失敗");
@@ -18761,6 +19012,7 @@
                 state.modifiers.foul = Boolean(parsed.modifiers.foul);
                 state.modifiers.bunt = Boolean(parsed.modifiers.bunt);
                 state.modifiers.buntFailed = Boolean(parsed.modifiers.buntFailed);
+                state.modifiers.squeezeFailed = Boolean(parsed.modifiers.squeezeFailed);
                 state.modifiers.safetyBuntFailed = Boolean(parsed.modifiers.safetyBuntFailed);
                 state.modifiers.sacrificeFly = Boolean(parsed.modifiers.sacrificeFly);
                 state.modifiers.sacrificeBunt = Boolean(parsed.modifiers.sacrificeBunt);
@@ -18986,6 +19238,7 @@
             state.modifiers.foul = false;
             state.modifiers.bunt = false;
             state.modifiers.buntFailed = false;
+            state.modifiers.squeezeFailed = false;
             state.modifiers.safetyBuntFailed = false;
             state.modifiers.sacrificeFly = false;
             state.modifiers.sacrificeBunt = false;
@@ -20482,6 +20735,9 @@
             if (state.modifiers.bunt) {
                 modifiers.push("バント");
             }
+            if (state.modifiers.squeezeFailed) {
+                modifiers.push("スクイズ失敗");
+            }
             if (state.modifiers.sacrificeFly) {
                 modifiers.push("犠飛");
             }
@@ -20720,6 +20976,10 @@
         state.inningLabelsByHalf = {
             top: createDefaultInningLabels(),
             bottom: createDefaultInningLabels()
+        };
+        state.scoreOverridesByHalf = {
+            top: createEmptyScoreOverrides(),
+            bottom: createEmptyScoreOverrides()
         };
         state.baseRunnersByHalf = {
             top: [null, null, null],
