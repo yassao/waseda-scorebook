@@ -5004,7 +5004,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.34";
+        const APP_VERSION = "0.2.35";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5208,6 +5208,7 @@
             runnerContextText: "",
             runnerContext: null,
             baseRunners: [null, null, null],
+            correctionEditContext: null,
             currentConfidence: 1,
             atBatComment: "",
             atBatCommentMeta: null,
@@ -5277,6 +5278,7 @@
         let isSheetPinching = false;
         let gameAutoSaveTimer = null;
         let isRestoringSavedGame = false;
+        let isRunnerContextRebuild = false;
         let hideStartScreenAfterJsonImport = false;
         let aiPromptTarget = "twitter";
         let currentAiPromptText = "";
@@ -5862,6 +5864,7 @@
             Object.assign(state, deepClone(snapshot.state));
             state.inputLayout = state.inputLayout === "left" ? "left" : "right";
             state.scorebookStyle = state.scorebookStyle === "keio" ? "keio" : "waseda";
+            state.correctionEditContext = null;
             state.playDetails = normalizePlayDetails(snapshot.state.playDetails);
             state.gameInfo = normalizeGameInfo(state.gameInfo || snapshot.game || {});
             ensureScoreOverridesByHalf();
@@ -9764,6 +9767,7 @@
             }
             state.activeHalf = half;
             syncActiveHalfRefs();
+            clearCorrectionEditContext();
 
             const saved = state.selectionsByHalf[half] || { row: 0, col: 0 };
             state.selectedSheetRow = Number.isInteger(row) ? row : saved.row;
@@ -10185,6 +10189,9 @@
         }
 
         function setRunnerStatusForRef(ref, text) {
+            if (isRunnerContextRebuild) {
+                return;
+            }
             const snapshot = getSnapshotByRef(ref);
             if (snapshot) {
                 if (!Array.isArray(snapshot.runnerStatusEvents)) {
@@ -10248,6 +10255,9 @@
         }
 
         function setOutScoreForRef(ref, text) {
+            if (isRunnerContextRebuild) {
+                return;
+            }
             const snapshot = getSnapshotByRef(ref);
             if (snapshot) {
                 snapshot.outScore = text;
@@ -10314,62 +10324,84 @@
             );
         }
 
-        function getPreviousOutCountForCell(row, col) {
-            const inning = getColumnInningLabel(col);
-            let maxOutsInSameInning = 0;
-            for (let scanCol = 0; scanCol < MAX_INNINGS; scanCol += 1) {
-                if (getColumnInningLabel(scanCol) !== inning) {
+        function findPreviousInningEndRow(half, inning) {
+            const sheet = state.scoreSheets?.[half] || createEmptyScoreSheet();
+            let best = null;
+            for (let col = 0; col < MAX_INNINGS; col += 1) {
+                const label = Number(getColumnInningLabel(col, half));
+                if (!Number.isFinite(label) || label >= Number(inning)) {
                     continue;
                 }
-                for (let scanRow = 0; scanRow < 9; scanRow += 1) {
-                    if (scanRow === row && scanCol === col) {
+                for (let row = 0; row < 9; row += 1) {
+                    const snapshot = sheet[row]?.[col];
+                    if (!snapshot || getSnapshotOutCount(snapshot) < 3) {
                         continue;
                     }
-                    const snapshot = state.scoreSheet?.[scanRow]?.[scanCol];
-                    maxOutsInSameInning = Math.max(maxOutsInSameInning, getSnapshotOutCount(snapshot));
+                    const candidate = { inning: label, col, row };
+                    if (!best
+                        || candidate.inning > best.inning
+                        || (candidate.inning === best.inning && candidate.col > best.col)) {
+                        best = candidate;
+                    }
                 }
             }
-            if (maxOutsInSameInning > 0) {
-                return maxOutsInSameInning;
-            }
+            return best ? best.row : null;
+        }
 
-            for (let prevRow = row - 1; prevRow >= 0; prevRow -= 1) {
-                const previousSnapshot = state.scoreSheet?.[prevRow]?.[col];
-                if (!previousSnapshot) {
+        function inferInningStartRow(half, inning) {
+            const previousEndRow = findPreviousInningEndRow(half, inning);
+            if (Number.isInteger(previousEndRow)) {
+                return (previousEndRow + 1) % 9;
+            }
+            const sheet = state.scoreSheets?.[half] || createEmptyScoreSheet();
+            for (let col = 0; col < MAX_INNINGS; col += 1) {
+                if (getColumnInningLabel(col, half) !== inning) {
                     continue;
                 }
-                const outCount = getSnapshotOutCount(previousSnapshot);
-                if (outCount > 0) {
-                    return outCount;
-                }
-            }
-
-            if (row === 0) {
-                for (let prevRow = 8; prevRow > 0; prevRow -= 1) {
-                    const previousSnapshot = state.scoreSheet?.[prevRow]?.[col];
-                    if (!previousSnapshot) {
-                        continue;
-                    }
-                    const outCount = getSnapshotOutCount(previousSnapshot);
-                    if (outCount > 0) {
-                        return outCount;
-                    }
-                }
-            }
-
-            for (let prevCol = col - 1; prevCol >= 0 && getColumnInningLabel(prevCol) === inning; prevCol -= 1) {
-                for (let prevRow = 8; prevRow >= 0; prevRow -= 1) {
-                    const previousSnapshot = state.scoreSheet?.[prevRow]?.[prevCol];
-                    if (!previousSnapshot) {
-                        continue;
-                    }
-                    const outCount = getSnapshotOutCount(previousSnapshot);
-                    if (outCount > 0) {
-                        return outCount;
+                for (let row = 0; row < 9; row += 1) {
+                    if (sheet[row]?.[col]) {
+                        return row;
                     }
                 }
             }
             return 0;
+        }
+
+        function getRowsFromBattingStart(startRow) {
+            const normalizedStart = Number.isInteger(startRow) && startRow >= 0 && startRow < 9 ? startRow : 0;
+            return Array.from({ length: 9 }, (_, index) => (normalizedStart + index) % 9);
+        }
+
+        function getOrderedCellsForInning(half, inning) {
+            const rows = getRowsFromBattingStart(inferInningStartRow(half, inning));
+            const cells = [];
+            for (let col = 0; col < MAX_INNINGS; col += 1) {
+                if (getColumnInningLabel(col, half) !== inning) {
+                    continue;
+                }
+                rows.forEach((row) => cells.push({ row, col }));
+            }
+            return cells;
+        }
+
+        function getCellOrderIndex(cells, row, col) {
+            return cells.findIndex((cell) => cell.row === row && cell.col === col);
+        }
+
+        function getCellsBeforeTarget(half, row, col) {
+            const inning = getColumnInningLabel(col, half);
+            const cells = getOrderedCellsForInning(half, inning);
+            const targetIndex = getCellOrderIndex(cells, row, col);
+            return targetIndex >= 0 ? cells.slice(0, targetIndex) : cells.filter((cell) => cell.col < col);
+        }
+
+        function getPreviousOutCountForCell(row, col, half = state.activeHalf) {
+            const sheet = state.scoreSheets?.[half] || state.scoreSheet || createEmptyScoreSheet();
+            let previousOuts = 0;
+            getCellsBeforeTarget(half, row, col).forEach((cell) => {
+                previousOuts = Math.max(previousOuts, getSnapshotOutCount(sheet[cell.row]?.[cell.col]));
+            });
+            return previousOuts;
         }
 
         function resolveSnapshotOutScore(row, col, snapshot) {
@@ -10986,6 +11018,9 @@
         }
 
         function markRunnerOutOnSnapshot(ref, outScore) {
+            if (isRunnerContextRebuild) {
+                return;
+            }
             const snapshot = getSnapshotByRef(ref);
             if (!snapshot) {
                 return;
@@ -11762,6 +11797,63 @@
             }
 
             setBaseRunners(runners);
+        }
+
+        function rebuildBaseRunnerContextBeforeCell(half, row, col) {
+            const normalizedHalf = half === "bottom" ? "bottom" : "top";
+            const sheet = state.scoreSheets?.[normalizedHalf] || createEmptyScoreSheet();
+            state.activeHalf = normalizedHalf;
+            syncActiveHalfRefs();
+            state.selectedSheetRow = row;
+            state.selectedSheetCol = col;
+            state.battingOrder = String(row + 1);
+            state.retiredRunnerPreviewsByHalf[normalizedHalf] = [];
+            state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[normalizedHalf];
+            setBaseRunners([null, null, null]);
+
+            isRunnerContextRebuild = true;
+            try {
+                getCellsBeforeTarget(normalizedHalf, row, col).forEach((cell) => {
+                    const snapshot = sheet[cell.row]?.[cell.col];
+                    if (!snapshot) {
+                        return;
+                    }
+                    state.selectedSheetRow = cell.row;
+                    state.selectedSheetCol = cell.col;
+                    state.battingOrder = String(cell.row + 1);
+                    updateBaseRunnersForSnapshot(cell.row, cell.col, snapshot);
+                });
+            } finally {
+                isRunnerContextRebuild = false;
+            }
+
+            const context = {
+                half: normalizedHalf,
+                row,
+                col,
+                baseRunnersBefore: deepClone(state.baseRunners),
+                outsBefore: getPreviousOutCountForCell(row, col, normalizedHalf)
+            };
+            state.selectedSheetRow = row;
+            state.selectedSheetCol = col;
+            state.battingOrder = String(row + 1);
+            setBaseRunners(deepClone(context.baseRunnersBefore));
+            state.correctionEditContext = context;
+            return context;
+        }
+
+        function isCorrectionEditContextForCell(row = state.selectedSheetRow, col = state.selectedSheetCol, half = state.activeHalf) {
+            const context = state.correctionEditContext;
+            return Boolean(
+                context
+                && context.half === (half === "bottom" ? "bottom" : "top")
+                && context.row === row
+                && context.col === col
+            );
+        }
+
+        function clearCorrectionEditContext() {
+            state.correctionEditContext = null;
         }
 
         function rebuildBaseRunnersForHalf(half = state.activeHalf) {
@@ -12934,20 +13026,31 @@
             scheduleGameAutoSave();
         }
 
-        function selectSheetCell(row, col) {
+        function selectSheetCell(row, col, options = {}) {
             if (suppressSheetCellClick) {
                 suppressSheetCellClick = false;
                 return;
             }
+            const normalizedOptions = typeof options === "string" ? { half: options } : (options || {});
+            const targetHalf = ["top", "bottom"].includes(normalizedOptions.half) ? normalizedOptions.half : state.activeHalf;
             saveActiveSelection();
+            if (targetHalf !== state.activeHalf) {
+                state.activeHalf = targetHalf;
+                syncActiveHalfRefs();
+            }
             state.selectedSheetRow = row;
             state.selectedSheetCol = col;
             state.battingOrder = String(row + 1);
             setElementValue("battingOrderSelect", state.battingOrder);
             const snapshot = state.scoreSheet[row][col];
             if (snapshot) {
+                rebuildBaseRunnerContextBeforeCell(state.activeHalf, row, col);
                 applyAtBatSnapshot(snapshot);
+                updateRunnerGuiStatus(
+                    "修正中: この打席開始時の走者とアウトを復元しました。保存しても攻守交代判定は行いません。"
+                );
             } else {
+                clearCorrectionEditContext();
                 resetState();
                 state.selectedSheetRow = row;
                 state.selectedSheetCol = col;
@@ -13018,24 +13121,24 @@
             if (!cellActionTarget) {
                 return;
             }
-            const { row, col } = cellActionTarget;
+            const { half, row, col } = cellActionTarget;
             closeCellActionPopup();
-            selectSheetCell(row, col);
+            selectSheetCell(row, col, { half });
         }
 
         function editCellRunnerResult() {
             if (!cellActionTarget) {
                 return;
             }
-            const { row, col } = cellActionTarget;
+            const { half, row, col } = cellActionTarget;
             const label = getColumnInningLabel(col) + "回 " + (row + 1) + "番";
             closeCellActionPopup();
-            selectSheetCell(row, col);
+            selectSheetCell(row, col, { half });
             const commentLabel = document.getElementById("commentTargetLabel");
             if (commentLabel) {
                 commentLabel.textContent = "対象: " + label + "（走塁編集）";
             }
-            window.alert("このマスを走塁結果の修正対象として開きました。右側の走者プレビューから、到達塁・アウト・得点などを修正してください。");
+            window.alert("この打席開始時点の走者とアウトを復元しました。右側の走者プレビューから、到達塁・アウト・得点などを修正してください。");
         }
 
         function isScoreEvent(event) {
@@ -13447,9 +13550,9 @@
             if (!commentPopupTarget) {
                 return;
             }
-            const { row, col } = commentPopupTarget;
+            const { half, row, col } = commentPopupTarget;
             closeAtBatCommentPopup();
-            selectSheetCell(row, col);
+            selectSheetCell(row, col, { half });
         }
 
         function editPlayDetailsFromCommentPopup() {
@@ -14296,6 +14399,9 @@
             if (isBatterSafeFielderChoice(snapshot)) {
                 snapshot.outScore = "";
             }
+            if (isCorrectionEditContextForCell()) {
+                setBaseRunners(deepClone(state.correctionEditContext.baseRunnersBefore || [null, null, null]));
+            }
             snapshot.outScore = resolveSnapshotOutScore(state.selectedSheetRow, state.selectedSheetCol, snapshot);
             state.scoreSheet[state.selectedSheetRow][state.selectedSheetCol] = snapshot;
             updateBaseRunnersForSnapshot(state.selectedSheetRow, state.selectedSheetCol, snapshot);
@@ -14304,6 +14410,7 @@
         }
 
         function advanceToNextSheetCell() {
+            clearCorrectionEditContext();
             let nextRow = state.selectedSheetRow + 1;
             let nextCol = state.selectedSheetCol;
             if (nextRow >= 9) {
@@ -14377,6 +14484,10 @@
         }
 
         function saveAndAdvanceCurrentPlate() {
+            const isCorrectionEdit = isCorrectionEditContextForCell();
+            if (isCorrectionEdit) {
+                setBaseRunners(deepClone(state.correctionEditContext.baseRunnersBefore || [null, null, null]));
+            }
             const previewSnapshot = captureAtBatSnapshot();
             previewSnapshot.outScore = resolveSnapshotOutScore(state.selectedSheetRow, state.selectedSheetCol, previewSnapshot);
             if (!confirmDoublePlayInterpretation(previewSnapshot)) {
@@ -14386,6 +14497,17 @@
             }
             pushGameHistory();
             const snapshot = saveCurrentToSheet();
+            if (isCorrectionEdit) {
+                rebuildBaseRunnerContextBeforeCell(state.activeHalf, state.selectedSheetRow, state.selectedSheetCol);
+                applyAtBatSnapshot(snapshot);
+                renderScoreSheet();
+                renderLineScoreBoard();
+                renderGameMiniStatus();
+                updateDisplay();
+                scheduleGameAutoSave();
+                updateRunnerGuiStatus("修正を保存しました。攻守交代せず、この打席開始時の走者を再表示しています。");
+                return;
+            }
             advanceAfterSave(snapshot);
         }
 
@@ -17059,9 +17181,17 @@
             }
             if (message) {
                 const displayMessage = appendRunnerIntegrityWarnings(message);
-                status.textContent = displayMessage.includes("対象外") || displayMessage.includes("戻しました") || displayMessage.includes("移動先") || displayMessage.includes("消去") || displayMessage.includes("確認:")
+                status.textContent = displayMessage.includes("対象外") || displayMessage.includes("戻しました") || displayMessage.includes("移動先") || displayMessage.includes("消去") || displayMessage.includes("確認:") || displayMessage.includes("修正中") || displayMessage.includes("保存しました")
                     ? displayMessage
                     : displayMessage + " を追記しました。";
+                return;
+            }
+            if (isCorrectionEditContextForCell()) {
+                const context = state.correctionEditContext;
+                const outsText = outCountToRoman(context?.outsBefore || 0) || "0アウト";
+                status.textContent = appendRunnerIntegrityWarnings(
+                    "修正中: この打席開始時点の走者と" + outsText + "から再編集します。保存しても攻守交代しません。"
+                );
                 return;
             }
             const baseText = state.runnerContextText && state.runnerContextText !== "なし"
@@ -21026,6 +21156,7 @@
         }
 
         function resetState() {
+            clearCorrectionEditContext();
             state.pitches = [];
             state.pitchNotes = [];
             state.pitchComments = [];
