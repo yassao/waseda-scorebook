@@ -5004,7 +5004,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.37";
+        const APP_VERSION = "0.2.38";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9783,6 +9783,9 @@
             if (snapshot) {
                 applyAtBatSnapshot(snapshot);
             } else {
+                rebuildBaseRunnerContextBeforeCell(state.activeHalf, state.selectedSheetRow, state.selectedSheetCol, {
+                    setCorrectionContext: false
+                });
                 resetState();
                 state.selectedSheetRow = Number.isInteger(row) ? row : saved.row;
                 state.selectedSheetCol = Number.isInteger(col) ? col : saved.col;
@@ -11835,7 +11838,7 @@
             setBaseRunners(runners);
         }
 
-        function rebuildBaseRunnerContextBeforeCell(half, row, col) {
+        function rebuildBaseRunnerContextBeforeCell(half, row, col, options = {}) {
             const normalizedHalf = half === "bottom" ? "bottom" : "top";
             const sheet = state.scoreSheets?.[normalizedHalf] || createEmptyScoreSheet();
             state.activeHalf = normalizedHalf;
@@ -11874,7 +11877,11 @@
             state.selectedSheetCol = col;
             state.battingOrder = String(row + 1);
             setBaseRunners(deepClone(context.baseRunnersBefore));
-            state.correctionEditContext = context;
+            if (options.setCorrectionContext === false) {
+                clearCorrectionEditContext();
+            } else {
+                state.correctionEditContext = context;
+            }
             return context;
         }
 
@@ -13100,7 +13107,9 @@
                     "修正中: この打席開始時の走者とアウトを復元しました。保存しても攻守交代判定は行いません。"
                 );
             } else {
-                clearCorrectionEditContext();
+                rebuildBaseRunnerContextBeforeCell(state.activeHalf, row, col, {
+                    setCorrectionContext: false
+                });
                 resetState();
                 state.selectedSheetRow = row;
                 state.selectedSheetCol = col;
