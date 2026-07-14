@@ -5004,7 +5004,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.36";
+        const APP_VERSION = "0.2.37";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8904,7 +8904,7 @@
             const ok = window.confirm(
                 teamName + " " + inningNumber + "回は得点板を直接補正中です。\n\n" +
                 "このままだと、スコアブック側を修正しても得点板の表示は直接補正値が優先されます。\n" +
-                "自動集計へ戻してから、この打席の得点修正を反映しますか？"
+                "自動集計へ戻してから、生還/残塁/アウトの修正を反映しますか？"
             );
             if (ok && apply) {
                 state.scoreOverridesByHalf[normalizedHalf][inningNumber - 1] = null;
@@ -9908,7 +9908,40 @@
             }
             const liveSnapshot = captureAtBatSnapshot();
             liveSnapshot.outScore = resolveSnapshotOutScore(row, col, liveSnapshot);
-            return liveSnapshot;
+            return buildProjectedLiveCurrentSnapshot(row, col, liveSnapshot);
+        }
+
+        function buildProjectedLiveCurrentSnapshot(row, col, liveSnapshot) {
+            if (!liveSnapshot) {
+                return liveSnapshot;
+            }
+            const activeHalf = state.activeHalf === "bottom" ? "bottom" : "top";
+            const originalScoreSheet = state.scoreSheet;
+            const originalHalfSheet = state.scoreSheets[activeHalf];
+            const originalBaseRunners = deepClone(state.baseRunners);
+            const originalBaseRunnersByHalf = deepClone(state.baseRunnersByHalf);
+            const originalRetiredRunnerPreviews = deepClone(state.retiredRunnerPreviews);
+            const originalRetiredRunnerPreviewsByHalf = deepClone(state.retiredRunnerPreviewsByHalf);
+            const originalRebuildFlag = isRunnerContextRebuild;
+            const workingSheet = deepClone(originalScoreSheet || createEmptyScoreSheet());
+            workingSheet[row][col] = deepClone(liveSnapshot);
+
+            try {
+                state.scoreSheet = workingSheet;
+                state.scoreSheets[activeHalf] = workingSheet;
+                setBaseRunners(deepClone(originalBaseRunners));
+                isRunnerContextRebuild = false;
+                updateBaseRunnersForSnapshot(row, col, workingSheet[row][col]);
+                return deepClone(workingSheet[row][col]);
+            } finally {
+                isRunnerContextRebuild = originalRebuildFlag;
+                state.scoreSheet = originalScoreSheet;
+                state.scoreSheets[activeHalf] = originalHalfSheet;
+                state.baseRunners = originalBaseRunners;
+                state.baseRunnersByHalf = originalBaseRunnersByHalf;
+                state.retiredRunnerPreviews = originalRetiredRunnerPreviews;
+                state.retiredRunnerPreviewsByHalf = originalRetiredRunnerPreviewsByHalf;
+            }
         }
 
         function appendRunnerEventPreview(snapshot, event) {
@@ -10464,6 +10497,9 @@
                 return "";
             }
             if (text === "残塁") {
+                return { kind: "leftOnBase", label: "ℓ" };
+            }
+            if (text?.type === "left_on_base") {
                 return { kind: "leftOnBase", label: "ℓ" };
             }
             if (text === "生還") {
@@ -13113,6 +13149,7 @@
                 '<div class="cell-action-buttons">',
                 '<button type="button" onclick="editCellBatterResult()">打撃結果を編集</button>',
                 '<button type="button" onclick="editCellRunnerResult()">走塁結果を編集</button>',
+                '<button type="button" onclick="editCellRunnerTerminalStatus()">生還/残塁/アウト</button>',
                 '<button type="button" onclick="editCellComment()">一言メモを編集</button>',
                 '<button type="button" onclick="editCellPlayDetails()">詳細入力</button>',
                 '<button type="button" onclick="closeCellActionPopup()">閉じる</button>',
@@ -13154,26 +13191,6 @@
             window.alert("この打席開始時点の走者とアウトを復元しました。右側の走者プレビューから、到達塁・アウト・得点などを修正してください。");
         }
 
-        function isScoreEvent(event) {
-            return event?.type === "score" || event === "生還";
-        }
-
-        function getSnapshotScoreEventCount(snapshot) {
-            return getRunnerStatusEvents(snapshot).filter(isScoreEvent).length;
-        }
-
-        function buildManualScoreCorrectionEvent(half, row, col, snapshot, index) {
-            return {
-                type: "score",
-                by: Number(snapshot?.battingOrder) || row + 1,
-                label: "得点補正",
-                scoredHalf: half,
-                scoredInning: getInningLabels(half)[col] || (col + 1),
-                manualScoreCorrection: true,
-                correctionIndex: index + 1
-            };
-        }
-
         function refreshAfterScorebookCorrection(half, row, col, message = "") {
             if (half === state.activeHalf && row === state.selectedSheetRow && col === state.selectedSheetCol) {
                 const snapshot = state.scoreSheets?.[half]?.[row]?.[col];
@@ -13193,7 +13210,80 @@
             }
         }
 
-        function setScoreEventsForCell(target, runCount) {
+        function isRunnerTerminalStatusEvent(event) {
+            return Boolean(
+                event?.manualScoreCorrection
+                || event?.manualRunnerTerminal
+                || event?.type === "score"
+                || event?.type === "out"
+                || event?.type === "left_on_base"
+                || event === "生還"
+                || event === "残塁"
+            );
+        }
+
+        function getRunnerTerminalStatusLabel(snapshot) {
+            const terminal = getRunnerStatusEvents(snapshot)
+                .slice()
+                .reverse()
+                .find(isRunnerTerminalStatusEvent);
+            if (!terminal) {
+                return "未指定";
+            }
+            if (terminal?.type === "score" || terminal === "生還") {
+                return "生還（得点）";
+            }
+            if (terminal?.type === "left_on_base" || terminal === "残塁") {
+                return "残塁";
+            }
+            if (terminal?.type === "out") {
+                return "アウト" + (terminal.outScore ? "（" + terminal.outScore + "）" : "");
+            }
+            return "未指定";
+        }
+
+        function buildManualRunnerTerminalEvent(target, status) {
+            const half = target.half === "bottom" ? "bottom" : "top";
+            const row = target.row;
+            const col = target.col;
+            const snapshot = state.scoreSheets?.[half]?.[row]?.[col] || target.snapshot;
+            const by = Number(snapshot?.battingOrder) || row + 1;
+            if (status === "score") {
+                return {
+                    type: "score",
+                    by,
+                    label: "",
+                    scoredHalf: half,
+                    scoredInning: getInningLabels(half)[col] || (col + 1),
+                    manualRunnerTerminal: true
+                };
+            }
+            if (status === "left") {
+                return {
+                    type: "left_on_base",
+                    label: "残塁",
+                    by,
+                    manualRunnerTerminal: true
+                };
+            }
+            if (status === "out") {
+                const existingOut = getRunnerStatusEvents(snapshot)
+                    .slice()
+                    .reverse()
+                    .find((event) => event?.type === "out" && event.outScore);
+                const previousOuts = getPreviousOutCountForCell(row, col, half);
+                return {
+                    type: "out",
+                    label: "アウト",
+                    outScore: existingOut?.outScore || outCountToRoman(Math.min(3, previousOuts + 1)) || "Ⅰ",
+                    by,
+                    manualRunnerTerminal: true
+                };
+            }
+            return null;
+        }
+
+        function setRunnerTerminalStatusForCell(target, status) {
             if (!target) {
                 return false;
             }
@@ -13205,11 +13295,22 @@
             if (!snapshot) {
                 return false;
             }
+            const inningNumber = getInningLabels(half)[col] || (col + 1);
+            const hadScoreOverride = hasScoreOverride(half, inningNumber);
+            if (!clearScoreOverrideForInningIfNeeded(half, inningNumber, false)) {
+                return false;
+            }
+            pushGameHistory();
+            if (hadScoreOverride) {
+                ensureScoreOverridesByHalf();
+                state.scoreOverridesByHalf[half][inningNumber - 1] = null;
+            }
             const events = getRunnerStatusEvents(snapshot)
-                .filter((event) => !isScoreEvent(event))
+                .filter((event) => !isRunnerTerminalStatusEvent(event))
                 .map((event) => deepClone(event));
-            for (let index = 0; index < runCount; index += 1) {
-                events.push(buildManualScoreCorrectionEvent(half, row, col, snapshot, index));
+            const terminalEvent = buildManualRunnerTerminalEvent(target, status);
+            if (terminalEvent) {
+                events.push(terminalEvent);
             }
             snapshot.runnerStatusEvents = events;
             snapshot.runnerStatusText = events[events.length - 1] || "";
@@ -13220,7 +13321,7 @@
             return true;
         }
 
-        function promptCellScoreEvents(target) {
+        function renderRunnerTerminalStatusPopup(target) {
             if (!target) {
                 return;
             }
@@ -13232,46 +13333,65 @@
                 window.alert("このマスにはまだ記録がありません。先に打席を保存してください。");
                 return;
             }
-            const currentRuns = getSnapshotScoreEventCount(snapshot);
+            cellActionTarget = { snapshot, half, row, col };
+            const popup = document.getElementById("cellActionPopup");
+            const backdrop = document.getElementById("cellActionPopupBackdrop");
+            if (!popup || !backdrop) {
+                return;
+            }
+            if (popup.parentElement !== document.body) {
+                document.body.appendChild(popup);
+            }
+            if (backdrop.parentElement !== document.body) {
+                document.body.appendChild(backdrop);
+            }
             const label = getCellActionLabel(half, row, col);
-            const input = window.prompt(
-                label + " で入った得点数を修正します。\n\n" +
-                "0〜4の数字を入れると、この打席の得点イベントを置き換え、得点板へ反映します。\n" +
-                "細かい走者線はあとから走塁編集で直せます。",
-                String(currentRuns)
-            );
-            if (input === null) {
+            const currentStatus = getRunnerTerminalStatusLabel(snapshot);
+            popup.innerHTML = [
+                '<div class="cell-action-popup-title">' + escapeHtml(label) + '</div>',
+                '<div class="cell-action-popup-help">この選手・走者の最終状態を修正します。現在: ' + escapeHtml(currentStatus) + '。生還を選ぶと得点板へ反映し、残塁/アウト/クリアに変えるとその得点は外れます。</div>',
+                '<div class="cell-action-buttons">',
+                '<button type="button" class="btn-hit" onclick="applyCellRunnerTerminalStatus(\'score\')">本塁に帰還（得点）</button>',
+                '<button type="button" onclick="applyCellRunnerTerminalStatus(\'left\')">残塁</button>',
+                '<button type="button" onclick="applyCellRunnerTerminalStatus(\'out\')">アウト</button>',
+                '<button type="button" onclick="applyCellRunnerTerminalStatus(\'clear\')">最終状態をクリア</button>',
+                '<button type="button" onclick="closeCellActionPopup()">閉じる</button>',
+                '</div>'
+            ].join("");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            backdrop.classList.add("is-open");
+        }
+
+        function applyCellRunnerTerminalStatus(status) {
+            if (!cellActionTarget) {
                 return;
             }
-            const trimmed = input.trim();
-            const value = Number(trimmed);
-            if (!Number.isInteger(value) || value < 0 || value > 4 || trimmed === "") {
-                window.alert("0〜4の整数で入力してください。");
+            const target = cellActionTarget;
+            const labels = {
+                score: "生還（得点）",
+                left: "残塁",
+                out: "アウト",
+                clear: "最終状態なし"
+            };
+            if (setRunnerTerminalStatusForCell(target, status)) {
+                closeCellActionPopup();
+                refreshAfterScorebookCorrection(target.half, target.row, target.col, labels[status] + "に修正しました");
+            }
+        }
+
+        function editCellRunnerTerminalStatus() {
+            if (!cellActionTarget) {
                 return;
             }
-            const inningNumber = getInningLabels(half)[col] || (col + 1);
-            const hadScoreOverride = hasScoreOverride(half, inningNumber);
-            if (!clearScoreOverrideForInningIfNeeded(half, inningNumber, false)) {
-                return;
-            }
-            pushGameHistory();
-            if (hadScoreOverride) {
-                ensureScoreOverridesByHalf();
-                state.scoreOverridesByHalf[half][inningNumber - 1] = null;
-            }
-            if (!setScoreEventsForCell(target, value)) {
-                return;
-            }
-            refreshAfterScorebookCorrection(half, row, col, "この打席の得点を" + value + "点に修正しました");
+            renderRunnerTerminalStatusPopup(cellActionTarget);
         }
 
         function editCellScoreEvents() {
             if (!cellActionTarget) {
                 return;
             }
-            const target = cellActionTarget;
-            closeCellActionPopup();
-            promptCellScoreEvents(target);
+            renderRunnerTerminalStatusPopup(cellActionTarget);
         }
 
         function editCellComment() {
@@ -13504,6 +13624,7 @@
                     '<button type="button" onclick="closeAtBatCommentPopup()">OK</button>',
                     '<button type="button" class="btn-hit" onclick="renderAtBatCommentPopup(true)">修正</button>',
                     '<button type="button" onclick="editPlayDetailsFromCommentPopup()">詳細入力</button>',
+                    '<button type="button" onclick="editRunnerTerminalFromCommentPopup()">生還/残塁/アウト</button>',
                     '<button type="button" onclick="editInputFromCommentPopup()">入力画面で編集</button>'
                 ];
             popup.innerHTML = [
@@ -13555,7 +13676,16 @@
             }
             const target = commentPopupTarget;
             closeAtBatCommentPopup();
-            promptCellScoreEvents(target);
+            renderRunnerTerminalStatusPopup(target);
+        }
+
+        function editRunnerTerminalFromCommentPopup() {
+            if (!commentPopupTarget) {
+                return;
+            }
+            const target = commentPopupTarget;
+            closeAtBatCommentPopup();
+            renderRunnerTerminalStatusPopup(target);
         }
 
         function editInputFromCommentPopup() {
