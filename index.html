@@ -504,6 +504,7 @@
         .header-home-btn,
         .workspace-toggle-btn,
         .input-layout-toggle-btn,
+        .header-sheet-change-btn,
         .header-feedback-btn,
         .header-help-btn {
             width: 34px;
@@ -555,6 +556,16 @@
             background: rgba(232, 247, 245, 0.92);
             color: #0f4f4a;
             border-color: #0f766e;
+            font-size: 12px;
+        }
+
+        .header-sheet-change-btn {
+            width: auto;
+            min-width: 50px;
+            padding: 0 10px;
+            border-color: #1f7a8c;
+            background: rgba(238, 248, 246, 0.94);
+            color: #0f4f4a;
             font-size: 12px;
         }
 
@@ -4534,11 +4545,19 @@
 
             .history-btn,
             .header-home-btn,
+            .header-sheet-change-btn,
             .header-feedback-btn,
             .header-help-btn {
                 width: 30px;
                 min-height: 30px;
                 font-size: 16px;
+            }
+
+            .header-sheet-change-btn {
+                width: auto;
+                min-width: 42px;
+                padding: 0 7px;
+                font-size: 10px;
             }
 
             .header-feedback-btn {
@@ -4837,6 +4856,7 @@
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
                 <button id="workspaceToggleBtn" class="workspace-toggle-btn" onclick="toggleTopWorkspace()" aria-label="入力とスコアブックを切替">スコアブック</button>
                 <button id="inputLayoutToggleBtn" class="input-layout-toggle-btn" onclick="toggleInputLayout()" aria-label="右手入力と左手入力を切替">右手</button>
+                <button class="header-sheet-change-btn" onclick="openSheetChangeDialogForCurrentDefense()" aria-label="守備側のシート変更を開く" title="シート変更">守備</button>
                 <button class="header-feedback-btn" onclick="openFeedbackPopup()" aria-label="フィードバックを送る">FB</button>
                 <button class="header-help-btn" onclick="showPlayBuilderHelp()" aria-label="ヘルプ">?</button>
             </div>
@@ -5251,7 +5271,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.48";
+        const APP_VERSION = "0.2.49";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9678,6 +9698,18 @@
             popup.classList.add("is-open");
             popup.setAttribute("aria-hidden", "false");
             updateSheetChangePreview();
+        }
+
+        function openSheetChangeDialogForCurrentDefense() {
+            const battingHalf = state.activeHalf === "bottom" ? "bottom" : "top";
+            const defenseHalf = getOpponentHalf(battingHalf);
+            openSheetChangeDialog(defenseHalf, {
+                teamHalf: defenseHalf,
+                inning: getColumnInningLabel(state.selectedSheetCol, battingHalf),
+                half: battingHalf,
+                battingOrder: state.selectedSheetRow + 1,
+                note: ""
+            });
         }
 
         function rerenderSheetChangeDialogForTeam(teamHalf) {
