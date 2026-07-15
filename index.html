@@ -5047,7 +5047,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.45";
+        const APP_VERSION = "0.2.46";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6089,6 +6089,7 @@
                     thirdBaseSideTeamId: info.benches.thirdBaseSideTeamId || "team_bottom"
                 },
                 rules: deepClone(info.rules),
+                status: buildGameStatusSaveModel(topLine, bottomLine),
                 scoreOverrides: deepClone(state.scoreOverridesByHalf),
                 topTeamId: "team_top",
                 bottomTeamId: "team_bottom",
@@ -6491,6 +6492,19 @@
 
             const topLine = calculateLineScore("top");
             const bottomLine = calculateLineScore("bottom");
+            const gameStatus = buildGameStatusSaveModel(topLine, bottomLine);
+            if (gameStatus.ended) {
+                const finalPosition = gameStatus.finalPosition || {};
+                events.push({
+                    type: "game_end",
+                    id: "ev_" + String(eventSerial++).padStart(5, "0"),
+                    half: finalPosition.half || state.activeHalf,
+                    inning: finalPosition.inning || getColumnInningLabel(),
+                    inningColumn: Number.isInteger(finalPosition.col) ? finalPosition.col + 1 : null,
+                    sequence: 1,
+                    gameEnd: deepClone(gameStatus)
+                });
+            }
             return {
                 modelVersion: "event-draft-1",
                 game: buildGameInfoSaveModel(topLine, bottomLine),
@@ -7499,6 +7513,99 @@
             }[value] || "";
         }
 
+        function hasGameEndReason() {
+            return Boolean(getGameEndReasonLabel(normalizeGameInfo(state.gameInfo).rules?.endReason));
+        }
+
+        function getLineScoreTotal(line) {
+            return (line?.scores || []).reduce((sum, score) => sum + (Number(score) || 0), 0);
+        }
+
+        function getGameScoreLineText(options = {}) {
+            const topLine = options.topLine || calculateLineScore("top");
+            const bottomLine = options.bottomLine || calculateLineScore("bottom");
+            const prefix = options.prefix || "";
+            return prefix
+                + getTeamDisplayName("top") + getLineScoreTotal(topLine)
+                + "-" + getLineScoreTotal(bottomLine)
+                + getTeamDisplayName("bottom");
+        }
+
+        function getGameEndStatusText(options = {}) {
+            const info = normalizeGameInfo(state.gameInfo);
+            const rules = info.rules || {};
+            const endLabel = getGameEndReasonLabel(rules.endReason);
+            if (!endLabel) {
+                return "";
+            }
+            const calledText = rules.endReason === "called" && rules.calledRule ? "（" + rules.calledRule + "）" : "";
+            const items = ["試合終了: " + endLabel + calledText];
+            if (options.includeScore) {
+                items.push(getGameScoreLineText({ prefix: "最終 " }));
+            }
+            return items.join(" / ");
+        }
+
+        function getLatestRecordedGamePosition() {
+            let best = null;
+            ["top", "bottom"].forEach((half) => {
+                const sheet = state.scoreSheets?.[half] || createEmptyScoreSheet();
+                const labels = getInningLabels(half);
+                for (let col = 0; col < MAX_INNINGS; col += 1) {
+                    const inning = labels[col] || (col + 1);
+                    const inningNumber = Number(inning);
+                    const inningOrder = Number.isFinite(inningNumber) ? inningNumber : col + 1;
+                    for (let row = 0; row < 9; row += 1) {
+                        if (!sheet[row]?.[col]) {
+                            continue;
+                        }
+                        const candidate = {
+                            half,
+                            inning,
+                            col,
+                            row,
+                            order: (inningOrder * 2) + (half === "bottom" ? 1 : 0)
+                        };
+                        if (!best
+                            || candidate.order > best.order
+                            || (candidate.order === best.order && candidate.col > best.col)
+                            || (candidate.order === best.order && candidate.col === best.col && candidate.row > best.row)) {
+                            best = candidate;
+                        }
+                    }
+                }
+            });
+            return best;
+        }
+
+        function buildGameStatusSaveModel(topLine = calculateLineScore("top"), bottomLine = calculateLineScore("bottom")) {
+            const info = normalizeGameInfo(state.gameInfo);
+            const rules = info.rules || {};
+            const endReasonLabel = getGameEndReasonLabel(rules.endReason);
+            const finalPosition = getLatestRecordedGamePosition();
+            return {
+                status: endReasonLabel ? "ended" : "in_progress",
+                ended: Boolean(endReasonLabel),
+                endReason: rules.endReason || "",
+                endReasonLabel,
+                calledRule: rules.calledRule || "",
+                note: rules.note || "",
+                finalScore: {
+                    top: getLineScoreTotal(topLine),
+                    bottom: getLineScoreTotal(bottomLine),
+                    text: getGameScoreLineText({ topLine, bottomLine })
+                },
+                finalPosition: finalPosition
+                    ? {
+                        half: finalPosition.half,
+                        inning: finalPosition.inning,
+                        col: finalPosition.col,
+                        row: finalPosition.row
+                    }
+                    : null
+            };
+        }
+
         function getTiebreakRulePrintText(rules = {}) {
             if (!rules.tiebreakEnabled) {
                 return "";
@@ -7585,10 +7692,9 @@
             const info = normalizeGameInfo(state.gameInfo);
             const rules = info.rules || {};
             const items = [];
-            const endLabel = getGameEndReasonLabel(rules.endReason);
-            if (endLabel) {
-                const calledText = rules.endReason === "called" && rules.calledRule ? "（" + rules.calledRule + "）" : "";
-                items.push("試合終了: " + endLabel + calledText);
+            const endStatus = getGameEndStatusText();
+            if (endStatus) {
+                items.push(endStatus);
             } else if (rules.calledRule && options.includeCalledRule !== false) {
                 items.push("コールド基準: " + rules.calledRule);
             }
@@ -7781,6 +7887,13 @@
             table.appendChild(buildRow("チーム名", { scores: innings, recorded: innings.map(() => true) }, true));
             table.appendChild(buildRow(getTeamDisplayName("top"), topLine));
             table.appendChild(buildRow(getTeamDisplayName("bottom"), bottomLine));
+            const endStatus = getGameEndStatusText({ includeScore: true });
+            if (endStatus) {
+                const noteRow = document.createElement("tr");
+                appendPrintCell(noteRow, "th", "備考");
+                appendPrintCell(noteRow, "td", endStatus, MAX_INNINGS + 1);
+                table.appendChild(noteRow);
+            }
             return table;
         }
 
@@ -8077,6 +8190,13 @@
                 appendPrintCell(tr, "td", line.scores.reduce((sum, score) => sum + score, 0));
                 table.appendChild(tr);
             });
+            const endStatus = getGameEndStatusText({ includeScore: true });
+            if (endStatus) {
+                const noteRow = document.createElement("tr");
+                appendPrintCell(noteRow, "td", "備考", 1, "team-cell");
+                appendPrintCell(noteRow, "td", endStatus, MAX_INNINGS + 1);
+                table.appendChild(noteRow);
+            }
             page.appendChild(table);
         }
 
@@ -8087,7 +8207,8 @@
                 formatPrintDate(info.date),
                 info.venue,
                 [info.weather, info.wind].filter(Boolean).join(" / "),
-                info.startTime ? "開始 " + info.startTime : ""
+                info.startTime ? "開始 " + info.startTime : "",
+                getGameEndStatusText({ includeScore: true })
             ].filter(Boolean).join("　");
             if (!details) {
                 return;
@@ -9249,6 +9370,9 @@
                 if (ruleText) {
                     noteItems.push(ruleText);
                 }
+                if (hasGameEndReason()) {
+                    noteItems.push(getGameScoreLineText({ prefix: "最終 " }));
+                }
                 if (tiebreakRunnerText) {
                     noteItems.push(tiebreakRunnerText);
                 }
@@ -9289,13 +9413,14 @@
             const currentOuts = romanToOutCount(getCurrentOutScoreForDisplay()) || getPreviousOutCountForCell(state.selectedSheetRow, state.selectedSheetCol);
             const ruleText = getGameRuleStatusText({ includeNote: false });
             const tiebreakRunnerText = getCurrentTiebreakRunnerStatusText({ prefix: "TB走者" });
+            const gameEnded = hasGameEndReason();
             container.innerHTML = [
                 '<div class="game-mini-score">',
                 teamRow("top", topLine),
                 teamRow("bottom", bottomLine),
                 '</div>',
                 '<div class="game-mini-side">',
-                '<div class="game-mini-inning">' + getColumnInningLabel() + '回' + getHalfLabel() + '</div>',
+                '<div class="game-mini-inning">' + (gameEnded ? '試合終了' : getColumnInningLabel() + '回' + getHalfLabel()) + '</div>',
                 '<div class="game-mini-bases" aria-label="塁状況">',
                 '<span class="game-mini-base second' + (occupiedBases.has(1) ? " is-on" : "") + '"></span>',
                 '<span class="game-mini-base third' + (occupiedBases.has(2) ? " is-on" : "") + '"></span>',
@@ -12365,12 +12490,20 @@
                 endedRow: endCell.row,
                 endedCol: endCell.col,
                 nextBatterRow: (endCell.row + 1) % 9,
-                nextInningCol: findColumnForInning(normalizedHalf, inningNumber + 1)
+                nextInningCol: findColumnForInning(normalizedHalf, inningNumber + 1),
+                gameEnded: hasGameEndReason()
             };
         }
 
         function applyCorrectionInningTransitionState(transition) {
             if (!transition) {
+                return;
+            }
+            if (transition.gameEnded) {
+                state.retiredRunnerPreviewsByHalf[transition.endedHalf] = [];
+                if (state.activeHalf === transition.endedHalf) {
+                    state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[transition.endedHalf];
+                }
                 return;
             }
             state.selectionsByHalf[transition.endedHalf] = {
@@ -12386,6 +12519,12 @@
         function formatCorrectionInningTransitionStatus(transition) {
             if (!transition) {
                 return "修正を保存しました。攻守交代せず、この打席開始時の走者を再表示しています。";
+            }
+            if (transition.gameEnded) {
+                return "修正を保存しました。"
+                    + transition.inning + "回" + getHalfLabel(transition.endedHalf)
+                    + "は" + (transition.endedRow + 1) + "番で3アウトです。"
+                    + getGameEndStatusText({ includeScore: true }) + "。";
             }
             return "修正を保存しました。"
                 + transition.inning + "回" + getHalfLabel(transition.endedHalf)
@@ -14327,11 +14466,6 @@
             return latestChange?.name || info.pitchers?.[defenseHalf] || "未登録";
         }
 
-        function getInningTotalRuns(half) {
-            const line = calculateLineScore(half);
-            return line.scores.reduce((sum, score) => sum + (Number(score) || 0), 0);
-        }
-
         function getPitcherChangesForDraft(defenseHalf, battingHalf, inning) {
             const info = normalizeGameInfo(state.gameInfo);
             return (info.pitcherChanges?.[defenseHalf] || [])
@@ -14791,6 +14925,7 @@
             const defenseHalf = getOpponentHalf(battingHalf);
             const battingTeam = getTeamDisplayName(battingHalf);
             const entries = getInningDraftEntries(transition);
+            const gameEnded = isGameEndingTransition(transition);
             const firstOrder = entries.length ? entries[0].row + 1 : transition.endedRow + 1;
             const pitcherChanges = getPitcherChangesForDraft(defenseHalf, battingHalf, transition.inning);
             const scoringDetailsByBatter = buildShareScoringDetailsByBatter(entries, battingHalf);
@@ -14834,7 +14969,7 @@
             if (ruleStatus) {
                 lines.push(ruleStatus);
             }
-            lines.push(getTeamDisplayName("top") + getInningTotalRuns("top") + "-" + getInningTotalRuns("bottom") + getTeamDisplayName("bottom"));
+            lines.push(getGameScoreLineText({ prefix: gameEnded ? "最終 " : "" }));
             lines.push("");
             lines.push("#CuViu");
             return lines.join("\n");
@@ -14859,14 +14994,20 @@
             if (backdrop.parentElement !== document.body) {
                 document.body.appendChild(backdrop);
             }
+            const gameEnded = isGameEndingTransition(transition);
             const nextTeam = getTeamDisplayName(transition.nextHalf);
+            const titleText = gameEnded ? "試合終了" : "スリーアウトチェンジ";
+            const bodyHtml = gameEnded
+                ? escapeHtml(getGameEndStatusText({ includeScore: true })) + "<br>このイニング内容をシェアしますか？"
+                : escapeHtml(nextTeam) + "の攻撃に移ります。<br>このイニング内容をシェアしますか？";
+            const continueText = gameEnded ? "試合終了として閉じる" : "次の攻撃へ";
             popup.innerHTML = [
-                '<div class="comment-popup-title">スリーアウトチェンジ</div>',
-                '<div class="comment-popup-body">' + escapeHtml(nextTeam) + 'の攻撃に移ります。<br>このイニング内容をシェアしますか？</div>',
+                '<div class="comment-popup-title">' + escapeHtml(titleText) + '</div>',
+                '<div class="comment-popup-body">' + bodyHtml + '</div>',
                 '<div class="inning-share-options"><label><input id="inningShareSkipCheckbox" type="checkbox">今後このダイアログを表示しない</label></div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="showInningShareDraft()">シェアする</button>',
-                '<button type="button" class="btn-hit" onclick="continueAfterInningShareDialog()">次の攻撃へ</button>',
+                '<button type="button" class="btn-hit" onclick="continueAfterInningShareDialog()">' + escapeHtml(continueText) + '</button>',
                 '</div>'
             ].join("");
             popup.classList.add("is-open");
@@ -14884,6 +15025,7 @@
             if (!popup) {
                 return;
             }
+            const continueText = isGameEndingTransition(pendingInningTransition) ? "試合終了として閉じる" : "次の攻撃へ";
             popup.innerHTML = [
                 '<div class="comment-popup-title">Xポスト下書き <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
                 '<textarea id="inningShareDraftText" onfocus="this.select()" onclick="this.select()">' + escapeHtml(draft) + '</textarea>',
@@ -14891,7 +15033,7 @@
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
                 '<button type="button" data-x-post-open="true" onclick="openXPostDraft()">Xで開く</button>',
-                '<button type="button" class="btn-hit" onclick="completeInningTransition()">次の攻撃へ</button>',
+                '<button type="button" class="btn-hit" onclick="completeInningTransition()">' + escapeHtml(continueText) + '</button>',
                 '</div>'
             ].join("");
             requestAnimationFrame(() => {
@@ -14999,6 +15141,10 @@
             completeInningTransition();
         }
 
+        function isGameEndingTransition(transition) {
+            return Boolean(transition?.gameEnded || hasGameEndReason());
+        }
+
         function performInningTransition(transition) {
             if (!transition) {
                 closeInningSharePopup();
@@ -15006,6 +15152,15 @@
             }
             closeInningSharePopup();
             pendingInningTransition = null;
+            if (isGameEndingTransition(transition)) {
+                clearNaturalLanguageInput();
+                renderLineScoreBoard();
+                renderGameMiniStatus();
+                updateDisplay();
+                scheduleGameAutoSave();
+                updateRunnerGuiStatus("試合終了として保存しました: " + getGameEndStatusText({ includeScore: true }));
+                return;
+            }
             activateHalf(transition.nextHalf, null, null, { skipSave: true });
             clearNaturalLanguageInput();
         }
@@ -15016,7 +15171,7 @@
                 return;
             }
             closeInningSharePopup();
-            if (shouldShowInningAdBreak(transition)) {
+            if (!isGameEndingTransition(transition) && shouldShowInningAdBreak(transition)) {
                 await openAdGate({
                     placement: "inning",
                     skippable: true,
@@ -15219,12 +15374,15 @@
                     endedRow: state.selectedSheetRow,
                     endedCol: currentCol,
                     nextBatterRow,
-                    nextInningCol
+                    nextInningCol,
+                    gameEnded: hasGameEndReason()
                 };
-                state.selectionsByHalf[endedHalf] = {
-                    row: nextBatterRow,
-                    col: nextInningCol
-                };
+                if (!transition.gameEnded) {
+                    state.selectionsByHalf[endedHalf] = {
+                        row: nextBatterRow,
+                        col: nextInningCol
+                    };
+                }
                 state.retiredRunnerPreviewsByHalf[endedHalf] = [];
                 if (state.activeHalf === endedHalf) {
                     state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[endedHalf];
