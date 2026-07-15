@@ -5047,7 +5047,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.44";
+        const APP_VERSION = "0.2.45";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8588,6 +8588,11 @@
                 target = target[key];
             }
             target[parts[parts.length - 1]] = value;
+            const isTiebreakRulePath = parts[0] === "rules"
+                && ["tiebreakEnabled", "tiebreakStartInning", "tiebreakRunners"].includes(parts[1]);
+            if (isTiebreakRulePath) {
+                ["top", "bottom"].forEach((half) => rebuildRunnerStatusEventsForInningsFrom(half, 1));
+            }
             if (parts[0] === "rules") {
                 refreshTiebreakRunnersForCurrentSelectionIfNeeded();
             }
@@ -12443,6 +12448,33 @@
             return getInningEndTransition(normalizedHalf, inning, endCell);
         }
 
+        function getRecordedInningsFrom(half, startInning = 1) {
+            const normalizedHalf = half === "bottom" ? "bottom" : "top";
+            const startNumber = Number(startInning);
+            const minInning = Number.isFinite(startNumber) ? startNumber : 1;
+            const seen = new Set();
+            return getInningLabels(normalizedHalf)
+                .filter((inning) => {
+                    const inningNumber = Number(inning);
+                    if (!Number.isFinite(inningNumber) || inningNumber < minInning) {
+                        return false;
+                    }
+                    if (seen.has(inningNumber)) {
+                        return false;
+                    }
+                    seen.add(inningNumber);
+                    return hasAnySnapshotForInning(normalizedHalf, inning);
+                });
+        }
+
+        function rebuildRunnerStatusEventsForInningsFrom(half = state.activeHalf, startInning = 1) {
+            return getRecordedInningsFrom(half, startInning)
+                .map((inning) => ({
+                    inning,
+                    transition: rebuildRunnerStatusEventsForInning(half, inning)
+                }));
+        }
+
         function rebuildBaseRunnersForHalf(half = state.activeHalf) {
             const sheet = state.scoreSheets[half] || createEmptyScoreSheet();
             state.baseRunnersByHalf[half] = [null, null, null];
@@ -13867,6 +13899,8 @@
                 sheet[row][col] = snapshot;
             }
             target.snapshot = snapshot;
+            rebuildRunnerStatusEventsForInning(half, inningNumber);
+            rebuildRunnerStatusEventsForInningsFrom(half, inningNumber + 1);
             return true;
         }
 
@@ -15038,8 +15072,22 @@
                 suppressSheetCellClick = false;
                 return;
             }
+            const clearedHalf = state.activeHalf;
+            const clearedInning = getColumnInningLabel(col, clearedHalf);
+            const clearedInningNumber = Number(clearedInning);
+            const hadScoreOverride = hasScoreOverride(clearedHalf, clearedInning);
+            if (hadScoreOverride && !clearScoreOverrideForInningIfNeeded(clearedHalf, clearedInning, false)) {
+                suppressSheetCellClick = false;
+                return;
+            }
             pushGameHistory();
+            if (hadScoreOverride && Number.isInteger(clearedInningNumber)) {
+                ensureScoreOverridesByHalf();
+                state.scoreOverridesByHalf[clearedHalf][clearedInningNumber - 1] = null;
+            }
             state.scoreSheet[row][col] = null;
+            rebuildRunnerStatusEventsForInning(clearedHalf, clearedInning);
+            rebuildRunnerStatusEventsForInningsFrom(clearedHalf, clearedInningNumber + 1);
             rebuildBaseRunnersForHalf(state.activeHalf);
             if (state.selectedSheetRow === row && state.selectedSheetCol === col) {
                 resetState();
@@ -15222,8 +15270,9 @@
             if (isCorrectionEdit) {
                 const correctionTransition = rebuildRunnerStatusEventsForInning(
                     state.activeHalf,
-                    getColumnInningLabel(state.selectedSheetCol, state.activeHalf)
+                    correctionInning
                 );
+                rebuildRunnerStatusEventsForInningsFrom(state.activeHalf, Number(correctionInning) + 1);
                 applyCorrectionInningTransitionState(correctionTransition);
                 rebuildBaseRunnerContextBeforeCell(state.activeHalf, state.selectedSheetRow, state.selectedSheetCol);
                 applyAtBatSnapshot(snapshot);
