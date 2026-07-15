@@ -1321,6 +1321,10 @@
         }
 
         body.printing-scorebook .print-scorebook-page {
+            display: block;
+        }
+
+        body.printing-scorebook .print-scorebook-team-page {
             display: grid;
         }
 
@@ -1354,10 +1358,11 @@
             html,
             body.printing-scorebook {
                 width: 210mm !important;
-                height: 297mm !important;
+                min-height: 297mm !important;
+                height: auto !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                overflow: hidden !important;
+                overflow: visible !important;
             }
 
             body.printing-scorebook {
@@ -1370,33 +1375,53 @@
             }
 
             body.printing-scorebook .print-scorebook-page {
-                display: grid !important;
-                width: 198mm;
-                height: 274mm;
-                max-height: 274mm;
+                display: block !important;
+                width: 210mm;
                 box-sizing: border-box;
-                margin: 0 auto !important;
-                padding: 0.4mm;
+                margin: 0 !important;
+                padding: 0;
                 background: #ffffff;
-                grid-template-rows: min-content minmax(0, 1fr) min-content minmax(0, 1fr) min-content;
-                gap: 0.45mm;
-                align-content: center;
-                justify-content: center;
-                overflow: hidden;
-                break-after: avoid;
-                break-inside: avoid;
-                page-break-after: avoid;
-                page-break-inside: avoid;
+                overflow: visible;
                 --sheet-green: #111111;
                 --sheet-order-w: 6.2mm;
                 --sheet-name-w: 18.4mm;
                 --sheet-number-w: 5.9mm;
                 --sheet-cell-w: 13.95mm;
-                --sheet-cell-h: 8mm;
-                --sheet-header-h: 4.4mm;
-                --sheet-font: 2.05mm;
+                --sheet-cell-h: 11mm;
+                --sheet-header-h: 5mm;
+                --sheet-font: 2.25mm;
                 --sheet-zoom: 0.62;
                 --print-content-w: 197.9mm;
+            }
+
+            body.printing-scorebook.keio-scorebook-style .print-scorebook-page {
+                --sheet-cell-h: 15mm;
+                --sheet-header-h: 5.4mm;
+                --sheet-font: 2.05mm;
+            }
+
+            body.printing-scorebook .print-scorebook-team-page {
+                display: grid !important;
+                width: 198mm;
+                height: 285mm;
+                box-sizing: border-box;
+                margin: 6mm auto !important;
+                padding: 0.6mm;
+                background: #ffffff;
+                grid-template-rows: min-content min-content minmax(0, auto) min-content;
+                gap: 1mm;
+                align-content: start;
+                justify-content: center;
+                overflow: hidden;
+                break-after: page;
+                break-inside: avoid;
+                page-break-after: always;
+                page-break-inside: avoid;
+            }
+
+            body.printing-scorebook .print-scorebook-team-page:last-child {
+                break-after: auto;
+                page-break-after: auto;
             }
 
             body.printing-scorebook .print-extra-page.has-extra-page {
@@ -1731,25 +1756,20 @@
             body.printing-scorebook {
                 position: relative !important;
                 width: 210mm !important;
-                height: 297mm !important;
-                min-height: 0 !important;
-                max-height: 297mm !important;
-                overflow: hidden !important;
+                height: auto !important;
+                min-height: 297mm !important;
+                max-height: none !important;
+                overflow: visible !important;
             }
 
             body.printing-scorebook .print-scorebook-page {
-                position: absolute !important;
-                top: 6mm;
-                left: 50%;
-                transform: translateX(-50%);
+                position: relative !important;
                 margin: 0 !important;
             }
 
             body.printing-scorebook.has-extra-print-page .print-scorebook-page {
                 position: relative !important;
-                left: auto;
-                transform: none;
-                margin: 0 auto !important;
+                margin: 0 !important;
             }
 
             .sheet-viewport {
@@ -5306,7 +5326,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.51";
+        const APP_VERSION = "0.2.52";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8171,6 +8191,20 @@
             return block;
         }
 
+        function createPrintTeamScorebookPage(half) {
+            const teamPage = document.createElement("section");
+            teamPage.className = "print-scorebook-team-page";
+            teamPage.dataset.half = half;
+            teamPage.setAttribute("aria-label", (half === "top" ? "先攻" : "後攻") + "スコアブック");
+            teamPage.replaceChildren(
+                createPrintInfoTable(),
+                createPrintLineScoreTable(),
+                createPrintSheetBlock(half),
+                createPrintFreeFooter()
+            );
+            return teamPage;
+        }
+
         function isScorebookProUser() {
             return false;
         }
@@ -8589,11 +8623,8 @@
                 return;
             }
             page.replaceChildren(
-                createPrintInfoTable(),
-                createPrintSheetBlock("top"),
-                createPrintLineScoreTable(),
-                createPrintSheetBlock("bottom"),
-                createPrintFreeFooter()
+                createPrintTeamScorebookPage("top"),
+                createPrintTeamScorebookPage("bottom")
             );
             renderPrintablePitcherExtraPage();
             renderPrintableTextSummaryPage();
