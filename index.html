@@ -724,8 +724,20 @@
         }
 
         .game-mini-rule {
-            max-width: 96px;
+            max-width: 136px;
             color: #fde68a;
+            font-size: 8px;
+            font-weight: 800;
+            line-height: 1.2;
+            overflow: hidden;
+            text-align: right;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .game-mini-tb {
+            max-width: 136px;
+            color: #bfdbfe;
             font-size: 8px;
             font-weight: 800;
             line-height: 1.2;
@@ -824,6 +836,13 @@
             font-weight: 800;
             color: #475569;
             text-align: center;
+        }
+
+        .base-runner-preview-label small {
+            display: block;
+            color: #2563eb;
+            font-size: 7px;
+            line-height: 1.05;
         }
 
         .base-runner-preview-card {
@@ -3278,6 +3297,18 @@
             text-align: center;
         }
 
+        .runner-live-base.is-tiebreak {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .runner-live-base small {
+            display: block;
+            font-size: 10px;
+            line-height: 1.15;
+        }
+
         .runner-action-popup-backdrop {
             display: none;
             position: fixed;
@@ -5016,7 +5047,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.43";
+        const APP_VERSION = "0.2.44";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7496,6 +7527,60 @@
             }[rules.tiebreakRunners] || "";
         }
 
+        function getBaseLabelFromIndex(baseIndex) {
+            return ["一塁", "二塁", "三塁"][baseIndex] || "";
+        }
+
+        function getTiebreakRunnerDisplayItems(half, inning, fallbackStartRow = 0, runners = null) {
+            const sourceRunners = Array.isArray(runners)
+                ? runners
+                : getInitialBaseRunnersForHalfInning(half, inning, fallbackStartRow);
+            return sourceRunners
+                .map((runnerRef, baseIndex) => {
+                    if (!isTiebreakRunnerRef(runnerRef)) {
+                        return null;
+                    }
+                    return {
+                        runnerRef,
+                        baseIndex,
+                        baseLabel: getBaseLabelFromIndex(baseIndex),
+                        runnerName: getRunnerDisplayNameFromRef(runnerRef),
+                        runnerLabel: getRunnerRefLabel(runnerRef)
+                    };
+                })
+                .filter(Boolean);
+        }
+
+        function formatTiebreakRunnerStatusText(items, options = {}) {
+            if (!items.length) {
+                return "";
+            }
+            const prefix = options.prefix === undefined ? "TB走者" : options.prefix;
+            const body = items
+                .map((item) => item.runnerName + " " + item.baseLabel)
+                .join(" / ");
+            return prefix ? prefix + ": " + body : body;
+        }
+
+        function getCurrentTiebreakRunnerStatusText(options = {}) {
+            return formatTiebreakRunnerStatusText(
+                getTiebreakRunnerDisplayItems(
+                    state.activeHalf,
+                    getColumnInningLabel(),
+                    state.selectedSheetRow,
+                    state.baseRunners
+                ),
+                options
+            );
+        }
+
+        function getTiebreakStartRunnerStatusText(half, inning, fallbackStartRow = 0, options = {}) {
+            return formatTiebreakRunnerStatusText(
+                getTiebreakRunnerDisplayItems(half, inning, fallbackStartRow),
+                options
+            );
+        }
+
         function getGameRuleStatusItems(options = {}) {
             const info = normalizeGameInfo(state.gameInfo);
             const rules = info.rules || {};
@@ -9151,12 +9236,16 @@
             if (note) {
                 const summary = getScoreOverrideSummary();
                 const ruleText = getGameRuleStatusText();
+                const tiebreakRunnerText = getCurrentTiebreakRunnerStatusText();
                 const noteItems = [];
                 if (summary.length) {
                     noteItems.push("黄色=得点板を直接補正中: " + summary.join(" / "));
                 }
                 if (ruleText) {
                     noteItems.push(ruleText);
+                }
+                if (tiebreakRunnerText) {
+                    noteItems.push(tiebreakRunnerText);
                 }
                 note.textContent = noteItems.join(" / ");
                 note.classList.toggle("is-visible", noteItems.length > 0);
@@ -9194,6 +9283,7 @@
             };
             const currentOuts = romanToOutCount(getCurrentOutScoreForDisplay()) || getPreviousOutCountForCell(state.selectedSheetRow, state.selectedSheetCol);
             const ruleText = getGameRuleStatusText({ includeNote: false });
+            const tiebreakRunnerText = getCurrentTiebreakRunnerStatusText({ prefix: "TB走者" });
             container.innerHTML = [
                 '<div class="game-mini-score">',
                 teamRow("top", topLine),
@@ -9212,6 +9302,7 @@
                 dotGroup("O", Math.min(currentOuts, 2), 2, "out"),
                 '</div>',
                 ruleText ? '<div class="game-mini-rule">' + escapeHtml(ruleText) + '</div>' : "",
+                tiebreakRunnerText ? '<div class="game-mini-tb">' + escapeHtml(tiebreakRunnerText) + '</div>' : "",
                 '</div>'
             ].join("");
         }
@@ -10393,8 +10484,13 @@
             }
             element.innerHTML = [0, 1, 2].map((baseIndex) => {
                 const label = (baseIndex + 1) + "塁";
-                const runner = getRunnerRefLabel(state.baseRunners[baseIndex]);
-                return '<div class="runner-live-base">' + label + ': ' + runner + '</div>';
+                const runnerRef = state.baseRunners[baseIndex];
+                const runner = getRunnerRefLabel(runnerRef);
+                const isTiebreak = isTiebreakRunnerRef(runnerRef);
+                return '<div class="runner-live-base' + (isTiebreak ? ' is-tiebreak' : '') + '">'
+                    + label + ': ' + runner
+                    + (isTiebreak ? '<small>タイブレーク走者</small>' : '')
+                    + '</div>';
             }).join("");
         }
 
@@ -10748,14 +10844,16 @@
                 if (text.base === 1) {
                     return "";
                 }
+                const advanceLabel = text.label || (text.tiebreakRunner ? "TB" : "(" + (text.by || "?") + ")");
                 return {
                     kind: "advance",
                     base: text.base,
                     fromBase: text.fromBase || 0,
-                    label: text.label || "(" + (text.by || "?") + ")",
+                    label: advanceLabel,
                     by: text.by || "",
                     reason: text.reason || "",
-                    color: getScoreTextColor(text.label || "")
+                    color: text.tiebreakRunner ? SCORE_COLORS.blue : getScoreTextColor(text.label || ""),
+                    tiebreakRunner: Boolean(text.tiebreakRunner)
                 };
             }
             if (text?.type === "score") {
@@ -10764,10 +10862,11 @@
                     base: 4,
                     fromBase: text.fromBase || 0,
                     label: "●",
-                    advanceLabel: text.label || "",
+                    advanceLabel: text.label || (text.tiebreakRunner ? "TB" : ""),
                     by: text.by || "",
                     reason: text.reason || "",
-                    color: getScoreTextColor(text.label || "")
+                    color: text.tiebreakRunner ? SCORE_COLORS.blue : getScoreTextColor(text.label || ""),
+                    tiebreakRunner: Boolean(text.tiebreakRunner)
                 };
             }
             if (text?.type === "out") {
@@ -10781,7 +10880,8 @@
                     base: Number(text.base) || inferRunnerOutBaseFromLabel(text.label || "", text.baseIndex),
                     baseIndex: Number.isInteger(Number(text.baseIndex)) ? Number(text.baseIndex) : -1,
                     outType: text.outType || getRunnerOutTypeFromLabel(text.label || ""),
-                    reason: text.reason || ""
+                    reason: text.reason || "",
+                    tiebreakRunner: Boolean(text.tiebreakRunner)
                 };
             }
             if (text === "1塁") {
@@ -14668,6 +14768,15 @@
 
             if (firstOrder !== 1) {
                 lines.push(firstOrder + "番から");
+            }
+            const tiebreakStartText = getTiebreakStartRunnerStatusText(
+                battingHalf,
+                transition.inning,
+                firstOrder - 1,
+                { prefix: "TB開始" }
+            );
+            if (tiebreakStartText) {
+                lines.push(tiebreakStartText);
             }
 
             entries.forEach((entry) => {
@@ -21211,12 +21320,13 @@
                 const itemClass = "base-runner-preview-item" + (item.retired ? " is-retired" : "");
                 const cardClass = "base-runner-preview-card" + (item.retired ? " is-retired" : "");
                 const labelPrefix = item.retired ? "アウト<br>" : (item.baseIndex + 1) + "塁<br>";
+                const tiebreakLabel = isTiebreakRunnerRef(item.runnerRef) ? "<small>タイブレーク走者</small>" : "";
                 const card = item.retired
                     ? '<div class="' + cardClass + '" aria-label="アウト済み走者">' + generateSheetCellSvg(snapshot) + '</div>'
                     : '<button type="button" class="' + cardClass + '" onclick="openRunnerActionPopup(\'r' + ((item.sourceBaseIndex ?? item.baseIndex) + 1) + '\', ' + item.baseIndex + ')" aria-label="' + (item.baseIndex + 1) + '塁走者を操作">' + generateSheetCellSvg(snapshot) + '</button>';
                 return [
                     '<div class="' + itemClass + '">',
-                    '<div class="base-runner-preview-label">' + labelPrefix + getRunnerRefLabel(item.runnerRef) + '</div>',
+                    '<div class="base-runner-preview-label">' + labelPrefix + getRunnerRefLabel(item.runnerRef) + tiebreakLabel + '</div>',
                     card,
                     '</div>'
                 ].join("");
