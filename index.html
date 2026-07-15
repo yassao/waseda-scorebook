@@ -2445,6 +2445,21 @@
             z-index: 3;
         }
 
+        .fielding-change-marker:not(.is-keio) {
+            top: 32%;
+            height: auto;
+            padding: 1px 3px;
+            background: rgba(255, 255, 255, 0.92);
+            color: #0f5bd6;
+            font-size: calc(8px * var(--sheet-zoom));
+            font-weight: 900;
+            line-height: 1.15;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .fielding-change-marker.is-keio {
             top: calc(12px * var(--sheet-zoom));
             color: #0f5bd6;
@@ -4934,7 +4949,7 @@
                                             <label>表/裏<select id="fieldingChangeHalf"><option value="top">表</option><option value="bottom">裏</option></select></label>
                                             <label>何番から<input id="fieldingChangeBattingOrder" type="number" min="1" max="9" inputmode="numeric"></label>
                                             <label>選手名<input id="fieldingChangePlayerName" type="text" placeholder="例: 山田"></label>
-                                            <label>変更<input id="fieldingChangePosition" type="text" placeholder="例: 9→1, H→7"></label>
+                                            <label>変更<input id="fieldingChangePosition" type="text" placeholder="例: 9→1 / 投→一、一→投"></label>
                                             <label class="span-2">メモ<input id="fieldingChangeNote" type="text" placeholder="例: ライトから再登板、代打が左翼へ"></label>
                                             <button class="span-2" type="button" onclick="addFieldingChangeFromForm()">守備変更を記録</button>
                                         </div>
@@ -5047,7 +5062,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.46";
+        const APP_VERSION = "0.2.47";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8047,8 +8062,8 @@
                 appendPrintCell(tr, "td", getHalfLabel(change.half));
                 appendPrintCell(tr, "td", change.battingOrder ? change.battingOrder + "番" : "");
                 appendPrintCell(tr, "td", change.playerName || "");
-                appendPrintCell(tr, "td", change.fromPosition || "");
-                appendPrintCell(tr, "td", change.toPosition || "");
+                appendPrintCell(tr, "td", change.fromPosition ? formatFieldingPositionValue(change.fromPosition) : "");
+                appendPrintCell(tr, "td", change.toPosition ? formatFieldingPositionValue(change.toPosition) : "");
                 appendPrintCell(tr, "td", change.note || "", 1, "print-extra-memo");
                 table.appendChild(tr);
             });
@@ -8648,8 +8663,8 @@
                 half: change.half === "bottom" ? "bottom" : "top",
                 battingOrder: parseOptionalInteger(change.battingOrder) || "",
                 playerName: String(change.playerName || "").trim(),
-                fromPosition: String(change.fromPosition || "").trim(),
-                toPosition: String(change.toPosition || "").trim(),
+                fromPosition: normalizeFieldingPositionValue(change.fromPosition),
+                toPosition: normalizeFieldingPositionValue(change.toPosition),
                 note: String(change.note || "").trim()
             };
         }
@@ -8804,7 +8819,17 @@
                 state.gameInfo.pitcherChanges[normalizedTeamHalf] = [];
             }
             state.gameInfo.pitcherChanges[normalizedTeamHalf].push(change);
+            const linkedFieldingChanges = buildFieldingChangeInputsFromText(normalizedTeamHalf, change.fieldingNote, {
+                inning: change.inning,
+                half: change.half,
+                battingOrder: change.battingOrder,
+                note: change.name ? "投手交代: " + change.name : ""
+            }, { includeLooseSingle: false });
+            if (linkedFieldingChanges.length) {
+                saveFieldingChanges(normalizedTeamHalf, linkedFieldingChanges, { render: false });
+            }
             renderPitcherChangeList();
+            renderFieldingChangeList();
             renderCurrentBatterCard();
             renderScoreSheet();
             renderPrintablePitcherExtraPage();
@@ -8986,6 +9011,62 @@
             }).join("");
         }
 
+        function normalizeFieldingPositionValue(value) {
+            const raw = String(value || "").trim();
+            if (!raw) {
+                return "";
+            }
+            const normalized = raw
+                .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xFEE0))
+                .replace(/\s+/g, "")
+                .toUpperCase();
+            const longMap = {
+                P: "1",
+                "投手": "1",
+                "ピッチャー": "1",
+                "捕手": "2",
+                "キャッチャー": "2",
+                "一塁": "3",
+                "一塁手": "3",
+                "ファースト": "3",
+                "二塁": "4",
+                "二塁手": "4",
+                "セカンド": "4",
+                "三塁": "5",
+                "三塁手": "5",
+                "サード": "5",
+                "遊撃": "6",
+                "遊撃手": "6",
+                "ショート": "6",
+                "左翼": "7",
+                "左翼手": "7",
+                "レフト": "7",
+                "中堅": "8",
+                "中堅手": "8",
+                "センター": "8",
+                "右翼": "9",
+                "右翼手": "9",
+                "ライト": "9"
+            };
+            return SHORT_FIELDER_MAP[normalized] || longMap[normalized] || normalized;
+        }
+
+        function formatFieldingPositionValue(value) {
+            const normalized = normalizeFieldingPositionValue(value);
+            const shortNames = {
+                "1": "投",
+                "2": "捕",
+                "3": "一",
+                "4": "二",
+                "5": "三",
+                "6": "遊",
+                "7": "左",
+                "8": "中",
+                "9": "右"
+            };
+            return shortNames[normalized] ? normalized + " " + shortNames[normalized] : normalized;
+        }
+
         function parseFieldingPositionText(value) {
             const text = String(value || "").trim();
             if (!text) {
@@ -8994,23 +9075,95 @@
             const parts = text.split(/\s*(?:->|→|>|-)\s*/).filter(Boolean);
             if (parts.length >= 2) {
                 return {
-                    fromPosition: parts[0].trim(),
-                    toPosition: parts.slice(1).join("→").trim()
+                    fromPosition: normalizeFieldingPositionValue(parts[0]),
+                    toPosition: normalizeFieldingPositionValue(parts.slice(1).join("→"))
                 };
             }
             return {
                 fromPosition: "",
-                toPosition: text
+                toPosition: normalizeFieldingPositionValue(text)
             };
+        }
+
+        function parseFieldingPositionTextList(value, options = {}) {
+            const text = String(value || "").trim();
+            if (!text) {
+                return { entries: [], notes: [] };
+            }
+            const segments = text
+                .split(/\s*(?:[,，、;；／\/\n]+)\s*/)
+                .map((item) => item.trim())
+                .filter(Boolean);
+            const sourceSegments = segments.length ? segments : [text];
+            const entries = [];
+            const notes = [];
+            sourceSegments.forEach((segment) => {
+                const hasArrow = /(?:->|→|>|-)/.test(segment);
+                if (!hasArrow && sourceSegments.length > 1) {
+                    notes.push(segment);
+                    return;
+                }
+                if (!hasArrow && options.includeLooseSingle === false) {
+                    notes.push(segment);
+                    return;
+                }
+                const entry = parseFieldingPositionText(segment);
+                if (entry.fromPosition || entry.toPosition) {
+                    entries.push(entry);
+                }
+            });
+            return { entries, notes };
+        }
+
+        function inferFieldingChangePlayerName(teamHalf, fromPosition) {
+            const normalizedPosition = normalizeFieldingPositionValue(fromPosition);
+            if (!normalizedPosition) {
+                return "";
+            }
+            const normalizedHalf = teamHalf === "bottom" ? "bottom" : "top";
+            const positions = state.playerPositions?.[normalizedHalf] || [];
+            const names = state.playerNames?.[normalizedHalf] || [];
+            const index = positions.findIndex((position) => normalizeFieldingPositionValue(position) === normalizedPosition);
+            if (index >= 0) {
+                return splitRosterNameSlots(names[index] || "")[0] || "";
+            }
+            if (normalizedPosition === "1") {
+                return normalizeGameInfo(state.gameInfo).pitchers?.[normalizedHalf] || "";
+            }
+            return "";
+        }
+
+        function buildFieldingChangeInputsFromText(teamHalf, positionText, baseChange = {}, options = {}) {
+            const parsed = parseFieldingPositionTextList(positionText, options);
+            const noteParts = [
+                baseChange.note || "",
+                ...(parsed.notes || [])
+            ].filter(Boolean);
+            const sharedNote = noteParts.join(" / ");
+            return parsed.entries.map((entry, entryIndex) => {
+                const shouldUseExplicitPlayer = parsed.entries.length === 1 && baseChange.playerName;
+                return {
+                    inning: baseChange.inning,
+                    half: baseChange.half,
+                    battingOrder: baseChange.battingOrder,
+                    playerName: shouldUseExplicitPlayer
+                        ? baseChange.playerName
+                        : inferFieldingChangePlayerName(teamHalf, entry.fromPosition),
+                    fromPosition: entry.fromPosition,
+                    toPosition: entry.toPosition,
+                    note: sharedNote
+                        || (parsed.entries.length > 1 ? (entryIndex + 1) + "/" + parsed.entries.length : "")
+                };
+            });
         }
 
         function formatFieldingPositionText(change) {
             const fromPosition = String(change?.fromPosition || "").trim();
             const toPosition = String(change?.toPosition || "").trim();
             if (fromPosition && toPosition) {
-                return fromPosition + "→" + toPosition;
+                return formatFieldingPositionValue(fromPosition) + "→" + formatFieldingPositionValue(toPosition);
             }
-            return fromPosition || toPosition || "";
+            return formatFieldingPositionValue(fromPosition || toPosition);
         }
 
         function setFieldingChangeFormDefaults() {
@@ -9032,36 +9185,48 @@
             }
         }
 
-        function saveFieldingChange(teamHalf, changeInput) {
+        function saveFieldingChanges(teamHalf, changeInputs, options = {}) {
             state.gameInfo = normalizeGameInfo(state.gameInfo);
             const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
-            const change = normalizeFieldingChange(changeInput);
-            if (!change.playerName && !change.fromPosition && !change.toPosition && !change.note) {
-                return false;
+            const sourceChanges = Array.isArray(changeInputs) ? changeInputs : [changeInputs];
+            const changes = sourceChanges
+                .map(normalizeFieldingChange)
+                .filter((change) => change.playerName || change.fromPosition || change.toPosition || change.note);
+            if (!changes.length) {
+                return 0;
             }
             if (!state.gameInfo.fieldingChanges[normalizedTeamHalf]) {
                 state.gameInfo.fieldingChanges[normalizedTeamHalf] = [];
             }
-            state.gameInfo.fieldingChanges[normalizedTeamHalf].push(change);
-            renderFieldingChangeList();
-            renderPrintablePitcherExtraPage();
-            scheduleGameAutoSave();
-            return true;
+            state.gameInfo.fieldingChanges[normalizedTeamHalf].push(...changes);
+            if (options.render !== false) {
+                renderFieldingChangeList();
+                renderScoreSheet();
+                renderPrintablePitcherExtraPage();
+                scheduleGameAutoSave();
+            }
+            return changes.length;
+        }
+
+        function saveFieldingChange(teamHalf, changeInput) {
+            return saveFieldingChanges(teamHalf, [changeInput]) > 0;
         }
 
         function addFieldingChangeFromForm() {
             const teamHalf = document.getElementById("fieldingChangeTeam")?.value === "bottom" ? "bottom" : "top";
-            const position = parseFieldingPositionText(document.getElementById("fieldingChangePosition")?.value || "");
-            const didSave = saveFieldingChange(teamHalf, {
+            const baseChange = {
                 inning: document.getElementById("fieldingChangeInning")?.value || getColumnInningLabel(),
                 half: document.getElementById("fieldingChangeHalf")?.value || state.activeHalf,
                 battingOrder: document.getElementById("fieldingChangeBattingOrder")?.value || state.selectedSheetRow + 1,
                 playerName: document.getElementById("fieldingChangePlayerName")?.value.trim() || "",
-                fromPosition: position.fromPosition,
-                toPosition: position.toPosition,
                 note: document.getElementById("fieldingChangeNote")?.value.trim() || ""
-            });
-            if (!didSave) {
+            };
+            let changes = buildFieldingChangeInputsFromText(teamHalf, document.getElementById("fieldingChangePosition")?.value || "", baseChange);
+            if (!changes.length && (baseChange.playerName || baseChange.note)) {
+                changes = [baseChange];
+            }
+            const savedCount = saveFieldingChanges(teamHalf, changes);
+            if (!savedCount) {
                 alert("守備変更の内容を入力してください。");
                 return;
             }
@@ -9075,6 +9240,7 @@
             }
             state.gameInfo.fieldingChanges[teamHalf].splice(index, 1);
             renderFieldingChangeList();
+            renderScoreSheet();
             renderPrintablePitcherExtraPage();
             scheduleGameAutoSave();
         }
@@ -13424,20 +13590,24 @@
             }) || null;
         }
 
-        function getFieldingChangeForSheetCell(sheetHalf, row, col) {
+        function getFieldingChangesForSheetCell(sheetHalf, row, col) {
             const info = normalizeGameInfo(state.gameInfo);
             const inningLabel = String(getInningLabels(sheetHalf)[col] || (col + 1));
             const battingOrder = row + 1;
             const changes = ["top", "bottom"].flatMap((teamHalf) => (
                 (info.fieldingChanges[teamHalf] || []).map((change, index) => ({ teamHalf, change, index }))
             ));
-            return changes.find(({ change }) => {
+            return changes.filter(({ change }) => {
                 const changeInning = String(change.inning || "");
                 const changeOrder = Number(change.battingOrder) || 1;
                 return change.half === sheetHalf
                     && changeInning === inningLabel
                     && changeOrder === battingOrder;
-            }) || null;
+            });
+        }
+
+        function getFieldingChangeForSheetCell(sheetHalf, row, col) {
+            return getFieldingChangesForSheetCell(sheetHalf, row, col)[0] || null;
         }
 
         function renderPitcherChangeMarker(match) {
@@ -13458,21 +13628,32 @@
             ].join("");
         }
 
-        function renderFieldingChangeMarker(match) {
-            if (state.scorebookStyle !== "keio" || !match?.change) {
+        function renderFieldingChangeMarker(matches) {
+            const sourceMatches = Array.isArray(matches) ? matches : (matches ? [matches] : []);
+            const changes = sourceMatches.map((match) => match?.change).filter(Boolean);
+            if (!changes.length) {
                 return "";
             }
-            const change = match.change;
-            const positionText = formatFieldingPositionText(change);
-            const label = [
-                change.playerName || "",
-                positionText,
-                change.note || ""
-            ].filter(Boolean).join(" ");
-            if (!label) {
+            const visibleLabel = changes.map((change) => {
+                const positionText = formatFieldingPositionText(change);
+                return [
+                    change.playerName || "",
+                    positionText
+                ].filter(Boolean).join(" ");
+            }).filter(Boolean).join(" / ");
+            const ariaLabel = changes.map((change) => {
+                const positionText = formatFieldingPositionText(change);
+                return [
+                    change.playerName || "",
+                    positionText,
+                    change.note || ""
+                ].filter(Boolean).join(" ");
+            }).filter(Boolean).join(" / ");
+            if (!visibleLabel) {
                 return "";
             }
-            return '<div class="fielding-change-marker is-keio" aria-label="守備変更 ' + escapeHtml(label) + '">守:' + escapeHtml(label) + '</div>';
+            const className = "fielding-change-marker" + (state.scorebookStyle === "keio" ? " is-keio" : "");
+            return '<div class="' + className + '" aria-label="守備変更 ' + escapeHtml(ariaLabel || visibleLabel) + '">守:' + escapeHtml(visibleLabel) + '</div>';
         }
 
         function compareSheetPosition(a, b) {
@@ -13728,10 +13909,10 @@
                         snapshot = liveCurrentSnapshot;
                     }
                     const pitcherChangeMatch = getPitcherChangeForSheetCell(half, row, col);
-                    const fieldingChangeMatch = getFieldingChangeForSheetCell(half, row, col);
+                    const fieldingChangeMatches = getFieldingChangesForSheetCell(half, row, col);
                     button.innerHTML = generateSheetCellSvg(snapshot)
                         + renderPitcherChangeMarker(pitcherChangeMatch)
-                        + renderFieldingChangeMarker(fieldingChangeMatch);
+                        + renderFieldingChangeMarker(fieldingChangeMatches);
                     const hasComment = Boolean(snapshot?.atBatComment)
                         || (snapshot?.pitchComments || []).some((comment) => comment?.text);
                     button.disabled = !canEditCell && !hasComment;
