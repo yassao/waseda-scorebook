@@ -1951,6 +1951,10 @@
             font-weight: 900;
         }
 
+        .pitcher-change-form .sheet-change-open-button {
+            background: #243447;
+        }
+
         .pitcher-change-list {
             display: grid;
             gap: 6px;
@@ -3747,6 +3751,190 @@
             color: #172331;
         }
 
+        .sheet-change-popup {
+            width: min(880px, calc(100vw - 24px));
+            max-height: calc(100vh - 24px);
+            padding: 14px 18px;
+        }
+
+        .sheet-change-popup .comment-popup-title {
+            margin-bottom: 8px;
+        }
+
+        .sheet-change-dialog-form {
+            display: grid;
+            gap: 9px;
+        }
+
+        .sheet-change-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .sheet-change-meta-grid label {
+            display: grid;
+            gap: 4px;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .sheet-change-meta-grid input,
+        .sheet-change-meta-grid select {
+            min-height: 38px;
+            width: 100%;
+            border: 2px solid #d7e1ea;
+            border-radius: 12px;
+            padding: 6px 10px;
+            background: #fff;
+            color: #172331;
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        .sheet-change-note-field {
+            display: grid;
+            gap: 4px;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .sheet-change-note-field input {
+            min-height: 38px;
+            border: 2px solid #d7e1ea;
+            border-radius: 12px;
+            padding: 6px 10px;
+            background: #fff;
+            color: #172331;
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        .sheet-change-table {
+            display: grid;
+            grid-template-columns: 88px minmax(0, 1fr) minmax(0, 1fr);
+            border: 1px solid #d7e1ea;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .sheet-change-cell {
+            min-height: 38px;
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            padding: 5px 9px;
+            border-right: 1px solid #d7e1ea;
+            border-bottom: 1px solid #d7e1ea;
+            color: #172331;
+            font-size: 13px;
+            font-weight: 850;
+        }
+
+        .sheet-change-cell:nth-child(3n) {
+            border-right: 0;
+        }
+
+        .sheet-change-table .sheet-change-cell:nth-last-child(-n + 3) {
+            border-bottom: 0;
+        }
+
+        .sheet-change-header {
+            min-height: 30px;
+            background: #eef8f6;
+            color: #0f4f4a;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .sheet-change-position {
+            justify-content: center;
+            background: #f8fafc;
+            color: #243447;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .sheet-change-before {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sheet-change-after input {
+            min-height: 30px;
+            width: 100%;
+            min-width: 0;
+            border: 1.5px solid #cbd8e2;
+            border-radius: 9px;
+            padding: 4px 8px;
+            color: #172331;
+            font-size: 14px;
+            font-weight: 850;
+        }
+
+        .sheet-change-preview {
+            display: grid;
+            gap: 6px;
+            min-height: 36px;
+            padding: 8px 10px;
+            border: 1px solid #d7e1ea;
+            border-radius: 12px;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 850;
+            line-height: 1.45;
+        }
+
+        .sheet-change-preview strong {
+            color: #0f4f4a;
+            font-weight: 950;
+        }
+
+        .sheet-change-actions {
+            position: sticky;
+            bottom: -1px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding-top: 8px;
+            background: rgba(255, 255, 255, 0.98);
+        }
+
+        .sheet-change-actions button {
+            min-height: 44px;
+            font-size: 16px;
+            font-weight: 900;
+        }
+
+        @media (max-width: 680px) {
+            .sheet-change-meta-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .sheet-change-meta-grid label:first-child,
+            .sheet-change-note-field {
+                grid-column: 1 / -1;
+            }
+
+            .sheet-change-table {
+                grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
+            }
+
+            .sheet-change-cell {
+                padding: 6px;
+                font-size: 12px;
+            }
+
+            .sheet-change-after input {
+                font-size: 13px;
+            }
+        }
+
         .inning-share-options {
             margin-top: 12px;
             color: #334155;
@@ -4951,7 +5139,8 @@
                                             <label>選手名<input id="fieldingChangePlayerName" type="text" placeholder="例: 山田"></label>
                                             <label>変更<input id="fieldingChangePosition" type="text" placeholder="例: 9→1 / 投→一、一→投"></label>
                                             <label class="span-2">メモ<input id="fieldingChangeNote" type="text" placeholder="例: ライトから再登板、代打が左翼へ"></label>
-                                            <button class="span-2" type="button" onclick="addFieldingChangeFromForm()">守備変更を記録</button>
+                                            <button class="sheet-change-open-button" type="button" onclick="openSheetChangeDialog()">シート変更</button>
+                                            <button type="button" onclick="addFieldingChangeFromForm()">守備変更を記録</button>
                                         </div>
                                         <div id="fieldingChangeList" class="pitcher-change-list"></div>
                                     </div>
@@ -5062,7 +5251,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.47";
+        const APP_VERSION = "0.2.48";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5507,6 +5696,7 @@
             "８": "8",
             "９": "9"
         };
+        const FIELDING_POSITION_ORDER = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
         function normalizeNaturalLanguageKey(text) {
             return (text || "")
@@ -9067,6 +9257,153 @@
             return shortNames[normalized] ? normalized + " " + shortNames[normalized] : normalized;
         }
 
+        function isFieldingSheetPosition(value) {
+            return FIELDING_POSITION_ORDER.includes(normalizeFieldingPositionValue(value));
+        }
+
+        function createEmptyFieldingAssignments() {
+            return FIELDING_POSITION_ORDER.reduce((assignments, position) => {
+                assignments[position] = {
+                    position,
+                    name: ""
+                };
+                return assignments;
+            }, {});
+        }
+
+        function getFieldingNameKey(name) {
+            return String(name || "").trim();
+        }
+
+        function setFieldingAssignmentName(assignments, position, name) {
+            const normalizedPosition = normalizeFieldingPositionValue(position);
+            if (!FIELDING_POSITION_ORDER.includes(normalizedPosition)) {
+                return;
+            }
+            assignments[normalizedPosition] = assignments[normalizedPosition] || {
+                position: normalizedPosition,
+                name: ""
+            };
+            assignments[normalizedPosition].name = String(name || "").trim();
+        }
+
+        function clearFieldingAssignmentByName(assignments, name) {
+            const nameKey = getFieldingNameKey(name);
+            if (!nameKey) {
+                return;
+            }
+            FIELDING_POSITION_ORDER.forEach((position) => {
+                if (getFieldingNameKey(assignments[position]?.name) === nameKey) {
+                    assignments[position].name = "";
+                }
+            });
+        }
+
+        function applyFieldingChangeToAssignments(assignments, change) {
+            const fromPosition = normalizeFieldingPositionValue(change?.fromPosition);
+            const toPosition = normalizeFieldingPositionValue(change?.toPosition);
+            const fromIsSheetPosition = FIELDING_POSITION_ORDER.includes(fromPosition);
+            const toIsSheetPosition = FIELDING_POSITION_ORDER.includes(toPosition);
+            let playerName = String(change?.playerName || "").trim();
+            if (!playerName && fromIsSheetPosition) {
+                playerName = String(assignments[fromPosition]?.name || "").trim();
+            }
+            if (playerName) {
+                clearFieldingAssignmentByName(assignments, playerName);
+            } else if (fromIsSheetPosition && assignments[fromPosition]) {
+                assignments[fromPosition].name = "";
+            }
+            if (toIsSheetPosition && playerName) {
+                setFieldingAssignmentName(assignments, toPosition, playerName);
+            }
+        }
+
+        function getCurrentFieldingAssignments(teamHalf) {
+            const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
+            const assignments = createEmptyFieldingAssignments();
+            const names = state.playerNames?.[normalizedTeamHalf] || [];
+            const positions = state.playerPositions?.[normalizedTeamHalf] || [];
+            positions.forEach((position, index) => {
+                const normalizedPosition = normalizeFieldingPositionValue(position);
+                const playerName = splitRosterNameSlots(names[index] || "")[0] || "";
+                if (FIELDING_POSITION_ORDER.includes(normalizedPosition) && playerName) {
+                    setFieldingAssignmentName(assignments, normalizedPosition, playerName);
+                }
+            });
+            const starterPitcher = normalizeGameInfo(state.gameInfo).pitchers?.[normalizedTeamHalf] || "";
+            if (starterPitcher && !assignments["1"].name) {
+                setFieldingAssignmentName(assignments, "1", starterPitcher);
+            }
+            const info = normalizeGameInfo(state.gameInfo);
+            (info.fieldingChanges[normalizedTeamHalf] || []).forEach((change) => {
+                applyFieldingChangeToAssignments(assignments, change);
+            });
+            return assignments;
+        }
+
+        function cloneFieldingAssignments(assignments) {
+            return FIELDING_POSITION_ORDER.reduce((copy, position) => {
+                copy[position] = {
+                    position,
+                    name: String(assignments?.[position]?.name || "").trim()
+                };
+                return copy;
+            }, {});
+        }
+
+        function buildSheetChangeNote(baseNote, detail) {
+            const label = detail ? "シート変更: " + detail : "シート変更";
+            return [label, String(baseNote || "").trim()].filter(Boolean).join(" / ");
+        }
+
+        function buildSheetChangeDiffsFromAssignments(beforeAssignments, afterAssignments, baseChange = {}) {
+            const beforeNamePositions = new Map();
+            const afterNameKeys = new Set();
+            const changes = [];
+            FIELDING_POSITION_ORDER.forEach((position) => {
+                const playerName = String(beforeAssignments?.[position]?.name || "").trim();
+                const nameKey = getFieldingNameKey(playerName);
+                if (nameKey && !beforeNamePositions.has(nameKey)) {
+                    beforeNamePositions.set(nameKey, position);
+                }
+            });
+            FIELDING_POSITION_ORDER.forEach((position) => {
+                const beforeName = String(beforeAssignments?.[position]?.name || "").trim();
+                const afterName = String(afterAssignments?.[position]?.name || "").trim();
+                const afterNameKey = getFieldingNameKey(afterName);
+                if (afterNameKey) {
+                    afterNameKeys.add(afterNameKey);
+                }
+                if (afterName && afterName !== beforeName) {
+                    const fromPosition = beforeNamePositions.get(afterNameKey) || "";
+                    changes.push({
+                        inning: baseChange.inning,
+                        half: baseChange.half,
+                        battingOrder: baseChange.battingOrder,
+                        playerName: afterName,
+                        fromPosition,
+                        toPosition: position,
+                        note: buildSheetChangeNote(baseChange.note, fromPosition ? "" : "途中出場")
+                    });
+                }
+            });
+            FIELDING_POSITION_ORDER.forEach((position) => {
+                const beforeName = String(beforeAssignments?.[position]?.name || "").trim();
+                if (beforeName && !afterNameKeys.has(getFieldingNameKey(beforeName))) {
+                    changes.push({
+                        inning: baseChange.inning,
+                        half: baseChange.half,
+                        battingOrder: baseChange.battingOrder,
+                        playerName: beforeName,
+                        fromPosition: position,
+                        toPosition: "",
+                        note: buildSheetChangeNote(baseChange.note, "守備から退く")
+                    });
+                }
+            });
+            return changes;
+        }
+
         function parseFieldingPositionText(value) {
             const text = String(value || "").trim();
             if (!text) {
@@ -9163,7 +9500,13 @@
             if (fromPosition && toPosition) {
                 return formatFieldingPositionValue(fromPosition) + "→" + formatFieldingPositionValue(toPosition);
             }
-            return formatFieldingPositionValue(fromPosition || toPosition);
+            if (toPosition) {
+                return "→" + formatFieldingPositionValue(toPosition);
+            }
+            if (fromPosition) {
+                return formatFieldingPositionValue(fromPosition) + "→退く";
+            }
+            return "";
         }
 
         function setFieldingChangeFormDefaults() {
@@ -9231,6 +9574,180 @@
                 return;
             }
             ["fieldingChangePlayerName", "fieldingChangePosition", "fieldingChangeNote"].forEach((id) => setElementValue(id, ""));
+        }
+
+        function ensureSheetChangeDialog() {
+            let backdrop = document.getElementById("sheetChangeDialogBackdrop");
+            let popup = document.getElementById("sheetChangeDialog");
+            if (!backdrop) {
+                backdrop = document.createElement("div");
+                backdrop.id = "sheetChangeDialogBackdrop";
+                backdrop.className = "comment-popup-backdrop";
+                backdrop.onclick = closeSheetChangeDialog;
+                document.body.appendChild(backdrop);
+            }
+            if (!popup) {
+                popup = document.createElement("div");
+                popup.id = "sheetChangeDialog";
+                popup.className = "comment-popup sheet-change-popup";
+                popup.setAttribute("aria-hidden", "true");
+                popup.setAttribute("role", "dialog");
+                popup.setAttribute("aria-modal", "true");
+                document.body.appendChild(popup);
+            }
+            return { backdrop, popup };
+        }
+
+        function getSheetChangeDialogBaseChange() {
+            const dialogTeam = document.getElementById("sheetChangeTeam")?.value;
+            const formTeam = document.getElementById("fieldingChangeTeam")?.value;
+            return {
+                teamHalf: dialogTeam === "bottom" || (!dialogTeam && formTeam === "bottom") ? "bottom" : "top",
+                inning: document.getElementById("sheetChangeInning")?.value
+                    || document.getElementById("fieldingChangeInning")?.value
+                    || getColumnInningLabel(),
+                half: document.getElementById("sheetChangeHalf")?.value
+                    || document.getElementById("fieldingChangeHalf")?.value
+                    || state.activeHalf,
+                battingOrder: document.getElementById("sheetChangeBattingOrder")?.value
+                    || document.getElementById("fieldingChangeBattingOrder")?.value
+                    || state.selectedSheetRow + 1,
+                note: document.getElementById("sheetChangeNote")?.value
+                    || document.getElementById("fieldingChangeNote")?.value
+                    || ""
+            };
+        }
+
+        function getSheetChangeFallbackBaseChange(teamHalf = null, baseChange = null) {
+            const fallback = baseChange || getSheetChangeDialogBaseChange();
+            return {
+                teamHalf: teamHalf === "bottom" || fallback.teamHalf === "bottom" ? "bottom" : "top",
+                inning: fallback.inning || getColumnInningLabel(),
+                half: fallback.half === "bottom" ? "bottom" : "top",
+                battingOrder: fallback.battingOrder || state.selectedSheetRow + 1,
+                note: fallback.note || ""
+            };
+        }
+
+        function renderSheetChangePositionRows(beforeAssignments) {
+            return FIELDING_POSITION_ORDER.map((position) => {
+                const beforeName = beforeAssignments[position]?.name || "";
+                return [
+                    '<div class="sheet-change-cell sheet-change-position">' + escapeHtml(formatFieldingPositionValue(position)) + '</div>',
+                    '<div class="sheet-change-cell sheet-change-before">' + escapeHtml(beforeName || "空") + '</div>',
+                    '<div class="sheet-change-cell sheet-change-after">',
+                    '<input id="sheetChangeAfter_' + position + '" list="registeredPlayerNameOptions" value="' + escapeHtml(beforeName) + '" aria-label="' + escapeHtml(formatFieldingPositionValue(position) + ' 変更後') + '" oninput="updateSheetChangePreview()">',
+                    '</div>'
+                ].join("");
+            }).join("");
+        }
+
+        function openSheetChangeDialog(teamHalf = null, baseChange = null) {
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            updateRegisteredPlayerNameOptions();
+            const base = getSheetChangeFallbackBaseChange(teamHalf, baseChange);
+            const beforeAssignments = getCurrentFieldingAssignments(base.teamHalf);
+            const { backdrop, popup } = ensureSheetChangeDialog();
+            const teamOptions = ["top", "bottom"].map((half) => (
+                '<option value="' + half + '"' + (base.teamHalf === half ? " selected" : "") + '>' + escapeHtml(getTeamDisplayName(half)) + '</option>'
+            )).join("");
+            popup.innerHTML = [
+                '<div class="comment-popup-title">シート変更: ' + escapeHtml(getTeamDisplayName(base.teamHalf)) + '</div>',
+                '<form class="sheet-change-dialog-form" onsubmit="saveSheetChangeDialog(event)">',
+                '<div class="sheet-change-meta-grid">',
+                '<label>チーム<select id="sheetChangeTeam" onchange="rerenderSheetChangeDialogForTeam(this.value)">' + teamOptions + '</select></label>',
+                '<label>回<input id="sheetChangeInning" type="number" min="1" max="12" inputmode="numeric" value="' + escapeHtml(base.inning) + '" oninput="updateSheetChangePreview()"></label>',
+                '<label>表/裏<select id="sheetChangeHalf" onchange="updateSheetChangePreview()"><option value="top"' + (base.half === "top" ? " selected" : "") + '>表</option><option value="bottom"' + (base.half === "bottom" ? " selected" : "") + '>裏</option></select></label>',
+                '<label>何番から<input id="sheetChangeBattingOrder" type="number" min="1" max="9" inputmode="numeric" value="' + escapeHtml(base.battingOrder) + '" oninput="updateSheetChangePreview()"></label>',
+                '</div>',
+                '<label class="sheet-change-note-field">メモ<input id="sheetChangeNote" type="text" value="' + escapeHtml(base.note) + '" placeholder="例: 代打から守備" oninput="updateSheetChangePreview()"></label>',
+                '<div class="sheet-change-table">',
+                '<div class="sheet-change-cell sheet-change-header">守備</div>',
+                '<div class="sheet-change-cell sheet-change-header">変更前</div>',
+                '<div class="sheet-change-cell sheet-change-header">変更後</div>',
+                renderSheetChangePositionRows(beforeAssignments),
+                '</div>',
+                '<div id="sheetChangePreview" class="sheet-change-preview"></div>',
+                '<div class="sheet-change-actions">',
+                '<button type="button" onclick="closeSheetChangeDialog()">キャンセル</button>',
+                '<button type="submit">登録する</button>',
+                '</div>',
+                '</form>'
+            ].join("");
+            backdrop.classList.add("is-open");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            updateSheetChangePreview();
+        }
+
+        function rerenderSheetChangeDialogForTeam(teamHalf) {
+            openSheetChangeDialog(teamHalf, getSheetChangeDialogBaseChange());
+        }
+
+        function closeSheetChangeDialog() {
+            const popup = document.getElementById("sheetChangeDialog");
+            const backdrop = document.getElementById("sheetChangeDialogBackdrop");
+            popup?.classList.remove("is-open");
+            popup?.setAttribute("aria-hidden", "true");
+            backdrop?.classList.remove("is-open");
+        }
+
+        function readSheetChangeAfterAssignments() {
+            const assignments = createEmptyFieldingAssignments();
+            FIELDING_POSITION_ORDER.forEach((position) => {
+                setFieldingAssignmentName(assignments, position, document.getElementById("sheetChangeAfter_" + position)?.value || "");
+            });
+            return assignments;
+        }
+
+        function getSheetChangeDialogDiffs() {
+            const base = getSheetChangeDialogBaseChange();
+            const normalizedBase = getSheetChangeFallbackBaseChange(base.teamHalf, base);
+            return {
+                teamHalf: normalizedBase.teamHalf,
+                changes: buildSheetChangeDiffsFromAssignments(
+                    getCurrentFieldingAssignments(normalizedBase.teamHalf),
+                    readSheetChangeAfterAssignments(),
+                    normalizedBase
+                )
+            };
+        }
+
+        function formatSheetChangePreviewText(change) {
+            const playerName = change.playerName || "選手未登録";
+            const fromText = change.fromPosition ? formatFieldingPositionValue(change.fromPosition) : "";
+            const toText = change.toPosition ? formatFieldingPositionValue(change.toPosition) : "退く";
+            return escapeHtml(playerName + " " + (fromText ? fromText + "→" : "→") + toText);
+        }
+
+        function updateSheetChangePreview() {
+            const preview = document.getElementById("sheetChangePreview");
+            if (!preview) {
+                return;
+            }
+            const { changes } = getSheetChangeDialogDiffs();
+            if (!changes.length) {
+                preview.innerHTML = "差分なし";
+                return;
+            }
+            preview.innerHTML = '<strong>登録予定 ' + changes.length + '件</strong>' + changes.map(formatSheetChangePreviewText).join("<br>");
+        }
+
+        function saveSheetChangeDialog(event) {
+            event?.preventDefault();
+            const { teamHalf, changes } = getSheetChangeDialogDiffs();
+            if (!changes.length) {
+                alert("変更がありません。");
+                return;
+            }
+            setElementValue("fieldingChangeTeam", teamHalf);
+            const base = getSheetChangeDialogBaseChange();
+            setElementValue("fieldingChangeInning", base.inning);
+            setElementValue("fieldingChangeHalf", base.half);
+            setElementValue("fieldingChangeBattingOrder", base.battingOrder);
+            setElementValue("fieldingChangeNote", base.note);
+            saveFieldingChanges(teamHalf, changes);
+            closeSheetChangeDialog();
         }
 
         function deleteFieldingChange(teamHalf, index) {
