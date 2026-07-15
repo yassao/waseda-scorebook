@@ -5016,7 +5016,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.42";
+        const APP_VERSION = "0.2.43";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6307,6 +6307,9 @@
                         events.push(batterResultEvent);
 
                         runnerStatusEvents.forEach((runnerStatusEvent, runnerEventIndex) => {
+                            const runnerBattingOrder = Number.isInteger(runnerStatusEvent?.runnerRow)
+                                ? runnerStatusEvent.runnerRow + 1
+                                : battingOrder;
                             const runnerEvent = buildRunnerStatusSaveEvent(runnerStatusEvent, {
                                 id: "ev_" + String(eventSerial++).padStart(5, "0"),
                                 plateAppearanceId: paId,
@@ -6316,8 +6319,8 @@
                                 inningColumn: col + 1,
                                 sequence: pitchEvents.length + 2 + runnerEventIndex,
                                 runner: {
-                                    battingOrder,
-                                    playerId: getPlayerId(half, battingOrder)
+                                    battingOrder: runnerBattingOrder,
+                                    playerId: getPlayerId(half, runnerBattingOrder)
                                 }
                             });
                             if (runnerEvent) {
@@ -7524,6 +7527,93 @@
             return getGameRuleStatusItems(options).join(" / ");
         }
 
+        function getPreviousBattingOrderRow(row, steps = 1) {
+            const start = Number.isInteger(row) && row >= 0 && row < 9 ? row : 0;
+            return (start - steps + 9) % 9;
+        }
+
+        function getTiebreakInningStartRow(half, inning, fallbackRow = 0) {
+            const previousEndRow = findPreviousInningEndRow(half, inning);
+            if (Number.isInteger(previousEndRow)) {
+                return (previousEndRow + 1) % 9;
+            }
+            const sheet = state.scoreSheets?.[half] || createEmptyScoreSheet();
+            for (let col = 0; col < MAX_INNINGS; col += 1) {
+                if (getColumnInningLabel(col, half) !== inning) {
+                    continue;
+                }
+                for (let row = 0; row < 9; row += 1) {
+                    if (sheet[row]?.[col]) {
+                        return row;
+                    }
+                }
+            }
+            return Number.isInteger(fallbackRow) && fallbackRow >= 0 && fallbackRow < 9 ? fallbackRow : 0;
+        }
+
+        function findLatestPlateRefBeforeInning(half, row, inning) {
+            const sheet = state.scoreSheets?.[half] || createEmptyScoreSheet();
+            let best = null;
+            for (let col = 0; col < MAX_INNINGS; col += 1) {
+                const label = Number(getColumnInningLabel(col, half));
+                if (!Number.isFinite(label) || label >= Number(inning)) {
+                    continue;
+                }
+                if (!sheet[row]?.[col]) {
+                    continue;
+                }
+                if (!best || label > best.inning || (label === best.inning && col > best.col)) {
+                    best = { row, col, inning: label };
+                }
+            }
+            return best ? { row: best.row, col: best.col } : { row, col: -1 };
+        }
+
+        function createTiebreakRunnerRef(half, runnerRow, inning, baseIndex) {
+            const latestRef = findLatestPlateRefBeforeInning(half, runnerRow, inning);
+            return {
+                ...latestRef,
+                tiebreakRunner: true,
+                tiebreakHalf: half,
+                tiebreakInning: Number(inning) || inning,
+                initialBase: baseIndex + 1,
+                runnerRow
+            };
+        }
+
+        function getInitialTiebreakBaseRunners(half, inning, startRow) {
+            const rules = normalizeGameInfo(state.gameInfo).rules || {};
+            if (!isTiebreakActiveForInning(rules, inning)) {
+                return [null, null, null];
+            }
+            const runners = [null, null, null];
+            const secondRunnerRow = getPreviousBattingOrderRow(startRow, 1);
+            if (rules.tiebreakRunners === "second") {
+                runners[1] = createTiebreakRunnerRef(half, secondRunnerRow, inning, 1);
+            } else if (rules.tiebreakRunners === "first_second") {
+                runners[1] = createTiebreakRunnerRef(half, secondRunnerRow, inning, 1);
+                runners[0] = createTiebreakRunnerRef(half, getPreviousBattingOrderRow(startRow, 2), inning, 0);
+            }
+            return runners;
+        }
+
+        function getInitialBaseRunnersForHalfInning(half, inning, fallbackStartRow = 0) {
+            const startRow = getTiebreakInningStartRow(half, inning, fallbackStartRow);
+            return getInitialTiebreakBaseRunners(half, inning, startRow);
+        }
+
+        function refreshTiebreakRunnersForCurrentSelectionIfNeeded() {
+            if (state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol] || hasCurrentAtBatInput()) {
+                return;
+            }
+            rebuildBaseRunnerContextBeforeCell(state.activeHalf, state.selectedSheetRow, state.selectedSheetCol, {
+                setCorrectionContext: false
+            });
+            updateRunnerGuiOptions();
+            updateRunnerLiveStatus();
+            updateRunnerPreviewPanel();
+        }
+
         function createPrintInfoTable() {
             const info = normalizeGameInfo(state.gameInfo);
             const table = document.createElement("table");
@@ -8413,6 +8503,9 @@
                 target = target[key];
             }
             target[parts[parts.length - 1]] = value;
+            if (parts[0] === "rules") {
+                refreshTiebreakRunnersForCurrentSelectionIfNeeded();
+            }
             renderCurrentBatterCard();
             renderLineScoreBoard();
             renderGameMiniStatus();
@@ -8814,8 +8907,9 @@
             if (!state.retiredRunnerPreviewsByHalf[state.activeHalf]) {
                 state.retiredRunnerPreviewsByHalf[state.activeHalf] = [];
             }
+            const runnerKey = getRunnerRefKey(runnerRef);
             const previews = state.retiredRunnerPreviewsByHalf[state.activeHalf]
-                .filter((item) => !(item.runnerRef?.row === runnerRef.row && item.runnerRef?.col === runnerRef.col));
+                .filter((item) => getRunnerRefKey(item.runnerRef) !== runnerKey);
             previews.push({
                 runnerRef: { ...runnerRef },
                 baseIndex,
@@ -10212,6 +10306,58 @@
             return { row, col };
         }
 
+        function isTiebreakRunnerRef(ref) {
+            return Boolean(ref?.tiebreakRunner);
+        }
+
+        function getRunnerRefKey(ref) {
+            if (!ref) {
+                return "";
+            }
+            if (isTiebreakRunnerRef(ref)) {
+                return [
+                    "tb",
+                    ref.tiebreakHalf || state.activeHalf,
+                    ref.tiebreakInning || getColumnInningLabel(),
+                    Number.isInteger(ref.runnerRow) ? ref.runnerRow : ref.row,
+                    ref.initialBase || ""
+                ].join(":");
+            }
+            return ref.row + ":" + ref.col;
+        }
+
+        function getRunnerRowFromRef(ref) {
+            if (!ref) {
+                return -1;
+            }
+            const row = Number.isInteger(ref.runnerRow) ? ref.runnerRow : ref.row;
+            return Number.isInteger(row) ? row : -1;
+        }
+
+        function getRunnerDisplayNameFromRef(ref) {
+            const half = ref?.tiebreakHalf || state.activeHalf;
+            const row = getRunnerRowFromRef(ref);
+            if (row < 0) {
+                return "";
+            }
+            const name = splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0];
+            return name || (row + 1) + "番";
+        }
+
+        function decorateTiebreakRunnerStatus(ref, text) {
+            if (!isTiebreakRunnerRef(ref) || !text || typeof text !== "object") {
+                return text;
+            }
+            return {
+                ...text,
+                tiebreakRunner: true,
+                runnerRow: getRunnerRowFromRef(ref),
+                runnerName: getRunnerDisplayNameFromRef(ref),
+                scoredHalf: text.scoredHalf || ref.tiebreakHalf || state.activeHalf,
+                scoredInning: text.scoredInning || ref.tiebreakInning || getColumnInningLabel()
+            };
+        }
+
         function getSnapshotByRef(ref) {
             if (!ref) {
                 return null;
@@ -10232,6 +10378,10 @@
         function getRunnerRefLabel(ref) {
             if (!ref) {
                 return "空";
+            }
+            if (isTiebreakRunnerRef(ref)) {
+                const row = getRunnerRowFromRef(ref);
+                return (row >= 0 ? row + 1 : "?") + "番TB";
             }
             return (Number(ref.row) + 1) + "番";
         }
@@ -10255,11 +10405,14 @@
                 if (!runnerRef) {
                     return;
                 }
-                const key = runnerRef.row + ":" + runnerRef.col;
+                const key = getRunnerRefKey(runnerRef);
                 if (seen.has(key)) {
                     warnings.push(getRunnerRefLabel(runnerRef) + "が複数の塁にいます");
                 }
                 seen.set(key, baseIndex);
+                if (isTiebreakRunnerRef(runnerRef)) {
+                    return;
+                }
                 const snapshot = getSnapshotByRef(runnerRef);
                 const latestEvent = getRunnerStatusEvents(snapshot).slice(-1)[0];
                 if (latestEvent?.type === "score") {
@@ -10310,16 +10463,20 @@
             if (isRunnerContextRebuild) {
                 return;
             }
-            const snapshot = getSnapshotByRef(ref);
+            const currentSnapshot = state.scoreSheet?.[state.selectedSheetRow]?.[state.selectedSheetCol] || null;
+            const snapshot = isTiebreakRunnerRef(ref)
+                ? (currentSnapshot || getSnapshotByRef(ref))
+                : getSnapshotByRef(ref);
             if (snapshot) {
+                const nextText = decorateTiebreakRunnerStatus(ref, text);
                 if (!Array.isArray(snapshot.runnerStatusEvents)) {
                     snapshot.runnerStatusEvents = snapshot.runnerStatusText ? [snapshot.runnerStatusText] : [];
                 }
                 const { sourceEvents, manualTail } = splitManualRunnerStatusTail(snapshot.runnerStatusEvents);
                 const lastKey = JSON.stringify(sourceEvents[sourceEvents.length - 1]);
-                const nextKey = JSON.stringify(text);
+                const nextKey = JSON.stringify(nextText);
                 if (lastKey !== nextKey) {
-                    sourceEvents.push(text);
+                    sourceEvents.push(nextText);
                 }
                 snapshot.runnerStatusEvents = [...sourceEvents, ...manualTail];
                 snapshot.runnerStatusText = snapshot.runnerStatusEvents[snapshot.runnerStatusEvents.length - 1] || "";
@@ -10540,6 +10697,21 @@
                 rows.forEach((row) => cells.push({ row, col }));
             }
             return cells;
+        }
+
+        function hasAnySnapshotForInning(half, inning) {
+            const sheet = state.scoreSheets?.[half] || createEmptyScoreSheet();
+            for (let col = 0; col < MAX_INNINGS; col += 1) {
+                if (getColumnInningLabel(col, half) !== inning) {
+                    continue;
+                }
+                for (let row = 0; row < 9; row += 1) {
+                    if (sheet[row]?.[col]) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         function getCellOrderIndex(cells, row, col) {
@@ -11182,6 +11354,9 @@
             if (isRunnerContextRebuild) {
                 return;
             }
+            if (isTiebreakRunnerRef(ref)) {
+                return;
+            }
             const snapshot = getSnapshotByRef(ref);
             if (!snapshot) {
                 return;
@@ -11317,7 +11492,8 @@
             if (!ref) {
                 return -1;
             }
-            return runners.findIndex((runner) => runner?.row === ref.row && runner?.col === ref.col);
+            const refKey = getRunnerRefKey(ref);
+            return runners.findIndex((runner) => getRunnerRefKey(runner) === refKey);
         }
 
         function getPreviousCompletedPlateRef(row = state.selectedSheetRow, col = state.selectedSheetCol, half = state.activeHalf) {
@@ -11440,8 +11616,9 @@
             if (!ref) {
                 return;
             }
+            const refKey = getRunnerRefKey(ref);
             for (let baseIndex = 0; baseIndex < runners.length; baseIndex += 1) {
-                if (runners[baseIndex]?.row === ref.row && runners[baseIndex]?.col === ref.col) {
+                if (getRunnerRefKey(runners[baseIndex]) === refKey) {
                     runners[baseIndex] = null;
                 }
             }
@@ -11970,7 +12147,11 @@
             state.battingOrder = String(row + 1);
             state.retiredRunnerPreviewsByHalf[normalizedHalf] = [];
             state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[normalizedHalf];
-            setBaseRunners([null, null, null]);
+            setBaseRunners(getInitialBaseRunnersForHalfInning(
+                normalizedHalf,
+                getColumnInningLabel(col, normalizedHalf),
+                row
+            ));
 
             isRunnerContextRebuild = true;
             try {
@@ -12128,7 +12309,11 @@
             syncActiveHalfRefs();
             state.retiredRunnerPreviewsByHalf[normalizedHalf] = [];
             state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[normalizedHalf];
-            setBaseRunners([null, null, null]);
+            setBaseRunners(getInitialBaseRunnersForHalfInning(
+                normalizedHalf,
+                inning,
+                cells[0]?.row ?? 0
+            ));
 
             let endCell = null;
             try {
@@ -12166,6 +12351,16 @@
             }
             syncActiveHalfRefs();
             for (let col = 0; col < MAX_INNINGS; col += 1) {
+                const inning = getColumnInningLabel(col, half);
+                const previousCol = col > 0 ? getColumnInningLabel(col - 1, half) : null;
+                if (col === 0 || previousCol !== inning) {
+                    const isCurrentSelectedInning = half === state.activeHalf
+                        && Number(inning) === Number(getColumnInningLabel(state.selectedSheetCol, half));
+                    const shouldApplyInitialRunners = hasAnySnapshotForInning(half, inning) || isCurrentSelectedInning;
+                    setBaseRunners(shouldApplyInitialRunners
+                        ? getInitialBaseRunnersForHalfInning(half, inning, inferInningStartRow(half, inning))
+                        : [null, null, null]);
+                }
                 for (let row = 0; row < 9; row += 1) {
                     const snapshot = sheet[row]?.[col];
                     if (snapshot) {
@@ -14253,13 +14448,16 @@
                 const byOrder = Number(event?.by) || 0;
                 if (event?.type === "out") {
                     if (includeLaterRunnerEvents || !byOrder || byOrder === selfOrder) {
-                        parts.push(formatShareRunnerOutText(event.label));
+                        const outText = formatShareRunnerOutText(event.label);
+                        parts.push(event?.tiebreakRunner && event.runnerName ? event.runnerName + "が" + outText : outText);
                     }
                 } else if (event?.type === "advance" && event.base > 1 && (includeLaterRunnerEvents || !byOrder || byOrder === selfOrder)) {
-                    parts.push(getShareBaseAdvanceText(event.base, event.label));
+                    const advanceText = getShareBaseAdvanceText(event.base, event.label);
+                    parts.push(event?.tiebreakRunner && event.runnerName ? event.runnerName + "が" + advanceText : advanceText);
                 } else if ((event?.type === "score" || event === "生還") && includeScoringEvents) {
                     const scoreText = event?.manualScoreCorrection ? "生還" : getShareScoreAdvanceText(event?.label);
-                    parts.push(byOrder && byOrder !== selfOrder ? byOrder + "番の打席で" + scoreText : scoreText);
+                    const runnerPrefix = event?.tiebreakRunner && event.runnerName ? event.runnerName + "が" : "";
+                    parts.push(byOrder && byOrder !== selfOrder ? byOrder + "番の打席で" + runnerPrefix + scoreText : runnerPrefix + scoreText);
                 }
             });
             if (snapshot?.modifiers?.triplePlay) {
@@ -14394,11 +14592,16 @@
                         return;
                     }
                     const byOrder = Number(event?.by) || 0;
-                    if (!byOrder || byOrder === entry.row + 1) {
+                    if (!byOrder || (byOrder === entry.row + 1 && !event?.tiebreakRunner)) {
                         return;
                     }
-                    const baseLabel = getShareRunnerBaseBeforeScore(entry.snapshot, eventIndex);
-                    const text = (baseLabel ? baseLabel + "走者の" : "") + runnerName + "が生還";
+                    const baseLabel = getShareRunnerBaseBeforeScore(entry.snapshot, eventIndex) || {
+                        1: "一塁",
+                        2: "二塁",
+                        3: "三塁"
+                    }[Number(event?.fromBase)] || "";
+                    const eventRunnerName = event?.runnerName || runnerName;
+                    const text = (baseLabel ? baseLabel + "走者の" : "") + eventRunnerName + "が生還";
                     if (!details.has(byOrder)) {
                         details.set(byOrder, []);
                     }
@@ -14417,13 +14620,13 @@
                         return;
                     }
                     const byOrder = Number(event?.by) || 0;
-                    if (!byOrder || byOrder === entry.row + 1) {
+                    if (!byOrder || (byOrder === entry.row + 1 && !event?.tiebreakRunner)) {
                         return;
                     }
                     if (!details.has(byOrder)) {
                         details.set(byOrder, []);
                     }
-                    details.get(byOrder).push(getShareRunnerOutDetailText(event, runnerName));
+                    details.get(byOrder).push(getShareRunnerOutDetailText(event, event?.runnerName || runnerName));
                 });
             });
             return details;
@@ -20632,7 +20835,7 @@
         }
 
         function getRunnerKey(ref) {
-            return ref ? ref.row + ":" + ref.col : "";
+            return getRunnerRefKey(ref);
         }
 
         function getNormalPlayCodeForPreview() {
@@ -20930,8 +21133,9 @@
             if (!ref || !hasCurrentAtBatInput()) {
                 return null;
             }
+            const refKey = getRunnerRefKey(ref);
             const item = getProjectedRunnerPreviewItems().find((candidate) =>
-                candidate.runnerRef?.row === ref.row && candidate.runnerRef?.col === ref.col
+                getRunnerRefKey(candidate.runnerRef) === refKey
             );
             if (!item || !Number.isInteger(item.sourceBaseIndex) || item.baseIndex === item.sourceBaseIndex) {
                 return null;
@@ -20976,11 +21180,11 @@
             }
             const previewEntry = getRunnerPreviewEntry();
             const activeItems = getProjectedRunnerPreviewItems();
-            const activeKeys = new Set(activeItems.map((item) => item.runnerRef.row + ":" + item.runnerRef.col));
+            const activeKeys = new Set(activeItems.map((item) => getRunnerRefKey(item.runnerRef)));
             const liveRetiredItems = getLiveRunnerOutPreviewItems()
-                .filter((item) => !activeKeys.has(item.runnerRef.row + ":" + item.runnerRef.col));
+                .filter((item) => !activeKeys.has(getRunnerRefKey(item.runnerRef)));
             const retiredItems = (state.retiredRunnerPreviews || [])
-                .filter((item) => item.runnerRef && !activeKeys.has(item.runnerRef.row + ":" + item.runnerRef.col))
+                .filter((item) => item.runnerRef && !activeKeys.has(getRunnerRefKey(item.runnerRef)))
                 .map((item) => ({ ...item, retired: true }));
             const items = [...activeItems, ...liveRetiredItems, ...retiredItems]
                 .sort((a, b) => (a.runnerRef.col - b.runnerRef.col) || (a.runnerRef.row - b.runnerRef.row));
@@ -20992,8 +21196,7 @@
 
             stack.innerHTML = items.map((item) => {
                 const isPreviewTarget = previewEntry
-                    && previewEntry.runnerRef?.row === item.runnerRef.row
-                    && previewEntry.runnerRef?.col === item.runnerRef.col;
+                    && getRunnerRefKey(previewEntry.runnerRef) === getRunnerRefKey(item.runnerRef);
                 const snapshot = item.retired && item.live
                     ? appendRunnerEventPreview(
                         getSnapshotByRef(item.runnerRef),
