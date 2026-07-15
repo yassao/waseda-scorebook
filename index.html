@@ -4453,9 +4453,65 @@
             text-underline-offset: 3px;
         }
 
-        .app-auto-ad-anchor {
+        .support-cta {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: center;
             min-height: 72px;
             margin-top: 14px;
+            padding: 12px;
+            border: 1px solid #d7e4ea;
+            border-radius: 14px;
+            background: #f8fbfc;
+        }
+
+        .support-cta-title {
+            color: #20303f;
+            font-size: 14px;
+            font-weight: 900;
+            line-height: 1.3;
+        }
+
+        .support-cta-text {
+            margin-top: 3px;
+            color: #607180;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.45;
+        }
+
+        .support-cta-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 38px;
+            padding: 8px 12px;
+            border: 0;
+            border-radius: 11px;
+            background: #0f766e;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 900;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .support-cta-button.is-disabled {
+            background: #d8e3e8;
+            color: #526273;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        @media (max-width: 420px) {
+            .support-cta {
+                grid-template-columns: 1fr;
+            }
+
+            .support-cta-button {
+                width: 100%;
+            }
         }
 
         .options-menu {
@@ -5314,7 +5370,7 @@
                     <button class="btn-save-return" onclick="saveCurrentGameAndShowStart()">保存してトップへ</button>
                     <button class="btn-export" onclick="exportGameJson()">試合データ書き出し</button>
                 </div>
-                <div id="scorebookAdAnchor" class="app-auto-ad-anchor" aria-hidden="true"></div>
+                <div id="scorebookSupportArea" class="support-cta"></div>
                 <div class="app-policy-footer">
                     <a href="https://cuviu.jp/privacy-policy/" target="_blank" rel="noopener">プライバシーポリシー</a>
                 </div>
@@ -5326,7 +5382,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.53";
+        const APP_VERSION = "0.2.54";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5338,6 +5394,7 @@
         const INNING_AD_SKIP_AFTER_SECONDS = 0;
         const PDF_AD_SECONDS = 0;
         const PDF_AD_UNWATCHED_LIMIT = 5;
+        const STRIPE_SUPPORT_URL = "";
         const AD_GATE_CONFIG = {
             enabled: true,
             provider: "ninja_admax",
@@ -5351,6 +5408,27 @@
             if (element) {
                 element.value = value;
             }
+        }
+
+        function renderSupportCta() {
+            const container = document.getElementById("scorebookSupportArea");
+            if (!container) {
+                return;
+            }
+            const supportUrl = String(STRIPE_SUPPORT_URL || "").trim();
+            const isReady = /^https:\/\/.+/i.test(supportUrl);
+            const detailText = isReady
+                ? "Stripeの支援ページが別タブで開きます。"
+                : "Stripeの支援リンクは準備中です。";
+            container.innerHTML = [
+                '<div>',
+                '<div class="support-cta-title">スコアブック by CuViu を応援する</div>',
+                '<div class="support-cta-text">継続開発や現場で使いやすい改善に役立てます。' + escapeHtml(detailText) + '</div>',
+                '</div>',
+                isReady
+                    ? '<a class="support-cta-button" href="' + escapeHtml(supportUrl) + '" target="_blank" rel="noopener">Stripeで支援</a>'
+                    : '<span class="support-cta-button is-disabled" aria-disabled="true">準備中</span>'
+            ].join("");
         }
 
         function getElementValue(id, fallback = "") {
@@ -23142,6 +23220,7 @@
         updateSheetZoom();
         initializeSheetPinchZoom();
         watchInningShareDraftUi();
+        renderSupportCta();
         const appVersionBadge = document.getElementById("appVersionBadge");
         if (appVersionBadge) {
             appVersionBadge.textContent = "v" + APP_VERSION;
