@@ -3825,7 +3825,7 @@
 
         .sheet-change-table {
             display: grid;
-            grid-template-columns: 88px minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1.1fr) 112px;
             border: 1px solid #d7e1ea;
             border-radius: 12px;
             overflow: hidden;
@@ -3845,11 +3845,11 @@
             font-weight: 850;
         }
 
-        .sheet-change-cell:nth-child(3n) {
+        .sheet-change-cell:nth-child(4n) {
             border-right: 0;
         }
 
-        .sheet-change-table .sheet-change-cell:nth-last-child(-n + 3) {
+        .sheet-change-table .sheet-change-cell:nth-last-child(-n + 4) {
             border-bottom: 0;
         }
 
@@ -3869,13 +3869,38 @@
             white-space: nowrap;
         }
 
-        .sheet-change-before {
-            overflow: hidden;
-            text-overflow: ellipsis;
+        .sheet-change-order {
+            justify-content: center;
+            background: #f8fafc;
+            color: #243447;
+            font-weight: 900;
             white-space: nowrap;
         }
 
-        .sheet-change-after input {
+        .sheet-change-before {
+            display: grid;
+            align-content: center;
+            gap: 1px;
+            overflow: hidden;
+        }
+
+        .sheet-change-before strong {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .sheet-change-before small {
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 850;
+        }
+
+        .sheet-change-after input,
+        .sheet-change-after select {
             min-height: 30px;
             width: 100%;
             min-width: 0;
@@ -3885,6 +3910,10 @@
             color: #172331;
             font-size: 14px;
             font-weight: 850;
+        }
+
+        .sheet-change-after select {
+            padding-right: 4px;
         }
 
         .sheet-change-preview {
@@ -3907,13 +3936,10 @@
         }
 
         .sheet-change-actions {
-            position: sticky;
-            bottom: -1px;
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
             padding-top: 8px;
-            background: rgba(255, 255, 255, 0.98);
         }
 
         .sheet-change-actions button {
@@ -3933,7 +3959,7 @@
             }
 
             .sheet-change-table {
-                grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
+                grid-template-columns: 46px minmax(0, 0.9fr) minmax(0, 1fr) 72px;
             }
 
             .sheet-change-cell {
@@ -3941,8 +3967,14 @@
                 font-size: 12px;
             }
 
-            .sheet-change-after input {
+            .sheet-change-before strong,
+            .sheet-change-after input,
+            .sheet-change-after select {
                 font-size: 13px;
+            }
+
+            .sheet-change-before small {
+                font-size: 9px;
             }
         }
 
@@ -5271,7 +5303,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.49";
+        const APP_VERSION = "0.2.50";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9295,6 +9327,33 @@
             return String(name || "").trim();
         }
 
+        function getActiveRosterName(playerName) {
+            const names = String(playerName || "")
+                .split("/")
+                .map((name) => name.trim())
+                .filter(Boolean);
+            return names[names.length - 1] || "";
+        }
+
+        function setActiveRosterName(playerName, activeName) {
+            const cleaned = String(activeName || "").trim();
+            if (!cleaned) {
+                return "";
+            }
+            const names = String(playerName || "")
+                .split("/")
+                .map((name) => name.trim())
+                .filter(Boolean);
+            if (!names.length) {
+                return cleaned;
+            }
+            if (names[names.length - 1] === cleaned) {
+                return names.join("/");
+            }
+            names.push(cleaned);
+            return names.join("/");
+        }
+
         function setFieldingAssignmentName(assignments, position, name) {
             const normalizedPosition = normalizeFieldingPositionValue(position);
             if (!FIELDING_POSITION_ORDER.includes(normalizedPosition)) {
@@ -9345,7 +9404,7 @@
             const positions = state.playerPositions?.[normalizedTeamHalf] || [];
             positions.forEach((position, index) => {
                 const normalizedPosition = normalizeFieldingPositionValue(position);
-                const playerName = splitRosterNameSlots(names[index] || "")[0] || "";
+                const playerName = getActiveRosterName(names[index] || "") || "";
                 if (FIELDING_POSITION_ORDER.includes(normalizedPosition) && playerName) {
                     setFieldingAssignmentName(assignments, normalizedPosition, playerName);
                 }
@@ -9369,6 +9428,67 @@
                 };
                 return copy;
             }, {});
+        }
+
+        function findPositionByAssignmentName(assignments, name) {
+            const nameKey = getFieldingNameKey(name);
+            if (!nameKey) {
+                return "";
+            }
+            return FIELDING_POSITION_ORDER.find((position) => getFieldingNameKey(assignments?.[position]?.name) === nameKey) || "";
+        }
+
+        function getCurrentSheetChangeLineup(teamHalf) {
+            const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
+            const assignments = getCurrentFieldingAssignments(normalizedTeamHalf);
+            const names = state.playerNames?.[normalizedTeamHalf] || [];
+            const positions = state.playerPositions?.[normalizedTeamHalf] || [];
+            return Array.from({ length: 9 }, (_, index) => {
+                const name = getActiveRosterName(names[index] || "");
+                const assignedPosition = findPositionByAssignmentName(assignments, name);
+                return {
+                    index,
+                    battingOrder: index + 1,
+                    name,
+                    position: assignedPosition || normalizeFieldingPositionValue(positions[index] || "")
+                };
+            });
+        }
+
+        function buildFieldingAssignmentsFromLineup(lineup) {
+            const assignments = createEmptyFieldingAssignments();
+            (lineup || []).forEach((row) => {
+                const position = normalizeFieldingPositionValue(row?.position);
+                const name = String(row?.name || "").trim();
+                if (FIELDING_POSITION_ORDER.includes(position) && name) {
+                    setFieldingAssignmentName(assignments, position, name);
+                }
+            });
+            return assignments;
+        }
+
+        function applySheetChangeLineup(teamHalf, beforeLineup, afterLineup) {
+            const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
+            if (!state.playerNames[normalizedTeamHalf]) {
+                state.playerNames[normalizedTeamHalf] = Array.from({ length: 9 }, () => "");
+            }
+            if (!state.playerPositions[normalizedTeamHalf]) {
+                state.playerPositions[normalizedTeamHalf] = Array.from({ length: 9 }, () => "");
+            }
+            (afterLineup || []).forEach((afterRow, index) => {
+                const beforeRow = beforeLineup?.[index] || {};
+                const afterName = String(afterRow?.name || "").trim();
+                const afterPosition = normalizeFieldingPositionValue(afterRow?.position || "");
+                if (afterName !== String(beforeRow.name || "").trim()) {
+                    state.playerNames[normalizedTeamHalf][index] = setActiveRosterName(state.playerNames[normalizedTeamHalf][index], afterName);
+                }
+                if (afterPosition !== normalizeFieldingPositionValue(beforeRow.position || "")) {
+                    state.playerPositions[normalizedTeamHalf][index] = afterPosition;
+                }
+            });
+            updateRegisteredPlayerNameOptions();
+            renderPlayerRosterEditor();
+            renderCurrentBatterCard();
         }
 
         function buildSheetChangeNote(baseNote, detail) {
@@ -9649,14 +9769,17 @@
             };
         }
 
-        function renderSheetChangePositionRows(beforeAssignments) {
-            return FIELDING_POSITION_ORDER.map((position) => {
-                const beforeName = beforeAssignments[position]?.name || "";
+        function renderSheetChangeLineupRows(beforeLineup) {
+            return (beforeLineup || []).map((row) => {
+                const positionText = row.position ? formatFieldingPositionValue(row.position) : "守備なし";
                 return [
-                    '<div class="sheet-change-cell sheet-change-position">' + escapeHtml(formatFieldingPositionValue(position)) + '</div>',
-                    '<div class="sheet-change-cell sheet-change-before">' + escapeHtml(beforeName || "空") + '</div>',
+                    '<div class="sheet-change-cell sheet-change-order">' + escapeHtml(row.battingOrder + "番") + '</div>',
+                    '<div class="sheet-change-cell sheet-change-before"><strong>' + escapeHtml(row.name || "未登録") + '</strong><small>' + escapeHtml(positionText) + '</small></div>',
                     '<div class="sheet-change-cell sheet-change-after">',
-                    '<input id="sheetChangeAfter_' + position + '" list="registeredPlayerNameOptions" value="' + escapeHtml(beforeName) + '" aria-label="' + escapeHtml(formatFieldingPositionValue(position) + ' 変更後') + '" oninput="updateSheetChangePreview()">',
+                    '<input id="sheetChangeAfterName_' + row.index + '" list="registeredPlayerNameOptions" value="' + escapeHtml(row.name) + '" aria-label="' + escapeHtml(row.battingOrder + '番 変更後選手名') + '" oninput="updateSheetChangePreview()">',
+                    '</div>',
+                    '<div class="sheet-change-cell sheet-change-after">',
+                    '<select id="sheetChangeAfterPosition_' + row.index + '" aria-label="' + escapeHtml(row.battingOrder + '番 変更後守備') + '" onchange="updateSheetChangePreview()">' + getRosterPositionOptions(row.position) + '</select>',
                     '</div>'
                 ].join("");
             }).join("");
@@ -9666,7 +9789,7 @@
             state.gameInfo = normalizeGameInfo(state.gameInfo);
             updateRegisteredPlayerNameOptions();
             const base = getSheetChangeFallbackBaseChange(teamHalf, baseChange);
-            const beforeAssignments = getCurrentFieldingAssignments(base.teamHalf);
+            const beforeLineup = getCurrentSheetChangeLineup(base.teamHalf);
             const { backdrop, popup } = ensureSheetChangeDialog();
             const teamOptions = ["top", "bottom"].map((half) => (
                 '<option value="' + half + '"' + (base.teamHalf === half ? " selected" : "") + '>' + escapeHtml(getTeamDisplayName(half)) + '</option>'
@@ -9682,10 +9805,11 @@
                 '</div>',
                 '<label class="sheet-change-note-field">メモ<input id="sheetChangeNote" type="text" value="' + escapeHtml(base.note) + '" placeholder="例: 代打から守備" oninput="updateSheetChangePreview()"></label>',
                 '<div class="sheet-change-table">',
-                '<div class="sheet-change-cell sheet-change-header">守備</div>',
+                '<div class="sheet-change-cell sheet-change-header">打順</div>',
                 '<div class="sheet-change-cell sheet-change-header">変更前</div>',
                 '<div class="sheet-change-cell sheet-change-header">変更後</div>',
-                renderSheetChangePositionRows(beforeAssignments),
+                '<div class="sheet-change-cell sheet-change-header">守備</div>',
+                renderSheetChangeLineupRows(beforeLineup),
                 '</div>',
                 '<div id="sheetChangePreview" class="sheet-change-preview"></div>',
                 '<div class="sheet-change-actions">',
@@ -9724,22 +9848,30 @@
             backdrop?.classList.remove("is-open");
         }
 
-        function readSheetChangeAfterAssignments() {
-            const assignments = createEmptyFieldingAssignments();
-            FIELDING_POSITION_ORDER.forEach((position) => {
-                setFieldingAssignmentName(assignments, position, document.getElementById("sheetChangeAfter_" + position)?.value || "");
+        function readSheetChangeAfterLineup() {
+            return Array.from({ length: 9 }, (_, index) => {
+                const positionValue = document.getElementById("sheetChangeAfterPosition_" + index)?.value || "";
+                return {
+                    index,
+                    battingOrder: index + 1,
+                    name: document.getElementById("sheetChangeAfterName_" + index)?.value.trim() || "",
+                    position: normalizeFieldingPositionValue(positionValue)
+                };
             });
-            return assignments;
         }
 
         function getSheetChangeDialogDiffs() {
             const base = getSheetChangeDialogBaseChange();
             const normalizedBase = getSheetChangeFallbackBaseChange(base.teamHalf, base);
+            const beforeLineup = getCurrentSheetChangeLineup(normalizedBase.teamHalf);
+            const afterLineup = readSheetChangeAfterLineup();
             return {
                 teamHalf: normalizedBase.teamHalf,
+                beforeLineup,
+                afterLineup,
                 changes: buildSheetChangeDiffsFromAssignments(
-                    getCurrentFieldingAssignments(normalizedBase.teamHalf),
-                    readSheetChangeAfterAssignments(),
+                    buildFieldingAssignmentsFromLineup(beforeLineup),
+                    buildFieldingAssignmentsFromLineup(afterLineup),
                     normalizedBase
                 )
             };
@@ -9767,7 +9899,7 @@
 
         function saveSheetChangeDialog(event) {
             event?.preventDefault();
-            const { teamHalf, changes } = getSheetChangeDialogDiffs();
+            const { teamHalf, beforeLineup, afterLineup, changes } = getSheetChangeDialogDiffs();
             if (!changes.length) {
                 alert("変更がありません。");
                 return;
@@ -9778,6 +9910,7 @@
             setElementValue("fieldingChangeHalf", base.half);
             setElementValue("fieldingChangeBattingOrder", base.battingOrder);
             setElementValue("fieldingChangeNote", base.note);
+            applySheetChangeLineup(teamHalf, beforeLineup, afterLineup);
             saveFieldingChanges(teamHalf, changes);
             closeSheetChangeDialog();
         }
