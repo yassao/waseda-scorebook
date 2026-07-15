@@ -723,6 +723,18 @@
             font-size: 9px;
         }
 
+        .game-mini-rule {
+            max-width: 96px;
+            color: #fde68a;
+            font-size: 8px;
+            font-weight: 800;
+            line-height: 1.2;
+            overflow: hidden;
+            text-align: right;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .game-mini-bases {
             position: relative;
             width: 30px;
@@ -5004,7 +5016,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.41";
+        const APP_VERSION = "0.2.42";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7465,6 +7477,53 @@
             return [start, runners].filter(Boolean).join(" ");
         }
 
+        function isTiebreakActiveForInning(rules = {}, inning = getColumnInningLabel()) {
+            if (!rules.tiebreakEnabled) {
+                return false;
+            }
+            const start = Number(rules.tiebreakStartInning);
+            const current = Number(inning);
+            return Number.isFinite(start) && Number.isFinite(current) && current >= start;
+        }
+
+        function getTiebreakRunnerRuleText(rules = {}) {
+            return {
+                second: "無死二塁",
+                first_second: "無死一二塁"
+            }[rules.tiebreakRunners] || "";
+        }
+
+        function getGameRuleStatusItems(options = {}) {
+            const info = normalizeGameInfo(state.gameInfo);
+            const rules = info.rules || {};
+            const items = [];
+            const endLabel = getGameEndReasonLabel(rules.endReason);
+            if (endLabel) {
+                const calledText = rules.endReason === "called" && rules.calledRule ? "（" + rules.calledRule + "）" : "";
+                items.push("試合終了: " + endLabel + calledText);
+            } else if (rules.calledRule && options.includeCalledRule !== false) {
+                items.push("コールド基準: " + rules.calledRule);
+            }
+
+            if (rules.tiebreakEnabled) {
+                const runnerText = getTiebreakRunnerRuleText(rules);
+                const tbRule = getTiebreakRulePrintText(rules) || runnerText || "設定あり";
+                const prefix = isTiebreakActiveForInning(rules, options.inning || getColumnInningLabel())
+                    ? "TB中: "
+                    : "TB: ";
+                items.push(prefix + tbRule);
+            }
+
+            if (rules.note && options.includeNote !== false) {
+                items.push(rules.note);
+            }
+            return items;
+        }
+
+        function getGameRuleStatusText(options = {}) {
+            return getGameRuleStatusItems(options).join(" / ");
+        }
+
         function createPrintInfoTable() {
             const info = normalizeGameInfo(state.gameInfo);
             const table = document.createElement("table");
@@ -8355,6 +8414,8 @@
             }
             target[parts[parts.length - 1]] = value;
             renderCurrentBatterCard();
+            renderLineScoreBoard();
+            renderGameMiniStatus();
             renderScoreSheet();
             if (parts[0] === "pitchers" && document.getElementById("playerRosterDetails")?.open) {
                 renderPlayerRosterEditor();
@@ -8995,10 +9056,16 @@
             const note = document.getElementById("lineScoreBoardNote");
             if (note) {
                 const summary = getScoreOverrideSummary();
-                note.textContent = summary.length
-                    ? "黄色=得点板を直接補正中: " + summary.join(" / ")
-                    : "";
-                note.classList.toggle("is-visible", summary.length > 0);
+                const ruleText = getGameRuleStatusText();
+                const noteItems = [];
+                if (summary.length) {
+                    noteItems.push("黄色=得点板を直接補正中: " + summary.join(" / "));
+                }
+                if (ruleText) {
+                    noteItems.push(ruleText);
+                }
+                note.textContent = noteItems.join(" / ");
+                note.classList.toggle("is-visible", noteItems.length > 0);
             }
         }
 
@@ -9032,6 +9099,7 @@
                 return '<span>' + label + dots + '</span>';
             };
             const currentOuts = romanToOutCount(getCurrentOutScoreForDisplay()) || getPreviousOutCountForCell(state.selectedSheetRow, state.selectedSheetCol);
+            const ruleText = getGameRuleStatusText({ includeNote: false });
             container.innerHTML = [
                 '<div class="game-mini-score">',
                 teamRow("top", topLine),
@@ -9049,6 +9117,7 @@
                 dotGroup("S", displayedCount.strikes, 2, "strike"),
                 dotGroup("O", Math.min(currentOuts, 2), 2, "out"),
                 '</div>',
+                ruleText ? '<div class="game-mini-rule">' + escapeHtml(ruleText) + '</div>' : "",
                 '</div>'
             ].join("");
         }
@@ -14415,6 +14484,10 @@
                 ));
             });
 
+            const ruleStatus = getGameRuleStatusText({ inning: transition.inning });
+            if (ruleStatus) {
+                lines.push(ruleStatus);
+            }
             lines.push(getTeamDisplayName("top") + getInningTotalRuns("top") + "-" + getInningTotalRuns("bottom") + getTeamDisplayName("bottom"));
             lines.push("");
             lines.push("#CuViu");
