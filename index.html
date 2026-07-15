@@ -4454,7 +4454,7 @@
         }
 
         .app-auto-ad-anchor {
-            min-height: 1px;
+            min-height: 72px;
             margin-top: 14px;
         }
 
@@ -5314,7 +5314,7 @@
                     <button class="btn-save-return" onclick="saveCurrentGameAndShowStart()">保存してトップへ</button>
                     <button class="btn-export" onclick="exportGameJson()">試合データ書き出し</button>
                 </div>
-                <div id="scorebookAdAnchor" class="app-auto-ad-anchor" aria-label="広告表示エリア"></div>
+                <div id="scorebookAdAnchor" class="app-auto-ad-anchor" aria-hidden="true"></div>
                 <div class="app-policy-footer">
                     <a href="https://cuviu.jp/privacy-policy/" target="_blank" rel="noopener">プライバシーポリシー</a>
                 </div>
@@ -5326,7 +5326,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.52";
+        const APP_VERSION = "0.2.53";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8663,11 +8663,8 @@
 
         function showPdfAdConnectionRequired(count) {
             window.alert(
-                "広告を表示できませんでした。\n\n" +
-                "広告付き無料版の利用を継続するため、\n" +
                 "インターネットへ接続してください。\n\n" +
-                "接続後に再度PDF出力を行ってください。\n\n" +
-                "広告未視聴: " + count + "回"
+                "接続後に再度PDF出力を行ってください。"
             );
         }
 
@@ -8697,7 +8694,7 @@
             }
             slot.dataset.loaded = "true";
             if (placement !== "inning" || AD_GATE_CONFIG.provider !== "ninja_admax") {
-                slot.innerHTML = "CuViu 広告枠<span>広告を表示します</span>";
+                slot.replaceChildren();
                 return;
             }
             slot.replaceChildren();
@@ -8727,10 +8724,6 @@
             const skippable = Boolean(options.skippable);
             const seconds = Math.max(0, Number(options.seconds) || 0);
             const skipAfterSeconds = skippable ? Math.max(0, Number(options.skipAfterSeconds) || 0) : Infinity;
-            const title = placement === "pdf" ? "PDF出力前の広告枠" : "イニング終了広告枠";
-            const message = placement === "pdf"
-                ? "広告枠を表示しています。待ち時間なしでPDF出力へ進めます。"
-                : "広告枠を表示しています。待ち時間なしで次の攻撃へ進めます。";
             let remaining = seconds;
             let timerId = null;
             let finished = false;
@@ -8758,9 +8751,7 @@
                 };
 
                 popup.innerHTML = [
-                    '<div class="comment-popup-title">' + escapeHtml(title) + '<small>広告</small></div>',
-                    '<div id="adGateAdSlot" class="ad-gate-box" aria-label="広告">広告を読み込み中です</div>',
-                    '<div class="ad-gate-message">' + escapeHtml(message) + '</div>',
+                    '<div id="adGateAdSlot" class="ad-gate-box" aria-hidden="true"></div>',
                     '<div class="comment-popup-actions ad-gate-actions">',
                     '<button id="adGatePrimaryBtn" type="button" class="btn-hit" disabled></button>',
                     '</div>'
