@@ -635,6 +635,118 @@
             margin: 0 auto;
         }
 
+        .fielding-drag-board {
+            display: grid;
+            gap: 2px;
+            width: min(100%, 172px);
+            margin: 0 auto 4px;
+            padding: 3px;
+            border: 1px solid rgba(117, 167, 236, 0.34);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 5px 14px rgba(65, 111, 169, 0.12);
+            touch-action: pan-y;
+        }
+
+        .fielding-drag-board.is-hidden {
+            display: none;
+        }
+
+        .fielding-drag-row {
+            display: grid;
+            gap: 2px;
+        }
+
+        .fielding-drag-row[data-row-size="2"] {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            padding: 0 18%;
+        }
+
+        .fielding-drag-row[data-row-size="3"] {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .fielding-drag-row[data-row-size="4"] {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .fielding-drag-slot {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 1px;
+            align-items: center;
+            min-height: 25px;
+            padding: 1px 3px;
+            border: 1px solid #cfe2f3;
+            border-radius: 7px;
+            background: #fff;
+            color: #172331;
+            font-size: 8px;
+            font-weight: 900;
+            line-height: 1;
+            text-align: center;
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        .fielding-drag-slot.is-empty {
+            color: #94a3b8;
+            cursor: default;
+        }
+
+        .fielding-drag-slot.is-pressing {
+            border-color: #4f9cf9;
+            box-shadow: 0 0 0 2px rgba(79, 156, 249, 0.16);
+        }
+
+        .fielding-drag-slot.is-dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .fielding-drag-slot.is-drop-target {
+            border-color: #2563eb;
+            background: #dbeafe;
+        }
+
+        .fielding-drag-position {
+            color: #1f7a8c;
+            font-size: 7px;
+            white-space: nowrap;
+        }
+
+        .fielding-drag-name {
+            min-width: 0;
+            overflow: hidden;
+            color: #334155;
+            font-size: 9px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .fielding-drag-ghost {
+            position: fixed;
+            z-index: 3000;
+            display: inline-flex;
+            gap: 5px;
+            align-items: center;
+            max-width: 150px;
+            padding: 7px 10px;
+            border: 2px solid #2563eb;
+            border-radius: 999px;
+            background: #fff;
+            color: #172331;
+            font-size: 12px;
+            font-weight: 900;
+            line-height: 1;
+            box-shadow: 0 12px 26px rgba(15, 23, 42, 0.24);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+        }
+
         .game-mini-status {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
@@ -5001,6 +5113,25 @@
                 max-width: 160px;
             }
 
+            .fielding-drag-board {
+                width: min(100%, 154px);
+                gap: 1px;
+                margin-bottom: 3px;
+                padding: 2px;
+                border-radius: 8px;
+            }
+
+            .fielding-drag-slot {
+                min-height: 20px;
+                padding: 1px 2px;
+                border-radius: 6px;
+                font-size: 7px;
+            }
+
+            .fielding-drag-name {
+                font-size: 8px;
+            }
+
             .base-runner-preview-stack {
                 gap: 1px 3px;
                 margin-bottom: 3px;
@@ -5268,6 +5399,7 @@
 
         <div class="top-workspace">
             <div class="scorebox-container">
+                <div id="fieldingDragBoard" class="fielding-drag-board is-hidden" aria-label="守備位置ドラッグ入替"></div>
                 <div id="baseRunnerPreviewStack" class="base-runner-preview-stack" aria-live="polite"></div>
                 <svg id="scoreboxSvg" class="scorebox-svg" viewBox="0 0 220 190" xmlns="http://www.w3.org/2000/svg" aria-label="スコアボックス">
                     <defs>
@@ -5686,7 +5818,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.4";
+        const APP_VERSION = "0.3.5";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6066,6 +6198,22 @@
         let pitcherBookPressTimer = null;
         let pendingRosterImport = null;
         let pendingSheetChangeConfirm = null;
+        const FIELDING_DRAG_LONG_PRESS_MS = 420;
+        const FIELDING_DRAG_CANCEL_DISTANCE = 10;
+        const fieldingDragState = {
+            timer: null,
+            pointerId: null,
+            sourceButton: null,
+            sourcePosition: "",
+            teamHalf: "",
+            startX: 0,
+            startY: 0,
+            latestX: 0,
+            latestY: 0,
+            dragging: false,
+            dropPosition: "",
+            ghost: null
+        };
         let suppressSheetCellClick = false;
         let sheetPinchStartDistance = 0;
         let sheetPinchStartZoom = 1;
@@ -10264,6 +10412,293 @@
             return changes;
         }
 
+        function getFieldingDragRows() {
+            return [
+                ["7", "8", "9"],
+                ["5", "6", "4", "3"],
+                ["1", "2"]
+            ];
+        }
+
+        function getCompactFieldingPositionLabel(position) {
+            return formatFieldingPositionValue(position).replace(/\s+/g, "");
+        }
+
+        function buildSheetChangeLineupFromAssignments(teamHalf, assignments, beforeLineup = null) {
+            const sourceLineup = beforeLineup || getCurrentSheetChangeLineup(teamHalf);
+            return (sourceLineup || []).map((row) => {
+                const name = String(row?.name || "").trim();
+                const assignedPosition = name ? findPositionByAssignmentName(assignments, name) : "";
+                return {
+                    ...row,
+                    position: assignedPosition || (name ? "" : normalizeFieldingPositionValue(row?.position || ""))
+                };
+            });
+        }
+
+        function renderFieldingDragBoard() {
+            const board = document.getElementById("fieldingDragBoard");
+            if (!board) {
+                return;
+            }
+            const battingHalf = state.activeHalf === "bottom" ? "bottom" : "top";
+            const defenseHalf = getOpponentHalf(battingHalf);
+            const assignments = getCurrentFieldingAssignments(defenseHalf);
+            const assignedCount = FIELDING_POSITION_ORDER
+                .filter((position) => String(assignments[position]?.name || "").trim())
+                .length;
+
+            board.dataset.teamHalf = defenseHalf;
+            if (!assignedCount) {
+                board.innerHTML = "";
+                board.classList.add("is-hidden");
+                return;
+            }
+
+            board.classList.remove("is-hidden");
+            board.innerHTML = getFieldingDragRows().map((row) => {
+                const slots = row.map((position) => {
+                    const name = String(assignments[position]?.name || "").trim();
+                    const slotClass = "fielding-drag-slot" + (name ? "" : " is-empty");
+                    const label = getCompactFieldingPositionLabel(position);
+                    return [
+                        '<button type="button" class="' + slotClass + '"',
+                        ' data-fielding-position="' + escapeHtml(position) + '"',
+                        ' data-team-half="' + escapeHtml(defenseHalf) + '"',
+                        ' aria-label="' + escapeHtml(formatFieldingPositionValue(position) + " " + (name || "空き")) + '"',
+                        ' onpointerdown="startFieldingDragPress(event, this)"',
+                        ' oncontextmenu="event.preventDefault()">',
+                        '<span class="fielding-drag-position">' + escapeHtml(label) + '</span>',
+                        '<span class="fielding-drag-name">' + escapeHtml(name || "空") + '</span>',
+                        '</button>'
+                    ].join("");
+                }).join("");
+                return '<div class="fielding-drag-row" data-row-size="' + row.length + '">' + slots + '</div>';
+            }).join("");
+        }
+
+        function clearFieldingDragTimer() {
+            if (fieldingDragState.timer) {
+                clearTimeout(fieldingDragState.timer);
+                fieldingDragState.timer = null;
+            }
+        }
+
+        function resetFieldingDragDropTarget() {
+            document.querySelectorAll(".fielding-drag-slot.is-drop-target")
+                .forEach((slot) => slot.classList.remove("is-drop-target"));
+            fieldingDragState.dropPosition = "";
+        }
+
+        function setFieldingDragDropTarget(position) {
+            const normalizedPosition = normalizeFieldingPositionValue(position);
+            document.querySelectorAll(".fielding-drag-slot").forEach((slot) => {
+                const isTarget = slot.dataset.teamHalf === fieldingDragState.teamHalf
+                    && slot.dataset.fieldingPosition === normalizedPosition;
+                slot.classList.toggle("is-drop-target", isTarget);
+            });
+            fieldingDragState.dropPosition = normalizedPosition;
+        }
+
+        function getFieldingDragSlotFromPoint(x, y) {
+            const element = document.elementFromPoint(x, y);
+            const slot = element?.closest?.(".fielding-drag-slot[data-fielding-position]");
+            if (!slot || slot.dataset.teamHalf !== fieldingDragState.teamHalf) {
+                return null;
+            }
+            return slot;
+        }
+
+        function updateFieldingDragGhostPosition(x, y) {
+            if (!fieldingDragState.ghost) {
+                return;
+            }
+            fieldingDragState.ghost.style.left = x + "px";
+            fieldingDragState.ghost.style.top = y + "px";
+        }
+
+        function beginFieldingDrag() {
+            const button = fieldingDragState.sourceButton;
+            const sourcePosition = fieldingDragState.sourcePosition;
+            const teamHalf = fieldingDragState.teamHalf;
+            const assignments = getCurrentFieldingAssignments(teamHalf);
+            const sourceName = String(assignments[sourcePosition]?.name || "").trim();
+            if (!button || !sourceName) {
+                cancelFieldingDrag();
+                return;
+            }
+
+            fieldingDragState.dragging = true;
+            button.classList.remove("is-pressing");
+            button.classList.add("is-dragging");
+            button.closest(".fielding-drag-board")?.classList.add("is-dragging");
+
+            const ghost = document.createElement("div");
+            ghost.className = "fielding-drag-ghost";
+            ghost.innerHTML = '<span>' + escapeHtml(getCompactFieldingPositionLabel(sourcePosition)) + '</span><span>' + escapeHtml(sourceName) + '</span>';
+            document.body.appendChild(ghost);
+            fieldingDragState.ghost = ghost;
+            updateFieldingDragGhostPosition(fieldingDragState.latestX, fieldingDragState.latestY);
+        }
+
+        function startFieldingDragPress(event, button) {
+            if (event.pointerType === "mouse" && event.button !== 0) {
+                return;
+            }
+            const sourcePosition = normalizeFieldingPositionValue(button?.dataset?.fieldingPosition || "");
+            const teamHalf = button?.dataset?.teamHalf === "bottom" ? "bottom" : "top";
+            const assignments = getCurrentFieldingAssignments(teamHalf);
+            if (!sourcePosition || !String(assignments[sourcePosition]?.name || "").trim()) {
+                return;
+            }
+
+            cancelFieldingDrag();
+            fieldingDragState.pointerId = event.pointerId;
+            fieldingDragState.sourceButton = button;
+            fieldingDragState.sourcePosition = sourcePosition;
+            fieldingDragState.teamHalf = teamHalf;
+            fieldingDragState.startX = event.clientX;
+            fieldingDragState.startY = event.clientY;
+            fieldingDragState.latestX = event.clientX;
+            fieldingDragState.latestY = event.clientY;
+            button.classList.add("is-pressing");
+
+            try {
+                button.setPointerCapture?.(event.pointerId);
+            } catch (error) {
+                // Pointer capture is best-effort; drag still works through window listeners.
+            }
+
+            window.addEventListener("pointermove", handleFieldingDragMove, { passive: false });
+            window.addEventListener("pointerup", finishFieldingDrag, { passive: false });
+            window.addEventListener("pointercancel", cancelFieldingDrag);
+            fieldingDragState.timer = setTimeout(beginFieldingDrag, FIELDING_DRAG_LONG_PRESS_MS);
+        }
+
+        function handleFieldingDragMove(event) {
+            if (fieldingDragState.pointerId !== event.pointerId) {
+                return;
+            }
+            fieldingDragState.latestX = event.clientX;
+            fieldingDragState.latestY = event.clientY;
+
+            if (!fieldingDragState.dragging) {
+                const dx = event.clientX - fieldingDragState.startX;
+                const dy = event.clientY - fieldingDragState.startY;
+                if (Math.hypot(dx, dy) > FIELDING_DRAG_CANCEL_DISTANCE) {
+                    cancelFieldingDrag();
+                }
+                return;
+            }
+
+            event.preventDefault();
+            updateFieldingDragGhostPosition(event.clientX, event.clientY);
+            const slot = getFieldingDragSlotFromPoint(event.clientX, event.clientY);
+            if (!slot) {
+                resetFieldingDragDropTarget();
+                return;
+            }
+            setFieldingDragDropTarget(slot.dataset.fieldingPosition);
+        }
+
+        function cleanupFieldingDrag() {
+            clearFieldingDragTimer();
+            fieldingDragState.sourceButton?.classList.remove("is-pressing", "is-dragging");
+            fieldingDragState.sourceButton?.closest(".fielding-drag-board")?.classList.remove("is-dragging");
+            resetFieldingDragDropTarget();
+            if (fieldingDragState.sourceButton && fieldingDragState.pointerId !== null) {
+                try {
+                    fieldingDragState.sourceButton.releasePointerCapture?.(fieldingDragState.pointerId);
+                } catch (error) {
+                    // Some browsers auto-release pointer capture on pointerup.
+                }
+            }
+            fieldingDragState.ghost?.remove();
+            window.removeEventListener("pointermove", handleFieldingDragMove);
+            window.removeEventListener("pointerup", finishFieldingDrag);
+            window.removeEventListener("pointercancel", cancelFieldingDrag);
+            fieldingDragState.pointerId = null;
+            fieldingDragState.sourceButton = null;
+            fieldingDragState.sourcePosition = "";
+            fieldingDragState.teamHalf = "";
+            fieldingDragState.startX = 0;
+            fieldingDragState.startY = 0;
+            fieldingDragState.latestX = 0;
+            fieldingDragState.latestY = 0;
+            fieldingDragState.dragging = false;
+            fieldingDragState.dropPosition = "";
+            fieldingDragState.ghost = null;
+        }
+
+        function cancelFieldingDrag() {
+            cleanupFieldingDrag();
+        }
+
+        function finishFieldingDrag(event) {
+            if (fieldingDragState.pointerId !== event.pointerId) {
+                return;
+            }
+            const wasDragging = fieldingDragState.dragging;
+            const teamHalf = fieldingDragState.teamHalf;
+            const sourcePosition = fieldingDragState.sourcePosition;
+            const slot = wasDragging ? getFieldingDragSlotFromPoint(event.clientX, event.clientY) : null;
+            const dropPosition = normalizeFieldingPositionValue(slot?.dataset?.fieldingPosition || fieldingDragState.dropPosition);
+            if (wasDragging) {
+                event.preventDefault();
+            }
+            cleanupFieldingDrag();
+
+            if (wasDragging && dropPosition && dropPosition !== sourcePosition) {
+                confirmFieldingDragSwap(teamHalf, sourcePosition, dropPosition);
+            }
+        }
+
+        function getFieldingDragBaseChange(teamHalf) {
+            const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
+            const battingHalf = getOpponentHalf(normalizedTeamHalf);
+            return getSheetChangeFallbackBaseChange(normalizedTeamHalf, {
+                teamHalf: normalizedTeamHalf,
+                inning: getColumnInningLabel(state.selectedSheetCol, battingHalf),
+                half: battingHalf,
+                battingOrder: state.selectedSheetRow + 1,
+                note: ""
+            });
+        }
+
+        function confirmFieldingDragSwap(teamHalf, fromPosition, toPosition) {
+            const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
+            const sourcePosition = normalizeFieldingPositionValue(fromPosition);
+            const targetPosition = normalizeFieldingPositionValue(toPosition);
+            if (!sourcePosition || !targetPosition || sourcePosition === targetPosition) {
+                return;
+            }
+            const beforeAssignments = getCurrentFieldingAssignments(normalizedTeamHalf);
+            const sourceName = String(beforeAssignments[sourcePosition]?.name || "").trim();
+            if (!sourceName) {
+                return;
+            }
+            const afterAssignments = cloneFieldingAssignments(beforeAssignments);
+            const targetName = String(afterAssignments[targetPosition]?.name || "").trim();
+            afterAssignments[sourcePosition].name = targetName;
+            afterAssignments[targetPosition].name = sourceName;
+
+            const base = getFieldingDragBaseChange(normalizedTeamHalf);
+            const beforeLineup = getCurrentSheetChangeLineup(normalizedTeamHalf);
+            const afterLineup = buildSheetChangeLineupFromAssignments(normalizedTeamHalf, afterAssignments, beforeLineup);
+            const changes = buildSheetChangeDiffsFromAssignments(beforeAssignments, afterAssignments, base);
+            if (!changes.length) {
+                return;
+            }
+            openSheetChangeConfirmDialog({
+                teamHalf: normalizedTeamHalf,
+                beforeLineup,
+                afterLineup,
+                changes,
+                base,
+                source: "fielding-drag"
+            });
+        }
+
         function parseFieldingPositionText(value) {
             const text = String(value || "").trim();
             if (!text) {
@@ -10405,6 +10840,7 @@
             if (options.render !== false) {
                 renderFieldingChangeList();
                 renderScoreSheet();
+                renderFieldingDragBoard();
                 renderPrintablePitcherExtraPage();
                 scheduleGameAutoSave();
             }
@@ -10669,6 +11105,7 @@
             pendingSheetChangeConfirm = data;
             const { backdrop, popup } = ensureSheetChangeConfirmDialog();
             const teamName = getTeamDisplayName(data.teamHalf);
+            const cancelLabel = data.source === "fielding-drag" ? "キャンセル" : "戻って修正";
             popup.innerHTML = [
                 '<div class="comment-popup-title">シート変更の確認: ' + escapeHtml(teamName) + '</div>',
                 '<div class="sheet-change-confirm-summary">',
@@ -10683,7 +11120,7 @@
                 renderSheetChangeConfirmRows(data.beforeLineup, data.afterLineup),
                 '</div>',
                 '<div class="sheet-change-actions">',
-                '<button type="button" onclick="closeSheetChangeConfirmDialog()">戻って修正</button>',
+                '<button type="button" onclick="closeSheetChangeConfirmDialog()">' + escapeHtml(cancelLabel) + '</button>',
                 '<button type="button" class="btn-hit" onclick="saveConfirmedSheetChangeDialog()">この内容で登録</button>',
                 '</div>'
             ].join("");
@@ -11459,6 +11896,7 @@
                     '<div class="current-pitch-count">' + escapeHtml(pitchCountText) + '</div>' +
                 '</div>'
             ].join("");
+            renderFieldingDragBoard();
         }
 
         function splitRosterNameSlots(playerName) {
