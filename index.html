@@ -5686,7 +5686,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.3";
+        const APP_VERSION = "0.3.4";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7647,11 +7647,7 @@
                 renderSavedGameSlots();
                 return;
             }
-            const stamp = (slot.savedAt || new Date().toISOString())
-                .replace(/[-:]/g, "")
-                .replace(/\..+$/, "")
-                .replace("T", "-");
-            downloadJsonData(slot.data, "cuviu-scorebook-saved-" + stamp + ".json");
+            downloadJsonData(slot.data, "cuviu-scorebook-saved-" + getFilenameTimestamp() + ".json");
             setGameSaveStatus("保存済み試合を書き出しました。");
         }
 
@@ -7901,20 +7897,11 @@
         }
 
         function getGameExportFileName() {
-            const stamp = new Date()
-                .toISOString()
-                .replace(/[-:]/g, "")
-                .replace(/\..+$/, "")
-                .replace("T", "-");
-            return "cuviu-scorebook-" + stamp + ".json";
+            return "cuviu-scorebook-" + getFilenameTimestamp() + ".json";
         }
 
         function getGameExportFileNameFromSavedAt(savedAt) {
-            const stamp = (savedAt || new Date().toISOString())
-                .replace(/[-:]/g, "")
-                .replace(/\..+$/, "")
-                .replace("T", "-");
-            return "cuviu-scorebook-autosave-" + stamp + ".json";
+            return "cuviu-scorebook-autosave-" + getFilenameTimestamp() + ".json";
         }
 
         function exportGameJson() {
@@ -9396,13 +9383,17 @@
 
         let printOriginalDocumentTitle = "";
 
-        function getPrintFilenameTimestamp(date = new Date()) {
+        function getFilenameTimestamp(date = new Date()) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, "0");
             const day = String(date.getDate()).padStart(2, "0");
             const hours = String(date.getHours()).padStart(2, "0");
             const minutes = String(date.getMinutes()).padStart(2, "0");
             return year + month + day + hours + minutes;
+        }
+
+        function getPrintFilenameTimestamp(date = new Date()) {
+            return getFilenameTimestamp(date);
         }
 
         function getBaseDocumentTitleForPrint() {
