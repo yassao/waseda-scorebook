@@ -5558,7 +5558,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.59";
+        const APP_VERSION = "0.3.0";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7488,7 +7488,7 @@
                     status.textContent = message;
                 }
             };
-            copyTextFromTextarea(textarea)
+            copyTextFromTextarea(textarea, { ensureHashtag: false })
                 .then((copied) => {
                     finish(copied ? "コピーしました。" : "コピーできませんでした。選択済みの文面をコピーしてください。");
                 })
@@ -12782,6 +12782,20 @@
             ].join("");
         }
 
+        function hasBatterRunnerOutContext(snapshot) {
+            return (snapshot?.runnerContext?.outsOnBases || [])
+                .some((label) => String(label || "").startsWith("打者走者"));
+        }
+
+        function isErrorOnBaseSnapshot(snapshot) {
+            return Boolean(
+                snapshot?.errorMode
+                && snapshot.errorMode !== "none"
+                && !snapshotHasCentralBatterOut(snapshot)
+                && !hasBatterRunnerOutContext(snapshot)
+            );
+        }
+
         function getNormalBatterBaseFromSnapshot(snapshot) {
             const playCode = snapshot?.selectedHitType && snapshot.selectedHitType !== "none"
                 ? snapshot.selectedHitType
@@ -12796,6 +12810,9 @@
                 return 2;
             }
             if (["1B", "G", "BH", "H", "T", "B", "DB", "HP", "IB", "IF", "Fc"].includes(playCode)) {
+                return 1;
+            }
+            if (isErrorOnBaseSnapshot(snapshot)) {
                 return 1;
             }
             if (playCode === "K" && snapshot?.modifiers?.droppedThirdStrike) {
@@ -13475,19 +13492,101 @@
             }
         }
 
+        function getRunnerAdvanceBaseText(advance) {
+            return String(advance || "").split(":")[0];
+        }
+
+        function hasRunnerAdvanceForSource(advanceSet, sourceKey) {
+            if (sourceKey === "r1") {
+                return advanceSet.has("一走→二塁") || advanceSet.has("一走→三塁") || advanceSet.has("一走生還");
+            }
+            if (sourceKey === "r2") {
+                return advanceSet.has("二走→三塁") || advanceSet.has("二走生還");
+            }
+            if (sourceKey === "r3") {
+                return advanceSet.has("三走生還");
+            }
+            return false;
+        }
+
+        function hasBatterAdvanceToFirst(advances) {
+            return (advances || []).some((advance) => getRunnerAdvanceBaseText(advance) === "打者走者一塁セーフ");
+        }
+
+        function appendMissingForcedAdvance(advances, advanceSet, label) {
+            if (!advanceSet.has(label)) {
+                advances.push(label);
+                advanceSet.add(label);
+            }
+        }
+
+        function ensureForcedAdvancesForBatterToFirst(advances, originalRunners) {
+            const nextAdvances = Array.isArray(advances) ? [...advances] : [];
+            if (!hasBatterAdvanceToFirst(nextAdvances)) {
+                return nextAdvances;
+            }
+            const advanceSet = new Set(nextAdvances.map(getRunnerAdvanceBaseText));
+            if (originalRunners[0] && originalRunners[1] && originalRunners[2] && !hasRunnerAdvanceForSource(advanceSet, "r3")) {
+                appendMissingForcedAdvance(nextAdvances, advanceSet, "三走生還");
+            }
+            if (originalRunners[0] && originalRunners[1] && !hasRunnerAdvanceForSource(advanceSet, "r2")) {
+                appendMissingForcedAdvance(nextAdvances, advanceSet, "二走→三塁");
+            }
+            if (originalRunners[0] && !hasRunnerAdvanceForSource(advanceSet, "r1")) {
+                appendMissingForcedAdvance(nextAdvances, advanceSet, "一走→二塁");
+            }
+            return nextAdvances;
+        }
+
+        function getRunnerAdvancePriority(advance) {
+            const baseText = getRunnerAdvanceBaseText(advance);
+            if (baseText === "三走生還") {
+                return 10;
+            }
+            if (baseText === "二走生還" || baseText === "二走→三塁") {
+                return 20;
+            }
+            if (baseText === "一走生還" || baseText === "一走→三塁" || baseText === "一走→二塁") {
+                return 30;
+            }
+            if (baseText.startsWith("打者走者")) {
+                return 40;
+            }
+            return 50;
+        }
+
+        function ensureErrorOnBaseRunnerContext(snapshot) {
+            if (!isErrorOnBaseSnapshot(snapshot)) {
+                return;
+            }
+            if (!snapshot.runnerContext) {
+                snapshot.runnerContext = createEmptyRunnerContext();
+            }
+            if (!Array.isArray(snapshot.runnerContext.advances)) {
+                snapshot.runnerContext.advances = [];
+            }
+            if (!hasBatterAdvanceToFirst(snapshot.runnerContext.advances)) {
+                snapshot.runnerContext.advances.push("打者走者一塁セーフ");
+            }
+        }
+
         function getNextOutScoreForCell(row = state.selectedSheetRow, col = state.selectedSheetCol) {
             const previousOuts = getPreviousOutCountForCell(row, col);
             return outCountToRoman(Math.min(3, previousOuts + 1)) || "Ⅰ";
         }
 
         function applyRunnerContextOverrides(runners, snapshot, batterRef, originalRunners = [], row = state.selectedSheetRow, col = state.selectedSheetCol) {
+            ensureErrorOnBaseRunnerContext(snapshot);
             const context = snapshot.runnerContext;
             if (!context) {
                 return;
             }
             const deferredBatterAdvances = [];
+            context.advances = ensureForcedAdvancesForBatterToFirst(context.advances || [], originalRunners);
 
-            (context.advances || []).forEach((advance) => {
+            [...(context.advances || [])]
+                .sort((a, b) => getRunnerAdvancePriority(a) - getRunnerAdvancePriority(b))
+                .forEach((advance) => {
                 const advanceText = typeof advance === "string" ? advance : "";
                 const advanceLabel = advanceText.includes(":")
                     ? advanceText.split(":").slice(1).join(":").trim()
@@ -16342,6 +16441,9 @@
                 ));
             });
 
+            if (transition.runnerActionSummary) {
+                lines.push(transition.runnerActionSummary);
+            }
             lines.push(getGameScoreLineText({ prefix: gameEnded ? "最終 " : "" }));
             lines.push("");
             lines.push("#CuViu");
@@ -16454,9 +16556,15 @@
             repairOpenInningShareDraftUi();
         }
 
-        function copyTextFromTextarea(textarea) {
-            textarea.value = ensureCuViuHashtag(textarea.value);
-            textarea.focus();
+        function copyTextFromTextarea(textarea, options = {}) {
+            if (options.ensureHashtag) {
+                textarea.value = ensureCuViuHashtag(textarea.value);
+            }
+            try {
+                textarea.focus({ preventScroll: true });
+            } catch (error) {
+                textarea.focus();
+            }
             textarea.select();
             textarea.setSelectionRange?.(0, textarea.value.length);
             const fallbackCopy = () => {
@@ -16467,12 +16575,15 @@
                     return false;
                 }
             };
+            if (fallbackCopy()) {
+                return Promise.resolve(true);
+            }
             if (navigator.clipboard?.writeText) {
                 return navigator.clipboard.writeText(textarea.value)
                     .then(() => true)
-                    .catch(() => fallbackCopy());
+                    .catch(() => false);
             }
-            return Promise.resolve(fallbackCopy());
+            return Promise.resolve(false);
         }
 
         function copyInningShareDraft() {
@@ -16486,7 +16597,7 @@
                     status.textContent = message;
                 }
             };
-            copyTextFromTextarea(textarea)
+            copyTextFromTextarea(textarea, { ensureHashtag: true })
                 .then((copied) => {
                     finish(copied ? "コピーしました。" : "コピーできませんでした。選択済みの文面を長押ししてコピーしてください。");
                 })
@@ -16732,6 +16843,72 @@
             return maxOuts;
         }
 
+        function findRunnerOnlyInningEndCell(runnerRef, inning = getColumnInningLabel()) {
+            const sheet = state.scoreSheet || createEmptyScoreSheet();
+            if (
+                runnerRef
+                && Number.isInteger(runnerRef.row)
+                && Number.isInteger(runnerRef.col)
+                && runnerRef.col >= 0
+                && Number(getColumnInningLabel(runnerRef.col, state.activeHalf)) === Number(inning)
+                && getSnapshotOutCount(sheet[runnerRef.row]?.[runnerRef.col]) >= 3
+            ) {
+                return { row: runnerRef.row, col: runnerRef.col };
+            }
+            const cells = getOrderedCellsForInning(state.activeHalf, inning);
+            return cells.find((cell) => getSnapshotOutCount(sheet[cell.row]?.[cell.col]) >= 3) || null;
+        }
+
+        function createRunnerOnlyInningEndTransition(runnerRef = null, runnerActionSummary = "") {
+            const endedHalf = state.activeHalf;
+            const currentCol = state.selectedSheetCol;
+            const currentInning = getColumnInningLabel(currentCol, endedHalf);
+            const endCell = findRunnerOnlyInningEndCell(runnerRef, currentInning) || {
+                row: state.selectedSheetRow,
+                col: currentCol
+            };
+            const nextBatterRow = state.selectedSheetRow;
+            return {
+                endedHalf,
+                nextHalf: endedHalf === "top" ? "bottom" : "top",
+                inning: currentInning,
+                endedRow: endCell.row,
+                endedCol: endCell.col,
+                nextBatterRow,
+                nextInningCol: findColumnForInning(endedHalf, currentInning + 1),
+                runnerActionSummary,
+                gameEnded: hasGameEndReason()
+            };
+        }
+
+        function prepareInningTransitionState(transition) {
+            if (!transition.gameEnded) {
+                state.selectionsByHalf[transition.endedHalf] = {
+                    row: transition.nextBatterRow,
+                    col: transition.nextInningCol
+                };
+            }
+            state.retiredRunnerPreviewsByHalf[transition.endedHalf] = [];
+            if (state.activeHalf === transition.endedHalf) {
+                state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[transition.endedHalf];
+            }
+            clearNaturalLanguageInput();
+        }
+
+        function handleRunnerOnlyInningEndIfNeeded(runnerRef = null, runnerActionSummary = "") {
+            if (getMaxOutCountForActiveInning() < 3) {
+                return false;
+            }
+            const transition = createRunnerOnlyInningEndTransition(runnerRef, runnerActionSummary);
+            prepareInningTransitionState(transition);
+            if (shouldSkipInningShareDialog()) {
+                completeInningTransition(transition);
+            } else {
+                openInningSharePopup(transition);
+            }
+            return true;
+        }
+
         function advanceAfterSave(snapshot, options = {}) {
             if (snapshot?.outScore === "Ⅲ" || getMaxOutCountForActiveInning() >= 3) {
                 const endedHalf = state.activeHalf;
@@ -16750,18 +16927,7 @@
                     nextInningCol,
                     gameEnded: hasGameEndReason()
                 };
-                if (!transition.gameEnded) {
-                    state.selectionsByHalf[endedHalf] = {
-                        row: nextBatterRow,
-                        col: nextInningCol
-                    };
-                }
-                state.retiredRunnerPreviewsByHalf[endedHalf] = [];
-                if (state.activeHalf === endedHalf) {
-                    state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[endedHalf];
-                }
-
-                clearNaturalLanguageInput();
+                prepareInningTransitionState(transition);
                 if (options.showShareDialog === false || shouldSkipInningShareDialog()) {
                     completeInningTransition(transition);
                 } else {
@@ -17510,11 +17676,15 @@
         }
 
         function copyAiPromptText() {
-            const promptText = document.getElementById("aiPromptText")?.value || currentAiPromptText || "";
-            if (navigator.clipboard?.writeText) {
+            const textarea = document.getElementById("aiPromptText");
+            if (textarea) {
+                copyTextFromTextarea(textarea, { ensureHashtag: false }).catch(() => {});
+                return;
+            }
+            const promptText = currentAiPromptText || "";
+            if (navigator.clipboard?.writeText && promptText) {
                 navigator.clipboard.writeText(promptText).catch(() => {});
             }
-            selectAiPromptText();
         }
 
         function applyAiPromptResult() {
@@ -19375,12 +19545,22 @@
 
             if (action === "out") {
                 const outLabel = getRunnerOutLabel(reason, source, step);
-                removeRunnerFromBase(runners, fromIndex, outLabel, getNextOutScoreForRunnerGui(), eventMeta);
-                setBaseRunners(runners);
+                const nextOutScore = getNextOutScoreForRunnerGui();
+                removeRunnerFromBase(runners, fromIndex, outLabel, nextOutScore, eventMeta);
+                const isThirdOut = romanToOutCount(nextOutScore) >= 3;
+                if (isThirdOut) {
+                    markLeftOnBaseRunners(runners);
+                    setBaseRunners([null, null, null]);
+                } else {
+                    setBaseRunners(runners);
+                }
                 renderScoreSheet();
                 updateDisplay();
                 updateRunnerGuiStatus(runnerLabel + " " + outLabel + formatRunnerActionAttributionStatus(eventMeta));
                 scheduleGameAutoSave();
+                if (isThirdOut) {
+                    handleRunnerOnlyInningEndIfNeeded(runnerRef, runnerLabel + " " + outLabel + "でチェンジ");
+                }
                 return true;
             }
 
