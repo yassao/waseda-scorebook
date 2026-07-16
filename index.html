@@ -593,7 +593,7 @@
 
         .top-workspace {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
             gap: 12px;
             padding: 0 16px;
             align-items: stretch;
@@ -687,7 +687,6 @@
         }
 
         .current-batter-pitcher {
-            grid-column: 1 / -1;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -699,6 +698,22 @@
             content: " 変更";
             color: #0f766e;
             font-weight: 900;
+        }
+
+        .current-batter-pitcher-row {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+            min-width: 0;
+        }
+
+        .current-pitch-count {
+            color: #334155;
+            font-size: 10px;
+            font-weight: 900;
+            white-space: nowrap;
         }
 
         .game-mini-score {
@@ -810,17 +825,19 @@
 
         .game-mini-counts {
             display: flex;
-            gap: 2px;
-            font-size: 7px;
+            gap: 4px;
+            align-items: center;
+            font-size: 9px;
+            font-weight: 900;
             color: #cbd5e1;
             white-space: nowrap;
         }
 
         .game-mini-dot {
             display: inline-block;
-            width: 6px;
-            height: 6px;
-            margin-left: 1px;
+            width: 7px;
+            height: 7px;
+            margin-left: 2px;
             border-radius: 50%;
             background: #334155;
             vertical-align: -1px;
@@ -2290,18 +2307,21 @@
             width: 100%;
             max-width: 100%;
             flex: 0 0 auto;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
             margin: 0;
             border: 1px solid var(--sheet-green);
             background: #ffffff;
             font-size: clamp(8px, 1.55vw, 11px);
             color: #1f2937;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
         }
 
         .line-score-row {
             display: grid;
-            grid-template-columns: minmax(28px, 1.25fr) repeat(12, minmax(12px, 1fr)) minmax(18px, 0.75fr);
-            min-width: 0;
+            grid-template-columns: minmax(32px, 1.35fr) repeat(var(--line-score-innings, 9), minmax(11px, 1fr)) repeat(3, minmax(13px, 0.9fr));
+            min-width: max(100%, var(--line-score-min-w, 360px));
         }
 
         .line-score-cell {
@@ -2330,7 +2350,18 @@
 
         .line-score-cell:last-child {
             border-right: 0;
+        }
+
+        .line-score-cell.is-total-run {
             color: #c62828;
+        }
+
+        .line-score-cell.is-total-hit {
+            color: #0f766e;
+        }
+
+        .line-score-cell.is-total-error {
+            color: #b45309;
         }
 
         .line-score-cell.is-score-editable {
@@ -4823,7 +4854,7 @@
             }
 
             .top-workspace {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+                grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
                 padding: 0 12px;
                 gap: 8px;
                 height: min(42dvh, 300px);
@@ -5351,7 +5382,7 @@
                             </div>
                         </details>
                         <details class="game-info-details">
-                            <summary>試合前情報・審判</summary>
+                            <summary>試合設定</summary>
                             <div class="game-info-body">
                                 <div class="game-info-form">
                                     <label class="span-2">大会名<input id="gameInfoCompetition" type="text" oninput="updateGameInfoField('competition', this.value)"></label>
@@ -5527,7 +5558,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.58";
+        const APP_VERSION = "0.2.59";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8472,9 +8503,11 @@
                     appendPrintCell(tr, isHeader ? "th" : "td", String(value));
                 });
                 const total = isHeader
-                    ? "合計"
+                    ? "R"
                     : String(line.scores.reduce((sum, score) => sum + score, 0));
                 appendPrintCell(tr, isHeader ? "th" : "td", total);
+                appendPrintCell(tr, isHeader ? "th" : "td", isHeader ? "H" : String(line.hits || 0));
+                appendPrintCell(tr, isHeader ? "th" : "td", isHeader ? "E" : String(line.errors || 0));
                 return tr;
             };
             table.appendChild(buildRow("チーム名", { scores: innings, recorded: innings.map(() => true) }, true));
@@ -8484,7 +8517,7 @@
             if (endStatus) {
                 const noteRow = document.createElement("tr");
                 appendPrintCell(noteRow, "th", "備考");
-                appendPrintCell(noteRow, "td", endStatus, MAX_INNINGS + 1);
+                appendPrintCell(noteRow, "td", endStatus, MAX_INNINGS + 3);
                 table.appendChild(noteRow);
             }
             return table;
@@ -10480,7 +10513,67 @@
                 }
             });
 
-            return { scores, recorded };
+            return {
+                scores,
+                recorded,
+                hasData,
+                hits: calculateTeamHitTotal(half),
+                errors: calculateTeamErrorTotal(half)
+            };
+        }
+
+        function isLineScoreHitSnapshot(snapshot) {
+            const hitType = snapshot?.selectedHitType || snapshot?.hitType || "";
+            const result = snapshot?.result || "";
+            return ["1B", "2B", "3B", "HR", "RH", "GR", "BH", "G"].includes(hitType)
+                || ["H", "BH", "G", "HR", "RH"].includes(result);
+        }
+
+        function hasLineScoreErrorSnapshot(snapshot) {
+            return Boolean(snapshot?.errorMode && snapshot.errorMode !== "none");
+        }
+
+        function calculateTeamHitTotal(half) {
+            const sheet = state.scoreSheets[half] || createEmptyScoreSheet();
+            let total = 0;
+            for (let row = 0; row < 9; row += 1) {
+                for (let col = 0; col < MAX_INNINGS; col += 1) {
+                    if (isLineScoreHitSnapshot(sheet[row]?.[col])) {
+                        total += 1;
+                    }
+                }
+            }
+            return total;
+        }
+
+        function calculateTeamErrorTotal(half) {
+            const battingHalf = getOpponentHalf(half);
+            const sheet = state.scoreSheets[battingHalf] || createEmptyScoreSheet();
+            let total = 0;
+            for (let row = 0; row < 9; row += 1) {
+                for (let col = 0; col < MAX_INNINGS; col += 1) {
+                    if (hasLineScoreErrorSnapshot(sheet[row]?.[col])) {
+                        total += 1;
+                    }
+                }
+            }
+            return total;
+        }
+
+        function getLineScoreDisplayInnings(topLine, bottomLine) {
+            let maxInning = 9;
+            [topLine, bottomLine].forEach((line) => {
+                for (let index = 9; index < MAX_INNINGS; index += 1) {
+                    if (line?.hasData?.[index] || line?.recorded?.[index] || (line?.scores?.[index] || 0) > 0) {
+                        maxInning = Math.max(maxInning, index + 1);
+                    }
+                }
+            });
+            const currentInning = Number(getColumnInningLabel());
+            if (Number.isInteger(currentInning) && currentInning > 9) {
+                maxInning = Math.max(maxInning, Math.min(MAX_INNINGS, currentInning));
+            }
+            return Array.from({ length: Math.min(MAX_INNINGS, maxInning) }, (_, index) => index + 1);
         }
 
         function hasScoreOverride(half, inning) {
@@ -10568,9 +10661,13 @@
                 return;
             }
 
-            const innings = Array.from({ length: MAX_INNINGS }, (_, index) => index + 1);
             const topLine = calculateLineScore("top");
             const bottomLine = calculateLineScore("bottom");
+            const innings = getLineScoreDisplayInnings(topLine, bottomLine);
+            board.style.setProperty("--line-score-innings", String(innings.length));
+            board.style.setProperty("--line-score-min-w", innings.length > 9
+                ? (40 + (innings.length + 3) * 22) + "px"
+                : "100%");
             const buildRow = (label, line, isHeader = false, half = "") => {
                 const scores = line.scores || [];
                 const recorded = line.recorded || [];
@@ -10593,7 +10690,9 @@
                             : "";
                         return '<div class="' + classes.join(" ") + '"' + action + '>' + value + '</div>';
                     }),
-                    '<div class="line-score-cell">' + (isHeader ? "計" : scores.reduce((sum, score) => sum + score, 0)) + '</div>'
+                    '<div class="line-score-cell is-total-run">' + (isHeader ? "R" : scores.reduce((sum, score) => sum + score, 0)) + '</div>',
+                    '<div class="line-score-cell is-total-hit">' + (isHeader ? "H" : (line.hits || 0)) + '</div>',
+                    '<div class="line-score-cell is-total-error">' + (isHeader ? "E" : (line.errors || 0)) + '</div>'
                 ];
                 return '<div class="line-score-row">' + cells.join("") + '</div>';
             };
@@ -10607,20 +10706,12 @@
             const note = document.getElementById("lineScoreBoardNote");
             if (note) {
                 const summary = getScoreOverrideSummary();
-                const ruleText = getGameRuleStatusText();
-                const tiebreakRunnerText = getCurrentTiebreakRunnerStatusText();
                 const noteItems = [];
                 if (summary.length) {
                     noteItems.push("黄色=得点板を直接補正中: " + summary.join(" / "));
                 }
-                if (ruleText) {
-                    noteItems.push(ruleText);
-                }
                 if (hasGameEndReason()) {
                     noteItems.push(getGameScoreLineText({ prefix: "最終 " }));
-                }
-                if (tiebreakRunnerText) {
-                    noteItems.push(tiebreakRunnerText);
                 }
                 note.textContent = noteItems.join(" / ");
                 note.classList.toggle("is-visible", noteItems.length > 0);
@@ -10657,8 +10748,6 @@
                 return '<span>' + label + dots + '</span>';
             };
             const currentOuts = romanToOutCount(getCurrentOutScoreForDisplay()) || getPreviousOutCountForCell(state.selectedSheetRow, state.selectedSheetCol);
-            const ruleText = getGameRuleStatusText({ includeNote: false });
-            const tiebreakRunnerText = getCurrentTiebreakRunnerStatusText({ prefix: "TB走者" });
             const gameEnded = hasGameEndReason();
             container.innerHTML = [
                 '<div class="game-mini-score">',
@@ -10677,8 +10766,6 @@
                 dotGroup("S", displayedCount.strikes, 2, "strike"),
                 dotGroup("O", Math.min(currentOuts, 2), 2, "out"),
                 '</div>',
-                ruleText ? '<div class="game-mini-rule">' + escapeHtml(ruleText) + '</div>' : "",
-                tiebreakRunnerText ? '<div class="game-mini-tb">' + escapeHtml(tiebreakRunnerText) + '</div>' : "",
                 '</div>'
             ].join("");
         }
@@ -10922,12 +11009,37 @@
             };
         }
 
-        function getCurrentOpponentPitcherName() {
+        function getCurrentOpponentPitcherInfo() {
             const info = normalizeGameInfo(state.gameInfo);
             const opponentHalf = getOpponentHalf();
-            const changes = info.pitcherChanges[opponentHalf] || [];
-            const latestChange = changes[changes.length - 1];
-            return latestChange?.name || info.pitchers[opponentHalf] || "";
+            const battingHalf = state.activeHalf === "bottom" ? "bottom" : "top";
+            const changes = (info.pitcherChanges[opponentHalf] || [])
+                .map((change, index) => ({
+                    sourceIndex: index,
+                    statIndex: index + 1,
+                    entry: getPitcherEntryPosition(change, battingHalf)
+                }))
+                .sort((a, b) => compareSheetPosition(a.entry, b.entry));
+            const currentPosition = {
+                col: Math.max(0, Math.min(MAX_INNINGS - 1, Number(state.selectedSheetCol) || 0)),
+                row: Math.max(0, Math.min(8, Number(state.selectedSheetRow) || 0))
+            };
+            const activeChange = changes
+                .filter((change) => compareSheetPosition(currentPosition, change.entry) >= 0)
+                .at(-1);
+            const pitcherName = activeChange
+                ? (info.pitcherChanges[opponentHalf]?.[activeChange.sourceIndex]?.name || "")
+                : (info.pitchers[opponentHalf] || "");
+            const stats = calculatePitcherStatsForTeam(opponentHalf);
+            const pitchCount = stats[activeChange ? activeChange.statIndex : 0]?.pitchCount || 0;
+            return {
+                name: pitcherName,
+                pitchCount
+            };
+        }
+
+        function getCurrentOpponentPitcherName() {
+            return getCurrentOpponentPitcherInfo().name;
         }
 
         function renderCurrentBatterCard() {
@@ -10936,15 +11048,19 @@
                 return;
             }
             const batter = getCurrentBatterInfo();
-            const pitcher = getCurrentOpponentPitcherName();
+            const pitcher = getCurrentOpponentPitcherInfo();
             const opponentHalf = getOpponentHalf(batter.half);
             const name = batter.name || "未登録";
             const number = batter.number ? "#" + batter.number : "背-";
             const position = batter.position || "守-";
+            const pitchCountText = "P: " + (Number(pitcher.pitchCount) || 0) + "球";
             card.innerHTML = [
                 '<div class="current-batter-main"><small>' + batter.order + '番</small> ' + escapeHtml(name) + '</div>',
                 '<div class="current-batter-meta">' + escapeHtml(number) + ' / ' + escapeHtml(position) + '</div>',
-                '<div class="current-batter-pitcher" role="button" tabindex="0" onclick="openPitcherChangeDialogForHalf(\'' + opponentHalf + '\', \'' + batter.half + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openPitcherChangeDialogForHalf(\'' + opponentHalf + '\', \'' + batter.half + '\');}">相手投手: ' + escapeHtml(pitcher || "未登録") + '</div>'
+                '<div class="current-batter-pitcher-row">' +
+                    '<div class="current-batter-pitcher" role="button" tabindex="0" onclick="openPitcherChangeDialogForHalf(\'' + opponentHalf + '\', \'' + batter.half + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openPitcherChangeDialogForHalf(\'' + opponentHalf + '\', \'' + batter.half + '\');}">相手投手: ' + escapeHtml(pitcher.name || "未登録") + '</div>' +
+                    '<div class="current-pitch-count">' + escapeHtml(pitchCountText) + '</div>' +
+                '</div>'
             ].join("");
         }
 
@@ -16226,10 +16342,6 @@
                 ));
             });
 
-            const ruleStatus = getGameRuleStatusText({ inning: transition.inning });
-            if (ruleStatus) {
-                lines.push(ruleStatus);
-            }
             lines.push(getGameScoreLineText({ prefix: gameEnded ? "最終 " : "" }));
             lines.push("");
             lines.push("#CuViu");
