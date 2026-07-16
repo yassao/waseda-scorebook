@@ -482,22 +482,36 @@
             touch-action: manipulation;
         }
 
-        .scorebook-style-badge {
-            display: none;
-            margin-top: 1px;
-            padding: 2px 5px;
+        .scorebook-style-toggle {
+            min-height: 22px;
+            display: inline-grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+            padding: 2px;
+            border: 1.5px solid rgba(35, 49, 66, 0.24);
             border-radius: 999px;
-            border: 1px solid rgba(14, 116, 144, 0.28);
-            background: rgba(224, 242, 254, 0.86);
-            color: #0e7490;
-            font-size: 8px;
+            background: #e2e8f0;
+            color: #475569;
+            font: inherit;
+            font-size: 10px;
             font-weight: 900;
-            line-height: 1.05;
-            white-space: nowrap;
+            line-height: 1;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        body.keio-scorebook-style .scorebook-style-badge {
+        .scorebook-style-option {
+            min-width: 18px;
+            min-height: 16px;
             display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+        }
+
+        .scorebook-style-option.is-active {
+            background: #2563eb;
+            color: #ffffff;
         }
 
         .history-btn,
@@ -1963,10 +1977,25 @@
             background: #ffffff;
         }
 
+        .rule-toggle-text {
+            display: grid;
+            gap: 2px;
+        }
+
         .rule-toggle-label {
             color: #475569;
             font-size: 12px;
             font-weight: 900;
+        }
+
+        .rule-toggle-state {
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .rule-toggle-field.is-on .rule-toggle-state {
+            color: #2563eb;
         }
 
         .rule-toggle-input {
@@ -1980,7 +2009,7 @@
             width: 46px;
             height: 26px;
             border-radius: 999px;
-            background: #cbd5e1;
+            background: #94a3b8;
             transition: background 0.16s ease;
         }
 
@@ -1997,12 +2026,63 @@
             transition: transform 0.16s ease;
         }
 
+        .rule-toggle-field.is-on .rule-toggle-switch,
         .rule-toggle-input:checked + .rule-toggle-switch {
-            background: var(--teal);
+            background: #2563eb;
         }
 
+        .rule-toggle-field.is-on .rule-toggle-switch::after,
         .rule-toggle-input:checked + .rule-toggle-switch::after {
             transform: translateX(20px);
+        }
+
+        .called-rule-options {
+            display: none;
+            grid-column: 1 / -1;
+            gap: 8px;
+            padding: 8px;
+            border: 1.5px solid #d7e1e8;
+            border-radius: 10px;
+            background: #ffffff;
+        }
+
+        .called-rule-options.is-open {
+            display: grid;
+        }
+
+        .called-rule-option-list {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+        }
+
+        .called-rule-option {
+            min-height: 34px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 8px;
+            border: 1.5px solid #d7e1e8;
+            border-radius: 9px;
+            background: #f8fafc;
+            color: #22313f;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .called-rule-option input {
+            width: 16px;
+            min-height: 16px;
+            margin: 0;
+            accent-color: #2563eb;
+        }
+
+        .called-rule-other-input {
+            display: none;
+        }
+
+        .called-rule-other-input.is-open {
+            display: block;
         }
 
         .pitcher-change-panel {
@@ -5015,7 +5095,10 @@
                 </button>
                 <span class="version-style-stack">
                     <span id="appVersionBadge" class="app-version-badge">v0.1.52</span>
-                    <span id="scorebookStyleBadge" class="scorebook-style-badge">実験中</span>
+                    <button id="scorebookStyleToggle" class="scorebook-style-toggle" type="button" onclick="toggleScorebookStyle()" aria-label="スコアブック形式: 早稲田式">
+                        <span class="scorebook-style-option" data-style-option="waseda">早</span>
+                        <span class="scorebook-style-option" data-style-option="keio">慶</span>
+                    </button>
                 </span>
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
@@ -5292,7 +5375,15 @@
                                     <label>一塁側<select id="gameInfoFirstBench" onchange="updateGameInfoField('benches.firstBaseSideTeamId', this.value)"><option value="team_top">先攻</option><option value="team_bottom">後攻</option></select></label>
                                     <label>三塁側<select id="gameInfoThirdBench" onchange="updateGameInfoField('benches.thirdBaseSideTeamId', this.value)"><option value="team_bottom">後攻</option><option value="team_top">先攻</option></select></label>
                                     <label>試合終了<select id="gameRuleEndReason" onchange="updateGameInfoField('rules.endReason', this.value)"><option value="">通常</option><option value="called">コールド</option><option value="suspended">継続試合/中断</option><option value="forfeit">没収試合</option></select></label>
-                                    <label class="rule-toggle-field" for="gameRuleCalledEnabled"><span class="rule-toggle-label">コールド採用</span><input id="gameRuleCalledEnabled" class="rule-toggle-input" type="checkbox" onchange="setCalledRuleEnabled(this.checked)"><span class="rule-toggle-switch" aria-hidden="true"></span></label>
+                                    <label id="gameRuleCalledToggleField" class="rule-toggle-field" for="gameRuleCalledEnabled"><span class="rule-toggle-text"><span class="rule-toggle-label">コールド採用</span><span id="gameRuleCalledState" class="rule-toggle-state">オフ</span></span><input id="gameRuleCalledEnabled" class="rule-toggle-input" type="checkbox" onchange="setCalledRuleEnabled(this.checked)"><span class="rule-toggle-switch" aria-hidden="true"></span></label>
+                                    <div id="calledRuleOptionsPanel" class="called-rule-options" aria-hidden="true">
+                                        <div class="called-rule-option-list">
+                                            <label class="called-rule-option"><input id="calledRuleFiveTen" type="checkbox" onchange="updateCalledRuleOption('fiveTen', this.checked)">5回10点</label>
+                                            <label class="called-rule-option"><input id="calledRuleSevenSeven" type="checkbox" onchange="updateCalledRuleOption('sevenSeven', this.checked)">7回7点</label>
+                                            <label class="called-rule-option"><input id="calledRuleOther" type="checkbox" onchange="updateCalledRuleOption('other', this.checked)">その他</label>
+                                        </div>
+                                        <input id="calledRuleOtherText" class="called-rule-other-input" type="text" placeholder="例: 8回7点" oninput="updateCalledRuleOtherText(this.value)">
+                                    </div>
                                     <label>延長TB<select id="gameRuleTiebreak" onchange="updateGameInfoField('rules.tiebreakEnabled', this.value)"><option value="">なし/未定</option><option value="1">あり</option></select></label>
                                     <label>TB開始回<input id="gameRuleTiebreakStart" type="number" min="1" max="15" inputmode="numeric" placeholder="例: 10" oninput="updateGameInfoField('rules.tiebreakStartInning', this.value)"></label>
                                     <label>TB走者<select id="gameRuleTiebreakRunners" onchange="updateGameInfoField('rules.tiebreakRunners', this.value)"><option value="">未設定</option><option value="second">無死二塁</option><option value="first_second">無死一二塁</option></select></label>
@@ -5436,7 +5527,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.57";
+        const APP_VERSION = "0.2.58";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5450,6 +5541,10 @@
         const PDF_AD_UNWATCHED_LIMIT = 5;
         const STRIPE_SUPPORT_URL = "https://buy.stripe.com/6oU28r6wscdU5F5bxa43S01";
         const DEFAULT_CALLED_GAME_RULE = "5回10点 / 7回7点";
+        const CALLED_RULE_LABELS = {
+            fiveTen: "5回10点",
+            sevenSeven: "7回7点"
+        };
         const AD_GATE_CONFIG = {
             enabled: true,
             provider: "ninja_admax",
@@ -5509,6 +5604,76 @@
             document.getElementById(id)?.classList.toggle(className, force);
         }
 
+        function createDefaultCalledRuleOptions() {
+            return {
+                fiveTen: false,
+                sevenSeven: false,
+                other: false,
+                otherText: ""
+            };
+        }
+
+        function hasAnyCalledRuleOption(options = {}) {
+            return Boolean(options.fiveTen || options.sevenSeven || options.other);
+        }
+
+        function buildCalledRuleText(options = {}) {
+            return [
+                options.fiveTen ? CALLED_RULE_LABELS.fiveTen : "",
+                options.sevenSeven ? CALLED_RULE_LABELS.sevenSeven : "",
+                options.other ? String(options.otherText || "").trim() : ""
+            ].filter(Boolean).join(" / ");
+        }
+
+        function normalizeCalledRuleOptions(sourceOptions = {}, sourceRule = "", enabled = false) {
+            const options = {
+                ...createDefaultCalledRuleOptions(),
+                ...(sourceOptions || {})
+            };
+            const ruleText = String(sourceRule || "");
+            if (!sourceOptions || !Object.keys(sourceOptions).length) {
+                options.fiveTen = ruleText.includes(CALLED_RULE_LABELS.fiveTen);
+                options.sevenSeven = ruleText.includes(CALLED_RULE_LABELS.sevenSeven);
+                const leftovers = ruleText
+                    .split("/")
+                    .map((part) => part.trim())
+                    .filter((part) => part && part !== CALLED_RULE_LABELS.fiveTen && part !== CALLED_RULE_LABELS.sevenSeven);
+                if (leftovers.length) {
+                    options.other = true;
+                    options.otherText = leftovers.join(" / ");
+                }
+            }
+            if (enabled && !hasAnyCalledRuleOption(options)) {
+                options.fiveTen = true;
+                options.sevenSeven = true;
+            }
+            if (!options.other) {
+                options.otherText = "";
+            }
+            return options;
+        }
+
+        function syncCalledRuleInputs() {
+            const rules = normalizeGameInfo(state.gameInfo).rules || {};
+            const enabled = Boolean(rules.calledEnabled);
+            setElementChecked("gameRuleCalledEnabled", enabled);
+            setElementChecked("calledRuleFiveTen", rules.calledRuleOptions?.fiveTen);
+            setElementChecked("calledRuleSevenSeven", rules.calledRuleOptions?.sevenSeven);
+            setElementChecked("calledRuleOther", rules.calledRuleOptions?.other);
+            setElementValue("calledRuleOtherText", rules.calledRuleOptions?.otherText || "");
+            document.getElementById("gameRuleCalledToggleField")?.classList.toggle("is-on", enabled);
+            const stateLabel = document.getElementById("gameRuleCalledState");
+            if (stateLabel) {
+                stateLabel.textContent = enabled ? "オン" : "オフ";
+            }
+            const panel = document.getElementById("calledRuleOptionsPanel");
+            if (panel) {
+                panel.classList.toggle("is-open", enabled);
+                panel.setAttribute("aria-hidden", enabled ? "false" : "true");
+            }
+            document.getElementById("calledRuleOtherText")?.classList.toggle("is-open", enabled && Boolean(rules.calledRuleOptions?.other));
+        }
+
         function createDefaultGameInfo() {
             return {
                 title: "",
@@ -5549,6 +5714,7 @@
                 rules: {
                     endReason: "",
                     calledEnabled: false,
+                    calledRuleOptions: createDefaultCalledRuleOptions(),
                     calledRule: "",
                     tiebreakEnabled: "",
                     tiebreakStartInning: "",
@@ -6108,9 +6274,14 @@
         function updateScorebookStyleUi() {
             state.scorebookStyle = normalizeScorebookStyle(state.scorebookStyle);
             document.body.classList.toggle("keio-scorebook-style", state.scorebookStyle === "keio");
-            const badge = document.getElementById("scorebookStyleBadge");
-            if (badge) {
-                badge.textContent = state.scorebookStyle === "keio" ? "実験中" : "";
+            const toggle = document.getElementById("scorebookStyleToggle");
+            if (toggle) {
+                const isKeio = state.scorebookStyle === "keio";
+                toggle.setAttribute("aria-label", "スコアブック形式: " + (isKeio ? "慶応式" : "早稲田式"));
+                toggle.setAttribute("aria-pressed", isKeio ? "true" : "false");
+                toggle.querySelectorAll(".scorebook-style-option").forEach((option) => {
+                    option.classList.toggle("is-active", option.dataset.styleOption === state.scorebookStyle);
+                });
             }
         }
 
@@ -6131,8 +6302,12 @@
             }
         }
 
+        function toggleScorebookStyle() {
+            setScorebookStyle(state.scorebookStyle === "keio" ? "waseda" : "keio", { silent: true });
+        }
+
         function toggleExperimentalScorebookStyle() {
-            setScorebookStyle(state.scorebookStyle === "keio" ? "waseda" : "keio");
+            toggleScorebookStyle();
         }
 
         function applyScorebookStyleFromUrl() {
@@ -7374,7 +7549,7 @@
                 redoHistory.length = 0;
                 state.activeHalf = "top";
                 state.inputLayout = "right";
-                state.scorebookStyle = normalizeScorebookStyle(state.scorebookStyle);
+                state.scorebookStyle = "waseda";
                 state.gameInfo = createDefaultGameInfo();
                 state.teamNames = { top: "先攻", bottom: "後攻" };
                 state.playerNames = {
@@ -9092,6 +9267,7 @@
             const defaults = createDefaultGameInfo();
             const sourceRules = gameInfo?.rules || {};
             const calledEnabled = Boolean(sourceRules.calledEnabled) || Boolean(sourceRules.calledRule);
+            const calledRuleOptions = normalizeCalledRuleOptions(sourceRules.calledRuleOptions, sourceRules.calledRule, calledEnabled);
             return {
                 ...defaults,
                 ...(gameInfo || {}),
@@ -9113,7 +9289,8 @@
                     ...defaults.rules,
                     ...sourceRules,
                     calledEnabled,
-                    calledRule: calledEnabled ? (sourceRules.calledRule || DEFAULT_CALLED_GAME_RULE) : ""
+                    calledRuleOptions,
+                    calledRule: calledEnabled ? (buildCalledRuleText(calledRuleOptions) || sourceRules.calledRule || DEFAULT_CALLED_GAME_RULE) : ""
                 }
             };
         }
@@ -9121,8 +9298,50 @@
         function setCalledRuleEnabled(enabled) {
             state.gameInfo = normalizeGameInfo(state.gameInfo);
             state.gameInfo.rules.calledEnabled = Boolean(enabled);
-            state.gameInfo.rules.calledRule = enabled ? (state.gameInfo.rules.calledRule || DEFAULT_CALLED_GAME_RULE) : "";
-            setElementChecked("gameRuleCalledEnabled", enabled);
+            state.gameInfo.rules.calledRuleOptions = normalizeCalledRuleOptions(
+                state.gameInfo.rules.calledRuleOptions,
+                state.gameInfo.rules.calledRule,
+                enabled
+            );
+            state.gameInfo.rules.calledRule = enabled ? buildCalledRuleText(state.gameInfo.rules.calledRuleOptions) : "";
+            syncCalledRuleInputs();
+            renderCurrentBatterCard();
+            renderLineScoreBoard();
+            renderGameMiniStatus();
+            renderScoreSheet();
+            scheduleGameAutoSave();
+        }
+
+        function updateCalledRuleOption(option, checked) {
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            state.gameInfo.rules.calledEnabled = true;
+            state.gameInfo.rules.calledRuleOptions = normalizeCalledRuleOptions(
+                state.gameInfo.rules.calledRuleOptions,
+                state.gameInfo.rules.calledRule,
+                true
+            );
+            state.gameInfo.rules.calledRuleOptions[option] = Boolean(checked);
+            state.gameInfo.rules.calledRule = buildCalledRuleText(state.gameInfo.rules.calledRuleOptions);
+            syncCalledRuleInputs();
+            renderCurrentBatterCard();
+            renderLineScoreBoard();
+            renderGameMiniStatus();
+            renderScoreSheet();
+            scheduleGameAutoSave();
+        }
+
+        function updateCalledRuleOtherText(value) {
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            state.gameInfo.rules.calledEnabled = true;
+            state.gameInfo.rules.calledRuleOptions = normalizeCalledRuleOptions(
+                state.gameInfo.rules.calledRuleOptions,
+                state.gameInfo.rules.calledRule,
+                true
+            );
+            state.gameInfo.rules.calledRuleOptions.other = true;
+            state.gameInfo.rules.calledRuleOptions.otherText = String(value || "").trim();
+            state.gameInfo.rules.calledRule = buildCalledRuleText(state.gameInfo.rules.calledRuleOptions);
+            syncCalledRuleInputs();
             renderCurrentBatterCard();
             renderLineScoreBoard();
             renderGameMiniStatus();
@@ -9193,7 +9412,7 @@
                 gameRuleNote: info.rules.note
             };
             Object.entries(fieldMap).forEach(([id, value]) => setElementValue(id, value || ""));
-            setElementChecked("gameRuleCalledEnabled", info.rules.calledEnabled);
+            syncCalledRuleInputs();
             setPitcherChangeFormDefaults();
             renderPitcherChangeList();
             setFieldingChangeFormDefaults();
