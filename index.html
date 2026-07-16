@@ -5686,7 +5686,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.2";
+        const APP_VERSION = "0.3.3";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9394,12 +9394,44 @@
             return true;
         }
 
+        let printOriginalDocumentTitle = "";
+
+        function getPrintFilenameTimestamp(date = new Date()) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            const hours = String(date.getHours()).padStart(2, "0");
+            const minutes = String(date.getMinutes()).padStart(2, "0");
+            return year + month + day + hours + minutes;
+        }
+
+        function getBaseDocumentTitleForPrint() {
+            const currentTitle = document.title || "スコアブック by CuViu";
+            return currentTitle.replace(/-\d{12}$/, "");
+        }
+
+        function applyPrintDocumentTitle() {
+            if (!printOriginalDocumentTitle) {
+                printOriginalDocumentTitle = getBaseDocumentTitleForPrint();
+            }
+            document.title = printOriginalDocumentTitle + "-" + getPrintFilenameTimestamp();
+        }
+
+        function restorePrintDocumentTitle() {
+            if (!printOriginalDocumentTitle) {
+                return;
+            }
+            document.title = printOriginalDocumentTitle;
+            printOriginalDocumentTitle = "";
+        }
+
         function prepareScorebookPrintMode() {
             if (hasGameEndReason()) {
                 ensureGameEndDateTime();
             } else {
                 ensureGameStartDateTime();
             }
+            applyPrintDocumentTitle();
             toggleTopWorkspace(true);
             renderPrintableScorebookPage();
             document.body.classList.add("printing-scorebook");
@@ -9410,6 +9442,7 @@
                 document.body.classList.remove("printing-scorebook");
                 document.body.classList.remove("has-extra-print-page");
                 document.documentElement.classList.remove("has-extra-print-page");
+                restorePrintDocumentTitle();
             }, 900);
         }
 
