@@ -1951,6 +1951,60 @@
             grid-column: 1 / -1;
         }
 
+        .rule-toggle-field {
+            position: relative;
+            min-height: 42px;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border: 1.5px solid #d7e1e8;
+            border-radius: 9px;
+            background: #ffffff;
+        }
+
+        .rule-toggle-label {
+            color: #475569;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .rule-toggle-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .rule-toggle-switch {
+            position: relative;
+            width: 46px;
+            height: 26px;
+            border-radius: 999px;
+            background: #cbd5e1;
+            transition: background 0.16s ease;
+        }
+
+        .rule-toggle-switch::after {
+            content: "";
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.26);
+            transition: transform 0.16s ease;
+        }
+
+        .rule-toggle-input:checked + .rule-toggle-switch {
+            background: var(--teal);
+        }
+
+        .rule-toggle-input:checked + .rule-toggle-switch::after {
+            transform: translateX(20px);
+        }
+
         .pitcher-change-panel {
             grid-column: 1 / -1;
             display: grid;
@@ -5238,7 +5292,7 @@
                                     <label>一塁側<select id="gameInfoFirstBench" onchange="updateGameInfoField('benches.firstBaseSideTeamId', this.value)"><option value="team_top">先攻</option><option value="team_bottom">後攻</option></select></label>
                                     <label>三塁側<select id="gameInfoThirdBench" onchange="updateGameInfoField('benches.thirdBaseSideTeamId', this.value)"><option value="team_bottom">後攻</option><option value="team_top">先攻</option></select></label>
                                     <label>試合終了<select id="gameRuleEndReason" onchange="updateGameInfoField('rules.endReason', this.value)"><option value="">通常</option><option value="called">コールド</option><option value="suspended">継続試合/中断</option><option value="forfeit">没収試合</option></select></label>
-                                    <label>コールド基準<input id="gameRuleCalledRule" type="text" placeholder="例: 5回10点 / 7回7点" oninput="updateGameInfoField('rules.calledRule', this.value)"></label>
+                                    <label class="rule-toggle-field" for="gameRuleCalledEnabled"><span class="rule-toggle-label">コールド採用</span><input id="gameRuleCalledEnabled" class="rule-toggle-input" type="checkbox" onchange="setCalledRuleEnabled(this.checked)"><span class="rule-toggle-switch" aria-hidden="true"></span></label>
                                     <label>延長TB<select id="gameRuleTiebreak" onchange="updateGameInfoField('rules.tiebreakEnabled', this.value)"><option value="">なし/未定</option><option value="1">あり</option></select></label>
                                     <label>TB開始回<input id="gameRuleTiebreakStart" type="number" min="1" max="15" inputmode="numeric" placeholder="例: 10" oninput="updateGameInfoField('rules.tiebreakStartInning', this.value)"></label>
                                     <label>TB走者<select id="gameRuleTiebreakRunners" onchange="updateGameInfoField('rules.tiebreakRunners', this.value)"><option value="">未設定</option><option value="second">無死二塁</option><option value="first_second">無死一二塁</option></select></label>
@@ -5382,7 +5436,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.2.56";
+        const APP_VERSION = "0.2.57";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5395,6 +5449,7 @@
         const PDF_AD_SECONDS = 0;
         const PDF_AD_UNWATCHED_LIMIT = 5;
         const STRIPE_SUPPORT_URL = "https://buy.stripe.com/6oU28r6wscdU5F5bxa43S01";
+        const DEFAULT_CALLED_GAME_RULE = "5回10点 / 7回7点";
         const AD_GATE_CONFIG = {
             enabled: true,
             provider: "ninja_admax",
@@ -5407,6 +5462,13 @@
             const element = document.getElementById(id);
             if (element) {
                 element.value = value;
+            }
+        }
+
+        function setElementChecked(id, checked) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.checked = Boolean(checked);
             }
         }
 
@@ -5486,6 +5548,7 @@
                 },
                 rules: {
                     endReason: "",
+                    calledEnabled: false,
                     calledRule: "",
                     tiebreakEnabled: "",
                     tiebreakStartInning: "",
@@ -7896,8 +7959,7 @@
             if (!endLabel) {
                 return "";
             }
-            const calledText = rules.endReason === "called" && rules.calledRule ? "（" + rules.calledRule + "）" : "";
-            const items = ["試合終了: " + endLabel + calledText];
+            const items = ["試合終了: " + endLabel];
             if (options.includeScore) {
                 items.push(getGameScoreLineText({ prefix: "最終 " }));
             }
@@ -7946,6 +8008,7 @@
                 ended: Boolean(endReasonLabel),
                 endReason: rules.endReason || "",
                 endReasonLabel,
+                calledEnabled: Boolean(rules.calledEnabled),
                 calledRule: rules.calledRule || "",
                 note: rules.note || "",
                 finalScore: {
@@ -8053,8 +8116,6 @@
             const endStatus = getGameEndStatusText();
             if (endStatus) {
                 items.push(endStatus);
-            } else if (rules.calledRule && options.includeCalledRule !== false) {
-                items.push("コールド基準: " + rules.calledRule);
             }
 
             if (rules.tiebreakEnabled) {
@@ -8203,9 +8264,8 @@
                 ],
                 [
                     ["試合終了", getGameEndReasonLabel(info.rules.endReason)],
-                    ["コールド", info.rules.calledRule],
                     ["TB", getTiebreakRulePrintText(info.rules), 2],
-                    ["規定メモ", info.rules.note, 8]
+                    ["規定メモ", info.rules.note, 10]
                 ]
             ];
 
@@ -9030,6 +9090,8 @@
 
         function normalizeGameInfo(gameInfo) {
             const defaults = createDefaultGameInfo();
+            const sourceRules = gameInfo?.rules || {};
+            const calledEnabled = Boolean(sourceRules.calledEnabled) || Boolean(sourceRules.calledRule);
             return {
                 ...defaults,
                 ...(gameInfo || {}),
@@ -9049,9 +9111,23 @@
                 },
                 rules: {
                     ...defaults.rules,
-                    ...(gameInfo?.rules || {})
+                    ...sourceRules,
+                    calledEnabled,
+                    calledRule: calledEnabled ? (sourceRules.calledRule || DEFAULT_CALLED_GAME_RULE) : ""
                 }
             };
+        }
+
+        function setCalledRuleEnabled(enabled) {
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            state.gameInfo.rules.calledEnabled = Boolean(enabled);
+            state.gameInfo.rules.calledRule = enabled ? (state.gameInfo.rules.calledRule || DEFAULT_CALLED_GAME_RULE) : "";
+            setElementChecked("gameRuleCalledEnabled", enabled);
+            renderCurrentBatterCard();
+            renderLineScoreBoard();
+            renderGameMiniStatus();
+            renderScoreSheet();
+            scheduleGameAutoSave();
         }
 
         function updateGameInfoField(path, value) {
@@ -9111,13 +9187,13 @@
                 gameInfoFirstBench: info.benches.firstBaseSideTeamId,
                 gameInfoThirdBench: info.benches.thirdBaseSideTeamId,
                 gameRuleEndReason: info.rules.endReason,
-                gameRuleCalledRule: info.rules.calledRule,
                 gameRuleTiebreak: info.rules.tiebreakEnabled,
                 gameRuleTiebreakStart: info.rules.tiebreakStartInning,
                 gameRuleTiebreakRunners: info.rules.tiebreakRunners,
                 gameRuleNote: info.rules.note
             };
             Object.entries(fieldMap).forEach(([id, value]) => setElementValue(id, value || ""));
+            setElementChecked("gameRuleCalledEnabled", info.rules.calledEnabled);
             setPitcherChangeFormDefaults();
             renderPitcherChangeList();
             setFieldingChangeFormDefaults();
