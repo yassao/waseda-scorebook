@@ -2271,6 +2271,100 @@
             line-height: 1.4;
         }
 
+        .roster-import-popup {
+            width: min(920px, calc(100vw - 24px));
+            max-height: calc(100vh - 24px);
+            padding: 14px 18px;
+        }
+
+        .roster-import-popup .comment-popup-title {
+            margin-bottom: 8px;
+        }
+
+        .roster-import-body {
+            display: grid;
+            gap: 12px;
+            overflow-y: auto;
+            max-height: calc(100vh - 150px);
+            padding-right: 2px;
+        }
+
+        .roster-import-team {
+            display: grid;
+            gap: 8px;
+            padding: 10px;
+            border: 1px solid #d7e1e8;
+            border-radius: 12px;
+            background: #f8fafc;
+        }
+
+        .roster-import-team-title {
+            color: #0f4f4a;
+            font-size: 13px;
+            font-weight: 950;
+        }
+
+        .roster-import-meta {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 8px;
+        }
+
+        .roster-import-meta label {
+            display: grid;
+            gap: 3px;
+            color: #334155;
+            font-size: 11px;
+            font-weight: 900;
+        }
+
+        .roster-import-meta input,
+        .roster-import-grid input,
+        .roster-import-grid select {
+            min-height: 32px;
+            min-width: 0;
+            width: 100%;
+            border: 1.5px solid #cbd8e2;
+            border-radius: 9px;
+            padding: 5px 8px;
+            background: #fff;
+            color: #172331;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 850;
+        }
+
+        .roster-import-grid {
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr) 58px 76px;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .roster-import-header {
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .roster-import-order {
+            color: var(--sheet-green);
+            font-size: 12px;
+            font-weight: 950;
+            text-align: center;
+        }
+
+        .roster-import-warning {
+            padding: 8px 10px;
+            border: 1px solid #f5c27a;
+            border-radius: 10px;
+            background: #fff7e8;
+            color: #7a4c00;
+            font-size: 12px;
+            font-weight: 850;
+            line-height: 1.45;
+        }
+
         .player-roster-grid {
             display: grid;
             grid-template-columns: auto minmax(0, 1fr) 54px 62px;
@@ -4121,6 +4215,24 @@
             font-weight: 950;
         }
 
+        .sheet-change-confirm-summary {
+            display: grid;
+            gap: 6px;
+            padding: 8px 10px;
+            border: 1px solid #d7e1ea;
+            border-radius: 12px;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 850;
+            line-height: 1.45;
+        }
+
+        .sheet-change-confirm-summary strong {
+            color: #0f4f4a;
+            font-weight: 950;
+        }
+
         .sheet-change-actions {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -4161,6 +4273,15 @@
 
             .sheet-change-before small {
                 font-size: 9px;
+            }
+
+            .roster-import-meta {
+                grid-template-columns: 1fr;
+            }
+
+            .roster-import-grid {
+                grid-template-columns: 38px minmax(0, 1fr) 50px 68px;
+                gap: 5px;
             }
         }
 
@@ -5558,7 +5679,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.0";
+        const APP_VERSION = "0.3.1";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5932,6 +6053,8 @@
         let sheetCellPressTimer = null;
         let rosterNamePressTimer = null;
         let pitcherBookPressTimer = null;
+        let pendingRosterImport = null;
+        let pendingSheetChangeConfirm = null;
         let suppressSheetCellClick = false;
         let sheetPinchStartDistance = 0;
         let sheetPinchStartZoom = 1;
@@ -10227,7 +10350,7 @@
             )).join("");
             popup.innerHTML = [
                 '<div class="comment-popup-title">シート変更: ' + escapeHtml(getTeamDisplayName(base.teamHalf)) + '</div>',
-                '<form class="sheet-change-dialog-form" onsubmit="saveSheetChangeDialog(event)">',
+                '<form class="sheet-change-dialog-form" onsubmit="confirmSheetChangeDialog(event)">',
                 '<div class="sheet-change-meta-grid">',
                 '<label>チーム<select id="sheetChangeTeam" onchange="rerenderSheetChangeDialogForTeam(this.value)">' + teamOptions + '</select></label>',
                 '<label>回<input id="sheetChangeInning" type="number" min="1" max="12" inputmode="numeric" value="' + escapeHtml(base.inning) + '" oninput="updateSheetChangePreview()"></label>',
@@ -10272,6 +10395,7 @@
         }
 
         function closeSheetChangeDialog() {
+            closeSheetChangeConfirmDialog();
             const popup = document.getElementById("sheetChangeDialog");
             const backdrop = document.getElementById("sheetChangeDialogBackdrop");
             popup?.classList.remove("is-open");
@@ -10328,21 +10452,113 @@
             preview.innerHTML = '<strong>登録予定 ' + changes.length + '件</strong>' + changes.map(formatSheetChangePreviewText).join("<br>");
         }
 
-        function saveSheetChangeDialog(event) {
+        function ensureSheetChangeConfirmDialog() {
+            let backdrop = document.getElementById("sheetChangeConfirmBackdrop");
+            let popup = document.getElementById("sheetChangeConfirmDialog");
+            if (!backdrop) {
+                backdrop = document.createElement("div");
+                backdrop.id = "sheetChangeConfirmBackdrop";
+                backdrop.className = "comment-popup-backdrop";
+                backdrop.onclick = closeSheetChangeConfirmDialog;
+                document.body.appendChild(backdrop);
+            }
+            if (!popup) {
+                popup = document.createElement("div");
+                popup.id = "sheetChangeConfirmDialog";
+                popup.className = "comment-popup sheet-change-popup";
+                popup.setAttribute("aria-hidden", "true");
+                popup.setAttribute("role", "dialog");
+                popup.setAttribute("aria-modal", "true");
+                document.body.appendChild(popup);
+            }
+            return { backdrop, popup };
+        }
+
+        function closeSheetChangeConfirmDialog() {
+            pendingSheetChangeConfirm = null;
+            document.getElementById("sheetChangeConfirmDialog")?.classList.remove("is-open");
+            document.getElementById("sheetChangeConfirmDialog")?.setAttribute("aria-hidden", "true");
+            document.getElementById("sheetChangeConfirmBackdrop")?.classList.remove("is-open");
+        }
+
+        function formatSheetChangeLineupCompareCell(row) {
+            const positionText = row?.position ? formatFieldingPositionValue(row.position) : "守備なし";
+            return '<strong>' + escapeHtml(row?.name || "未登録") + '</strong><small>' + escapeHtml(positionText) + '</small>';
+        }
+
+        function renderSheetChangeConfirmRows(beforeLineup, afterLineup) {
+            return (beforeLineup || []).map((beforeRow, index) => {
+                const afterRow = afterLineup?.[index] || {};
+                const afterPosition = afterRow.position ? formatFieldingPositionValue(afterRow.position) : "守備なし";
+                return [
+                    '<div class="sheet-change-cell sheet-change-order">' + escapeHtml((index + 1) + "番") + '</div>',
+                    '<div class="sheet-change-cell sheet-change-before">' + formatSheetChangeLineupCompareCell(beforeRow) + '</div>',
+                    '<div class="sheet-change-cell sheet-change-before">' + formatSheetChangeLineupCompareCell(afterRow) + '</div>',
+                    '<div class="sheet-change-cell sheet-change-position">' + escapeHtml(afterPosition) + '</div>'
+                ].join("");
+            }).join("");
+        }
+
+        function openSheetChangeConfirmDialog(data) {
+            pendingSheetChangeConfirm = data;
+            const { backdrop, popup } = ensureSheetChangeConfirmDialog();
+            const teamName = getTeamDisplayName(data.teamHalf);
+            popup.innerHTML = [
+                '<div class="comment-popup-title">シート変更の確認: ' + escapeHtml(teamName) + '</div>',
+                '<div class="sheet-change-confirm-summary">',
+                '<strong>登録予定 ' + data.changes.length + '件</strong>',
+                data.changes.map(formatSheetChangePreviewText).join("<br>"),
+                '</div>',
+                '<div class="sheet-change-table">',
+                '<div class="sheet-change-cell sheet-change-header">打順</div>',
+                '<div class="sheet-change-cell sheet-change-header">変更前</div>',
+                '<div class="sheet-change-cell sheet-change-header">変更後</div>',
+                '<div class="sheet-change-cell sheet-change-header">守備</div>',
+                renderSheetChangeConfirmRows(data.beforeLineup, data.afterLineup),
+                '</div>',
+                '<div class="sheet-change-actions">',
+                '<button type="button" onclick="closeSheetChangeConfirmDialog()">戻って修正</button>',
+                '<button type="button" class="btn-hit" onclick="saveConfirmedSheetChangeDialog()">この内容で登録</button>',
+                '</div>'
+            ].join("");
+            backdrop.classList.add("is-open");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+        }
+
+        function confirmSheetChangeDialog(event) {
             event?.preventDefault();
             const { teamHalf, beforeLineup, afterLineup, changes } = getSheetChangeDialogDiffs();
             if (!changes.length) {
                 alert("変更がありません。");
                 return;
             }
+            openSheetChangeConfirmDialog({
+                teamHalf,
+                beforeLineup,
+                afterLineup,
+                changes,
+                base: getSheetChangeDialogBaseChange()
+            });
+        }
+
+        function saveSheetChangeDialog(event) {
+            confirmSheetChangeDialog(event);
+        }
+
+        function saveConfirmedSheetChangeDialog() {
+            if (!pendingSheetChangeConfirm) {
+                return;
+            }
+            const { teamHalf, beforeLineup, afterLineup, changes, base } = pendingSheetChangeConfirm;
             setElementValue("fieldingChangeTeam", teamHalf);
-            const base = getSheetChangeDialogBaseChange();
             setElementValue("fieldingChangeInning", base.inning);
             setElementValue("fieldingChangeHalf", base.half);
             setElementValue("fieldingChangeBattingOrder", base.battingOrder);
             setElementValue("fieldingChangeNote", base.note);
             applySheetChangeLineup(teamHalf, beforeLineup, afterLineup);
             saveFieldingChanges(teamHalf, changes);
+            closeSheetChangeConfirmDialog();
             closeSheetChangeDialog();
         }
 
@@ -11137,12 +11353,69 @@
             return best;
         }
 
+        function createEmptyRosterImportEntries() {
+            return Array.from({ length: 9 }, () => ({ name: "", number: "", position: "" }));
+        }
+
+        function normalizeStarterRosterEntries(items) {
+            const sourceItems = (items || []).filter(Boolean);
+            const hasDh = sourceItems.some((entry) => normalizeRosterOcrPosition(entry.position) === "DH");
+            let pitcher = "";
+            let lineupItems = [...sourceItems];
+            if (lineupItems.length > 9) {
+                const pitcherIndex = lineupItems.findIndex((entry, index) => (
+                    normalizeRosterOcrPosition(entry.position) === "1"
+                    && (index >= 9 || hasDh)
+                ));
+                if (pitcherIndex >= 0) {
+                    pitcher = lineupItems[pitcherIndex].name || "";
+                    lineupItems = lineupItems.filter((_, index) => index !== pitcherIndex);
+                }
+            }
+            return {
+                entries: lineupItems.slice(0, 9).map((entry) => ({
+                    name: entry.name || "",
+                    number: entry.number || "",
+                    position: normalizeRosterOcrPosition(entry.position || "")
+                })),
+                pitcher
+            };
+        }
+
+        function parseSequentialPositionRosterOcr(text) {
+            const raw = String(text || "").trim();
+            if (!/[、,，\n]/.test(raw)) {
+                return null;
+            }
+            const parts = raw
+                .split(/[、,，\n]+/)
+                .map((part) => normalizeRosterOcrLine(part))
+                .filter(Boolean);
+            if (parts.length < 2) {
+                return null;
+            }
+            const entries = parseStarterPostRosterItems(raw);
+            if (entries.length !== parts.length || entries.length < 2) {
+                return null;
+            }
+            const normalized = normalizeStarterRosterEntries(entries);
+            const paddedEntries = createEmptyRosterImportEntries();
+            normalized.entries.forEach((entry, index) => {
+                paddedEntries[index] = entry;
+            });
+            return { entries: paddedEntries, pitcher: normalized.pitcher, teamName: "" };
+        }
+
         function parseScoreboardRosterOcr(text) {
+            const sequentialPositionRoster = parseSequentialPositionRosterOcr(text);
+            if (sequentialPositionRoster) {
+                return sequentialPositionRoster;
+            }
             const lines = String(text || "")
                 .split(/\r?\n/)
                 .map(normalizeRosterOcrLine)
                 .filter(Boolean);
-            const entries = Array.from({ length: 9 }, () => ({ name: "", number: "", position: "" }));
+            const entries = createEmptyRosterImportEntries();
             const parsedOrder = [];
             let continuations = [];
             const textCandidates = [];
@@ -11257,7 +11530,7 @@
                 .map((part) => normalizeRosterOcrLine(part))
                 .filter(Boolean)
                 .map((part) => {
-                    const match = part.match(/^(DH|[1-9])(.+)$/i);
+                    const match = part.match(/^(DH|D|[1-9])(.+)$/i);
                     if (!match) {
                         return null;
                     }
@@ -11268,6 +11541,53 @@
                     };
                 })
                 .filter(Boolean);
+        }
+
+        function parseStarterPostRosterBlock(rosterText) {
+            const pitcherMatch = String(rosterText || "").match(/投手[・:：]\s*([^、,，\s]+)/);
+            const rosterOnlyText = String(rosterText || "").split(/投手[・:：]/)[0];
+            const normalized = normalizeStarterRosterEntries(parseStarterPostRosterItems(rosterOnlyText));
+            return {
+                entries: normalized.entries,
+                pitcher: pitcherMatch ? normalizeRosterOcrName(pitcherMatch[1]) : normalized.pitcher
+            };
+        }
+
+        function cleanStarterHeaderTeamName(value) {
+            let text = String(value || "").trim();
+            const sentenceParts = text.split(/[。]/).map((part) => part.trim()).filter(Boolean);
+            if (sentenceParts.length) {
+                text = sentenceParts[sentenceParts.length - 1];
+            }
+            return text.replace(/^(先攻|後攻)[・:：\s]*/, "").trim();
+        }
+
+        function parseStarterHeaderLine(line) {
+            const normalized = String(line || "").trim();
+            const match = normalized.match(/^((?:先攻|後攻)?[・:：\s]*[^：:\n\r]*?)スタメン\s*(?:[：:]\s*(.*))?$/);
+            if (!match) {
+                return null;
+            }
+            const rawHeader = match[1].trim();
+            const halfMatch = rawHeader.match(/^(先攻|後攻)[・:：\s]*(.*)$/);
+            const half = halfMatch ? (halfMatch[1] === "後攻" ? "bottom" : "top") : "";
+            const teamName = cleanStarterHeaderTeamName(halfMatch ? halfMatch[2] : rawHeader);
+            return {
+                half,
+                teamName,
+                inlineRoster: (match[2] || "").trim()
+            };
+        }
+
+        function lineLooksLikeRosterBody(line) {
+            const normalized = normalizeRosterOcrLine(line);
+            if (!normalized) {
+                return false;
+            }
+            if (parseStarterPostRosterItems(normalized).length > 0) {
+                return true;
+            }
+            return /^投手[・:：]/.test(normalized);
         }
 
         function parseStarterPostText(text) {
@@ -11284,24 +11604,43 @@
                 result.teams.bottom.teamName = matchup[2].trim();
             }
 
-            const starterPattern = /([^：:\n\r]+?)スタメン[：:]\s*([^\n\r]+)/g;
             const parsedLines = [];
-            let match;
-            while ((match = starterPattern.exec(raw)) !== null) {
-                const teamName = match[1].trim();
-                const body = match[2].trim();
-                const pitcherMatch = body.match(/投手[・:：]\s*([^、,，\s]+)/);
-                const rosterText = body.split(/投手[・:：]/)[0];
+            const lines = raw.split("\n").map((line) => line.trim());
+            for (let index = 0; index < lines.length; index += 1) {
+                const header = parseStarterHeaderLine(lines[index]);
+                if (!header) {
+                    continue;
+                }
+                const bodyParts = [];
+                if (header.inlineRoster) {
+                    bodyParts.push(header.inlineRoster);
+                }
+                let scanIndex = index + 1;
+                while (scanIndex < lines.length) {
+                    if (parseStarterHeaderLine(lines[scanIndex])) {
+                        break;
+                    }
+                    if (lineLooksLikeRosterBody(lines[scanIndex])) {
+                        bodyParts.push(lines[scanIndex]);
+                    } else if (bodyParts.length) {
+                        break;
+                    }
+                    scanIndex += 1;
+                }
+                const parsedRoster = parseStarterPostRosterBlock(bodyParts.join("、"));
                 parsedLines.push({
-                    teamName,
-                    pitcher: pitcherMatch ? normalizeRosterOcrName(pitcherMatch[1]) : "",
-                    entries: parseStarterPostRosterItems(rosterText)
+                    teamName: header.teamName,
+                    half: header.half,
+                    pitcher: parsedRoster.pitcher,
+                    entries: parsedRoster.entries
                 });
             }
 
             parsedLines.forEach((line, index) => {
                 let half = "";
-                if (result.teams.top.teamName && line.teamName === result.teams.top.teamName) {
+                if (line.half) {
+                    half = line.half;
+                } else if (result.teams.top.teamName && line.teamName === result.teams.top.teamName) {
                     half = "top";
                 } else if (result.teams.bottom.teamName && line.teamName === result.teams.bottom.teamName) {
                     half = "bottom";
@@ -11327,6 +11666,221 @@
             status.style.color = isError ? "#b42318" : "#64748b";
         }
 
+        function ensureRosterImportConfirmDialog() {
+            let backdrop = document.getElementById("rosterImportConfirmBackdrop");
+            let popup = document.getElementById("rosterImportConfirmDialog");
+            if (!backdrop) {
+                backdrop = document.createElement("div");
+                backdrop.id = "rosterImportConfirmBackdrop";
+                backdrop.className = "comment-popup-backdrop";
+                backdrop.onclick = closeRosterImportConfirmDialog;
+                document.body.appendChild(backdrop);
+            }
+            if (!popup) {
+                popup = document.createElement("div");
+                popup.id = "rosterImportConfirmDialog";
+                popup.className = "comment-popup roster-import-popup";
+                popup.setAttribute("aria-hidden", "true");
+                popup.setAttribute("role", "dialog");
+                popup.setAttribute("aria-modal", "true");
+                document.body.appendChild(popup);
+            }
+            return { backdrop, popup };
+        }
+
+        function closeRosterImportConfirmDialog() {
+            pendingRosterImport = null;
+            document.getElementById("rosterImportConfirmDialog")?.classList.remove("is-open");
+            document.getElementById("rosterImportConfirmDialog")?.setAttribute("aria-hidden", "true");
+            document.getElementById("rosterImportConfirmBackdrop")?.classList.remove("is-open");
+        }
+
+        function normalizeRosterImportTeam(team = {}) {
+            const entries = createEmptyRosterImportEntries();
+            (team.entries || []).slice(0, 9).forEach((entry, index) => {
+                entries[index] = {
+                    name: entry?.name || "",
+                    number: entry?.number || "",
+                    position: normalizeRosterOcrPosition(entry?.position || "")
+                };
+            });
+            return {
+                teamName: team.teamName || "",
+                pitcher: team.pitcher || "",
+                entries
+            };
+        }
+
+        function normalizeRosterImportData(parsed) {
+            return {
+                teams: {
+                    top: normalizeRosterImportTeam(parsed?.teams?.top),
+                    bottom: normalizeRosterImportTeam(parsed?.teams?.bottom)
+                }
+            };
+        }
+
+        function getRosterImportEntryCount(team) {
+            return (team?.entries || []).filter((entry) => entry.name || entry.number || entry.position).length;
+        }
+
+        function getRosterImportHalves(data, options = {}) {
+            if (Array.isArray(options.halves) && options.halves.length) {
+                return options.halves.filter((half) => half === "top" || half === "bottom");
+            }
+            return ["top", "bottom"].filter((half) => {
+                const team = data.teams?.[half] || {};
+                return team.teamName || team.pitcher || getRosterImportEntryCount(team) > 0;
+            });
+        }
+
+        function renderRosterImportTeamConfirm(half, team) {
+            const halfLabel = half === "top" ? "先攻" : "後攻";
+            const teamLabel = team.teamName || state.teamNames[half] || halfLabel;
+            const rows = (team.entries || createEmptyRosterImportEntries()).map((entry, index) => [
+                '<div class="roster-import-order">' + (index + 1) + '番</div>',
+                '<input id="rosterImportName_' + half + '_' + index + '" list="registeredPlayerNameOptions" value="' + escapeHtml(entry.name || "") + '" aria-label="' + escapeHtml(teamLabel + " " + (index + 1) + "番 名前") + '">',
+                '<input id="rosterImportNumber_' + half + '_' + index + '" value="' + escapeHtml(entry.number || "") + '" inputmode="numeric" aria-label="' + escapeHtml(teamLabel + " " + (index + 1) + "番 背番号") + '">',
+                '<select id="rosterImportPosition_' + half + '_' + index + '" aria-label="' + escapeHtml(teamLabel + " " + (index + 1) + "番 守備") + '">' + getRosterPositionOptions(entry.position || "") + '</select>'
+            ].join("")).join("");
+            return [
+                '<section class="roster-import-team">',
+                '<div class="roster-import-team-title">' + escapeHtml(halfLabel + "・" + teamLabel) + '</div>',
+                '<div class="roster-import-meta">',
+                '<label>チーム名<input id="rosterImportTeamName_' + half + '" value="' + escapeHtml(team.teamName || "") + '" placeholder="' + escapeHtml(halfLabel) + '"></label>',
+                '<label>投手<input id="rosterImportPitcher_' + half + '" list="registeredPlayerNameOptions" value="' + escapeHtml(team.pitcher || "") + '" placeholder="投手名"></label>',
+                '</div>',
+                '<div class="roster-import-grid">',
+                '<div class="roster-import-header">打順</div>',
+                '<div class="roster-import-header">名前</div>',
+                '<div class="roster-import-header">背</div>',
+                '<div class="roster-import-header">守備</div>',
+                rows,
+                '</div>',
+                '</section>'
+            ].join("");
+        }
+
+        function openRosterImportConfirmDialog(parsed, options = {}) {
+            const data = normalizeRosterImportData(parsed);
+            const halves = getRosterImportHalves(data, options);
+            if (!halves.length) {
+                return false;
+            }
+            pendingRosterImport = {
+                data,
+                halves,
+                replaceLineup: options.replaceLineup !== false,
+                source: options.source || "roster",
+                statusHalf: options.statusHalf || ""
+            };
+            const { backdrop, popup } = ensureRosterImportConfirmDialog();
+            const warning = pendingRosterImport.source === "starterPost"
+                ? "守備位置つきのスタメン順として読み取りました。特に先頭の数字が打順ではなく守備位置になっているか確認してください。"
+                : "読み取り結果を確認してください。先頭の数字が守備位置なのか、打順なのかが怪しい場合はここで直せます。";
+            popup.innerHTML = [
+                '<div class="comment-popup-title">スタメン登録の確認</div>',
+                '<div class="roster-import-body">',
+                '<div class="roster-import-warning">' + escapeHtml(warning) + '</div>',
+                halves.map((half) => renderRosterImportTeamConfirm(half, data.teams[half])).join(""),
+                '<div class="sheet-change-actions">',
+                '<button type="button" onclick="closeRosterImportConfirmDialog()">戻る</button>',
+                '<button type="button" class="btn-hit" onclick="applyRosterImportConfirmDialog()">この内容で登録</button>',
+                '</div>',
+                '</div>'
+            ].join("");
+            backdrop.classList.add("is-open");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            return true;
+        }
+
+        function readRosterImportConfirmData() {
+            const data = normalizeRosterImportData(pendingRosterImport?.data || {});
+            (pendingRosterImport?.halves || []).forEach((half) => {
+                data.teams[half].teamName = document.getElementById("rosterImportTeamName_" + half)?.value.trim() || "";
+                data.teams[half].pitcher = document.getElementById("rosterImportPitcher_" + half)?.value.trim() || "";
+                data.teams[half].entries = createEmptyRosterImportEntries().map((_, index) => ({
+                    name: document.getElementById("rosterImportName_" + half + "_" + index)?.value.trim() || "",
+                    number: document.getElementById("rosterImportNumber_" + half + "_" + index)?.value.trim() || "",
+                    position: normalizeRosterOcrPosition(document.getElementById("rosterImportPosition_" + half + "_" + index)?.value || "")
+                }));
+            });
+            return data;
+        }
+
+        function applyRosterImportData(data, options = {}) {
+            pushGameHistory();
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            const halves = getRosterImportHalves(data, options);
+            halves.forEach((half) => {
+                const team = data.teams[half];
+                if (team.teamName) {
+                    state.teamNames[half] = team.teamName;
+                }
+                if (!state.playerNames[half]) {
+                    state.playerNames[half] = Array.from({ length: 9 }, () => "");
+                }
+                if (!state.playerNumbers[half]) {
+                    state.playerNumbers[half] = Array.from({ length: 9 }, () => "");
+                }
+                if (!state.playerPositions[half]) {
+                    state.playerPositions[half] = Array.from({ length: 9 }, () => "");
+                }
+                if (options.replaceLineup) {
+                    state.playerNames[half] = Array.from({ length: 9 }, () => "");
+                    state.playerNumbers[half] = Array.from({ length: 9 }, () => "");
+                    state.playerPositions[half] = Array.from({ length: 9 }, () => "");
+                }
+                (team.entries || []).slice(0, 9).forEach((entry, index) => {
+                    if (options.replaceLineup || entry.name) {
+                        state.playerNames[half][index] = entry.name || "";
+                    }
+                    if (options.replaceLineup || entry.number) {
+                        state.playerNumbers[half][index] = entry.number || "";
+                    }
+                    if (options.replaceLineup || entry.position) {
+                        state.playerPositions[half][index] = entry.position || "";
+                    }
+                });
+                if (team.pitcher) {
+                    state.gameInfo.pitchers[half] = team.pitcher;
+                }
+            });
+            renderPlayerRosterEditor();
+            updateGameFlowDisplay();
+            renderCurrentBatterCard();
+            renderScoreSheet();
+            updateDisplay();
+            scheduleGameAutoSave();
+        }
+
+        function formatRosterImportStatus(data, halves) {
+            return halves.map((half) => {
+                const label = half === "top" ? "先攻" : "後攻";
+                return label + " " + getRosterImportEntryCount(data.teams[half]) + "人";
+            }).join("、");
+        }
+
+        function applyRosterImportConfirmDialog() {
+            if (!pendingRosterImport) {
+                return;
+            }
+            const options = {
+                halves: pendingRosterImport.halves,
+                replaceLineup: pendingRosterImport.replaceLineup
+            };
+            const data = readRosterImportConfirmData();
+            applyRosterImportData(data, options);
+            const statusText = formatRosterImportStatus(data, pendingRosterImport.halves) + "を登録しました。";
+            if (pendingRosterImport.source === "starterPost") {
+                setStarterPostStatus(statusText);
+            } else if (pendingRosterImport.statusHalf) {
+                setRosterOcrStatus(pendingRosterImport.statusHalf, statusText);
+            }
+            closeRosterImportConfirmDialog();
+        }
+
         function importStarterPostText() {
             const textarea = document.getElementById("starterPostInput");
             const parsed = parseStarterPostText(textarea?.value || "");
@@ -11336,34 +11890,10 @@
                 setStarterPostStatus("読み取れるスタメン行が見つかりませんでした。", true);
                 return;
             }
-
-            pushGameHistory();
-            ["top", "bottom"].forEach((half) => {
-                const team = parsed.teams[half];
-                if (team.teamName) {
-                    state.teamNames[half] = team.teamName;
-                }
-                state.playerNames[half] = Array.from({ length: 9 }, () => "");
-                state.playerNumbers[half] = Array.from({ length: 9 }, () => "");
-                state.playerPositions[half] = Array.from({ length: 9 }, () => "");
-                team.entries.slice(0, 9).forEach((entry, index) => {
-                    state.playerNames[half][index] = entry.name || "";
-                    state.playerNumbers[half][index] = entry.number || "";
-                    state.playerPositions[half][index] = entry.position || "";
-                });
-                if (team.pitcher) {
-                    state.gameInfo = normalizeGameInfo(state.gameInfo);
-                    state.gameInfo.pitchers[half] = team.pitcher;
-                }
+            openRosterImportConfirmDialog(parsed, {
+                source: "starterPost",
+                replaceLineup: true
             });
-
-            renderPlayerRosterEditor();
-            setStarterPostStatus("先攻 " + topCount + "人、後攻 " + bottomCount + "人を読み取りました。");
-            updateGameFlowDisplay();
-            renderCurrentBatterCard();
-            renderScoreSheet();
-            updateDisplay();
-            scheduleGameAutoSave();
         }
 
         function setRosterOcrStatus(half, message, isError = false) {
@@ -11385,32 +11915,17 @@
                 return;
             }
 
-            pushGameHistory();
-            parsed.entries.forEach((entry, index) => {
-                if (entry.name) {
-                    state.playerNames[half][index] = entry.name;
+            openRosterImportConfirmDialog({
+                teams: {
+                    top: half === "top" ? parsed : {},
+                    bottom: half === "bottom" ? parsed : {}
                 }
-                if (entry.number) {
-                    state.playerNumbers[half][index] = entry.number;
-                }
-                if (entry.position) {
-                    state.playerPositions[half][index] = entry.position;
-                }
+            }, {
+                source: "rosterOcr",
+                statusHalf: half,
+                halves: [half],
+                replaceLineup: false
             });
-            if (parsed.pitcher) {
-                state.gameInfo = normalizeGameInfo(state.gameInfo);
-                state.gameInfo.pitchers[half] = parsed.pitcher;
-            }
-            if (parsed.teamName && /^(先攻|後攻)$/.test(state.teamNames[half] || "")) {
-                state.teamNames[half] = parsed.teamName;
-            }
-            renderPlayerRosterEditor();
-            setRosterOcrStatus(half, importedCount + "人を読み取りました。" + (parsed.pitcher ? " 投手: " + parsed.pitcher : "") + (parsed.teamName ? " / チーム: " + parsed.teamName : ""));
-            updateGameFlowDisplay();
-            renderCurrentBatterCard();
-            renderScoreSheet();
-            updateDisplay();
-            scheduleGameAutoSave();
         }
 
         function getRosterPositionOptions(selectedValue = "") {
