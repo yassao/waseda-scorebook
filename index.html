@@ -5818,7 +5818,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.5";
+        const APP_VERSION = "0.3.6";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -5831,6 +5831,7 @@
         const PDF_AD_SECONDS = 0;
         const PDF_AD_UNWATCHED_LIMIT = 5;
         const STRIPE_SUPPORT_URL = "https://buy.stripe.com/6oU28r6wscdU5F5bxa43S01";
+        const SCOREBOOK_APP_URL = "https://cuviu.jp/apps/scorebook/";
         const DEFAULT_CALLED_GAME_RULE = "5回10点 / 7回7点";
         const CALLED_RULE_LABELS = {
             fiveTen: "5回10点",
@@ -17617,6 +17618,34 @@
             return /(^|\s)#CuViu(\s|$)/.test(value) ? value : value + "\n\n#CuViu";
         }
 
+        function removeScorebookAppUrl(text) {
+            return String(text || "")
+                .replace(/\n*\s*https:\/\/cuviu\.jp\/apps\/scorebook\/?\s*$/i, "")
+                .trimEnd();
+        }
+
+        function ensureScorebookAppUrl(text) {
+            const value = removeScorebookAppUrl(text);
+            return value ? value + "\n" + SCOREBOOK_APP_URL : SCOREBOOK_APP_URL;
+        }
+
+        function shouldIncludeScorebookAppUrlInDraft() {
+            const checkbox = document.getElementById("inningShareIncludeUrlCheckbox");
+            return checkbox ? checkbox.checked : true;
+        }
+
+        function applyInningShareDraftUrlPreference() {
+            const textarea = document.getElementById("inningShareDraftText");
+            if (!textarea) {
+                return "";
+            }
+            const withHashtag = ensureCuViuHashtag(removeScorebookAppUrl(textarea.value));
+            textarea.value = shouldIncludeScorebookAppUrlInDraft()
+                ? ensureScorebookAppUrl(withHashtag)
+                : withHashtag;
+            return textarea.value;
+        }
+
         function openInningSharePopup(transition) {
             pendingInningTransition = transition;
             const popup = document.getElementById("inningSharePopup");
@@ -17657,7 +17686,7 @@
                 return;
             }
             rememberInningSharePreference();
-            const draft = ensureCuViuHashtag(buildInningShareDraft(pendingInningTransition));
+            const draft = ensureScorebookAppUrl(ensureCuViuHashtag(buildInningShareDraft(pendingInningTransition)));
             const popup = document.getElementById("inningSharePopup");
             if (!popup) {
                 return;
@@ -17666,6 +17695,7 @@
             popup.innerHTML = [
                 '<div class="comment-popup-title">Xポスト下書き <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
                 '<textarea id="inningShareDraftText" onfocus="this.select()" onclick="this.select()">' + escapeHtml(draft) + '</textarea>',
+                '<div class="inning-share-options"><label><input id="inningShareIncludeUrlCheckbox" type="checkbox" checked onchange="applyInningShareDraftUrlPreference()">アプリURLを付ける</label></div>',
                 '<div id="inningShareCopyStatus" class="inning-share-options">コピーできない場合は「Xで開く」を使うか、文面を長押ししてコピーしてください。</div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
@@ -17686,11 +17716,18 @@
             if (!textarea) {
                 return;
             }
-            textarea.value = ensureCuViuHashtag(textarea.value);
+            applyInningShareDraftUrlPreference();
             const popup = textarea.closest("#inningSharePopup");
             const title = popup?.querySelector(".comment-popup-title");
             if (title && !title.textContent.includes(APP_VERSION)) {
                 title.innerHTML = "Xポスト下書き <small>v" + escapeHtml(APP_VERSION) + "</small>";
+            }
+            if (popup && !document.getElementById("inningShareIncludeUrlCheckbox")) {
+                const options = document.createElement("div");
+                options.className = "inning-share-options";
+                options.innerHTML = '<label><input id="inningShareIncludeUrlCheckbox" type="checkbox" checked onchange="applyInningShareDraftUrlPreference()">アプリURLを付ける</label>';
+                popup.insertBefore(options, document.getElementById("inningShareCopyStatus") || popup.querySelector(".comment-popup-actions"));
+                applyInningShareDraftUrlPreference();
             }
             const status = document.getElementById("inningShareCopyStatus");
             if (status && !status.textContent.includes("Xで開く")) {
@@ -17754,6 +17791,7 @@
             if (!textarea) {
                 return;
             }
+            applyInningShareDraftUrlPreference();
             const finish = (message) => {
                 if (status) {
                     status.textContent = message;
@@ -17771,7 +17809,7 @@
             if (!textarea) {
                 return;
             }
-            textarea.value = ensureCuViuHashtag(textarea.value);
+            applyInningShareDraftUrlPreference();
             const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(textarea.value);
             window.open(url, "_blank", "noopener,noreferrer");
         }
