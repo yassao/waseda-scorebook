@@ -1842,22 +1842,35 @@
 
             body.printing-scorebook .print-sheet-grid .sheet-comment-link {
                 position: absolute;
-                top: 0.35mm;
-                right: 0.35mm;
+                top: 0.45mm;
+                right: 0.45mm;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 5.3mm;
-                height: 4.2mm;
-                border: 0.25mm solid #334155;
-                border-radius: 1.2mm;
-                background: #fffdf5;
-                color: #334155;
-                font-size: 1.65mm;
-                font-weight: 900;
+                width: 3.2mm;
+                height: 2.5mm;
+                border: 0.22mm solid rgba(51, 65, 85, 0.55);
+                border-radius: 1.1mm;
+                background: rgba(255, 255, 255, 0.82);
+                color: transparent;
+                font-size: 0;
+                font-weight: 400;
                 line-height: 1;
                 text-decoration: none;
                 z-index: 5;
+            }
+
+            body.printing-scorebook .print-sheet-grid .sheet-comment-link::after {
+                content: "";
+                position: absolute;
+                right: 0.45mm;
+                bottom: -0.45mm;
+                width: 0.8mm;
+                height: 0.8mm;
+                border-right: 0.22mm solid rgba(51, 65, 85, 0.55);
+                border-bottom: 0.22mm solid rgba(51, 65, 85, 0.55);
+                background: rgba(255, 255, 255, 0.82);
+                transform: rotate(45deg);
             }
 
             body.printing-scorebook .print-sheet-grid .pitcher-book-section {
@@ -5902,7 +5915,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.8";
+        const APP_VERSION = "0.3.9";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9310,7 +9323,7 @@
                 return "";
             }
             const href = "#" + getPrintCommentAnchorId(half, row, col);
-            return '<a class="sheet-comment-link" href="' + href + '" aria-label="一言コメントへ移動">詳</a>';
+            return '<a class="sheet-comment-link" href="' + href + '" aria-label="一言コメントへ移動" title="一言コメントへ移動"></a>';
         }
 
         function getSummaryPitcherName(defenseHalf, battingHalf, inning) {
