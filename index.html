@@ -6073,7 +6073,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.14";
+        const APP_VERSION = "0.3.15";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6089,6 +6089,7 @@
         const STRIPE_SUPPORT_URL = "https://buy.stripe.com/6oU28r6wscdU5F5bxa43S01";
         const SCOREBOOK_APP_URL = "https://cuviu.jp/apps/scorebook/";
         const DEFAULT_PDF_FOOTER_TEXT = "スコアブック by CuViu";
+        const SUPPORTER_SECRET_TAP_THRESHOLD = 15;
         const SCOREBOOK_APP_QR_MATRIX = [
             "000000000000000000000000000000000",
             "000000000000000000000000000000000",
@@ -6159,7 +6160,7 @@
             const supportUrl = String(STRIPE_SUPPORT_URL || "").trim();
             const isReady = /^https:\/\/.+/i.test(supportUrl);
             const detailText = isReady
-                ? "Stripeの支援ページが別タブで開きます。"
+                ? "ご支援後はPDFフッター文言を編集できます。"
                 : "Stripeの支援リンクは準備中です。";
             container.innerHTML = [
                 '<div>',
@@ -7053,7 +7054,7 @@
             event?.preventDefault?.();
             event?.stopPropagation?.();
             supporterSecretTapCount += 1;
-            if (supporterSecretTapCount >= 7) {
+            if (supporterSecretTapCount >= SUPPORTER_SECRET_TAP_THRESHOLD) {
                 supporterSecretTapCount = 0;
                 if (supporterSecretTapResetTimer) {
                     clearTimeout(supporterSecretTapResetTimer);
