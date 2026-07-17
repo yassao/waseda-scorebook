@@ -118,8 +118,7 @@
         }
 
         .actions {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            display: flex;
             gap: 10px;
             margin-top: 22px;
         }
@@ -128,6 +127,7 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            width: 100%;
             min-height: 48px;
             padding: 10px 14px;
             border: 2px solid #243447;
@@ -152,7 +152,7 @@
             }
 
             .actions {
-                grid-template-columns: 1fr;
+                display: block;
             }
         }
     </style>
@@ -177,7 +177,6 @@
 
             <div class="actions">
                 <a class="button primary" href="./">スコアブックを開く</a>
-                <a class="button" href="https://cuviu.jp/apps/scorebook/">URLを確認</a>
             </div>
         </section>
     </main>
