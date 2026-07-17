@@ -5952,7 +5952,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.11";
+        const APP_VERSION = "0.3.12";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9973,13 +9973,10 @@
             const supportCta = /^https:\/\/.+/i.test(supportLink)
                 ? '<a href="' + escapeHtml(supportLink) + '" target="_blank" rel="noopener">開発支援はこちら</a>'
                 : '<span>開発支援リンクは準備中です。</span>';
-            const lead = placement === "pdf"
-                ? "PDF出力の前に、ご支援をお待ちしています。"
-                : "次の攻撃へ進む前に、ご支援をお待ちしています。";
+            const lead = "ご支援をお待ちしています。";
             slot.innerHTML = [
                 '<div class="ad-gate-fallback">',
                 '<strong>' + escapeHtml(lead) + '</strong>',
-                '<span>広告が配信されない時は、この表示に切り替えています。</span>',
                 supportCta,
                 '</div>'
             ].join("");
