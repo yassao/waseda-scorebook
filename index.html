@@ -4113,6 +4113,34 @@
             font-weight: 800;
         }
 
+        .defense-change-menu .comment-popup-body {
+            min-height: 0;
+        }
+
+        .defense-change-menu-actions {
+            display: grid;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .defense-change-menu-actions button {
+            min-height: 56px;
+            border: 2px solid #d7e1ea;
+            border-radius: 14px;
+            background: #ffffff;
+            color: #172331;
+            font-size: 16px;
+            font-weight: 900;
+            text-align: left;
+            padding: 10px 14px;
+        }
+
+        .defense-change-menu-actions button.primary {
+            border-color: #0f766e;
+            background: #0f766e;
+            color: #ffffff;
+        }
+
         .qa-shortcut-popup .comment-popup-body {
             min-height: 0;
             white-space: normal;
@@ -5642,7 +5670,7 @@
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
                 <button id="workspaceToggleBtn" class="workspace-toggle-btn" onclick="toggleTopWorkspace()" aria-label="入力と全体表示を切替">全体表示</button>
                 <button id="inputLayoutToggleBtn" class="input-layout-toggle-btn" onclick="toggleInputLayout()" aria-label="右手入力と左手入力を切替">右手</button>
-                <button class="header-sheet-change-btn" onclick="openSheetChangeDialogForCurrentDefense()" aria-label="守備側のシート変更を開く" title="シート変更">守備</button>
+                <button class="header-sheet-change-btn" onclick="openDefenseChangeMenu()" aria-label="守備側の交代メニューを開く" title="守備変更">守備</button>
                 <button class="header-feedback-btn" onclick="openFeedbackPopup()" aria-label="フィードバックを送る">FB</button>
                 <button class="header-help-btn" onclick="showPlayBuilderHelp()" aria-label="ヘルプ">?</button>
             </div>
@@ -6074,7 +6102,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.23";
+        const APP_VERSION = "0.3.24";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11832,14 +11860,78 @@
             updateSheetChangePreview();
         }
 
-        function openSheetChangeDialogForCurrentDefense() {
+        function getCurrentDefenseChangeContext() {
             const battingHalf = state.activeHalf === "bottom" ? "bottom" : "top";
             const defenseHalf = getOpponentHalf(battingHalf);
-            openSheetChangeDialog(defenseHalf, {
-                teamHalf: defenseHalf,
+            return {
+                battingHalf,
+                defenseHalf,
                 inning: getColumnInningLabel(state.selectedSheetCol, battingHalf),
-                half: battingHalf,
-                battingOrder: state.selectedSheetRow + 1,
+                battingOrder: state.selectedSheetRow + 1
+            };
+        }
+
+        function ensureDefenseChangeMenu() {
+            let backdrop = document.getElementById("defenseChangeMenuBackdrop");
+            let popup = document.getElementById("defenseChangeMenu");
+            if (!backdrop) {
+                backdrop = document.createElement("div");
+                backdrop.id = "defenseChangeMenuBackdrop";
+                backdrop.className = "comment-popup-backdrop";
+                backdrop.onclick = closeDefenseChangeMenu;
+                document.body.appendChild(backdrop);
+            }
+            if (!popup) {
+                popup = document.createElement("div");
+                popup.id = "defenseChangeMenu";
+                popup.className = "comment-popup defense-change-menu";
+                popup.setAttribute("aria-hidden", "true");
+                document.body.appendChild(popup);
+            }
+            return { backdrop, popup };
+        }
+
+        function openDefenseChangeMenu() {
+            const context = getCurrentDefenseChangeContext();
+            const { backdrop, popup } = ensureDefenseChangeMenu();
+            const defenseName = getTeamDisplayName(context.defenseHalf);
+            const battingName = getTeamDisplayName(context.battingHalf);
+            popup.innerHTML = [
+                '<div class="comment-popup-title">守備変更: ' + escapeHtml(defenseName) + '</div>',
+                '<div class="comment-popup-body">' + escapeHtml(context.inning + '回' + getHalfLabel(context.battingHalf) + '・' + battingName + '攻撃 ' + context.battingOrder + '番から') + '</div>',
+                '<div class="defense-change-menu-actions">',
+                    '<button type="button" class="primary" onclick="openPitcherChangeDialogForCurrentDefense()">投手交代</button>',
+                    '<button type="button" onclick="openSheetChangeDialogForCurrentDefense()">シート変更</button>',
+                    '<button type="button" onclick="closeDefenseChangeMenu()">キャンセル</button>',
+                '</div>'
+            ].join("");
+            backdrop.classList.add("is-open");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+        }
+
+        function closeDefenseChangeMenu() {
+            const popup = document.getElementById("defenseChangeMenu");
+            const backdrop = document.getElementById("defenseChangeMenuBackdrop");
+            popup?.classList.remove("is-open");
+            popup?.setAttribute("aria-hidden", "true");
+            backdrop?.classList.remove("is-open");
+        }
+
+        function openPitcherChangeDialogForCurrentDefense() {
+            const context = getCurrentDefenseChangeContext();
+            closeDefenseChangeMenu();
+            openPitcherChangeDialogForHalf(context.defenseHalf, context.battingHalf);
+        }
+
+        function openSheetChangeDialogForCurrentDefense() {
+            const context = getCurrentDefenseChangeContext();
+            closeDefenseChangeMenu();
+            openSheetChangeDialog(context.defenseHalf, {
+                teamHalf: context.defenseHalf,
+                inning: context.inning,
+                half: context.battingHalf,
+                battingOrder: context.battingOrder,
                 note: ""
             });
         }
