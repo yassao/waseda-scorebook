@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 LOCAL_FILE="$ROOT_DIR/index.html"
-LOCAL_INTRO_FILE="$ROOT_DIR/intro.html"
 LOCAL_SUPPORT_THANKS_FILE="$ROOT_DIR/support-thanks.html"
 LOCAL_FEEDBACK_FILE="$ROOT_DIR/feedback.php"
 LOCAL_FEEDBACK_ADMIN_FILE="$ROOT_DIR/feedback_admin.php"
@@ -15,8 +14,6 @@ SSH_PORT="${CUVIU_SSH_PORT:-10022}"
 REMOTE_DIR="${CUVIU_REMOTE_DIR:-/home/cuviu001/cuviu.jp/public_html/apps/scorebook}"
 REMOTE_FILE="$REMOTE_DIR/index.html"
 REMOTE_TMP="$REMOTE_DIR/index.html.tmp"
-REMOTE_INTRO_FILE="$REMOTE_DIR/intro.html"
-REMOTE_INTRO_TMP="$REMOTE_DIR/intro.html.tmp"
 REMOTE_SUPPORT_THANKS_FILE="$REMOTE_DIR/support-thanks.html"
 REMOTE_SUPPORT_THANKS_TMP="$REMOTE_DIR/support-thanks.html.tmp"
 REMOTE_FEEDBACK_FILE="$REMOTE_DIR/feedback.php"
@@ -42,13 +39,6 @@ echo "  -> $SSH_USER@$SSH_HOST:$REMOTE_FILE"
 ssh -i "$SSH_KEY" -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p '$REMOTE_DIR' '$REMOTE_FEEDBACK_STORE_DIR/attachments' '$REMOTE_FEEDBACK_STORE_DIR/by-category' && chmod 700 '$REMOTE_FEEDBACK_STORE_DIR' '$REMOTE_FEEDBACK_STORE_DIR/attachments' '$REMOTE_FEEDBACK_STORE_DIR/by-category' && if [ ! -s '$REMOTE_FEEDBACK_STORE_DIR/admin-token.txt' ]; then umask 077; php -r 'echo bin2hex(random_bytes(24)), PHP_EOL;' > '$REMOTE_FEEDBACK_STORE_DIR/admin-token.txt'; fi && chmod 600 '$REMOTE_FEEDBACK_STORE_DIR/admin-token.txt'"
 scp -i "$SSH_KEY" -P "$SSH_PORT" "$LOCAL_FILE" "$SSH_USER@$SSH_HOST:$REMOTE_TMP"
 ssh -i "$SSH_KEY" -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mv '$REMOTE_TMP' '$REMOTE_FILE'"
-
-if [[ -f "$LOCAL_INTRO_FILE" ]]; then
-  echo "Deploying $LOCAL_INTRO_FILE"
-  echo "  -> $SSH_USER@$SSH_HOST:$REMOTE_INTRO_FILE"
-  scp -i "$SSH_KEY" -P "$SSH_PORT" "$LOCAL_INTRO_FILE" "$SSH_USER@$SSH_HOST:$REMOTE_INTRO_TMP"
-  ssh -i "$SSH_KEY" -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mv '$REMOTE_INTRO_TMP' '$REMOTE_INTRO_FILE' && chmod 644 '$REMOTE_INTRO_FILE'"
-fi
 
 if [[ -f "$LOCAL_SUPPORT_THANKS_FILE" ]]; then
   echo "Deploying $LOCAL_SUPPORT_THANKS_FILE"

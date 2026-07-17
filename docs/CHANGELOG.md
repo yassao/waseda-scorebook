@@ -1,3 +1,14 @@
+## v0.3.17 [2026-07-17] 紹介HPの正をWordPressページに整理
+
+**変更ファイル:**
+- docs/VERSION
+- index.html
+- intro.html
+- scripts/README.md
+- scripts/deploy-cuviu.sh
+
+---
+
 ## v0.3.16 [2026-07-17] 紹介ページを現状機能に合わせて更新
 
 **変更ファイル:**
