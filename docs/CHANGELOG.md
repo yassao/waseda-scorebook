@@ -1,3 +1,14 @@
+## v0.3.16 [2026-07-17] 紹介ページを現状機能に合わせて更新
+
+**変更ファイル:**
+- docs/VERSION
+- index.html
+- intro.html
+- scripts/README.md
+- scripts/deploy-cuviu.sh
+
+---
+
 ## v0.3.15 [2026-07-17] 支援後案内ページと隠し検証入口を調整
 
 **変更ファイル:**

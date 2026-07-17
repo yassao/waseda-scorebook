@@ -1,0 +1,453 @@
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sb-navy: #1a2b4a;
+  --sb-blue: #1a6fd4;
+  --sb-blue2: #1a3a6e;
+  --sb-green: #0f766e;
+  --sb-muted: #607090;
+  --sb-ink: #1a2b4a;
+  --sb-bg: #e8eef8;
+}
+
+.sb-page {
+  font-family: 'Noto Sans JP', sans-serif;
+  color: var(--sb-ink);
+  background: var(--sb-bg);
+  line-height: 1.75;
+  overflow-x: hidden;
+}
+.sb-inner {
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.sb-hero {
+  position: relative;
+  min-height: 88vh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, #c0cce0 0%, #b4c4dc 42%, #c8d4e8 100%);
+}
+.sb-hero-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.sb-hero-bg::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  right: -15%;
+  width: 70vw;
+  height: 70vw;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: 0 0 0 40px rgba(255,255,255,0.08), 0 0 0 80px rgba(255,255,255,0.05), 0 0 0 120px rgba(255,255,255,0.03);
+}
+.sb-hero-content {
+  position: relative;
+  z-index: 2;
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  padding: 72px 48px 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.sb-hero-video {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto 32px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 48px rgba(26,43,74,0.2);
+  aspect-ratio: 16/9;
+  background: rgba(255,255,255,0.25);
+}
+.sb-hero-video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sb-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border: 1px solid rgba(26,43,74,0.2);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.42);
+  color: var(--sb-blue2);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  margin-bottom: 20px;
+}
+.sb-hero h1 {
+  font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+  font-size: clamp(34px, 6vw, 62px);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  margin: 0 0 12px;
+  color: var(--sb-navy);
+}
+.sb-hero h1 .sb-by {
+  font-size: 0.45em;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--sb-muted);
+  vertical-align: middle;
+  margin-left: 10px;
+}
+.sb-hero-sub {
+  font-size: 15px;
+  color: #3d5069;
+  margin: 0 0 8px;
+}
+.sb-hero-lead {
+  font-size: clamp(15px, 2vw, 18px);
+  color: #3d5069;
+  margin: 0 0 30px;
+  line-height: 1.85;
+  font-weight: 700;
+}
+.sb-hero-cta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.sb-btn-primary,
+.sb-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 13px 24px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 900;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.sb-btn-primary {
+  background: var(--sb-green);
+  color: white;
+  box-shadow: 0 8px 24px rgba(15,118,110,0.25);
+}
+.sb-btn-primary:hover {
+  background: #0b635d;
+  color: white;
+  transform: translateY(-2px);
+}
+.sb-btn-outline {
+  border: 1px solid rgba(26,43,74,0.2);
+  background: rgba(255,255,255,0.58);
+  color: var(--sb-navy);
+}
+.sb-btn-outline:hover {
+  background: rgba(255,255,255,0.88);
+}
+.sb-section {
+  padding: 56px 0;
+  border-top: 1px solid rgba(26,43,74,0.08);
+}
+.sb-section-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sb-blue);
+  margin-bottom: 10px;
+}
+.sb-section h2 {
+  font-size: clamp(24px, 4vw, 38px);
+  font-weight: 900;
+  font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+  color: var(--sb-ink);
+  margin: 0 0 32px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.sb-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.sb-feature {
+  padding: 22px;
+  border: 1px solid rgba(26,43,74,0.1);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.64);
+  transition: all 0.2s;
+}
+.sb-feature.highlight {
+  border-color: rgba(26,111,212,0.22);
+  background: rgba(255,255,255,0.78);
+}
+.sb-feature-icon {
+  font-size: 24px;
+  margin-bottom: 10px;
+  display: block;
+}
+.sb-feature strong {
+  display: block;
+  color: var(--sb-ink);
+  font-size: 14px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.sb-feature p {
+  margin: 0;
+  color: var(--sb-muted);
+  font-size: 13px;
+}
+.sb-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.sb-pill {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(26,43,74,0.12);
+  background: rgba(255,255,255,0.62);
+  color: var(--sb-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+.sb-roadmap {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.sb-roadmap-card {
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(26,43,74,0.1);
+  background: rgba(255,255,255,0.62);
+}
+.sb-roadmap-card small {
+  display: block;
+  color: var(--sb-blue);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+.sb-roadmap-card strong {
+  display: block;
+  color: var(--sb-ink);
+  margin-top: 6px;
+  font-size: 14px;
+}
+.sb-note {
+  margin-top: 20px;
+  padding: 14px 18px;
+  border-left: 4px solid var(--sb-green);
+  border-radius: 0 12px 12px 0;
+  background: rgba(15,118,110,0.08);
+  color: var(--sb-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.sb-cta-bottom {
+  padding: 56px 24px;
+  text-align: center;
+  background: linear-gradient(135deg, #dfe9f5, #f5fbff);
+}
+.sb-cta-bottom h2 {
+  color: var(--sb-navy);
+  font-size: clamp(22px, 4vw, 32px);
+  margin: 0 0 8px;
+}
+.sb-cta-bottom p {
+  color: var(--sb-muted);
+  margin: 0 0 28px;
+  font-weight: 700;
+}
+.sb-cta-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--sb-green);
+  color: white;
+  padding: 14px 36px;
+  border-radius: 14px;
+  font-weight: 900;
+  font-size: 16px;
+  text-decoration: none;
+  box-shadow: 0 8px 28px rgba(15,118,110,0.18);
+}
+.sb-back {
+  display: block;
+  text-align: center;
+  padding: 20px;
+  font-size: 14px;
+  color: var(--sb-muted);
+  text-decoration: none;
+  background: var(--sb-bg);
+}
+@media (max-width: 840px) {
+  .sb-hero-content { padding: 48px 24px 40px; }
+  .sb-feature-grid { grid-template-columns: 1fr 1fr; }
+  .sb-roadmap { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 520px) {
+  .sb-feature-grid { grid-template-columns: 1fr !important; }
+  .sb-roadmap { grid-template-columns: 1fr !important; }
+  .sb-hero-content { padding: 40px 16px 32px; }
+  .sb-btn-primary, .sb-btn-outline { width: 100%; }
+}
+</style>
+
+<div class="sb-page">
+  <div class="sb-hero">
+    <div class="sb-hero-bg"></div>
+    <div class="sb-hero-content">
+      <div class="sb-hero-video">
+        <video src="https://cuviu.jp/wp-content/uploads/2026/06/Scoreboard-Hero-1-2.mp4" autoplay loop muted playsinline></video>
+      </div>
+      <div class="sb-hero-badge">&#x26be; やきゅうびゅ</div>
+      <h1>スコアブック<span class="sb-by">by CuViu</span></h1>
+      <p class="sb-hero-sub">スマホで使える野球スコアブックアプリ</p>
+      <p class="sb-hero-lead">
+        球場で入力し、早稲田式・慶應式のスコアブック、PDF、X投稿下書きまでつなげるWebアプリ。<br>
+        高校野球の複雑な交代やサヨナラ、コールド、タイブレークにも少しずつ対応を広げています。
+      </p>
+      <div class="sb-hero-cta">
+        <a class="sb-btn-primary" href="https://cuviu.jp/apps/scorebook/" target="_blank" rel="noopener">&#x26be; アプリを開く</a>
+        <a class="sb-btn-outline" href="https://buy.stripe.com/6oU28r6wscdU5F5bxa43S01" target="_blank" rel="noopener">開発を支援する</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="sb-inner">
+    <section class="sb-section">
+      <span class="sb-section-label">Features</span>
+      <h2>いま使える強み</h2>
+      <div class="sb-feature-grid">
+        <article class="sb-feature highlight">
+          <span class="sb-feature-icon">&#x1f4f1;</span>
+          <strong>スマホだけで入力できる</strong>
+          <p>インストール不要。iPhoneやAndroidのブラウザから、球場でそのまま記録できます。</p>
+        </article>
+        <article class="sb-feature highlight">
+          <span class="sb-feature-icon">&#x1f4cb;</span>
+          <strong>早稲田式・慶應式に対応</strong>
+          <p>早稲田式の全体表示に加えて、慶應式のシート表示も切り替えて確認できます。</p>
+        </article>
+        <article class="sb-feature highlight">
+          <span class="sb-feature-icon">&#x1f4c4;</span>
+          <strong>PDFとX共有までつながる</strong>
+          <p>試合後はPDFで保存し、X投稿下書きや一言メモも使って記録を共有できます。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="sb-section">
+      <span class="sb-section-label">Functions</span>
+      <h2>主な機能</h2>
+      <div class="sb-feature-grid">
+        <article class="sb-feature">
+          <span class="sb-feature-icon">&#x1f4d0;</span>
+          <strong>延長対応のスコアシート</strong>
+          <p>9回までを基本に、延長戦は横スクロールしながら12回まで確認できます。</p>
+        </article>
+        <article class="sb-feature">
+          <span class="sb-feature-icon">&#x1f522;</span>
+          <strong>R/H/Eと投球数表示</strong>
+          <p>得点、ヒット、エラー、相手投手の投球数、BSO、塁上状況をまとめて確認できます。</p>
+        </article>
+        <article class="sb-feature">
+          <span class="sb-feature-icon">&#x1f446;</span>
+          <strong>打球結果の選択入力</strong>
+          <p>安打、本塁打、三振、四球、犠打、併殺、FC、ファールフライなどに対応。</p>
+        </article>
+        <article class="sb-feature">
+          <span class="sb-feature-icon">&#x1f3c3;</span>
+          <strong>走者の進塁・アウト補正</strong>
+          <p>盗塁、暴投、捕逸、牽制、失策進塁など、走者の動きを後から補正できます。</p>
+        </article>
+        <article class="sb-feature">
+          <span class="sb-feature-icon">&#x1f504;</span>
+          <strong>守備変更・シート変更</strong>
+          <p>代打からの守備、複数人のシート変更、長押しドラッグでの守備位置入れ替えに対応。</p>
+        </article>
+        <article class="sb-feature">
+          <span class="sb-feature-icon">&#x1f4be;</span>
+          <strong>自動保存・JSONバックアップ</strong>
+          <p>ページを閉じても続きから再開。試合データは日時つきファイル名で書き出せます。</p>
+        </article>
+        <article class="sb-feature">
+          <span class="sb-feature-icon">&#x1f4c4;</span>
+          <strong>PDF出力</strong>
+          <p>A4でチーム別に出力。QRコード、アプリ版数、一言コメント、投手記録も残せます。</p>
+        </article>
+        <article class="sb-feature">
+          <span class="sb-feature-icon">&#x1f91d;</span>
+          <strong>支援者向けフッター編集</strong>
+          <p>支援してくれた方は、PDFフッター文言をチーム名や記録者名などに編集できます。</p>
+        </article>
+        <article class="sb-feature">
+          <span class="sb-feature-icon">&#x1f4dd;</span>
+          <strong>テキスト取り込み</strong>
+          <p>スタメン文やX実況を下書き化し、確定前に確認してから登録できます。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="sb-section">
+      <span class="sb-section-label">For</span>
+      <h2>こんな人に向いています</h2>
+      <div class="sb-pill-list">
+        <span class="sb-pill">高校野球を観戦する人</span>
+        <span class="sb-pill">草野球チームの記録係</span>
+        <span class="sb-pill">紙のスコアブックをスマホ化したい人</span>
+        <span class="sb-pill">試合後にPDFで共有したい人</span>
+        <span class="sb-pill">X実況をあとで整理したい人</span>
+        <span class="sb-pill">保護者・OBとして試合を記録したい人</span>
+      </div>
+      <p class="sb-note">
+        現在もベータ開発中です。自動取り込みや複雑な走塁処理は「下書き」として使い、現場で確認しながら修正する前提で精度を高めています。
+      </p>
+    </section>
+
+    <section class="sb-section">
+      <span class="sb-section-label">Focus</span>
+      <h2>開発中・改善中</h2>
+      <div class="sb-roadmap">
+        <div class="sb-roadmap-card">
+          <small>FOCUS 1</small>
+          <strong>複雑な走塁処理</strong>
+        </div>
+        <div class="sb-roadmap-card">
+          <small>FOCUS 2</small>
+          <strong>サヨナラ・コールド対応</strong>
+        </div>
+        <div class="sb-roadmap-card">
+          <small>FOCUS 3</small>
+          <strong>PDFの読みやすさ改善</strong>
+        </div>
+        <div class="sb-roadmap-card">
+          <small>FOCUS 4</small>
+          <strong>取り込み精度と共有機能</strong>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="sb-cta-bottom">
+    <h2>さっそく使ってみる</h2>
+    <p>インストール不要。ブラウザからすぐ使えます。開発支援も歓迎しています。</p>
+    <a href="https://cuviu.jp/apps/scorebook/" class="sb-cta-main" target="_blank" rel="noopener">アプリを開く</a>
+  </div>
+
+  <a href="https://cuviu.jp/" class="sb-back">CuViu トップへ戻る</a>
+</div>
