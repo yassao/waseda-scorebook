@@ -1972,15 +1972,6 @@
                 text-overflow: ellipsis;
             }
 
-            body.printing-scorebook .print-footer-custom {
-                color: #333333;
-                font-size: 1.7mm;
-                font-weight: 800;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-
             body.printing-scorebook .print-footer-version {
                 color: #555555;
                 font-size: 1.75mm;
@@ -4214,6 +4205,27 @@
             line-height: 1.45;
         }
 
+        .qa-secret-version-trigger {
+            min-height: 0;
+            width: auto;
+            margin-left: 6px;
+            padding: 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            color: #64748b;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 900;
+            line-height: 1;
+            vertical-align: baseline;
+            box-shadow: none;
+        }
+
+        .qa-secret-version-trigger:active {
+            transform: none;
+        }
+
         .ad-gate-popup .comment-popup-title small {
             display: block;
             margin-top: 4px;
@@ -5965,8 +5977,8 @@
                     <div class="pdf-export-options">
                         <label><input id="pdfTextSummaryCheckbox" type="checkbox">テキスト速報ページも出力</label>
                         <div id="pdfSupporterFooterPanel" class="pdf-supporter-panel" aria-hidden="true">
-                            <div class="pdf-supporter-heading">支援者フッター</div>
-                            <input id="pdfSupporterFooterText" type="text" maxlength="80" placeholder="PDFフッターに追加する文言" oninput="setSupporterFooterText(this.value)">
+                            <div class="pdf-supporter-heading">PDFフッター文言</div>
+                            <input id="pdfSupporterFooterText" type="text" maxlength="80" placeholder="スコアブック by CuViu" oninput="setSupporterFooterText(this.value)">
                             <div class="pdf-supporter-note">この端末に保存されます。標準のQRコードとバージョン番号は残ります。</div>
                         </div>
                     </div>
@@ -6061,7 +6073,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.13";
+        const APP_VERSION = "0.3.14";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6076,6 +6088,7 @@
         const PDF_AD_UNWATCHED_LIMIT = 5;
         const STRIPE_SUPPORT_URL = "https://buy.stripe.com/6oU28r6wscdU5F5bxa43S01";
         const SCOREBOOK_APP_URL = "https://cuviu.jp/apps/scorebook/";
+        const DEFAULT_PDF_FOOTER_TEXT = "スコアブック by CuViu";
         const SCOREBOOK_APP_QR_MATRIX = [
             "000000000000000000000000000000000",
             "000000000000000000000000000000000",
@@ -6167,16 +6180,16 @@
             try {
                 const raw = localStorage.getItem(SUPPORTER_FEATURES_STORAGE_KEY);
                 if (!raw) {
-                    return { enabled: false, footerText: "" };
+                    return { enabled: false, footerText: DEFAULT_PDF_FOOTER_TEXT };
                 }
                 const data = JSON.parse(raw);
                 return {
                     enabled: data?.enabled === true,
-                    footerText: sanitizeSupporterFooterText(data?.footerText || "")
+                    footerText: sanitizeSupporterFooterText(data?.footerText || DEFAULT_PDF_FOOTER_TEXT) || DEFAULT_PDF_FOOTER_TEXT
                 };
             } catch (error) {
                 console.warn("Read supporter settings failed", error);
-                return { enabled: false, footerText: "" };
+                return { enabled: false, footerText: DEFAULT_PDF_FOOTER_TEXT };
             }
         }
 
@@ -6184,7 +6197,7 @@
             try {
                 localStorage.setItem(SUPPORTER_FEATURES_STORAGE_KEY, JSON.stringify({
                     enabled: settings?.enabled === true,
-                    footerText: sanitizeSupporterFooterText(settings?.footerText || ""),
+                    footerText: sanitizeSupporterFooterText(settings?.footerText || DEFAULT_PDF_FOOTER_TEXT) || DEFAULT_PDF_FOOTER_TEXT,
                     updatedAt: new Date().toISOString()
                 }));
             } catch (error) {
@@ -6197,10 +6210,7 @@
         }
 
         function getSupporterFooterText() {
-            if (!isScorebookProUser()) {
-                return "";
-            }
-            return sanitizeSupporterFooterText(getSupporterSettings().footerText).trim();
+            return sanitizeSupporterFooterText(getSupporterSettings().footerText).trim() || DEFAULT_PDF_FOOTER_TEXT;
         }
 
         function syncSupporterFooterUi() {
@@ -6226,13 +6236,14 @@
         function setSupporterFeatureEnabled(enabled) {
             const settings = getSupporterSettings();
             settings.enabled = Boolean(enabled);
+            settings.footerText = settings.footerText || DEFAULT_PDF_FOOTER_TEXT;
             saveSupporterSettings(settings);
             syncSupporterFooterUi();
         }
 
         function setSupporterFooterText(value) {
             const settings = getSupporterSettings();
-            settings.footerText = sanitizeSupporterFooterText(value);
+            settings.footerText = sanitizeSupporterFooterText(value) || DEFAULT_PDF_FOOTER_TEXT;
             saveSupporterSettings(settings);
             syncSupporterFooterUi();
         }
@@ -6586,6 +6597,8 @@
         let appVersionBadgeTapCount = 0;
         let appVersionBadgeTapResetTimer = null;
         let appVersionBadgeLastPointerTapAt = 0;
+        let supporterSecretTapCount = 0;
+        let supporterSecretTapResetTimer = null;
 
         const SCORE_COLORS = {
             ink: "#111",
@@ -7008,11 +7021,61 @@
                 + '</button>';
         }
 
+        function renderSupporterSettingsPanel() {
+            return [
+                '<div class="qa-supporter-panel">',
+                '<div class="qa-supporter-title">支援者設定</div>',
+                '<label><input id="qaSupporterFeatureEnabled" type="checkbox" onchange="setSupporterFeatureEnabled(this.checked)">PDFフッター編集を有効にする</label>',
+                '<input id="qaSupporterFooterText" type="text" maxlength="80" placeholder="' + escapeHtml(DEFAULT_PDF_FOOTER_TEXT) + '" oninput="setSupporterFooterText(this.value)">',
+                '<small>この端末に保存されます。標準のQRコードとバージョン番号は残ります。</small>',
+                '</div>'
+            ].join("");
+        }
+
+        function openSupporterSettingsMenu() {
+            const { backdrop, popup } = ensureQaShortcutDialog();
+            popup.innerHTML = [
+                '<div class="comment-popup-title">支援者設定 <button class="qa-secret-version-trigger" type="button" onclick="registerSupporterSecretTap(event)">v' + escapeHtml(APP_VERSION) + '</button></div>',
+                '<div class="comment-popup-body">支援してくれた方向けのPDFフッター設定です。</div>',
+                renderSupporterSettingsPanel(),
+                '<div class="comment-popup-actions">',
+                '<button type="button" onclick="closeQaShortcutMenu()">閉じる</button>',
+                '<button type="button" onclick="setSupporterFeatureEnabled(true)">有効にする</button>',
+                '</div>'
+            ].join("");
+            syncSupporterFooterUi();
+            backdrop.classList.add("is-open");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+        }
+
+        function registerSupporterSecretTap(event) {
+            event?.preventDefault?.();
+            event?.stopPropagation?.();
+            supporterSecretTapCount += 1;
+            if (supporterSecretTapCount >= 7) {
+                supporterSecretTapCount = 0;
+                if (supporterSecretTapResetTimer) {
+                    clearTimeout(supporterSecretTapResetTimer);
+                    supporterSecretTapResetTimer = null;
+                }
+                openQaShortcutMenu();
+                return;
+            }
+            if (supporterSecretTapResetTimer) {
+                clearTimeout(supporterSecretTapResetTimer);
+            }
+            supporterSecretTapResetTimer = setTimeout(() => {
+                supporterSecretTapCount = 0;
+                supporterSecretTapResetTimer = null;
+            }, 1800);
+        }
+
         function openQaShortcutMenu() {
             const { backdrop, popup } = ensureQaShortcutDialog();
             popup.innerHTML = [
                 '<div class="comment-popup-title">検証メニュー <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
-                '<div class="comment-popup-body">現在の試合を検証用データで上書きできます。バージョン表示を7回タップするとここを開けます。</div>',
+                '<div class="comment-popup-body">現在の試合を検証用データで上書きできます。</div>',
                 '<div class="qa-shortcut-grid">',
                 renderQaShortcutButton("walkoff-ready", "サヨナラ直前", "9回裏・同点・二死走者なし。HRなどでサヨナラを確認できます。"),
                 renderQaShortcutButton("walkoff-hr", "サヨナラHRを実行", "9回裏同点から本塁打を保存し、サヨナラ終了処理まで一気に進めます。"),
@@ -7023,18 +7086,11 @@
                 renderQaShortcutButton("toggle-style", "早慶表示を切替", "検証データはそのまま、早稲田式/慶応式の表示だけ切り替えます。"),
                 renderQaShortcutButton("blank", "空試合に戻す", "検証データを消して新規試合状態に戻します。"),
                 '</div>',
-                '<div class="qa-supporter-panel">',
-                '<div class="qa-supporter-title">支援者設定</div>',
-                '<label><input id="qaSupporterFeatureEnabled" type="checkbox" onchange="setSupporterFeatureEnabled(this.checked)">PDFフッター編集を有効にする</label>',
-                '<input id="qaSupporterFooterText" type="text" maxlength="80" placeholder="PDFフッターに追加する文言" oninput="setSupporterFooterText(this.value)">',
-                '<small>この端末に保存されます。標準のQRコードとバージョン番号は残ります。</small>',
-                '</div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="closeQaShortcutMenu()">閉じる</button>',
                 "<button type=\"button\" onclick=\"applyQaShortcutPreset('walkoff-ready')\">サヨナラ直前</button>",
                 '</div>'
             ].join("");
-            syncSupporterFooterUi();
             backdrop.classList.add("is-open");
             popup.classList.add("is-open");
             popup.setAttribute("aria-hidden", "false");
@@ -7311,7 +7367,7 @@
                         clearTimeout(appVersionBadgeTapResetTimer);
                         appVersionBadgeTapResetTimer = null;
                     }
-                    openQaShortcutMenu();
+                    openSupporterSettingsMenu();
                     return;
                 }
                 if (appVersionBadgeTapResetTimer) {
@@ -9611,7 +9667,7 @@
         }
 
         function getPdfFooterText() {
-            return "スコアブック by CuViu";
+            return isScorebookProUser() ? getSupporterFooterText() : DEFAULT_PDF_FOOTER_TEXT;
         }
 
         function createScorebookAppQrSvg() {
@@ -9657,15 +9713,7 @@
             const url = document.createElement("div");
             url.className = "print-footer-url";
             url.textContent = SCOREBOOK_APP_URL;
-            const customText = getSupporterFooterText();
-            body.append(brand);
-            if (customText) {
-                const custom = document.createElement("div");
-                custom.className = "print-footer-custom";
-                custom.textContent = customText;
-                body.append(custom);
-            }
-            body.append(url);
+            body.append(brand, url);
             const version = document.createElement("div");
             version.className = "print-footer-version";
             version.textContent = "v" + APP_VERSION;
