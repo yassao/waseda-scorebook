@@ -6073,7 +6073,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.17";
+        const APP_VERSION = "0.3.18";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6086,7 +6086,7 @@
         const INNING_AD_SKIP_AFTER_SECONDS = 0;
         const PDF_AD_SECONDS = 0;
         const PDF_AD_UNWATCHED_LIMIT = 5;
-        const STRIPE_SUPPORT_URL = "https://buy.stripe.com/6oU28r6wscdU5F5bxa43S01";
+        const STRIPE_SUPPORT_URL = "https://buy.stripe.com/dRm7sL3kg0vc7Nd30E43S02";
         const SCOREBOOK_APP_URL = "https://cuviu.jp/apps/scorebook/";
         const DEFAULT_PDF_FOOTER_TEXT = "スコアブック by CuViu";
         const SUPPORTER_SECRET_TAP_THRESHOLD = 15;
@@ -6160,7 +6160,7 @@
             const supportUrl = String(STRIPE_SUPPORT_URL || "").trim();
             const isReady = /^https:\/\/.+/i.test(supportUrl);
             const detailText = isReady
-                ? "ご支援後はPDFフッター文言を編集できます。"
+                ? "300円から任意のご支援で、PDFフッター文言を編集できます。"
                 : "Stripeの支援リンクは準備中です。";
             container.innerHTML = [
                 '<div>',
@@ -6168,7 +6168,7 @@
                 '<div class="support-cta-text">継続開発や現場で使いやすい改善に役立てます。' + escapeHtml(detailText) + '</div>',
                 '</div>',
                 isReady
-                    ? '<a class="support-cta-button" href="' + escapeHtml(supportUrl) + '" target="_blank" rel="noopener">Stripeで支援</a>'
+                    ? '<a class="support-cta-button" href="' + escapeHtml(supportUrl) + '" target="_blank" rel="noopener">300円から支援</a>'
                     : '<span class="support-cta-button is-disabled" aria-disabled="true">準備中</span>'
             ].join("");
         }
