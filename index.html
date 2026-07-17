@@ -6073,7 +6073,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.18";
+        const APP_VERSION = "0.3.19";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6160,7 +6160,7 @@
             const supportUrl = String(STRIPE_SUPPORT_URL || "").trim();
             const isReady = /^https:\/\/.+/i.test(supportUrl);
             const detailText = isReady
-                ? "300円から任意のご支援で、PDFフッター文言を編集できます。"
+                ? "ご支援後はPDFフッター文言を編集できます。"
                 : "Stripeの支援リンクは準備中です。";
             container.innerHTML = [
                 '<div>',
@@ -6168,7 +6168,7 @@
                 '<div class="support-cta-text">継続開発や現場で使いやすい改善に役立てます。' + escapeHtml(detailText) + '</div>',
                 '</div>',
                 isReady
-                    ? '<a class="support-cta-button" href="' + escapeHtml(supportUrl) + '" target="_blank" rel="noopener">300円から支援</a>'
+                    ? '<a class="support-cta-button" href="' + escapeHtml(supportUrl) + '" target="_blank" rel="noopener">開発を支援する</a>'
                     : '<span class="support-cta-button is-disabled" aria-disabled="true">準備中</span>'
             ].join("");
         }

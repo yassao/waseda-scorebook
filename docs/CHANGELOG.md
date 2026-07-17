@@ -1,3 +1,12 @@
+## v0.3.19 [2026-07-17] 支援導線の金額表記を外す
+
+**変更ファイル:**
+- docs/VERSION
+- docs/baseball-scorebook-wordpress-snippet.html
+- index.html
+
+---
+
 ## v0.3.18 [2026-07-17] Stripe支援リンクを任意金額リンクに更新
 
 **変更ファイル:**
