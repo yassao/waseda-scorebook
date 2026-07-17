@@ -31,6 +31,7 @@
             --sheet-header-h: 28px;
             --sheet-font: 9px;
             --sheet-zoom: 1;
+            --sheet-inning-count: 18;
         }
 
         * {
@@ -1568,18 +1569,18 @@
                 --sheet-order-w: 6.2mm;
                 --sheet-name-w: 18.4mm;
                 --sheet-number-w: 5.9mm;
-                --sheet-cell-w: 13.95mm;
-                --sheet-cell-h: 11mm;
-                --sheet-header-h: 5mm;
-                --sheet-font: 2.25mm;
-                --sheet-zoom: 0.62;
+                --sheet-cell-w: 9.2mm;
+                --sheet-cell-h: 7.8mm;
+                --sheet-header-h: 4.2mm;
+                --sheet-font: 1.7mm;
+                --sheet-zoom: 0.46;
                 --print-content-w: 197.9mm;
             }
 
             body.printing-scorebook.keio-scorebook-style .print-scorebook-page {
-                --sheet-cell-h: 15mm;
-                --sheet-header-h: 5.4mm;
-                --sheet-font: 2.05mm;
+                --sheet-cell-h: 10.2mm;
+                --sheet-header-h: 4.4mm;
+                --sheet-font: 1.55mm;
             }
 
             body.printing-scorebook .print-scorebook-team-page {
@@ -1853,7 +1854,7 @@
 
             body.printing-scorebook .print-sheet-grid {
                 display: grid;
-                grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(12, var(--sheet-cell-w));
+                grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(var(--sheet-inning-count, 18), var(--sheet-cell-w));
                 width: max-content;
                 max-width: var(--print-content-w);
                 margin: 0 auto;
@@ -1914,7 +1915,7 @@
 
             body.printing-scorebook .print-sheet-grid .pitcher-book-section {
                 grid-column: 1 / -1;
-                grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(12, var(--sheet-cell-w));
+                grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(var(--sheet-inning-count, 18), var(--sheet-cell-w));
                 border-left: 0;
                 border-top: 0.5mm solid #111111;
             }
@@ -2721,7 +2722,7 @@
 
         .sheet-grid {
             display: grid;
-            grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(12, var(--sheet-cell-w));
+            grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(var(--sheet-inning-count, 18), var(--sheet-cell-w));
             gap: 0;
             border-left: 1px solid var(--sheet-green);
             border-top: 1px solid var(--sheet-green);
@@ -2758,7 +2759,7 @@
 
         .dual-sheet-grid {
             display: grid;
-            grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(12, var(--sheet-cell-w));
+            grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(var(--sheet-inning-count, 18), var(--sheet-cell-w));
             gap: 0;
             width: max-content;
             border-left: 1px solid var(--sheet-green);
@@ -2995,7 +2996,7 @@
         .pitcher-book-section {
             grid-column: 1 / -1;
             display: grid;
-            grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(12, var(--sheet-cell-w));
+            grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(var(--sheet-inning-count, 18), var(--sheet-cell-w));
             width: max-content;
             background: #fff;
             border-left: 1px solid var(--sheet-green);
@@ -5935,7 +5936,7 @@
                                             <label>投げ方<select id="pitcherChangeThrows"><option value="">未選択</option><option value="right">右</option><option value="left">左</option></select></label>
                                             <label>投手名<input id="pitcherChangeName" type="text" placeholder="例: 田中"></label>
                                             <label>背番号<input id="pitcherChangeNumber" type="text" inputmode="numeric" placeholder="例: 11"></label>
-                                            <label>交代回<input id="pitcherChangeInning" type="number" min="1" max="12" inputmode="numeric"></label>
+                                            <label>交代回<input id="pitcherChangeInning" type="number" min="1" max="18" inputmode="numeric"></label>
                                             <label>表/裏<select id="pitcherChangeHalf"><option value="top">表</option><option value="bottom">裏</option></select></label>
                                             <label>何番から<input id="pitcherChangeBattingOrder" type="number" min="1" max="9" inputmode="numeric"></label>
                                             <label>前守備<input id="pitcherChangePreviousPosition" type="text" placeholder="例: 9, 7, DH"></label>
@@ -5950,7 +5951,7 @@
                                         <div class="pitcher-change-title">守備変更</div>
                                         <div class="pitcher-change-form">
                                             <label>チーム<select id="fieldingChangeTeam"><option value="top">先攻</option><option value="bottom">後攻</option></select></label>
-                                            <label>変更回<input id="fieldingChangeInning" type="number" min="1" max="12" inputmode="numeric"></label>
+                                            <label>変更回<input id="fieldingChangeInning" type="number" min="1" max="18" inputmode="numeric"></label>
                                             <label>表/裏<select id="fieldingChangeHalf"><option value="top">表</option><option value="bottom">裏</option></select></label>
                                             <label>何番から<input id="fieldingChangeBattingOrder" type="number" min="1" max="9" inputmode="numeric"></label>
                                             <label>選手名<input id="fieldingChangePlayerName" type="text" placeholder="例: 山田"></label>
@@ -6073,7 +6074,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.19";
+        const APP_VERSION = "0.3.20";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6733,7 +6734,7 @@
 
         const NATURAL_LANGUAGE_STORAGE_KEY = "scorebook_nl_mappings_v1";
         const BUILTIN_NATURAL_LANGUAGE_RULES = createBuiltInNaturalLanguageRules();
-        const MAX_INNINGS = 12;
+        const MAX_INNINGS = 18;
         const SHORT_FIELDER_MAP = {
             "投": "1",
             "捕": "2",
@@ -6912,8 +6913,24 @@
             return Array.from({ length: 9 }, () => Array.from({ length: MAX_INNINGS }, () => null));
         }
 
+        function normalizeScoreSheet(sheet) {
+            const sourceRows = Array.isArray(sheet) ? sheet : [];
+            return Array.from({ length: 9 }, (_, rowIndex) => {
+                const sourceRow = Array.isArray(sourceRows[rowIndex]) ? sourceRows[rowIndex] : [];
+                return Array.from({ length: MAX_INNINGS }, (_, colIndex) => sourceRow[colIndex] || null);
+            });
+        }
+
         function createDefaultInningLabels() {
             return Array.from({ length: MAX_INNINGS }, (_, index) => index + 1);
+        }
+
+        function normalizeInningLabels(labels) {
+            const values = Array.isArray(labels) ? labels : [];
+            return Array.from({ length: MAX_INNINGS }, (_, index) => {
+                const value = values[index];
+                return value === "" || value === null || value === undefined ? index + 1 : value;
+            });
         }
 
         function createEmptyScoreOverrides() {
@@ -6942,7 +6959,7 @@
 
         function getInningLabels(half = state.activeHalf) {
             if (!state.inningLabelsByHalf[half] || state.inningLabelsByHalf[half].length !== MAX_INNINGS) {
-                state.inningLabelsByHalf[half] = createDefaultInningLabels();
+                state.inningLabelsByHalf[half] = normalizeInningLabels(state.inningLabelsByHalf[half]);
             }
             return state.inningLabelsByHalf[half];
         }
@@ -7278,7 +7295,7 @@
             const normalized = String(rawValue || "")
                 .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xFEE0))
                 .replace(/\s+/g, "");
-            const inningMatch = normalized.match(/([1-9]|1[0-2])/);
+            const inningMatch = normalized.match(/(1[0-8]|[1-9])/);
             const inning = inningMatch ? Number(inningMatch[1]) : 1;
             const half = /裏|後|bottom/i.test(normalized) ? "bottom" : "top";
             return { inning, half };
@@ -7453,7 +7470,9 @@
             if (!state.scoreSheets[state.activeHalf]) {
                 state.scoreSheets[state.activeHalf] = createEmptyScoreSheet();
             }
+            state.scoreSheets[state.activeHalf] = normalizeScoreSheet(state.scoreSheets[state.activeHalf]);
             ensureScoreOverridesByHalf();
+            getInningLabels(state.activeHalf);
             if (!state.baseRunnersByHalf[state.activeHalf]) {
                 state.baseRunnersByHalf[state.activeHalf] = [null, null, null];
             }
@@ -7534,6 +7553,14 @@
             state.correctionEditContext = null;
             state.playDetails = normalizePlayDetails(snapshot.state.playDetails);
             state.gameInfo = normalizeGameInfo(state.gameInfo || snapshot.game || {});
+            state.scoreSheets = {
+                top: normalizeScoreSheet(state.scoreSheets?.top),
+                bottom: normalizeScoreSheet(state.scoreSheets?.bottom)
+            };
+            state.inningLabelsByHalf = {
+                top: normalizeInningLabels(state.inningLabelsByHalf?.top),
+                bottom: normalizeInningLabels(state.inningLabelsByHalf?.bottom)
+            };
             ensureScoreOverridesByHalf();
             state.playerPositions = state.playerPositions || {
                 top: Array.from({ length: 9 }, () => ""),
@@ -10842,7 +10869,7 @@
                 '<form class="pitcher-change-dialog-form" onsubmit="savePitcherChangeDialog(event)">',
                     '<input type="hidden" id="pitcherChangeDialogTeam" value="' + escapeHtml(context.teamHalf) + '">',
                     '<label>投げ方<select id="pitcherChangeDialogThrows"><option value="">未選択</option><option value="right">右</option><option value="left">左</option></select></label>',
-                    '<label>交代回<input id="pitcherChangeDialogInning" type="number" min="1" max="12" inputmode="numeric" value="' + escapeHtml(context.inning) + '"></label>',
+                    '<label>交代回<input id="pitcherChangeDialogInning" type="number" min="1" max="18" inputmode="numeric" value="' + escapeHtml(context.inning) + '"></label>',
                     '<label>投手名<input id="pitcherChangeDialogName" type="text" placeholder="例: 田中" autofocus></label>',
                     '<label>背番号<input id="pitcherChangeDialogNumber" type="text" inputmode="numeric" placeholder="例: 11"></label>',
                     '<label>表/裏<select id="pitcherChangeDialogHalf"><option value="top"' + (context.battingHalf === "top" ? " selected" : "") + '>表</option><option value="bottom"' + (context.battingHalf === "bottom" ? " selected" : "") + '>裏</option></select></label>',
@@ -11780,7 +11807,7 @@
                 '<form class="sheet-change-dialog-form" onsubmit="confirmSheetChangeDialog(event)">',
                 '<div class="sheet-change-meta-grid">',
                 '<label>チーム<select id="sheetChangeTeam" onchange="rerenderSheetChangeDialogForTeam(this.value)">' + teamOptions + '</select></label>',
-                '<label>回<input id="sheetChangeInning" type="number" min="1" max="12" inputmode="numeric" value="' + escapeHtml(base.inning) + '" oninput="updateSheetChangePreview()"></label>',
+                '<label>回<input id="sheetChangeInning" type="number" min="1" max="18" inputmode="numeric" value="' + escapeHtml(base.inning) + '" oninput="updateSheetChangePreview()"></label>',
                 '<label>表/裏<select id="sheetChangeHalf" onchange="updateSheetChangePreview()"><option value="top"' + (base.half === "top" ? " selected" : "") + '>表</option><option value="bottom"' + (base.half === "bottom" ? " selected" : "") + '>裏</option></select></label>',
                 '<label>何番から<input id="sheetChangeBattingOrder" type="number" min="1" max="9" inputmode="numeric" value="' + escapeHtml(base.battingOrder) + '" oninput="updateSheetChangePreview()"></label>',
                 '</div>',
