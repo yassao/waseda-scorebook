@@ -6074,7 +6074,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.22";
+        const APP_VERSION = "0.3.23";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -18716,6 +18716,14 @@
             return Boolean(transition?.gameEnded || hasGameEndReason());
         }
 
+        function getNextHalfTransitionColumn(transition) {
+            const nextHalf = transition?.nextHalf === "bottom" ? "bottom" : "top";
+            const endedHalf = transition?.endedHalf === "bottom" ? "bottom" : "top";
+            const inning = Number(transition?.inning) || 1;
+            const nextInning = endedHalf === "bottom" ? inning + 1 : inning;
+            return findColumnForInning(nextHalf, nextInning);
+        }
+
         function performInningTransition(transition) {
             if (!transition) {
                 closeInningSharePopup();
@@ -18733,7 +18741,7 @@
                 updateRunnerGuiStatus("試合終了として保存しました: " + getGameEndStatusText({ includeScore: true }));
                 return;
             }
-            activateHalf(transition.nextHalf, null, null, { skipSave: true });
+            activateHalf(transition.nextHalf, null, getNextHalfTransitionColumn(transition), { skipSave: true });
             clearNaturalLanguageInput();
         }
 
