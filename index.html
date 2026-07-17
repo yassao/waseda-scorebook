@@ -4073,6 +4073,43 @@
             font-weight: 800;
         }
 
+        .qa-shortcut-popup .comment-popup-body {
+            min-height: 0;
+            white-space: normal;
+        }
+
+        .qa-shortcut-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .qa-shortcut-grid button {
+            min-height: 58px;
+            border: 2px solid #243447;
+            border-radius: 14px;
+            background: #ffffff;
+            color: #172331;
+            font-size: 15px;
+            font-weight: 900;
+            text-align: left;
+            padding: 10px 12px;
+        }
+
+        .qa-shortcut-grid button strong {
+            display: block;
+            font-size: 16px;
+        }
+
+        .qa-shortcut-grid button small {
+            display: block;
+            margin-top: 3px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.4;
+        }
+
         .ad-gate-popup .comment-popup-title small {
             display: block;
             margin-top: 4px;
@@ -5915,7 +5952,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.9";
+        const APP_VERSION = "0.3.10";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6756,6 +6793,248 @@
             toggleScorebookStyle();
         }
 
+        function ensureQaShortcutDialog() {
+            let backdrop = document.getElementById("qaShortcutBackdrop");
+            let popup = document.getElementById("qaShortcutPopup");
+            if (!backdrop) {
+                backdrop = document.createElement("div");
+                backdrop.id = "qaShortcutBackdrop";
+                backdrop.className = "comment-popup-backdrop";
+                backdrop.onclick = closeQaShortcutMenu;
+                document.body.appendChild(backdrop);
+            }
+            if (!popup) {
+                popup = document.createElement("div");
+                popup.id = "qaShortcutPopup";
+                popup.className = "comment-popup qa-shortcut-popup";
+                popup.setAttribute("aria-hidden", "true");
+                document.body.appendChild(popup);
+            }
+            return { backdrop, popup };
+        }
+
+        function renderQaShortcutButton(preset, title, detail) {
+            return '<button type="button" onclick="applyQaShortcutPreset(' + JSON.stringify(preset) + ')">'
+                + '<strong>' + escapeHtml(title) + '</strong>'
+                + '<small>' + escapeHtml(detail) + '</small>'
+                + '</button>';
+        }
+
+        function openQaShortcutMenu() {
+            const { backdrop, popup } = ensureQaShortcutDialog();
+            popup.innerHTML = [
+                '<div class="comment-popup-title">検証メニュー <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
+                '<div class="comment-popup-body">現在の試合を検証用データで上書きできます。バージョン表示を7回タップするとここを開けます。</div>',
+                '<div class="qa-shortcut-grid">',
+                renderQaShortcutButton("walkoff-ready", "サヨナラ直前", "9回裏・同点・一死三塁。次の打球でサヨナラを確認できます。"),
+                renderQaShortcutButton("walkoff-hr", "サヨナラHRを実行", "9回裏同点から本塁打を保存し、サヨナラ終了処理まで一気に進めます。"),
+                renderQaShortcutButton("bases-loaded-one-out", "満塁1死", "1回表・満塁一死から走者進塁や得点処理を試せます。"),
+                renderQaShortcutButton("pickoff-third-out", "牽制三アウト直前", "2死一塁から牽制タッチアウトや走者アウトのチェンジ処理を試せます。"),
+                renderQaShortcutButton("toggle-style", "早慶表示を切替", "検証データはそのまま、早稲田式/慶応式の表示だけ切り替えます。"),
+                renderQaShortcutButton("blank", "空試合に戻す", "検証データを消して新規試合状態に戻します。"),
+                '</div>',
+                '<div class="comment-popup-actions">',
+                '<button type="button" onclick="closeQaShortcutMenu()">閉じる</button>',
+                "<button type=\"button\" onclick=\"applyQaShortcutPreset('walkoff-ready')\">サヨナラ直前</button>",
+                '</div>'
+            ].join("");
+            backdrop.classList.add("is-open");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+        }
+
+        function closeQaShortcutMenu() {
+            document.getElementById("qaShortcutBackdrop")?.classList.remove("is-open");
+            document.getElementById("qaShortcutPopup")?.classList.remove("is-open");
+            document.getElementById("qaShortcutPopup")?.setAttribute("aria-hidden", "true");
+        }
+
+        function createQaDefaultModifiers(overrides = {}) {
+            return {
+                foul: false,
+                bunt: false,
+                buntFailed: false,
+                squeezeFailed: false,
+                safetyBuntFailed: false,
+                sacrificeFly: false,
+                sacrificeBunt: false,
+                doublePlay: false,
+                triplePlay: false,
+                threeBuntStrikeout: false,
+                swingStrikeout: false,
+                droppedThirdStrike: false,
+                ...overrides
+            };
+        }
+
+        function createQaSnapshot(options = {}) {
+            const fielder = options.fielder || "";
+            const hitType = options.hitType || "none";
+            const result = options.result || (hitType !== "none" ? fielder : "");
+            return {
+                pitches: options.pitches || [],
+                pitchNotes: [],
+                pitchComments: [],
+                result,
+                outScore: options.outScore || "",
+                strikes: 0,
+                balls: 0,
+                selectedFielder: fielder,
+                selectedDirection: options.direction || "none",
+                selectedBallType: options.ballType || "none",
+                selectedHitType: hitType,
+                battingOrder: String((Number(options.row) || 0) + 1),
+                hasRbi: Boolean(options.hasRbi),
+                modifiers: createQaDefaultModifiers(options.modifiers || {}),
+                fieldSequence: options.fieldSequence || (fielder ? [fielder] : []),
+                errorMode: options.errorMode || "none",
+                baseCover: "none",
+                runnerContextText: options.runnerContextText || "",
+                runnerContext: options.runnerContext || null,
+                currentConfidence: 1,
+                atBatComment: options.comment || "",
+                atBatCommentMeta: null,
+                playDetails: createEmptyPlayDetails(),
+                runnerStatusText: options.runnerStatusText || "",
+                runnerStatusEvents: options.runnerStatusEvents || [],
+                source: "qa-preset"
+            };
+        }
+
+        function setupQaBaseGame() {
+            resetFullGameStateForNewGame();
+            state.teamNames = { top: "先攻", bottom: "後攻" };
+            state.playerNames = {
+                top: ["一番", "二番", "三番", "四番", "五番", "六番", "七番", "八番", "九番"],
+                bottom: ["裏一番", "裏二番", "裏三番", "裏四番", "裏五番", "裏六番", "裏七番", "裏八番", "裏九番"]
+            };
+            state.playerPositions = {
+                top: ["8", "4", "6", "3", "5", "9", "7", "2", "1"],
+                bottom: ["8", "4", "6", "3", "5", "9", "7", "2", "1"]
+            };
+            state.gameInfo.pitchers.top = "先攻P";
+            state.gameInfo.pitchers.bottom = "後攻P";
+            state.gameInfo.pitcherNumbers.top = "1";
+            state.gameInfo.pitcherNumbers.bottom = "1";
+            state.gameInfo.rules.endReason = "";
+            ensureScoreOverridesByHalf();
+        }
+
+        function finishQaPreset(message) {
+            closeQaShortcutMenu();
+            hideStartScreen();
+            renderPlayerRosterEditor();
+            renderLineScoreBoard();
+            renderScoreSheet();
+            updateDisplay();
+            updateGameFlowDisplay();
+            updateHistoryButtons();
+            saveGameToLocalStorage();
+            updateRunnerGuiStatus(message || "検証データをセットしました");
+            window.alert(message || "検証データをセットしました。");
+        }
+
+        function activateQaCell(half, row, col) {
+            activateHalf(half, row, col, { skipSave: true });
+            state.selectedSheetRow = row;
+            state.selectedSheetCol = col;
+            state.battingOrder = String(row + 1);
+            setElementValue("battingOrderSelect", state.battingOrder);
+            saveActiveSelection();
+        }
+
+        function setupQaWalkoffReady() {
+            setupQaBaseGame();
+            state.scoreOverridesByHalf.top[0] = 1;
+            state.scoreOverridesByHalf.bottom[0] = 1;
+            const col = 8;
+            state.scoreSheets.bottom[0][col] = createQaSnapshot({
+                row: 0,
+                fielder: "8",
+                hitType: "3B",
+                result: "8",
+                ballType: "liner",
+                runnerStatusText: "3塁",
+                comment: "QA: サヨナラ直前三塁打"
+            });
+            state.scoreSheets.bottom[1][col] = createQaSnapshot({
+                row: 1,
+                fielder: "9",
+                result: "9",
+                ballType: "fly",
+                outScore: "Ⅰ",
+                comment: "QA: 一死"
+            });
+            activateQaCell("bottom", 2, col);
+            return "9回裏・1-1同点・一死三塁をセットしました。単打、犠飛、エラーなどでサヨナラを確認できます。";
+        }
+
+        function setupQaWalkoffHr() {
+            setupQaBaseGame();
+            state.scoreOverridesByHalf.top[0] = 1;
+            state.scoreOverridesByHalf.bottom[0] = 1;
+            activateQaCell("bottom", 0, 8);
+            state.selectedFielder = "9";
+            state.selectedDirection = "right";
+            state.selectedBallType = "fly";
+            state.selectedHitType = "HR";
+            state.result = "9";
+            state.fieldSequence = ["9"];
+            state.hasRbi = true;
+            state.pitches = [];
+            const snapshot = saveCurrentToSheet();
+            advanceAfterSave(snapshot, { showShareDialog: false });
+            return state.gameInfo.rules.endReason === "walkoff"
+                ? "サヨナラHRを保存し、試合終了をサヨナラでセットしました。"
+                : "サヨナラHRを保存しました。試合終了判定を確認してください。";
+        }
+
+        function setupQaBasesLoadedOneOut() {
+            setupQaBaseGame();
+            const col = 0;
+            state.scoreSheets.top[0][col] = createQaSnapshot({ row: 0, fielder: "7", hitType: "1B", result: "7", ballType: "ground", runnerStatusText: "3塁" });
+            state.scoreSheets.top[1][col] = createQaSnapshot({ row: 1, fielder: "8", hitType: "1B", result: "8", ballType: "ground", runnerStatusText: "2塁" });
+            state.scoreSheets.top[2][col] = createQaSnapshot({ row: 2, fielder: "9", hitType: "1B", result: "9", ballType: "ground", runnerStatusText: "1塁" });
+            state.scoreSheets.top[3][col] = createQaSnapshot({ row: 3, fielder: "6", result: "6", ballType: "liner", outScore: "Ⅰ" });
+            activateQaCell("top", 4, col);
+            return "1回表・満塁1死をセットしました。打球結果やエラー時の走者進塁をすぐ試せます。";
+        }
+
+        function setupQaPickoffThirdOut() {
+            setupQaBaseGame();
+            const col = 0;
+            state.scoreSheets.top[0][col] = createQaSnapshot({ row: 0, result: "K", outScore: "Ⅰ", ballType: "none" });
+            state.scoreSheets.top[1][col] = createQaSnapshot({ row: 1, fielder: "8", result: "8", ballType: "fly", outScore: "Ⅱ" });
+            state.scoreSheets.top[2][col] = createQaSnapshot({ row: 2, result: "B", runnerStatusText: "1塁" });
+            activateQaCell("top", 3, col);
+            return "1回表・2死一塁をセットしました。走者操作から牽制タッチアウトのチェンジ処理を試せます。";
+        }
+
+        function applyQaShortcutPreset(preset, options = {}) {
+            if (preset === "toggle-style") {
+                toggleExperimentalScorebookStyle();
+                closeQaShortcutMenu();
+                return;
+            }
+            const shouldConfirm = options.confirm !== false;
+            if (shouldConfirm && !window.confirm("現在の試合を検証用データで上書きします。続けますか？")) {
+                return;
+            }
+            const actions = {
+                "walkoff-ready": setupQaWalkoffReady,
+                "walkoff-hr": setupQaWalkoffHr,
+                "bases-loaded-one-out": setupQaBasesLoadedOneOut,
+                "pickoff-third-out": setupQaPickoffThirdOut,
+                blank: () => {
+                    resetFullGameStateForNewGame();
+                    return "空試合に戻しました。";
+                }
+            };
+            const action = actions[preset] || actions["walkoff-ready"];
+            const message = action();
+            finishQaPreset(message);
+        }
+
         function applyScorebookStyleFromUrl() {
             try {
                 const params = new URLSearchParams(window.location.search || "");
@@ -6786,7 +7065,7 @@
                         clearTimeout(appVersionBadgeTapResetTimer);
                         appVersionBadgeTapResetTimer = null;
                     }
-                    toggleExperimentalScorebookStyle();
+                    openQaShortcutMenu();
                     return;
                 }
                 if (appVersionBadgeTapResetTimer) {
