@@ -5952,7 +5952,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.10";
+        const APP_VERSION = "0.3.11";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6814,7 +6814,7 @@
         }
 
         function renderQaShortcutButton(preset, title, detail) {
-            return '<button type="button" onclick="applyQaShortcutPreset(' + JSON.stringify(preset) + ')">'
+            return '<button type="button" data-qa-preset="' + escapeHtml(preset) + '" onclick="applyQaShortcutPreset(this.dataset.qaPreset)">'
                 + '<strong>' + escapeHtml(title) + '</strong>'
                 + '<small>' + escapeHtml(detail) + '</small>'
                 + '</button>';
@@ -6826,10 +6826,12 @@
                 '<div class="comment-popup-title">検証メニュー <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
                 '<div class="comment-popup-body">現在の試合を検証用データで上書きできます。バージョン表示を7回タップするとここを開けます。</div>',
                 '<div class="qa-shortcut-grid">',
-                renderQaShortcutButton("walkoff-ready", "サヨナラ直前", "9回裏・同点・一死三塁。次の打球でサヨナラを確認できます。"),
+                renderQaShortcutButton("walkoff-ready", "サヨナラ直前", "9回裏・同点・二死走者なし。HRなどでサヨナラを確認できます。"),
                 renderQaShortcutButton("walkoff-hr", "サヨナラHRを実行", "9回裏同点から本塁打を保存し、サヨナラ終了処理まで一気に進めます。"),
                 renderQaShortcutButton("bases-loaded-one-out", "満塁1死", "1回表・満塁一死から走者進塁や得点処理を試せます。"),
                 renderQaShortcutButton("pickoff-third-out", "牽制三アウト直前", "2死一塁から牽制タッチアウトや走者アウトのチェンジ処理を試せます。"),
+                renderQaShortcutButton("jump-two-out", "指定回2死へ移動", "例: 5裏 / 7表。走者なし2アウトで、広告やチェンジ処理を確認できます。"),
+                renderQaShortcutButton("show-ad", "広告表示を確認", "試合データを上書きせず、広告枠または支援メッセージをすぐ表示します。"),
                 renderQaShortcutButton("toggle-style", "早慶表示を切替", "検証データはそのまま、早稲田式/慶応式の表示だけ切り替えます。"),
                 renderQaShortcutButton("blank", "空試合に戻す", "検証データを消して新規試合状態に戻します。"),
                 '</div>',
@@ -6943,30 +6945,40 @@
             saveActiveSelection();
         }
 
+        function setupQaTwoOutNoRunner(half, inning) {
+            const normalizedHalf = half === "bottom" ? "bottom" : "top";
+            const inningNumber = Math.max(1, Math.min(MAX_INNINGS, Number(inning) || 1));
+            const col = inningNumber - 1;
+            state.scoreSheets[normalizedHalf][0][col] = createQaSnapshot({
+                row: 0,
+                result: "K",
+                outScore: "Ⅰ",
+                ballType: "none",
+                comment: "QA: 1アウト"
+            });
+            state.scoreSheets[normalizedHalf][1][col] = createQaSnapshot({
+                row: 1,
+                fielder: "8",
+                result: "8",
+                ballType: "fly",
+                outScore: "Ⅱ",
+                comment: "QA: 2アウト"
+            });
+            activateQaCell(normalizedHalf, 2, col);
+            setBaseRunners([null, null, null]);
+            return {
+                half: normalizedHalf,
+                inning: inningNumber,
+                col
+            };
+        }
+
         function setupQaWalkoffReady() {
             setupQaBaseGame();
             state.scoreOverridesByHalf.top[0] = 1;
             state.scoreOverridesByHalf.bottom[0] = 1;
-            const col = 8;
-            state.scoreSheets.bottom[0][col] = createQaSnapshot({
-                row: 0,
-                fielder: "8",
-                hitType: "3B",
-                result: "8",
-                ballType: "liner",
-                runnerStatusText: "3塁",
-                comment: "QA: サヨナラ直前三塁打"
-            });
-            state.scoreSheets.bottom[1][col] = createQaSnapshot({
-                row: 1,
-                fielder: "9",
-                result: "9",
-                ballType: "fly",
-                outScore: "Ⅰ",
-                comment: "QA: 一死"
-            });
-            activateQaCell("bottom", 2, col);
-            return "9回裏・1-1同点・一死三塁をセットしました。単打、犠飛、エラーなどでサヨナラを確認できます。";
+            setupQaTwoOutNoRunner("bottom", 9);
+            return "9回裏・1-1同点・二死走者なしをセットしました。HRなどでサヨナラを確認できます。";
         }
 
         function setupQaWalkoffHr() {
@@ -7010,10 +7022,46 @@
             return "1回表・2死一塁をセットしました。走者操作から牽制タッチアウトのチェンジ処理を試せます。";
         }
 
+        function parseQaInningJumpInput(rawValue) {
+            const normalized = String(rawValue || "")
+                .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xFEE0))
+                .replace(/\s+/g, "");
+            const inningMatch = normalized.match(/([1-9]|1[0-2])/);
+            const inning = inningMatch ? Number(inningMatch[1]) : 1;
+            const half = /裏|後|bottom/i.test(normalized) ? "bottom" : "top";
+            return { inning, half };
+        }
+
+        function setupQaJumpTwoOut() {
+            const input = window.prompt("移動先を入力してください。例: 5裏 / 7表", "5裏");
+            if (input === null) {
+                return "";
+            }
+            setupQaBaseGame();
+            const target = parseQaInningJumpInput(input);
+            const position = setupQaTwoOutNoRunner(target.half, target.inning);
+            const halfLabel = position.half === "bottom" ? "裏" : "表";
+            return position.inning + "回" + halfLabel + "・二死走者なしをセットしました。3アウト後の広告/チェンジ処理を確認できます。";
+        }
+
+        function showQaAdPreview() {
+            closeQaShortcutMenu();
+            openAdGate({
+                placement: "inning",
+                skippable: true,
+                seconds: INNING_AD_SECONDS,
+                skipAfterSeconds: INNING_AD_SKIP_AFTER_SECONDS
+            });
+        }
+
         function applyQaShortcutPreset(preset, options = {}) {
             if (preset === "toggle-style") {
                 toggleExperimentalScorebookStyle();
                 closeQaShortcutMenu();
+                return;
+            }
+            if (preset === "show-ad") {
+                showQaAdPreview();
                 return;
             }
             const shouldConfirm = options.confirm !== false;
@@ -7025,6 +7073,7 @@
                 "walkoff-hr": setupQaWalkoffHr,
                 "bases-loaded-one-out": setupQaBasesLoadedOneOut,
                 "pickoff-third-out": setupQaPickoffThirdOut,
+                "jump-two-out": setupQaJumpTwoOut,
                 blank: () => {
                     resetFullGameStateForNewGame();
                     return "空試合に戻しました。";
@@ -7032,7 +7081,9 @@
             };
             const action = actions[preset] || actions["walkoff-ready"];
             const message = action();
-            finishQaPreset(message);
+            if (message) {
+                finishQaPreset(message);
+            }
         }
 
         function applyScorebookStyleFromUrl() {
