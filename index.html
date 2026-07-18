@@ -638,15 +638,25 @@
 
         .fielding-drag-board {
             display: grid;
-            gap: 2px;
-            width: min(100%, 172px);
-            margin: 0 auto 4px;
-            padding: 3px;
-            border: 1px solid rgba(117, 167, 236, 0.34);
-            border-radius: 10px;
+            gap: 4px;
+            width: min(calc(100vw - 28px), 360px);
+            margin: 0 auto 6px;
+            padding: 6px;
+            border: 2px solid rgba(117, 167, 236, 0.42);
+            border-radius: 14px;
             background: rgba(255, 255, 255, 0.92);
             box-shadow: 0 5px 14px rgba(65, 111, 169, 0.12);
             touch-action: pan-y;
+        }
+
+        .fielding-drag-board:not(.is-hidden) {
+            position: fixed;
+            z-index: 11880;
+            left: 50%;
+            top: calc(78px + env(safe-area-inset-top));
+            max-height: calc(100dvh - 110px - env(safe-area-inset-bottom));
+            overflow: auto;
+            transform: translateX(-50%);
         }
 
         .fielding-drag-board.is-hidden {
@@ -655,7 +665,38 @@
 
         .fielding-drag-row {
             display: grid;
-            gap: 2px;
+            gap: 4px;
+        }
+
+        .fielding-drag-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            color: #1f7a8c;
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .fielding-drag-header span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .fielding-drag-header button {
+            flex: 0 0 auto;
+            min-width: 52px;
+            min-height: 24px;
+            padding: 2px 7px;
+            border: 1px solid #cfe2f3;
+            border-radius: 999px;
+            background: #ffffff;
+            color: #334155;
+            font-size: 10px;
+            font-weight: 900;
+            white-space: nowrap;
         }
 
         .fielding-drag-row[data-row-size="2"] {
@@ -674,15 +715,15 @@
         .fielding-drag-slot {
             display: grid;
             grid-template-columns: minmax(0, 1fr);
-            gap: 1px;
+            gap: 2px;
             align-items: center;
-            min-height: 25px;
-            padding: 1px 3px;
+            min-height: 36px;
+            padding: 3px 4px;
             border: 1px solid #cfe2f3;
-            border-radius: 7px;
+            border-radius: 9px;
             background: #fff;
             color: #172331;
-            font-size: 8px;
+            font-size: 10px;
             font-weight: 900;
             line-height: 1;
             text-align: center;
@@ -715,7 +756,7 @@
 
         .fielding-drag-position {
             color: #1f7a8c;
-            font-size: 7px;
+            font-size: 10px;
             white-space: nowrap;
         }
 
@@ -723,7 +764,7 @@
             min-width: 0;
             overflow: hidden;
             color: #334155;
-            font-size: 9px;
+            font-size: 12px;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
@@ -842,6 +883,13 @@
             gap: 2px;
             align-items: center;
             min-width: 0;
+        }
+
+        .game-mini-score-row.game-mini-active .game-mini-team {
+            color: #172331;
+            background: linear-gradient(transparent 45%, #fde68a 45%);
+            border-radius: 3px;
+            padding: 0 2px;
         }
 
         .game-mini-team {
@@ -2668,6 +2716,11 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .line-score-row.is-active-half .line-score-cell:first-child {
+            color: #172331;
+            background: linear-gradient(transparent 45%, #fde68a 45%);
         }
 
         .line-score-cell:last-child {
@@ -5943,7 +5996,7 @@
                                     <label>後攻P背<input id="gameInfoBottomPitcherNumber" type="text" inputmode="numeric" oninput="updateGameInfoField('pitcherNumbers.bottom', this.value)"></label>
                                     <label>一塁側<select id="gameInfoFirstBench" onchange="updateGameInfoField('benches.firstBaseSideTeamId', this.value)"><option value="team_top">先攻</option><option value="team_bottom">後攻</option></select></label>
                                     <label>三塁側<select id="gameInfoThirdBench" onchange="updateGameInfoField('benches.thirdBaseSideTeamId', this.value)"><option value="team_bottom">後攻</option><option value="team_top">先攻</option></select></label>
-                                    <label>試合終了<select id="gameRuleEndReason" onchange="updateGameInfoField('rules.endReason', this.value)"><option value="">通常</option><option value="walkoff">サヨナラ</option><option value="called">コールド</option><option value="suspended">継続試合/中断</option><option value="forfeit">没収試合</option></select></label>
+                                    <label>試合終了<select id="gameRuleEndReason" onchange="updateGameInfoField('rules.endReason', this.value)"><option value="">未終了</option><option value="completed">通常終了</option><option value="walkoff">サヨナラ</option><option value="called">コールド</option><option value="suspended">継続試合/中断</option><option value="forfeit">没収試合</option></select></label>
                                     <label id="gameRuleCalledToggleField" class="rule-toggle-field" for="gameRuleCalledEnabled"><span class="rule-toggle-text"><span class="rule-toggle-label">コールド採用</span><span id="gameRuleCalledState" class="rule-toggle-state">オフ</span></span><input id="gameRuleCalledEnabled" class="rule-toggle-input" type="checkbox" onchange="setCalledRuleEnabled(this.checked)"><span class="rule-toggle-switch" aria-hidden="true"></span></label>
                                     <div id="calledRuleOptionsPanel" class="called-rule-options" aria-hidden="true">
                                         <div class="called-rule-option-list">
@@ -6102,7 +6155,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.24";
+        const APP_VERSION = "0.3.25";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6585,6 +6638,7 @@
             selectedSheetCol: 0,
             scoreSheet: [],
             parsedInput: null,
+            fieldingDragBoardVisible: false,
             sheetZoom: 1
         };
 
@@ -6698,6 +6752,7 @@
                     { value: "throw_error_onbase", label: "送球エラー", group: "エラー系" },
                     { value: "receive_error_onbase", label: "捕球エラー", group: "エラー系" },
                     { value: "force_fc", label: "封殺＆Fc", group: "Fc系" },
+                    { value: "home_force_fc", label: "本塁封殺Fc", group: "Fc系" },
                     { value: "bunt_failed_fc", label: "バント失敗Fc", group: "Fc系" },
                     { value: "squeeze_failed_fc", label: "スクイズ失敗Fc", group: "Fc系" },
                     { value: "fc_all_safe", label: "Fcオールセーフ", group: "Fc系" },
@@ -6829,11 +6884,11 @@
             const context = createEmptyRunnerContext();
             const forceBaseFielder = Array.isArray(fieldSequence) ? fieldSequence[1] : null;
             if (forceBaseFielder === "2") {
-                addUniqueContextEntry(context.outsOnBases, "本塁アウト");
+                addUniqueContextEntry(context.outsOnBases, "本塁封殺");
             } else if (forceBaseFielder === "5") {
-                addUniqueContextEntry(context.outsOnBases, "三塁アウト");
+                addUniqueContextEntry(context.outsOnBases, "三塁封殺");
             } else if (forceBaseFielder === "4" || forceBaseFielder === "6") {
-                addUniqueContextEntry(context.outsOnBases, "二塁アウト");
+                addUniqueContextEntry(context.outsOnBases, "二塁封殺");
             }
             addUniqueContextEntry(context.advances, "打者走者一塁セーフ");
             return compactRunnerContext(context);
@@ -7555,6 +7610,7 @@
                     selectedSheetRow: state.selectedSheetRow,
                     selectedSheetCol: state.selectedSheetCol,
                     parsedInput: deepClone(state.parsedInput),
+                    fieldingDragBoardVisible: Boolean(state.fieldingDragBoardVisible),
                     sheetZoom: state.sheetZoom
                 },
                 naturalText: document.getElementById("naturalLanguageInput")?.value || "",
@@ -7578,6 +7634,7 @@
             Object.assign(state, deepClone(snapshot.state));
             state.inputLayout = state.inputLayout === "left" ? "left" : "right";
             state.scorebookStyle = state.scorebookStyle === "keio" ? "keio" : "waseda";
+            state.fieldingDragBoardVisible = Boolean(state.fieldingDragBoardVisible);
             state.correctionEditContext = null;
             state.playDetails = normalizePlayDetails(snapshot.state.playDetails);
             state.gameInfo = normalizeGameInfo(state.gameInfo || snapshot.game || {});
@@ -8634,8 +8691,8 @@
                 state.activeHalf = "top";
                 state.inputLayout = "right";
                 state.scorebookStyle = "waseda";
+                state.fieldingDragBoardVisible = false;
                 state.gameInfo = createDefaultGameInfo();
-                ensureGameStartDateTime();
                 state.teamNames = { top: "先攻", bottom: "後攻" };
                 state.playerNames = {
                     top: Array.from({ length: 9 }, () => ""),
@@ -9280,6 +9337,7 @@
 
         function getGameEndReasonLabel(value) {
             return {
+                completed: "通常終了",
                 walkoff: "サヨナラ",
                 called: "コールド",
                 suspended: "継続試合/中断",
@@ -9315,6 +9373,37 @@
             state.gameInfo = normalizeGameInfo(state.gameInfo);
             state.gameInfo.rules.endReason = "walkoff";
             setElementValue("gameRuleEndReason", "walkoff");
+            ensureGameEndDateTime();
+            return true;
+        }
+
+        function shouldAutoEndByCompletedHalf(endedHalf, inning) {
+            if (hasGameEndReason()) {
+                return false;
+            }
+            const normalizedHalf = endedHalf === "bottom" ? "bottom" : "top";
+            const inningNumber = Number(inning);
+            if (!Number.isInteger(inningNumber) || inningNumber < 9) {
+                return false;
+            }
+            const topTotal = getLineScoreTotal(calculateLineScore("top"));
+            const bottomTotal = getLineScoreTotal(calculateLineScore("bottom"));
+            if (topTotal === bottomTotal) {
+                return false;
+            }
+            if (normalizedHalf === "top") {
+                return bottomTotal > topTotal;
+            }
+            return true;
+        }
+
+        function markCompletedGameEndIfNeeded(endedHalf, inning) {
+            if (!shouldAutoEndByCompletedHalf(endedHalf, inning)) {
+                return false;
+            }
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            state.gameInfo.rules.endReason = "completed";
+            setElementValue("gameRuleEndReason", "completed");
             ensureGameEndDateTime();
             return true;
         }
@@ -9659,9 +9748,9 @@
         }
 
         function createPrintLineScoreTable() {
-            const innings = Array.from({ length: MAX_INNINGS }, (_, index) => index + 1);
             const topLine = calculateLineScore("top");
             const bottomLine = calculateLineScore("bottom");
+            const innings = getLineScoreDisplayInnings(topLine, bottomLine, { includeCurrentInning: false });
             const table = document.createElement("table");
             table.className = "print-line-score-table";
             const buildRow = (label, line, isHeader = false) => {
@@ -9688,7 +9777,7 @@
             if (endStatus) {
                 const noteRow = document.createElement("tr");
                 appendPrintCell(noteRow, "th", "備考");
-                appendPrintCell(noteRow, "td", endStatus, MAX_INNINGS + 3);
+                appendPrintCell(noteRow, "td", endStatus, innings.length + 3);
                 table.appendChild(noteRow);
             }
             return table;
@@ -10042,9 +10131,9 @@
         }
 
         function appendPrintTextSummaryScoreboard(page) {
-            const innings = Array.from({ length: MAX_INNINGS }, (_, index) => index + 1);
             const topLine = calculateLineScore("top");
             const bottomLine = calculateLineScore("bottom");
+            const innings = getLineScoreDisplayInnings(topLine, bottomLine, { includeCurrentInning: false });
             const table = document.createElement("table");
             table.className = "print-summary-scoreboard";
             const header = document.createElement("tr");
@@ -10066,7 +10155,7 @@
             if (endStatus) {
                 const noteRow = document.createElement("tr");
                 appendPrintCell(noteRow, "td", "備考", 1, "team-cell");
-                appendPrintCell(noteRow, "td", endStatus, MAX_INNINGS + 1);
+                appendPrintCell(noteRow, "td", endStatus, innings.length + 1);
                 table.appendChild(noteRow);
             }
             page.appendChild(table);
@@ -10447,8 +10536,6 @@
         function prepareScorebookPrintMode() {
             if (hasGameEndReason()) {
                 ensureGameEndDateTime();
-            } else {
-                ensureGameStartDateTime();
             }
             applyPrintDocumentTitle();
             toggleTopWorkspace(true);
@@ -11321,6 +11408,14 @@
             if (!board) {
                 return;
             }
+            if (board.parentElement !== document.body) {
+                document.body.appendChild(board);
+            }
+            if (!state.fieldingDragBoardVisible) {
+                board.innerHTML = "";
+                board.classList.add("is-hidden");
+                return;
+            }
             const battingHalf = state.activeHalf === "bottom" ? "bottom" : "top";
             const defenseHalf = getOpponentHalf(battingHalf);
             const assignments = getCurrentFieldingAssignments(defenseHalf);
@@ -11336,7 +11431,9 @@
             }
 
             board.classList.remove("is-hidden");
-            board.innerHTML = getFieldingDragRows().map((row) => {
+            board.innerHTML = [
+                '<div class="fielding-drag-header"><span>' + escapeHtml(getTeamDisplayName(defenseHalf)) + ' 守備位置</span><button type="button" onclick="hideFieldingDragBoard()">閉じる</button></div>',
+                ...getFieldingDragRows().map((row) => {
                 const slots = row.map((position) => {
                     const name = String(assignments[position]?.name || "").trim();
                     const slotClass = "fielding-drag-slot" + (name ? "" : " is-empty");
@@ -11354,7 +11451,22 @@
                     ].join("");
                 }).join("");
                 return '<div class="fielding-drag-row" data-row-size="' + row.length + '">' + slots + '</div>';
-            }).join("");
+                })
+            ].join("");
+        }
+
+        function showFieldingDragBoardForCurrentDefense() {
+            const context = getCurrentDefenseChangeContext();
+            closeDefenseChangeMenu();
+            state.fieldingDragBoardVisible = true;
+            renderFieldingDragBoard();
+            updateRunnerGuiStatus(getTeamDisplayName(context.defenseHalf) + "の守備位置を長押しして入れ替えます。");
+        }
+
+        function hideFieldingDragBoard() {
+            state.fieldingDragBoardVisible = false;
+            cancelFieldingDrag();
+            renderFieldingDragBoard();
         }
 
         function clearFieldingDragTimer() {
@@ -11902,6 +12014,7 @@
                 '<div class="defense-change-menu-actions">',
                     '<button type="button" class="primary" onclick="openPitcherChangeDialogForCurrentDefense()">投手交代</button>',
                     '<button type="button" onclick="openSheetChangeDialogForCurrentDefense()">シート変更</button>',
+                    '<button type="button" onclick="showFieldingDragBoardForCurrentDefense()">ドラッグ入替</button>',
                     '<button type="button" onclick="closeDefenseChangeMenu()">キャンセル</button>',
                 '</div>'
             ].join("");
@@ -12097,7 +12210,7 @@
             if (!pendingSheetChangeConfirm) {
                 return;
             }
-            const { teamHalf, beforeLineup, afterLineup, changes, base } = pendingSheetChangeConfirm;
+            const { teamHalf, beforeLineup, afterLineup, changes, base, source } = pendingSheetChangeConfirm;
             setElementValue("fieldingChangeTeam", teamHalf);
             setElementValue("fieldingChangeInning", base.inning);
             setElementValue("fieldingChangeHalf", base.half);
@@ -12105,6 +12218,10 @@
             setElementValue("fieldingChangeNote", base.note);
             applySheetChangeLineup(teamHalf, beforeLineup, afterLineup);
             saveFieldingChanges(teamHalf, changes);
+            if (source === "fielding-drag") {
+                state.fieldingDragBoardVisible = false;
+                renderFieldingDragBoard();
+            }
             closeSheetChangeConfirmDialog();
             closeSheetChangeDialog();
         }
@@ -12323,7 +12440,7 @@
             return total;
         }
 
-        function getLineScoreDisplayInnings(topLine, bottomLine) {
+        function getLineScoreDisplayInnings(topLine, bottomLine, options = {}) {
             let maxInning = 9;
             [topLine, bottomLine].forEach((line) => {
                 for (let index = 9; index < MAX_INNINGS; index += 1) {
@@ -12332,9 +12449,11 @@
                     }
                 }
             });
-            const currentInning = Number(getColumnInningLabel());
-            if (Number.isInteger(currentInning) && currentInning > 9) {
-                maxInning = Math.max(maxInning, Math.min(MAX_INNINGS, currentInning));
+            if (options.includeCurrentInning !== false) {
+                const currentInning = Number(getColumnInningLabel());
+                if (Number.isInteger(currentInning) && currentInning > 9) {
+                    maxInning = Math.max(maxInning, Math.min(MAX_INNINGS, currentInning));
+                }
             }
             return Array.from({ length: Math.min(MAX_INNINGS, maxInning) }, (_, index) => index + 1);
         }
@@ -12434,6 +12553,10 @@
             const buildRow = (label, line, isHeader = false, half = "") => {
                 const scores = line.scores || [];
                 const recorded = line.recorded || [];
+                const rowClasses = ["line-score-row"];
+                if (!isHeader && state.activeHalf === half) {
+                    rowClasses.push("is-active-half");
+                }
                 const cells = [
                     '<div class="line-score-cell">' + label + '</div>',
                     ...innings.map((inning) => {
@@ -12457,7 +12580,7 @@
                     '<div class="line-score-cell is-total-hit">' + (isHeader ? "H" : (line.hits || 0)) + '</div>',
                     '<div class="line-score-cell is-total-error">' + (isHeader ? "E" : (line.errors || 0)) + '</div>'
                 ];
-                return '<div class="line-score-row">' + cells.join("") + '</div>';
+                return '<div class="' + rowClasses.join(" ") + '">' + cells.join("") + '</div>';
             };
 
             board.innerHTML = [
@@ -13655,7 +13778,7 @@
         }
 
         function captureAtBatSnapshot() {
-            return {
+            const snapshot = {
                 pitches: [...state.pitches],
                 pitchNotes: [...state.pitchNotes],
                 pitchComments: deepClone(state.pitchComments || []),
@@ -13682,6 +13805,13 @@
                 atBatCommentMeta: state.atBatComment ? deepClone(state.atBatCommentMeta || captureCommentTimingMeta()) : null,
                 playDetails: deepClone(normalizePlayDetails(state.playDetails))
             };
+            if (
+                snapshot.modifiers?.doublePlay
+                && isOutfieldReturnDoublePlaySequence(snapshot.fieldSequence)
+            ) {
+                snapshot.selectedBallType = "fly";
+            }
+            return snapshot;
         }
 
         function createSnapshotPreviewCopy(snapshot) {
@@ -15405,6 +15535,9 @@
 
         function resolveDoublePlayRunnerNote(snapshot) {
             const sequence = snapshot.fieldSequence || [];
+            if (isOutfieldReturnDoublePlaySequence(sequence)) {
+                return formatFieldSequenceForSheet(sequence);
+            }
             if (sequence.length >= 2) {
                 return formatFieldSequenceForSheet(sequence.slice(0, -1));
             }
@@ -15439,6 +15572,21 @@
                 }
             }
             return pieces.join("-");
+        }
+
+        function isOutfieldReturnDoublePlaySequence(sequence) {
+            const steps = Array.isArray(sequence) ? sequence.filter(Boolean) : [];
+            return steps.length === 2 && /^[789]$/.test(steps[0]) && steps[1] === "3";
+        }
+
+        function normalizeReturnDoublePlayBallType(parsed) {
+            if (
+                parsed?.modifiers?.doublePlay
+                && isOutfieldReturnDoublePlaySequence(parsed.fieldSequence)
+            ) {
+                parsed.ballType = "fly";
+            }
+            return parsed;
         }
 
         function getForceRetiredBaseIndexForReceiver(receiver) {
@@ -15504,6 +15652,9 @@
             }
             const sequence = snapshot.fieldSequence || [];
             const sequenceText = formatFieldSequenceForSheet(sequence);
+            if (isOutfieldReturnDoublePlaySequence(sequence)) {
+                return sequenceText + ": 飛球後に一塁走者が戻れずアウト。打者走者はアウト扱いしません";
+            }
             if (sequence.length < 3) {
                 return sequenceText ? sequenceText + ": 通常の併殺として判定" : "通常の併殺として判定";
             }
@@ -18439,7 +18590,8 @@
                 "BH": "バントヒット",
                 "G": "内野安打"
             };
-            return labels[displayed] || labels[snapshot.result] || displayed;
+            const labelText = labels[displayed] || labels[snapshot.result] || displayed;
+            return labelText ? labelText + runnerSuffix : "";
         }
 
         function getSharePlayerNameForRow(half, row) {
@@ -18518,27 +18670,30 @@
             return details;
         }
 
-        function formatSnapshotForInningDraft(half, row, snapshot, extraResultTexts = []) {
+        function formatSnapshotForInningDraft(half, row, snapshot, extraResultTexts = [], options = {}) {
             const playerName = splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || "未登録（" + (row + 1) + "番）";
+            const includeComments = options.includeComments !== false;
             const result = [
                 getShareResultText(snapshot, { includeScoringEvents: false, includeLaterRunnerEvents: false }),
-                formatPlayDetailsForShare(snapshot?.playDetails),
+                includeComments ? formatPlayDetailsForShare(snapshot?.playDetails) : "",
                 ...extraResultTexts
             ].filter(Boolean).join("、");
-            const atBatComment = String(snapshot?.atBatComment || "").trim();
-            const pitchCommentText = (snapshot?.pitchComments || [])
-                .filter((item) => item?.text)
-                .map((item) => {
-                    const timing = getPitchCommentTimingLabel(item);
-                    return String(item.text).trim() + (timing ? "（" + timing + "）" : "");
-                })
-                .join(" / ");
+            const atBatComment = includeComments ? String(snapshot?.atBatComment || "").trim() : "";
+            const pitchCommentText = includeComments
+                ? (snapshot?.pitchComments || [])
+                    .filter((item) => item?.text)
+                    .map((item) => {
+                        const timing = getPitchCommentTimingLabel(item);
+                        return String(item.text).trim() + (timing ? "（" + timing + "）" : "");
+                    })
+                    .join(" / ")
+                : "";
             const noteText = [pitchCommentText, atBatComment].filter(Boolean).join(" / ");
             const detail = [noteText, result].filter(Boolean).join("　");
             return playerName + "　" + (detail || "記録あり");
         }
 
-        function buildInningShareDraft(transition) {
+        function buildInningShareDraft(transition, options = {}) {
             const battingHalf = transition.endedHalf;
             const defenseHalf = getOpponentHalf(battingHalf);
             const battingTeam = getTeamDisplayName(battingHalf);
@@ -18579,7 +18734,8 @@
                     [
                         ...(runnerOutDetailsByBatter.get(entry.row + 1) || []),
                         ...(scoringDetailsByBatter.get(entry.row + 1) || [])
-                    ]
+                    ],
+                    options
                 ));
             });
 
@@ -18611,6 +18767,32 @@
         function shouldIncludeScorebookAppUrlInDraft() {
             const checkbox = document.getElementById("inningShareIncludeUrlCheckbox");
             return checkbox ? checkbox.checked : true;
+        }
+
+        function shouldIncludeInningShareCommentsInDraft() {
+            const checkbox = document.getElementById("inningShareIncludeCommentsCheckbox");
+            return checkbox ? checkbox.checked : true;
+        }
+
+        function buildInningShareDraftFromCurrentOptions() {
+            if (!pendingInningTransition) {
+                return "";
+            }
+            const withHashtag = ensureCuViuHashtag(buildInningShareDraft(pendingInningTransition, {
+                includeComments: shouldIncludeInningShareCommentsInDraft()
+            }));
+            return shouldIncludeScorebookAppUrlInDraft()
+                ? ensureScorebookAppUrl(withHashtag)
+                : removeScorebookAppUrl(withHashtag);
+        }
+
+        function refreshInningShareDraftFromOptions() {
+            const textarea = document.getElementById("inningShareDraftText");
+            if (!textarea) {
+                return "";
+            }
+            textarea.value = buildInningShareDraftFromCurrentOptions();
+            return textarea.value;
         }
 
         function applyInningShareDraftUrlPreference() {
@@ -18674,8 +18856,9 @@
             popup.innerHTML = [
                 '<div class="comment-popup-title">Xポスト下書き <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
                 '<textarea id="inningShareDraftText" onfocus="this.select()" onclick="this.select()">' + escapeHtml(draft) + '</textarea>',
+                '<div class="inning-share-options"><label><input id="inningShareIncludeCommentsCheckbox" type="checkbox" checked onchange="refreshInningShareDraftFromOptions()">一言メモ/詳細を入れる</label></div>',
                 '<div class="inning-share-options"><label><input id="inningShareIncludeUrlCheckbox" type="checkbox" checked onchange="applyInningShareDraftUrlPreference()">アプリURLを付ける</label></div>',
-                '<div id="inningShareCopyStatus" class="inning-share-options">コピーできない場合は「Xで開く」を使うか、文面を長押ししてコピーしてください。</div>',
+                '<div id="inningShareCopyStatus" class="inning-share-options">Xで投稿/取り消し後は、この画面に戻って「' + escapeHtml(continueText) + '」を押してください。</div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
                 '<button type="button" data-x-post-open="true" onclick="openXPostDraft()">Xで開く</button>',
@@ -18708,9 +18891,16 @@
                 popup.insertBefore(options, document.getElementById("inningShareCopyStatus") || popup.querySelector(".comment-popup-actions"));
                 applyInningShareDraftUrlPreference();
             }
+            if (popup && !document.getElementById("inningShareIncludeCommentsCheckbox")) {
+                const options = document.createElement("div");
+                options.className = "inning-share-options";
+                options.innerHTML = '<label><input id="inningShareIncludeCommentsCheckbox" type="checkbox" checked onchange="refreshInningShareDraftFromOptions()">一言メモ/詳細を入れる</label>';
+                popup.insertBefore(options, document.getElementById("inningShareIncludeUrlCheckbox")?.closest(".inning-share-options") || document.getElementById("inningShareCopyStatus") || popup.querySelector(".comment-popup-actions"));
+            }
             const status = document.getElementById("inningShareCopyStatus");
-            if (status && !status.textContent.includes("Xで開く")) {
-                status.textContent = "コピーできない場合は「Xで開く」を使うか、文面を長押ししてコピーしてください。";
+            if (status && !status.textContent.includes("投稿/取り消し後")) {
+                const continueText = isGameEndingTransition(pendingInningTransition) ? "試合終了として閉じる" : "次の攻撃へ";
+                status.textContent = "Xで投稿/取り消し後は、この画面に戻って「" + continueText + "」を押してください。";
             }
             const actions = popup?.querySelector(".comment-popup-actions");
             if (actions && !actions.querySelector("[data-x-post-open]") && !Array.from(actions.querySelectorAll("button")).some((button) => button.textContent.trim() === "Xで開く")) {
@@ -18789,6 +18979,11 @@
                 return;
             }
             applyInningShareDraftUrlPreference();
+            const status = document.getElementById("inningShareCopyStatus");
+            if (status) {
+                const continueText = isGameEndingTransition(pendingInningTransition) ? "試合終了として閉じる" : "次の攻撃へ";
+                status.textContent = "Xを閉じたら、この画面に戻って「" + continueText + "」を押してください。";
+            }
             const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(textarea.value);
             window.open(url, "_blank", "noopener,noreferrer");
         }
@@ -18982,7 +19177,6 @@
         }
 
         function saveCurrentToSheet() {
-            ensureGameStartDateTime();
             const snapshot = captureAtBatSnapshot();
             if (isBatterSafeFielderChoice(snapshot)) {
                 snapshot.outScore = "";
@@ -19088,6 +19282,7 @@
             if (getMaxOutCountForActiveInning() < 3) {
                 return false;
             }
+            markCompletedGameEndIfNeeded(state.activeHalf, getColumnInningLabel());
             const transition = createRunnerOnlyInningEndTransition(runnerRef, runnerActionSummary);
             prepareInningTransitionState(transition);
             if (shouldSkipInningShareDialog()) {
@@ -19126,6 +19321,7 @@
                 const endedHalf = state.activeHalf;
                 const currentCol = state.selectedSheetCol;
                 const currentInning = getColumnInningLabel(currentCol, endedHalf);
+                markCompletedGameEndIfNeeded(endedHalf, currentInning);
                 const nextBatterRow = (state.selectedSheetRow + 1) % 9;
                 const nextInningCol = findColumnForInning(endedHalf, currentInning + 1);
                 const nextHalf = endedHalf === "top" ? "bottom" : "top";
@@ -22253,6 +22449,17 @@
                         parsed.runnerContext.outsOnBases.push(getForceOutLabelFromSequence(sequence));
                         parsed.runnerContext.advances.push("打者走者一塁セーフ");
                         break;
+                    case "home_force_fc":
+                        if (sequence.length < 2) {
+                            sequence = [parsed.fielder && parsed.fielder !== "?" ? parsed.fielder : "?", "2"];
+                            parsed.fieldSequence = sequence;
+                            parsed.fielder = sequence[0];
+                        }
+                        parsed.result = parsed.result || "Fc";
+                        parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
+                        parsed.runnerContext.outsOnBases.push("本塁封殺");
+                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        break;
                     case "bunt_failed_fc":
                         parsed.result = parsed.result || "Fc";
                         parsed.ballType = "ground";
@@ -22563,6 +22770,7 @@
             ) {
                 parsed.runnerContext = null;
             }
+            normalizeReturnDoublePlayBallType(parsed);
             return parsed.result ? parsed : null;
         }
 
@@ -24016,6 +24224,7 @@
         }
 
         function applyParsedInput(parsed) {
+            parsed = normalizeReturnDoublePlayBallType(parsed);
             const preservedPitches = [...state.pitches];
             const preservedPitchNotes = [...state.pitchNotes];
             const preservedPitchComments = deepClone(state.pitchComments || []);
@@ -24740,6 +24949,7 @@
 
         function addPitch(symbol) {
             pushGameHistory();
+            ensureGameStartDateTime();
             state.pitches.push(symbol);
             state.pitchNotes.push("");
             state.pitchComments.push(null);
