@@ -782,6 +782,18 @@
             background: #dbeafe;
         }
 
+        .fielding-drag-slot.is-changed {
+            border-color: #ef4444;
+            background: #fff1f2;
+            color: #991b1b;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12);
+        }
+
+        .fielding-drag-slot.is-changed .fielding-drag-position,
+        .fielding-drag-slot.is-changed .fielding-drag-name {
+            color: #991b1b;
+        }
+
         .fielding-drag-position {
             color: #1f7a8c;
             font-size: 10px;
@@ -914,10 +926,13 @@
         }
 
         .game-mini-score-row.game-mini-active .game-mini-team {
+            display: block;
+            width: 100%;
             color: #172331;
-            background: linear-gradient(transparent 45%, #fde68a 45%);
-            border-radius: 3px;
-            padding: 0 2px;
+            background: #fde68a;
+            border-radius: 4px;
+            padding: 1px 4px;
+            line-height: 1.35;
         }
 
         .game-mini-team {
@@ -2748,7 +2763,7 @@
 
         .line-score-row.is-active-half .line-score-cell:first-child {
             color: #172331;
-            background: linear-gradient(transparent 45%, #fde68a 45%);
+            background: #fde68a;
         }
 
         .line-score-cell:last-child {
@@ -4684,6 +4699,16 @@
             white-space: nowrap;
         }
 
+        .sheet-change-cell.is-changed {
+            background: #fff1f2;
+        }
+
+        .sheet-change-cell.is-changed strong,
+        .sheet-change-cell.is-changed small,
+        .sheet-change-position.is-changed {
+            color: #991b1b;
+        }
+
         .sheet-change-order {
             justify-content: center;
             background: #f8fafc;
@@ -4731,6 +4756,14 @@
             padding-right: 4px;
         }
 
+        .sheet-change-after input.is-changed,
+        .sheet-change-after select.is-changed {
+            border-color: #ef4444;
+            background: #fff1f2;
+            color: #991b1b;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12);
+        }
+
         .sheet-change-preview {
             display: grid;
             gap: 6px;
@@ -4747,6 +4780,12 @@
 
         .sheet-change-preview strong {
             color: #0f4f4a;
+            font-weight: 950;
+        }
+
+        .sheet-change-preview-change {
+            display: block;
+            color: #991b1b;
             font-weight: 950;
         }
 
@@ -6250,7 +6289,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.27";
+        const APP_VERSION = "0.3.28";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11519,13 +11558,16 @@
             return getCurrentFieldingAssignments(normalizedTeamHalf);
         }
 
-        function renderFieldingDragRowsHtml(assignments, teamHalf, source = "standalone") {
+        function renderFieldingDragRowsHtml(assignments, teamHalf, source = "standalone", options = {}) {
             const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
             const dragSource = source || "standalone";
+            const changedPositions = options.changedPositions || new Set();
             return getFieldingDragRows().map((row) => {
                 const slots = row.map((position) => {
                     const name = String(assignments[position]?.name || "").trim();
-                    const slotClass = "fielding-drag-slot" + (name ? "" : " is-empty");
+                    const slotClass = "fielding-drag-slot"
+                        + (name ? "" : " is-empty")
+                        + (changedPositions.has(position) ? " is-changed" : "");
                     const label = getCompactFieldingPositionLabel(position);
                     return [
                         '<button type="button" class="' + slotClass + '"',
@@ -12064,12 +12106,12 @@
             return (beforeLineup || []).map((row) => {
                 const positionText = row.position ? formatFieldingPositionValue(row.position) : "守備なし";
                 return [
-                    '<div class="sheet-change-cell sheet-change-order">' + escapeHtml(row.battingOrder + "番") + '</div>',
-                    '<div class="sheet-change-cell sheet-change-before"><strong>' + escapeHtml(row.name || "未登録") + '</strong><small>' + escapeHtml(positionText) + '</small></div>',
-                    '<div class="sheet-change-cell sheet-change-after">',
+                    '<div class="sheet-change-cell sheet-change-order" data-sheet-change-row="' + row.index + '">' + escapeHtml(row.battingOrder + "番") + '</div>',
+                    '<div class="sheet-change-cell sheet-change-before" data-sheet-change-row="' + row.index + '"><strong>' + escapeHtml(row.name || "未登録") + '</strong><small>' + escapeHtml(positionText) + '</small></div>',
+                    '<div class="sheet-change-cell sheet-change-after" data-sheet-change-row="' + row.index + '">',
                     '<input id="sheetChangeAfterName_' + row.index + '" list="registeredPlayerNameOptions" value="' + escapeHtml(row.name) + '" aria-label="' + escapeHtml(row.battingOrder + '番 変更後選手名') + '" oninput="updateSheetChangeDraft()">',
                     '</div>',
-                    '<div class="sheet-change-cell sheet-change-after">',
+                    '<div class="sheet-change-cell sheet-change-after" data-sheet-change-row="' + row.index + '">',
                     '<select id="sheetChangeAfterPosition_' + row.index + '" aria-label="' + escapeHtml(row.battingOrder + '番 変更後守備') + '" onchange="updateSheetChangeDraft()">' + getRosterPositionOptions(row.position) + '</select>',
                     '</div>'
                 ].join("");
@@ -12238,13 +12280,74 @@
             });
         }
 
+        function getSheetChangeDialogComparison() {
+            const teamHalf = document.getElementById("sheetChangeTeam")?.value === "bottom" ? "bottom" : "top";
+            return {
+                teamHalf,
+                beforeLineup: getCurrentSheetChangeLineup(teamHalf),
+                afterLineup: readSheetChangeAfterLineup()
+            };
+        }
+
+        function isSheetChangeLineupRowChanged(beforeRow, afterRow) {
+            const beforeName = String(beforeRow?.name || "").trim();
+            const afterName = String(afterRow?.name || "").trim();
+            const beforePosition = normalizeFieldingPositionValue(beforeRow?.position || "");
+            const afterPosition = normalizeFieldingPositionValue(afterRow?.position || "");
+            return beforeName !== afterName || beforePosition !== afterPosition;
+        }
+
+        function getSheetChangeChangedPositions(beforeLineup, afterLineup) {
+            const changedPositions = new Set();
+            const beforeAssignments = buildFieldingAssignmentsFromLineup(beforeLineup);
+            const afterAssignments = buildFieldingAssignmentsFromLineup(afterLineup);
+            FIELDING_POSITION_ORDER.forEach((position) => {
+                if (String(beforeAssignments[position]?.name || "").trim() !== String(afterAssignments[position]?.name || "").trim()) {
+                    changedPositions.add(position);
+                }
+            });
+            (beforeLineup || []).forEach((beforeRow, index) => {
+                const afterRow = afterLineup?.[index] || {};
+                if (!isSheetChangeLineupRowChanged(beforeRow, afterRow)) {
+                    return;
+                }
+                [beforeRow?.position, afterRow?.position].forEach((position) => {
+                    const normalizedPosition = normalizeFieldingPositionValue(position || "");
+                    if (FIELDING_POSITION_ORDER.includes(normalizedPosition)) {
+                        changedPositions.add(normalizedPosition);
+                    }
+                });
+            });
+            return changedPositions;
+        }
+
+        function updateSheetChangeTableHighlights() {
+            const dialog = document.getElementById("sheetChangeDialog");
+            if (!dialog?.classList.contains("is-open")) {
+                return;
+            }
+            const { beforeLineup, afterLineup } = getSheetChangeDialogComparison();
+            Array.from({ length: 9 }, (_, index) => {
+                const beforeRow = beforeLineup[index] || {};
+                const afterRow = afterLineup[index] || {};
+                const nameChanged = String(beforeRow.name || "").trim() !== String(afterRow.name || "").trim();
+                const positionChanged = normalizeFieldingPositionValue(beforeRow.position || "") !== normalizeFieldingPositionValue(afterRow.position || "");
+                const rowChanged = nameChanged || positionChanged;
+                document.querySelectorAll('[data-sheet-change-row="' + index + '"]')
+                    .forEach((cell) => cell.classList.toggle("is-changed", rowChanged));
+                document.getElementById("sheetChangeAfterName_" + index)?.classList.toggle("is-changed", nameChanged);
+                document.getElementById("sheetChangeAfterPosition_" + index)?.classList.toggle("is-changed", positionChanged);
+            });
+        }
+
         function renderSheetChangeDialogDragBoard() {
             const board = document.getElementById("sheetChangeDragBoard");
             if (!board) {
                 return;
             }
-            const teamHalf = document.getElementById("sheetChangeTeam")?.value === "bottom" ? "bottom" : "top";
-            const assignments = buildFieldingAssignmentsFromLineup(readSheetChangeAfterLineup());
+            const { teamHalf, beforeLineup, afterLineup } = getSheetChangeDialogComparison();
+            const assignments = buildFieldingAssignmentsFromLineup(afterLineup);
+            const changedPositions = getSheetChangeChangedPositions(beforeLineup, afterLineup);
             const assignedCount = FIELDING_POSITION_ORDER
                 .filter((position) => String(assignments[position]?.name || "").trim())
                 .length;
@@ -12264,13 +12367,14 @@
             }
             board.innerHTML = [
                 headerHtml,
-                renderFieldingDragRowsHtml(assignments, teamHalf, "sheet-change-dialog")
+                renderFieldingDragRowsHtml(assignments, teamHalf, "sheet-change-dialog", { changedPositions })
             ].join("");
         }
 
         function updateSheetChangeDraft() {
             renderSheetChangeDialogDragBoard();
             updateSheetChangePreview();
+            updateSheetChangeTableHighlights();
         }
 
         function applySheetChangeDialogDragSwap(teamHalf, fromPosition, toPosition) {
@@ -12343,7 +12447,8 @@
                 preview.innerHTML = "差分なし";
                 return;
             }
-            preview.innerHTML = '<strong>登録予定 ' + changes.length + '件</strong>' + changes.map(formatSheetChangePreviewText).join("<br>");
+            preview.innerHTML = '<strong>登録予定 ' + changes.length + '件</strong>'
+                + changes.map((change) => '<span class="sheet-change-preview-change">' + formatSheetChangePreviewText(change) + '</span>').join("");
         }
 
         function ensureSheetChangeConfirmDialog() {
@@ -12384,11 +12489,15 @@
             return (beforeLineup || []).map((beforeRow, index) => {
                 const afterRow = afterLineup?.[index] || {};
                 const afterPosition = afterRow.position ? formatFieldingPositionValue(afterRow.position) : "守備なし";
+                const rowChanged = isSheetChangeLineupRowChanged(beforeRow, afterRow);
+                const beforeClass = "sheet-change-cell sheet-change-before" + (rowChanged ? " is-changed" : "");
+                const afterClass = "sheet-change-cell sheet-change-before" + (rowChanged ? " is-changed" : "");
+                const positionClass = "sheet-change-cell sheet-change-position" + (rowChanged ? " is-changed" : "");
                 return [
                     '<div class="sheet-change-cell sheet-change-order">' + escapeHtml((index + 1) + "番") + '</div>',
-                    '<div class="sheet-change-cell sheet-change-before">' + formatSheetChangeLineupCompareCell(beforeRow) + '</div>',
-                    '<div class="sheet-change-cell sheet-change-before">' + formatSheetChangeLineupCompareCell(afterRow) + '</div>',
-                    '<div class="sheet-change-cell sheet-change-position">' + escapeHtml(afterPosition) + '</div>'
+                    '<div class="' + beforeClass + '">' + formatSheetChangeLineupCompareCell(beforeRow) + '</div>',
+                    '<div class="' + afterClass + '">' + formatSheetChangeLineupCompareCell(afterRow) + '</div>',
+                    '<div class="' + positionClass + '">' + escapeHtml(afterPosition) + '</div>'
                 ].join("");
             }).join("");
         }
@@ -12402,7 +12511,7 @@
                 '<div class="comment-popup-title">シート変更の確認: ' + escapeHtml(teamName) + '</div>',
                 '<div class="sheet-change-confirm-summary">',
                 '<strong>登録予定 ' + data.changes.length + '件</strong>',
-                data.changes.map(formatSheetChangePreviewText).join("<br>"),
+                data.changes.map((change) => '<span class="sheet-change-preview-change">' + formatSheetChangePreviewText(change) + '</span>').join(""),
                 '</div>',
                 '<div class="sheet-change-table">',
                 '<div class="sheet-change-cell sheet-change-header">打順</div>',
