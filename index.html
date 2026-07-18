@@ -685,9 +685,15 @@
             white-space: nowrap;
         }
 
-        .fielding-drag-header button {
+        .fielding-drag-header-actions {
             flex: 0 0 auto;
-            min-width: 52px;
+            display: flex;
+            gap: 4px;
+        }
+
+        .fielding-drag-header-actions button {
+            flex: 0 0 auto;
+            min-width: 54px;
             min-height: 24px;
             padding: 2px 7px;
             border: 1px solid #cfe2f3;
@@ -697,6 +703,28 @@
             font-size: 10px;
             font-weight: 900;
             white-space: nowrap;
+        }
+
+        .fielding-drag-empty {
+            padding: 12px;
+            border: 1px solid #dbeafe;
+            border-radius: 10px;
+            background: #f8fbff;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.45;
+        }
+
+        .fielding-drag-empty button {
+            width: 100%;
+            min-height: 34px;
+            margin-top: 8px;
+            border: 2px solid #1f7a8c;
+            border-radius: 10px;
+            background: #ffffff;
+            color: #0f4f4a;
+            font-weight: 900;
         }
 
         .fielding-drag-row[data-row-size="2"] {
@@ -5446,18 +5474,18 @@
             }
 
             .fielding-drag-board {
-                width: min(100%, 154px);
-                gap: 1px;
-                margin-bottom: 3px;
-                padding: 2px;
-                border-radius: 8px;
+                width: min(calc(100vw - 28px), 360px);
+                gap: 4px;
+                margin-bottom: 6px;
+                padding: 6px;
+                border-radius: 14px;
             }
 
             .fielding-drag-slot {
-                min-height: 20px;
-                padding: 1px 2px;
-                border-radius: 6px;
-                font-size: 7px;
+                min-height: 36px;
+                padding: 3px 4px;
+                border-radius: 9px;
+                font-size: 10px;
             }
 
             .fielding-drag-name {
@@ -6155,7 +6183,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.25";
+        const APP_VERSION = "0.3.26";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11424,15 +11452,30 @@
                 .length;
 
             board.dataset.teamHalf = defenseHalf;
+            const headerHtml = [
+                '<div class="fielding-drag-header">',
+                '<span>' + escapeHtml(getTeamDisplayName(defenseHalf)) + ' 守備位置</span>',
+                '<div class="fielding-drag-header-actions">',
+                '<button type="button" onclick="openManualSheetChangeDialogForCurrentDefense()">手動入力</button>',
+                '<button type="button" onclick="hideFieldingDragBoard()">閉じる</button>',
+                '</div>',
+                '</div>'
+            ].join("");
             if (!assignedCount) {
-                board.innerHTML = "";
-                board.classList.add("is-hidden");
+                board.classList.remove("is-hidden");
+                board.innerHTML = [
+                    headerHtml,
+                    '<div class="fielding-drag-empty">',
+                    '<div>守備位置が未登録です。選手名と守備位置を入れると、ここで指ドラッグ入替が使えます。</div>',
+                    '<button type="button" onclick="openManualSheetChangeDialogForCurrentDefense()">手動で登録する</button>',
+                    '</div>'
+                ].join("");
                 return;
             }
 
             board.classList.remove("is-hidden");
             board.innerHTML = [
-                '<div class="fielding-drag-header"><span>' + escapeHtml(getTeamDisplayName(defenseHalf)) + ' 守備位置</span><button type="button" onclick="hideFieldingDragBoard()">閉じる</button></div>',
+                headerHtml,
                 ...getFieldingDragRows().map((row) => {
                 const slots = row.map((position) => {
                     const name = String(assignments[position]?.name || "").trim();
@@ -12013,8 +12056,8 @@
                 '<div class="comment-popup-body">' + escapeHtml(context.inning + '回' + getHalfLabel(context.battingHalf) + '・' + battingName + '攻撃 ' + context.battingOrder + '番から') + '</div>',
                 '<div class="defense-change-menu-actions">',
                     '<button type="button" class="primary" onclick="openPitcherChangeDialogForCurrentDefense()">投手交代</button>',
-                    '<button type="button" onclick="openSheetChangeDialogForCurrentDefense()">シート変更</button>',
-                    '<button type="button" onclick="showFieldingDragBoardForCurrentDefense()">ドラッグ入替</button>',
+                    '<button type="button" onclick="showFieldingDragBoardForCurrentDefense()">シート変更</button>',
+                    '<button type="button" onclick="openManualSheetChangeDialogForCurrentDefense()">手動入力</button>',
                     '<button type="button" onclick="closeDefenseChangeMenu()">キャンセル</button>',
                 '</div>'
             ].join("");
@@ -12038,8 +12081,13 @@
         }
 
         function openSheetChangeDialogForCurrentDefense() {
+            showFieldingDragBoardForCurrentDefense();
+        }
+
+        function openManualSheetChangeDialogForCurrentDefense() {
             const context = getCurrentDefenseChangeContext();
             closeDefenseChangeMenu();
+            hideFieldingDragBoard();
             openSheetChangeDialog(context.defenseHalf, {
                 teamHalf: context.defenseHalf,
                 inning: context.inning,
