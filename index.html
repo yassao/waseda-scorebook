@@ -4251,10 +4251,22 @@
             margin-top: 14px;
         }
 
-        .comment-popup-actions button {
+        .comment-popup-actions button,
+        .comment-popup-action-link {
             min-height: 52px;
             font-size: 16px;
             font-weight: 800;
+        }
+
+        .comment-popup-action-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #0f766e;
+            border-radius: 14px;
+            background: #0f766e;
+            color: #ffffff;
+            text-decoration: none;
         }
 
         .defense-change-menu .comment-popup-body {
@@ -6418,7 +6430,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.30";
+        const APP_VERSION = "0.3.31";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8598,15 +8610,56 @@
         }
 
         function getSavedGameLimitNotice() {
-            return "無料版では内部保存は" + MAX_SAVED_GAME_SLOTS + "試合までです。必要な試合は「書出」で試合データとして保存し、不要な試合を削除してください。Pro版の保存上限拡張は準備中です。";
+            return "無料版の内部保存は" + MAX_SAVED_GAME_SLOTS + "試合までです。保存上限を拡張していくため、開発支援をお願いします。\n\n必要な試合は「書出」で試合データとして保存し、不要な試合を削除してください。";
         }
 
-        function showSavedGameLimitNotice() {
-            alert(
-                "保存済み試合が" + MAX_SAVED_GAME_SLOTS + "件に達しました。\n\n" +
-                getSavedGameLimitNotice()
-            );
-            setGameSaveStatus("保存上限に達しました。試合データを書き出してから不要な試合を削除してください。");
+        function ensureSavedGameLimitPopup() {
+            let backdrop = document.getElementById("savedGameLimitPopupBackdrop");
+            let popup = document.getElementById("savedGameLimitPopup");
+            if (!backdrop) {
+                backdrop = document.createElement("div");
+                backdrop.id = "savedGameLimitPopupBackdrop";
+                backdrop.className = "comment-popup-backdrop";
+                backdrop.onclick = closeSavedGameLimitPopup;
+                document.body.appendChild(backdrop);
+            }
+            if (!popup) {
+                popup = document.createElement("div");
+                popup.id = "savedGameLimitPopup";
+                popup.className = "comment-popup inning-share-popup";
+                popup.setAttribute("aria-hidden", "true");
+                document.body.appendChild(popup);
+            }
+            return { backdrop, popup };
+        }
+
+        function closeSavedGameLimitPopup() {
+            document.getElementById("savedGameLimitPopup")?.classList.remove("is-open");
+            document.getElementById("savedGameLimitPopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("savedGameLimitPopupBackdrop")?.classList.remove("is-open");
+        }
+
+        function showSavedGameLimitNotice(extraMessage = "") {
+            const { backdrop, popup } = ensureSavedGameLimitPopup();
+            const supportLink = String(STRIPE_SUPPORT_URL || "").trim();
+            const supportAction = /^https:\/\/.+/i.test(supportLink)
+                ? '<a class="comment-popup-action-link" href="' + escapeHtml(supportLink) + '" target="_blank" rel="noopener">開発を支援する</a>'
+                : "";
+            const bodyText = "保存済み試合が" + MAX_SAVED_GAME_SLOTS + "件に達しました。\n\n"
+                + (extraMessage ? extraMessage + "\n\n" : "")
+                + getSavedGameLimitNotice();
+            popup.innerHTML = [
+                '<div class="comment-popup-title">保存上限に達しました</div>',
+                '<div class="comment-popup-body">' + escapeHtml(bodyText) + '</div>',
+                '<div class="comment-popup-actions">',
+                '<button type="button" onclick="closeSavedGameLimitPopup()">閉じる</button>',
+                supportAction,
+                '</div>'
+            ].join("");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            backdrop.classList.add("is-open");
+            setGameSaveStatus("保存上限に達しました。上限拡張のための開発支援もお願いします。必要な試合を書き出してから不要な試合を削除してください。");
             renderSavedGameSlots();
         }
 
@@ -8700,7 +8753,7 @@
                 if (duplicateIndex >= 0) {
                     slots.splice(duplicateIndex, 1);
                 } else if (slots.length >= MAX_SAVED_GAME_SLOTS) {
-                    alert("保存済み試合が" + MAX_SAVED_GAME_SLOTS + "件に達しているため、現在の自動保存を退避できませんでした。必要な試合を書き出してから不要な試合を削除してください。");
+                    showSavedGameLimitNotice("保存済み試合がいっぱいのため、現在の自動保存を退避できませんでした。");
                     return false;
                 }
                 writeSavedGameSlots([recoverySlot, ...slots]);
