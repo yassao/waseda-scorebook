@@ -2523,6 +2523,54 @@
             color: #0f766e;
         }
 
+        .team-roster-memory {
+            display: grid;
+            gap: 5px;
+            padding: 8px 10px;
+            border: 1px solid #d7e1e8;
+            border-radius: 10px;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 11px;
+            font-weight: 850;
+        }
+
+        .team-roster-memory label {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .team-roster-memory input[type="checkbox"],
+        .roster-import-remember input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #0f766e;
+            flex: 0 0 auto;
+        }
+
+        .team-roster-memory-status {
+            min-height: 16px;
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 1.4;
+        }
+
+        .roster-import-remember {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 10px;
+            border: 1px solid #b9ddcf;
+            border-radius: 10px;
+            background: #eef7f5;
+            color: #0f4f4a;
+            font-size: 12px;
+            font-weight: 900;
+            line-height: 1.4;
+        }
+
         .player-roster-pitcher {
             display: grid;
             grid-template-columns: auto minmax(0, 1fr) 56px;
@@ -6090,9 +6138,10 @@
                             <summary>チーム/選手登録</summary>
                             <div class="game-info-body">
                                 <div class="game-flow-bar" aria-label="チーム名">
-                                    <input id="topTeamName" class="team-name-input" value="先攻" aria-label="先攻チーム名" onchange="updateTeamName('top', this.value)">
-                                    <input id="bottomTeamName" class="team-name-input" value="後攻" aria-label="後攻チーム名" onchange="updateTeamName('bottom', this.value)">
+                                    <input id="topTeamName" class="team-name-input" list="registeredTeamNameOptions" value="先攻" aria-label="先攻チーム名" onchange="updateTeamName('top', this.value)">
+                                    <input id="bottomTeamName" class="team-name-input" list="registeredTeamNameOptions" value="後攻" aria-label="後攻チーム名" onchange="updateTeamName('bottom', this.value)">
                                 </div>
+                                <datalist id="registeredTeamNameOptions"></datalist>
                                 <datalist id="registeredPlayerNameOptions"></datalist>
                                 <div id="playerRosterEditor" class="player-roster-editor"></div>
                                 <div class="roster-ocr-panel">
@@ -6289,15 +6338,17 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.28";
+        const APP_VERSION = "0.3.29";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
+        const TEAM_ROSTER_MEMORY_STORAGE_KEY = "cuviu_scorebook_team_rosters_v1";
         const START_BLANK_GAME_SESSION_KEY = "cuviu_scorebook_start_blank_game_v1";
         const INNING_SHARE_DIALOG_STORAGE_KEY = "cuviu_scorebook_hide_inning_share_dialog_v1";
         const PDF_AD_UNWATCHED_COUNT_KEY = "cuviu_scorebook_pdf_ad_unwatched_count_v1";
         const SUPPORTER_FEATURES_STORAGE_KEY = "cuviu_scorebook_supporter_features_v1";
         const MAX_SAVED_GAME_SLOTS = 30;
+        const MAX_TEAM_ROSTER_MEMORY = 80;
         const INNING_AD_SECONDS = 0;
         const INNING_AD_SKIP_AFTER_SECONDS = 0;
         const PDF_AD_SECONDS = 0;
@@ -6813,6 +6864,10 @@
         let aiPromptTarget = "twitter";
         let currentAiPromptText = "";
         let isTwitterImporting = false;
+        const teamRosterMemoryLinks = {
+            top: "",
+            bottom: ""
+        };
         let appVersionBadgeTapCount = 0;
         let appVersionBadgeTapResetTimer = null;
         let appVersionBadgeLastPointerTapAt = 0;
@@ -8827,6 +8882,8 @@
                 state.inputLayout = "right";
                 state.scorebookStyle = "waseda";
                 state.fieldingDragBoardVisible = false;
+                clearTeamRosterMemoryLink("top");
+                clearTeamRosterMemoryLink("bottom");
                 state.gameInfo = createDefaultGameInfo();
                 state.teamNames = { top: "先攻", bottom: "後攻" };
                 state.playerNames = {
@@ -13037,10 +13094,15 @@
             if (!["top", "bottom"].includes(half)) {
                 return;
             }
-            state.teamNames[half] = value.trim() || (half === "top" ? "先攻" : "後攻");
+            const nextName = value.trim() || (half === "top" ? "先攻" : "後攻");
+            if (normalizeTeamRosterMemoryKey(state.teamNames?.[half] || "") !== normalizeTeamRosterMemoryKey(nextName)) {
+                clearTeamRosterMemoryLink(half);
+            }
+            state.teamNames[half] = nextName;
             updateGameFlowDisplay();
             renderLineScoreBoard();
             renderPlayerRosterEditor();
+            maybeApplyRememberedTeamRoster(half, state.teamNames[half]);
             scheduleGameAutoSave();
         }
 
@@ -13064,6 +13126,7 @@
             renderCurrentBatterCard();
             updateCommentTargetLabel();
             renderScoreSheet();
+            maybeRefreshRememberedTeamRoster(half);
             scheduleGameAutoSave();
         }
 
@@ -13109,6 +13172,292 @@
             }).join("");
         }
 
+        function normalizeTeamRosterMemoryKey(teamName) {
+            return String(teamName || "")
+                .replace(/\s+/g, "")
+                .trim()
+                .toLocaleLowerCase();
+        }
+
+        function isDefaultTeamLabel(teamName) {
+            const normalized = String(teamName || "").trim();
+            return normalized === "先攻" || normalized === "後攻";
+        }
+
+        function isRememberableTeamName(teamName) {
+            const normalized = String(teamName || "").trim();
+            return Boolean(normalized && !isDefaultTeamLabel(normalized));
+        }
+
+        function loadTeamRosterMemory() {
+            try {
+                const raw = localStorage.getItem(TEAM_ROSTER_MEMORY_STORAGE_KEY);
+                if (!raw) {
+                    return { version: 1, teams: {} };
+                }
+                const data = JSON.parse(raw);
+                const sourceTeams = data?.teams && typeof data.teams === "object" ? data.teams : {};
+                const teams = {};
+                Object.entries(sourceTeams).forEach(([key, template]) => {
+                    const normalized = normalizeRosterImportTeam(template);
+                    if (!isRememberableTeamName(normalized.teamName) && isRememberableTeamName(template?.teamName || key)) {
+                        normalized.teamName = String(template?.teamName || key).trim();
+                    }
+                    if (!isRememberableTeamName(normalized.teamName)) {
+                        return;
+                    }
+                    const memoryKey = normalizeTeamRosterMemoryKey(normalized.teamName);
+                    if (!memoryKey) {
+                        return;
+                    }
+                    teams[memoryKey] = {
+                        ...normalized,
+                        updatedAt: template?.updatedAt || ""
+                    };
+                });
+                return { version: 1, teams };
+            } catch (error) {
+                console.warn("Read team roster memory failed", error);
+                return { version: 1, teams: {} };
+            }
+        }
+
+        function writeTeamRosterMemory(memory) {
+            try {
+                const entries = Object.entries(memory?.teams || {})
+                    .sort((a, b) => String(b[1]?.updatedAt || "").localeCompare(String(a[1]?.updatedAt || "")))
+                    .slice(0, MAX_TEAM_ROSTER_MEMORY);
+                localStorage.setItem(TEAM_ROSTER_MEMORY_STORAGE_KEY, JSON.stringify({
+                    version: 1,
+                    teams: Object.fromEntries(entries)
+                }));
+                updateRegisteredTeamNameOptions();
+            } catch (error) {
+                console.warn("Save team roster memory failed", error);
+            }
+        }
+
+        function getTeamRosterTemplate(teamName) {
+            const key = normalizeTeamRosterMemoryKey(teamName);
+            if (!key) {
+                return null;
+            }
+            const template = loadTeamRosterMemory().teams[key];
+            return template ? normalizeRosterImportTeam(template) : null;
+        }
+
+        function hasTeamRosterTemplateContent(template) {
+            return Boolean(
+                template?.pitcher
+                || template?.pitcherNumber
+                || getRosterImportEntryCount(template) > 0
+            );
+        }
+
+        function isTeamRosterRemembered(teamName) {
+            return Boolean(getTeamRosterTemplate(teamName));
+        }
+
+        function setTeamRosterMemoryLink(half, teamName = state.teamNames?.[half] || "") {
+            if (!["top", "bottom"].includes(half)) {
+                return;
+            }
+            teamRosterMemoryLinks[half] = normalizeTeamRosterMemoryKey(teamName);
+        }
+
+        function clearTeamRosterMemoryLink(half) {
+            if (!["top", "bottom"].includes(half)) {
+                return;
+            }
+            teamRosterMemoryLinks[half] = "";
+        }
+
+        function isTeamRosterMemoryLinked(half) {
+            if (!["top", "bottom"].includes(half)) {
+                return false;
+            }
+            const key = normalizeTeamRosterMemoryKey(state.teamNames?.[half] || "");
+            return Boolean(key && teamRosterMemoryLinks[half] === key && loadTeamRosterMemory().teams[key]);
+        }
+
+        function captureTeamRosterTemplate(half) {
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            const names = state.playerNames?.[half] || Array.from({ length: 9 }, () => "");
+            const numbers = state.playerNumbers?.[half] || Array.from({ length: 9 }, () => "");
+            const positions = state.playerPositions?.[half] || Array.from({ length: 9 }, () => "");
+            return normalizeRosterImportTeam({
+                teamName: state.teamNames?.[half] || "",
+                pitcher: state.gameInfo.pitchers?.[half] || "",
+                pitcherNumber: state.gameInfo.pitcherNumbers?.[half] || "",
+                entries: Array.from({ length: 9 }, (_, index) => ({
+                    name: names[index] || "",
+                    number: numbers[index] || "",
+                    position: positions[index] || ""
+                }))
+            });
+        }
+
+        function saveTeamRosterTemplate(template) {
+            const normalized = normalizeRosterImportTeam(template);
+            if (!isRememberableTeamName(normalized.teamName) || !hasTeamRosterTemplateContent(normalized)) {
+                return false;
+            }
+            const memory = loadTeamRosterMemory();
+            const key = normalizeTeamRosterMemoryKey(normalized.teamName);
+            memory.teams[key] = {
+                ...normalized,
+                updatedAt: new Date().toISOString()
+            };
+            writeTeamRosterMemory(memory);
+            return true;
+        }
+
+        function deleteTeamRosterTemplate(teamName) {
+            const key = normalizeTeamRosterMemoryKey(teamName);
+            if (!key) {
+                return false;
+            }
+            const memory = loadTeamRosterMemory();
+            if (!memory.teams[key]) {
+                return false;
+            }
+            delete memory.teams[key];
+            writeTeamRosterMemory(memory);
+            return true;
+        }
+
+        function updateRegisteredTeamNameOptions() {
+            const datalist = document.getElementById("registeredTeamNameOptions");
+            if (!datalist) {
+                return;
+            }
+            const teams = Object.values(loadTeamRosterMemory().teams || {})
+                .filter((team) => isRememberableTeamName(team.teamName))
+                .sort((a, b) => String(a.teamName || "").localeCompare(String(b.teamName || ""), "ja"));
+            datalist.innerHTML = teams.map((team) => {
+                const label = [
+                    getRosterImportEntryCount(team) ? getRosterImportEntryCount(team) + "人" : "",
+                    team.pitcher ? "投手 " + team.pitcher : ""
+                ].filter(Boolean).join(" / ");
+                return '<option value="' + escapeHtml(team.teamName) + '" label="' + escapeHtml(label) + '"></option>';
+            }).join("");
+        }
+
+        function setTeamRosterMemoryStatus(half, message, isError = false) {
+            const status = document.getElementById("teamRosterMemoryStatus_" + half);
+            if (!status) {
+                return;
+            }
+            status.textContent = message || "";
+            status.style.color = isError ? "#b42318" : "#64748b";
+        }
+
+        function isRosterHalfEmpty(half) {
+            const names = state.playerNames?.[half] || [];
+            const numbers = state.playerNumbers?.[half] || [];
+            const positions = state.playerPositions?.[half] || [];
+            const info = normalizeGameInfo(state.gameInfo);
+            return !(
+                names.some((value) => String(value || "").trim())
+                || numbers.some((value) => String(value || "").trim())
+                || positions.some((value) => String(value || "").trim())
+                || String(info.pitchers?.[half] || "").trim()
+                || String(info.pitcherNumbers?.[half] || "").trim()
+            );
+        }
+
+        function buildSingleTeamRosterImportData(half, template) {
+            return {
+                teams: {
+                    top: half === "top" ? template : {},
+                    bottom: half === "bottom" ? template : {}
+                }
+            };
+        }
+
+        function isCurrentRosterSameAsTemplate(half, template) {
+            const current = captureTeamRosterTemplate(half);
+            const normalized = normalizeRosterImportTeam(template);
+            return JSON.stringify(current) === JSON.stringify(normalized);
+        }
+
+        function maybeApplyRememberedTeamRoster(half, teamName) {
+            if (!["top", "bottom"].includes(half) || !isRememberableTeamName(teamName)) {
+                return;
+            }
+            const template = getTeamRosterTemplate(teamName);
+            if (!template || !hasTeamRosterTemplateContent(template) || isCurrentRosterSameAsTemplate(half, template)) {
+                return;
+            }
+            const data = buildSingleTeamRosterImportData(half, template);
+            if (isRosterHalfEmpty(half)) {
+                setTeamRosterMemoryLink(half, teamName);
+                applyRosterImportData(data, {
+                    halves: [half],
+                    replaceLineup: true
+                });
+                setTeamRosterMemoryStatus(half, "登録済みメンバーを自動入力しました。");
+                return;
+            }
+            openRosterImportConfirmDialog(data, {
+                source: "teamMemory",
+                halves: [half],
+                replaceLineup: true,
+                rememberTeamsDefault: true
+            });
+        }
+
+        function maybeRefreshRememberedTeamRoster(half) {
+            if (!isTeamRosterMemoryLinked(half)) {
+                return;
+            }
+            const saved = saveTeamRosterTemplate(captureTeamRosterTemplate(half));
+            if (saved) {
+                setTeamRosterMemoryStatus(half, "次回用メンバーを更新しました。");
+            }
+        }
+
+        function toggleRememberTeamRoster(half, checked) {
+            if (!["top", "bottom"].includes(half)) {
+                return;
+            }
+            const teamName = state.teamNames?.[half] || "";
+            if (checked) {
+                const saved = saveTeamRosterTemplate(captureTeamRosterTemplate(half));
+                if (!saved) {
+                    const checkbox = document.getElementById("teamRosterMemory_" + half);
+                    if (checkbox) {
+                        checkbox.checked = false;
+                    }
+                    clearTeamRosterMemoryLink(half);
+                    setTeamRosterMemoryStatus(half, isRememberableTeamName(teamName)
+                        ? "選手名か投手を入力してから保存できます。"
+                        : "チーム名を入れると保存できます。", true);
+                    return;
+                }
+                setTeamRosterMemoryLink(half, teamName);
+                setTeamRosterMemoryStatus(half, "このチーム名で次回も呼び出します。");
+                updateRegisteredTeamNameOptions();
+                return;
+            }
+            deleteTeamRosterTemplate(teamName);
+            clearTeamRosterMemoryLink(half);
+            setTeamRosterMemoryStatus(half, "このチーム名の記憶を解除しました。");
+            updateRegisteredTeamNameOptions();
+        }
+
+        function rememberRosterImportTeams(data, halves) {
+            (halves || []).forEach((half) => {
+                const team = data?.teams?.[half];
+                if (team) {
+                    if (saveTeamRosterTemplate(team)) {
+                        setTeamRosterMemoryLink(half, team.teamName);
+                    }
+                }
+            });
+            renderPlayerRosterEditor();
+        }
+
         function findRegisteredPlayerByName(name, halfToSkip = "", indexToSkip = -1) {
             const normalizedName = String(name || "").trim();
             if (!normalizedName) {
@@ -13151,6 +13500,7 @@
             if (changed) {
                 renderCurrentBatterCard();
                 renderScoreSheet();
+                maybeRefreshRememberedTeamRoster(half);
                 scheduleGameAutoSave();
             }
         }
@@ -13167,6 +13517,7 @@
             renderCurrentBatterCard();
             updateCommentTargetLabel();
             renderScoreSheet();
+            maybeRefreshRememberedTeamRoster(half);
             scheduleGameAutoSave();
         }
 
@@ -13181,6 +13532,7 @@
             updateRegisteredPlayerNameOptions();
             renderCurrentBatterCard();
             updateCommentTargetLabel();
+            maybeRefreshRememberedTeamRoster(half);
             scheduleGameAutoSave();
         }
 
@@ -13195,6 +13547,7 @@
             renderCurrentBatterCard();
             updateCommentTargetLabel();
             renderScoreSheet();
+            maybeRefreshRememberedTeamRoster(half);
             scheduleGameAutoSave();
         }
 
@@ -13208,6 +13561,7 @@
             setElementValue(gameInfoPitcherNumberId, state.gameInfo.pitcherNumbers[half]);
             renderCurrentBatterCard();
             renderScoreSheet();
+            maybeRefreshRememberedTeamRoster(half);
             scheduleGameAutoSave();
         }
 
@@ -13821,17 +14175,22 @@
                 halves,
                 replaceLineup: options.replaceLineup !== false,
                 source: options.source || "roster",
-                statusHalf: options.statusHalf || ""
+                statusHalf: options.statusHalf || "",
+                rememberTeamsDefault: options.rememberTeamsDefault === true
             };
             const { backdrop, popup } = ensureRosterImportConfirmDialog();
-            const warning = pendingRosterImport.source === "starterPost"
-                ? "守備位置つきのスタメン順として読み取りました。特に先頭の数字が打順ではなく守備位置になっているか確認してください。"
-                : "読み取り結果を確認してください。先頭の数字が守備位置なのか、打順なのかが怪しい場合はここで直せます。";
+            const warning = pendingRosterImport.source === "teamMemory"
+                ? "登録済みメンバーを見つけました。この内容で現在のスタメンに入れるか確認してください。"
+                : pendingRosterImport.source === "starterPost"
+                    ? "守備位置つきのスタメン順として読み取りました。特に先頭の数字が打順ではなく守備位置になっているか確認してください。"
+                    : "読み取り結果を確認してください。先頭の数字が守備位置なのか、打順なのかが怪しい場合はここで直せます。";
+            const rememberChecked = pendingRosterImport.rememberTeamsDefault ? " checked" : "";
             popup.innerHTML = [
                 '<div class="comment-popup-title">スタメン登録の確認</div>',
                 '<div class="roster-import-body">',
                 '<div class="roster-import-warning">' + escapeHtml(warning) + '</div>',
                 halves.map((half) => renderRosterImportTeamConfirm(half, data.teams[half])).join(""),
+                '<label class="roster-import-remember"><input id="rememberRosterImportTeams" type="checkbox"' + rememberChecked + '>次回もこのメンバーを使う</label>',
                 '<div class="sheet-change-actions">',
                 '<button type="button" onclick="closeRosterImportConfirmDialog()">戻る</button>',
                 '<button type="button" class="btn-hit" onclick="applyRosterImportConfirmDialog()">この内容で登録</button>',
@@ -13923,13 +14282,22 @@
                 halves: pendingRosterImport.halves,
                 replaceLineup: pendingRosterImport.replaceLineup
             };
+            const source = pendingRosterImport.source;
+            const statusHalf = pendingRosterImport.statusHalf;
+            const halves = [...pendingRosterImport.halves];
+            const shouldRememberTeams = document.getElementById("rememberRosterImportTeams")?.checked === true;
             const data = readRosterImportConfirmData();
             applyRosterImportData(data, options);
-            const statusText = formatRosterImportStatus(data, pendingRosterImport.halves) + "を登録しました。";
-            if (pendingRosterImport.source === "starterPost") {
+            if (shouldRememberTeams) {
+                rememberRosterImportTeams(data, halves);
+            }
+            const statusText = formatRosterImportStatus(data, halves) + "を登録しました。";
+            if (source === "starterPost") {
                 setStarterPostStatus(statusText);
-            } else if (pendingRosterImport.statusHalf) {
-                setRosterOcrStatus(pendingRosterImport.statusHalf, statusText);
+            } else if (source === "teamMemory") {
+                halves.forEach((half) => setTeamRosterMemoryStatus(half, statusText));
+            } else if (statusHalf) {
+                setRosterOcrStatus(statusHalf, statusText);
             }
             closeRosterImportConfirmDialog();
         }
@@ -14037,6 +14405,7 @@
                 return;
             }
             state.gameInfo = normalizeGameInfo(state.gameInfo);
+            updateRegisteredTeamNameOptions();
             updateRegisteredPlayerNameOptions();
             container.innerHTML = getRosterDisplayOrder().map((half) => {
                 const teamLabel = state.teamNames[half] || (half === "top" ? "先攻" : "後攻");
@@ -14045,6 +14414,22 @@
                 const positions = state.playerPositions?.[half] || Array.from({ length: 9 }, () => "");
                 const pitcherName = state.gameInfo.pitchers?.[half] || "";
                 const pitcherNumber = state.gameInfo.pitcherNumbers?.[half] || "";
+                const canRememberTeam = isRememberableTeamName(teamLabel);
+                const hasRememberedTeam = isTeamRosterRemembered(teamLabel);
+                const isRememberedTeam = isTeamRosterMemoryLinked(half);
+                const memoryStatus = canRememberTeam
+                    ? (isRememberedTeam
+                        ? "このチーム名で保存中。編集すると次回用も更新します。"
+                        : hasRememberedTeam
+                            ? "登録済みメンバーがあります。チーム名を入れると呼び出せます。"
+                            : "チェックすると、このチーム名で次回も呼び出せます。")
+                    : "チーム名を入れると次回用に保存できます。";
+                const memoryControl = [
+                    '<div class="team-roster-memory">',
+                    '<label><input id="teamRosterMemory_' + half + '" type="checkbox"' + (isRememberedTeam ? " checked" : "") + (canRememberTeam ? "" : " disabled") + ' onchange="toggleRememberTeamRoster(\'' + half + '\', this.checked)">次回もこのメンバーを使う</label>',
+                    '<div id="teamRosterMemoryStatus_' + half + '" class="team-roster-memory-status">' + escapeHtml(memoryStatus) + '</div>',
+                    '</div>'
+                ].join("");
                 const inputs = names.map((name, index) => {
                     const order = index + 1;
                     return [
@@ -14057,6 +14442,7 @@
                 return [
                     '<div class="player-roster-team' + (half === state.activeHalf ? ' is-active' : '') + '">',
                     '<div class="player-roster-team-title">' + escapeHtml(teamLabel) + (half === state.activeHalf ? ' 入力中' : '') + '</div>',
+                    memoryControl,
                     '<label class="player-roster-pitcher"><span>投手</span><input class="player-name-field" list="registeredPlayerNameOptions" value="' + escapeHtml(pitcherName) + '" placeholder="投手名" aria-label="' + escapeHtml(teamLabel) + ' 投手名" oninput="updateTeamPitcherFromRoster(\'' + half + '\', this.value)"><input class="player-name-field pitcher-number-field" value="' + escapeHtml(pitcherNumber) + '" placeholder="背" inputmode="numeric" aria-label="' + escapeHtml(teamLabel) + ' 投手背番号" oninput="updateTeamPitcherNumberFromRoster(\'' + half + '\', this.value)"></label>',
                     '<div class="player-roster-grid">',
                     inputs,
