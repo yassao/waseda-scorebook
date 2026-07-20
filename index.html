@@ -4365,7 +4365,8 @@
             accent-color: #0f766e;
         }
 
-        .qa-supporter-panel input[type="text"] {
+        .qa-supporter-panel input[type="text"],
+        .qa-supporter-panel input[type="password"] {
             width: 100%;
             min-height: 40px;
             padding: 8px 10px;
@@ -4378,7 +4379,8 @@
             font-weight: 800;
         }
 
-        .qa-supporter-panel input[type="text"]:disabled {
+        .qa-supporter-panel input[type="text"]:disabled,
+        .qa-supporter-panel input[type="password"]:disabled {
             background: #eef3f7;
             color: #94a3b8;
         }
@@ -6430,7 +6432,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.31";
+        const APP_VERSION = "0.3.32";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6543,16 +6545,17 @@
             try {
                 const raw = localStorage.getItem(SUPPORTER_FEATURES_STORAGE_KEY);
                 if (!raw) {
-                    return { enabled: false, footerText: DEFAULT_PDF_FOOTER_TEXT };
+                    return { enabled: false, footerText: DEFAULT_PDF_FOOTER_TEXT, saveLimitUnlocked: false };
                 }
                 const data = JSON.parse(raw);
                 return {
                     enabled: data?.enabled === true,
-                    footerText: sanitizeSupporterFooterText(data?.footerText || DEFAULT_PDF_FOOTER_TEXT) || DEFAULT_PDF_FOOTER_TEXT
+                    footerText: sanitizeSupporterFooterText(data?.footerText || DEFAULT_PDF_FOOTER_TEXT) || DEFAULT_PDF_FOOTER_TEXT,
+                    saveLimitUnlocked: data?.saveLimitUnlocked === true
                 };
             } catch (error) {
                 console.warn("Read supporter settings failed", error);
-                return { enabled: false, footerText: DEFAULT_PDF_FOOTER_TEXT };
+                return { enabled: false, footerText: DEFAULT_PDF_FOOTER_TEXT, saveLimitUnlocked: false };
             }
         }
 
@@ -6561,6 +6564,7 @@
                 localStorage.setItem(SUPPORTER_FEATURES_STORAGE_KEY, JSON.stringify({
                     enabled: settings?.enabled === true,
                     footerText: sanitizeSupporterFooterText(settings?.footerText || DEFAULT_PDF_FOOTER_TEXT) || DEFAULT_PDF_FOOTER_TEXT,
+                    saveLimitUnlocked: settings?.saveLimitUnlocked === true,
                     updatedAt: new Date().toISOString()
                 }));
             } catch (error) {
@@ -6572,6 +6576,10 @@
             return getSupporterSettings().enabled === true;
         }
 
+        function isSavedGameLimitUnlocked() {
+            return getSupporterSettings().saveLimitUnlocked === true;
+        }
+
         function getSupporterFooterText() {
             return sanitizeSupporterFooterText(getSupporterSettings().footerText).trim() || DEFAULT_PDF_FOOTER_TEXT;
         }
@@ -6579,6 +6587,7 @@
         function syncSupporterFooterUi() {
             const settings = getSupporterSettings();
             setElementChecked("qaSupporterFeatureEnabled", settings.enabled);
+            setElementChecked("qaSupporterSaveLimitUnlocked", settings.saveLimitUnlocked);
             const panel = document.getElementById("pdfSupporterFooterPanel");
             if (panel) {
                 panel.classList.toggle("is-open", settings.enabled);
@@ -6594,6 +6603,7 @@
                     input.value = settings.footerText;
                 }
             });
+            renderSavedGameSlots();
         }
 
         function setSupporterFeatureEnabled(enabled) {
@@ -6607,6 +6617,22 @@
         function setSupporterFooterText(value) {
             const settings = getSupporterSettings();
             settings.footerText = sanitizeSupporterFooterText(value) || DEFAULT_PDF_FOOTER_TEXT;
+            saveSupporterSettings(settings);
+            syncSupporterFooterUi();
+        }
+
+        function setSupporterSaveLimitUnlocked(enabled) {
+            const settings = getSupporterSettings();
+            settings.saveLimitUnlocked = Boolean(enabled);
+            saveSupporterSettings(settings);
+            syncSupporterFooterUi();
+        }
+
+        function enableAllSupporterFeatures() {
+            const settings = getSupporterSettings();
+            settings.enabled = true;
+            settings.saveLimitUnlocked = true;
+            settings.footerText = settings.footerText || DEFAULT_PDF_FOOTER_TEXT;
             saveSupporterSettings(settings);
             syncSupporterFooterUi();
         }
@@ -7413,20 +7439,81 @@
                 '<div class="qa-supporter-title">支援者設定</div>',
                 '<label><input id="qaSupporterFeatureEnabled" type="checkbox" onchange="setSupporterFeatureEnabled(this.checked)">PDFフッター編集を有効にする</label>',
                 '<input id="qaSupporterFooterText" type="text" maxlength="80" placeholder="' + escapeHtml(DEFAULT_PDF_FOOTER_TEXT) + '" oninput="setSupporterFooterText(this.value)">',
-                '<small>この端末に保存されます。標準のQRコードとバージョン番号は残ります。</small>',
+                '<label><input id="qaSupporterSaveLimitUnlocked" type="checkbox" onchange="setSupporterSaveLimitUnlocked(this.checked)">保存済み試合の上限を解除する</label>',
+                '<small>この端末に保存されます。標準のQRコードとバージョン番号は残ります。保存上限解除はブラウザ容量の範囲で動作します。</small>',
                 '</div>'
             ].join("");
+        }
+
+        function getSupporterGateCode() {
+            return String.fromCodePoint(0x25C7, 0x80CC, 0x756A, 0x53F7, 0x33, 0x31, 0x25C7);
+        }
+
+        function normalizeSupporterGateCode(value) {
+            return String(value || "").normalize("NFKC").replace(/\s+/g, "");
+        }
+
+        function isSupporterGateCodeValid(value) {
+            return normalizeSupporterGateCode(value) === normalizeSupporterGateCode(getSupporterGateCode());
+        }
+
+        function openSupporterGateMenu() {
+            const { backdrop, popup } = ensureQaShortcutDialog();
+            popup.innerHTML = [
+                '<div class="comment-popup-title">支援者確認</div>',
+                '<div class="comment-popup-body">案内された合言葉を入力してください。</div>',
+                '<div class="qa-supporter-panel">',
+                '<input id="supporterGateCodeInput" type="password" autocomplete="off" inputmode="text" placeholder="合言葉" onkeydown="if(event.key===\'Enter\'){submitSupporterGateCode()}">',
+                '<small id="supporterGateStatus">支援者向け機能の入口です。</small>',
+                '</div>',
+                '<div class="comment-popup-actions">',
+                '<button type="button" onclick="closeQaShortcutMenu()">閉じる</button>',
+                '<button type="button" class="btn-hit" onclick="submitSupporterGateCode()">確認</button>',
+                '</div>'
+            ].join("");
+            backdrop.classList.add("is-open");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            requestAnimationFrame(() => document.getElementById("supporterGateCodeInput")?.focus());
+        }
+
+        function submitSupporterGateCode() {
+            const input = document.getElementById("supporterGateCodeInput");
+            const status = document.getElementById("supporterGateStatus");
+            if (!isSupporterGateCodeValid(input?.value || "")) {
+                if (status) {
+                    status.textContent = "合言葉が違います。案内された記号をそのまま入力してください。";
+                }
+                input?.select?.();
+                return;
+            }
+            showSupporterUnlockGuide();
+        }
+
+        function showSupporterUnlockGuide() {
+            const { backdrop, popup } = ensureQaShortcutDialog();
+            popup.innerHTML = [
+                '<div class="comment-popup-title">解除方法</div>',
+                '<div class="comment-popup-body">支援者設定を開き、必要な機能を有効にしてください。\n\nPDFフッター編集と、保存済み試合の上限解除をこの端末に保存できます。</div>',
+                '<div class="comment-popup-actions">',
+                '<button type="button" onclick="closeQaShortcutMenu()">閉じる</button>',
+                '<button type="button" class="btn-hit" onclick="openSupporterSettingsMenu()">支援者設定を開く</button>',
+                '</div>'
+            ].join("");
+            backdrop.classList.add("is-open");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
         }
 
         function openSupporterSettingsMenu() {
             const { backdrop, popup } = ensureQaShortcutDialog();
             popup.innerHTML = [
                 '<div class="comment-popup-title">支援者設定 <button class="qa-secret-version-trigger" type="button" onclick="registerSupporterSecretTap(event)">v' + escapeHtml(APP_VERSION) + '</button></div>',
-                '<div class="comment-popup-body">支援してくれた方向けのPDFフッター設定です。</div>',
+                '<div class="comment-popup-body">支援してくれた方向けの端末設定です。</div>',
                 renderSupporterSettingsPanel(),
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="closeQaShortcutMenu()">閉じる</button>',
-                '<button type="button" onclick="setSupporterFeatureEnabled(true)">有効にする</button>',
+                '<button type="button" onclick="enableAllSupporterFeatures()">すべて有効にする</button>',
                 '</div>'
             ].join("");
             syncSupporterFooterUi();
@@ -7753,7 +7840,7 @@
                         clearTimeout(appVersionBadgeTapResetTimer);
                         appVersionBadgeTapResetTimer = null;
                     }
-                    openSupporterSettingsMenu();
+                    openSupporterGateMenu();
                     return;
                 }
                 if (appVersionBadgeTapResetTimer) {
@@ -8606,7 +8693,17 @@
         }
 
         function writeSavedGameSlots(slots) {
-            localStorage.setItem(SAVED_GAMES_STORAGE_KEY, JSON.stringify(slots.slice(0, MAX_SAVED_GAME_SLOTS)));
+            const limit = getSavedGameSlotLimit();
+            const nextSlots = Number.isFinite(limit) ? slots.slice(0, limit) : slots;
+            localStorage.setItem(SAVED_GAMES_STORAGE_KEY, JSON.stringify(nextSlots));
+        }
+
+        function getSavedGameSlotLimit() {
+            return isSavedGameLimitUnlocked() ? Number.POSITIVE_INFINITY : MAX_SAVED_GAME_SLOTS;
+        }
+
+        function getSavedGameSlotLimitLabel() {
+            return Number.isFinite(getSavedGameSlotLimit()) ? String(MAX_SAVED_GAME_SLOTS) : "制限解除";
         }
 
         function getSavedGameLimitNotice() {
@@ -8645,7 +8742,10 @@
             const supportAction = /^https:\/\/.+/i.test(supportLink)
                 ? '<a class="comment-popup-action-link" href="' + escapeHtml(supportLink) + '" target="_blank" rel="noopener">開発を支援する</a>'
                 : "";
-            const bodyText = "保存済み試合が" + MAX_SAVED_GAME_SLOTS + "件に達しました。\n\n"
+            const reachedText = Number.isFinite(getSavedGameSlotLimit())
+                ? "保存済み試合が" + getSavedGameSlotLimitLabel() + "件に達しました。"
+                : "この端末では保存上限を解除しています。";
+            const bodyText = reachedText + "\n\n"
                 + (extraMessage ? extraMessage + "\n\n" : "")
                 + getSavedGameLimitNotice();
             popup.innerHTML = [
@@ -8674,9 +8774,10 @@
         function addSavedGameSlot(data, options = {}) {
             const slots = getSavedGameSlots();
             const duplicateIndex = getSavedGameDuplicateIndex(slots, data);
+            const limit = getSavedGameSlotLimit();
             if (duplicateIndex >= 0) {
                 slots.splice(duplicateIndex, 1);
-            } else if (slots.length >= MAX_SAVED_GAME_SLOTS) {
+            } else if (Number.isFinite(limit) && slots.length >= limit) {
                 if (options.silent) {
                     return false;
                 }
@@ -8750,9 +8851,10 @@
                 recoverySlot.summary = (recoverySlot.summary || "スコア未集計") + " / 別試合を開く前";
                 const slots = getSavedGameSlots();
                 const duplicateIndex = getSavedGameDuplicateIndex(slots, currentData);
+                const limit = getSavedGameSlotLimit();
                 if (duplicateIndex >= 0) {
                     slots.splice(duplicateIndex, 1);
-                } else if (slots.length >= MAX_SAVED_GAME_SLOTS) {
+                } else if (Number.isFinite(limit) && slots.length >= limit) {
                     showSavedGameLimitNotice("保存済み試合がいっぱいのため、現在の自動保存を退避できませんでした。");
                     return false;
                 }
@@ -8777,9 +8879,12 @@
                     container.innerHTML = '<div class="saved-game-empty">手動保存した試合はまだありません。入力画面の「保存 / 読込 試合データ」から現在の試合を保存できます。</div>';
                     return;
                 }
-                const limitNotice = slots.length >= MAX_SAVED_GAME_SLOTS
-                    ? '<div class="saved-game-limit-notice">内部保存: ' + slots.length + ' / ' + MAX_SAVED_GAME_SLOTS + '<br>' + escapeHtml(getSavedGameLimitNotice()) + '</div>'
-                    : "";
+                const limit = getSavedGameSlotLimit();
+                const limitNotice = Number.isFinite(limit) && slots.length >= limit
+                    ? '<div class="saved-game-limit-notice">内部保存: ' + slots.length + ' / ' + getSavedGameSlotLimitLabel() + '<br>' + escapeHtml(getSavedGameLimitNotice()) + '</div>'
+                    : (!Number.isFinite(limit) && slots.length >= MAX_SAVED_GAME_SLOTS
+                        ? '<div class="saved-game-limit-notice">内部保存: ' + slots.length + ' / 制限解除<br>この端末では保存上限を解除しています。</div>'
+                        : "");
                 container.innerHTML = limitNotice + slots.map((slot) => {
                     const id = escapeHtml(slot.id);
                     return `
