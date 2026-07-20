@@ -363,6 +363,29 @@
             background: #f8fafc;
         }
 
+        .saved-game-count-notice {
+            padding: 8px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 900;
+            line-height: 1.45;
+        }
+
+        .saved-game-count-notice.is-unlocked {
+            border-color: #99f6e4;
+            background: #ecfdf5;
+            color: #0f766e;
+        }
+
+        .saved-game-count-notice.is-limit {
+            border-color: #f59e0b;
+            background: #fffbeb;
+            color: #7c4a03;
+        }
+
         .saved-game-limit-notice {
             padding: 10px 12px;
             border: 1px solid #f59e0b;
@@ -6432,7 +6455,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.33";
+        const APP_VERSION = "0.3.34";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8775,6 +8798,15 @@
             return Number.isFinite(getSavedGameSlotLimit()) ? String(MAX_SAVED_GAME_SLOTS) : "制限解除";
         }
 
+        function getSavedGameCountNoticeHtml(count) {
+            const limit = getSavedGameSlotLimit();
+            if (Number.isFinite(limit)) {
+                const isLimit = count >= limit;
+                return '<div class="saved-game-count-notice' + (isLimit ? ' is-limit' : '') + '">内部保存: ' + count + ' / ' + getSavedGameSlotLimitLabel() + '</div>';
+            }
+            return '<div class="saved-game-count-notice is-unlocked">内部保存: ' + count + ' / 制限解除</div>';
+        }
+
         function getSavedGameLimitNotice() {
             return "無料版の内部保存は" + MAX_SAVED_GAME_SLOTS + "試合までです。保存上限を拡張していくため、開発支援をお願いします。\n\n必要な試合は「書出」で試合データとして保存し、不要な試合を削除してください。";
         }
@@ -8944,17 +8976,16 @@
             ].filter(Boolean);
 
             containers.forEach((container) => {
+                const countNotice = getSavedGameCountNoticeHtml(slots.length);
                 if (!slots.length) {
-                    container.innerHTML = '<div class="saved-game-empty">手動保存した試合はまだありません。入力画面の「保存 / 読込 試合データ」から現在の試合を保存できます。</div>';
+                    container.innerHTML = countNotice + '<div class="saved-game-empty">手動保存した試合はまだありません。入力画面の「保存 / 読込 試合データ」から現在の試合を保存できます。</div>';
                     return;
                 }
                 const limit = getSavedGameSlotLimit();
                 const limitNotice = Number.isFinite(limit) && slots.length >= limit
-                    ? '<div class="saved-game-limit-notice">内部保存: ' + slots.length + ' / ' + getSavedGameSlotLimitLabel() + '<br>' + escapeHtml(getSavedGameLimitNotice()) + '</div>'
-                    : (!Number.isFinite(limit) && slots.length >= MAX_SAVED_GAME_SLOTS
-                        ? '<div class="saved-game-limit-notice">内部保存: ' + slots.length + ' / 制限解除<br>この端末では保存上限を解除しています。</div>'
-                        : "");
-                container.innerHTML = limitNotice + slots.map((slot) => {
+                    ? '<div class="saved-game-limit-notice">保存上限に達しました。<br>' + escapeHtml(getSavedGameLimitNotice()) + '</div>'
+                    : "";
+                container.innerHTML = countNotice + limitNotice + slots.map((slot) => {
                     const id = escapeHtml(slot.id);
                     return `
                         <div class="saved-game-card">
