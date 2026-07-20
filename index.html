@@ -6432,7 +6432,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.32";
+        const APP_VERSION = "0.3.33";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6545,17 +6545,18 @@
             try {
                 const raw = localStorage.getItem(SUPPORTER_FEATURES_STORAGE_KEY);
                 if (!raw) {
-                    return { enabled: false, footerText: DEFAULT_PDF_FOOTER_TEXT, saveLimitUnlocked: false };
+                    return { enabled: false, footerText: DEFAULT_PDF_FOOTER_TEXT, saveLimitUnlocked: false, teamRosterSharingUnlocked: false };
                 }
                 const data = JSON.parse(raw);
                 return {
                     enabled: data?.enabled === true,
                     footerText: sanitizeSupporterFooterText(data?.footerText || DEFAULT_PDF_FOOTER_TEXT) || DEFAULT_PDF_FOOTER_TEXT,
-                    saveLimitUnlocked: data?.saveLimitUnlocked === true
+                    saveLimitUnlocked: data?.saveLimitUnlocked === true,
+                    teamRosterSharingUnlocked: data?.teamRosterSharingUnlocked === true
                 };
             } catch (error) {
                 console.warn("Read supporter settings failed", error);
-                return { enabled: false, footerText: DEFAULT_PDF_FOOTER_TEXT, saveLimitUnlocked: false };
+                return { enabled: false, footerText: DEFAULT_PDF_FOOTER_TEXT, saveLimitUnlocked: false, teamRosterSharingUnlocked: false };
             }
         }
 
@@ -6565,6 +6566,7 @@
                     enabled: settings?.enabled === true,
                     footerText: sanitizeSupporterFooterText(settings?.footerText || DEFAULT_PDF_FOOTER_TEXT) || DEFAULT_PDF_FOOTER_TEXT,
                     saveLimitUnlocked: settings?.saveLimitUnlocked === true,
+                    teamRosterSharingUnlocked: settings?.teamRosterSharingUnlocked === true,
                     updatedAt: new Date().toISOString()
                 }));
             } catch (error) {
@@ -6580,6 +6582,10 @@
             return getSupporterSettings().saveLimitUnlocked === true;
         }
 
+        function isTeamRosterSharingUnlocked() {
+            return getSupporterSettings().teamRosterSharingUnlocked === true;
+        }
+
         function getSupporterFooterText() {
             return sanitizeSupporterFooterText(getSupporterSettings().footerText).trim() || DEFAULT_PDF_FOOTER_TEXT;
         }
@@ -6588,6 +6594,19 @@
             const settings = getSupporterSettings();
             setElementChecked("qaSupporterFeatureEnabled", settings.enabled);
             setElementChecked("qaSupporterSaveLimitUnlocked", settings.saveLimitUnlocked);
+            setElementChecked("qaSupporterTeamRosterSharingUnlocked", settings.teamRosterSharingUnlocked);
+            const footerToggle = document.getElementById("qaSupporterFeatureEnabled");
+            if (footerToggle) {
+                footerToggle.disabled = !settings.enabled;
+            }
+            const saveLimitToggle = document.getElementById("qaSupporterSaveLimitUnlocked");
+            if (saveLimitToggle) {
+                saveLimitToggle.disabled = !settings.saveLimitUnlocked;
+            }
+            const teamShareToggle = document.getElementById("qaSupporterTeamRosterSharingUnlocked");
+            if (teamShareToggle) {
+                teamShareToggle.disabled = !settings.teamRosterSharingUnlocked;
+            }
             const panel = document.getElementById("pdfSupporterFooterPanel");
             if (panel) {
                 panel.classList.toggle("is-open", settings.enabled);
@@ -6628,11 +6647,9 @@
             syncSupporterFooterUi();
         }
 
-        function enableAllSupporterFeatures() {
+        function setSupporterTeamRosterSharingUnlocked(enabled) {
             const settings = getSupporterSettings();
-            settings.enabled = true;
-            settings.saveLimitUnlocked = true;
-            settings.footerText = settings.footerText || DEFAULT_PDF_FOOTER_TEXT;
+            settings.teamRosterSharingUnlocked = Boolean(enabled);
             saveSupporterSettings(settings);
             syncSupporterFooterUi();
         }
@@ -7434,13 +7451,18 @@
         }
 
         function renderSupporterSettingsPanel() {
+            const settings = getSupporterSettings();
+            const footerDisabled = settings.enabled ? "" : " disabled";
+            const saveLimitDisabled = settings.saveLimitUnlocked ? "" : " disabled";
+            const teamShareDisabled = settings.teamRosterSharingUnlocked ? "" : " disabled";
             return [
                 '<div class="qa-supporter-panel">',
                 '<div class="qa-supporter-title">支援者設定</div>',
-                '<label><input id="qaSupporterFeatureEnabled" type="checkbox" onchange="setSupporterFeatureEnabled(this.checked)">PDFフッター編集を有効にする</label>',
+                '<label><input id="qaSupporterFeatureEnabled" type="checkbox" onchange="setSupporterFeatureEnabled(this.checked)"' + footerDisabled + '>PDFフッター編集を有効にする</label>',
                 '<input id="qaSupporterFooterText" type="text" maxlength="80" placeholder="' + escapeHtml(DEFAULT_PDF_FOOTER_TEXT) + '" oninput="setSupporterFooterText(this.value)">',
-                '<label><input id="qaSupporterSaveLimitUnlocked" type="checkbox" onchange="setSupporterSaveLimitUnlocked(this.checked)">保存済み試合の上限を解除する</label>',
-                '<small>この端末に保存されます。標準のQRコードとバージョン番号は残ります。保存上限解除はブラウザ容量の範囲で動作します。</small>',
+                '<label><input id="qaSupporterSaveLimitUnlocked" type="checkbox" onchange="setSupporterSaveLimitUnlocked(this.checked)"' + saveLimitDisabled + '>保存済み試合の上限を解除する</label>',
+                '<label><input id="qaSupporterTeamRosterSharingUnlocked" type="checkbox" onchange="setSupporterTeamRosterSharingUnlocked(this.checked)"' + teamShareDisabled + '>チームメンバー共有を有効にする（準備中）</label>',
+                '<small>この端末に保存されます。未解除の機能は、対応する合言葉を入力すると有効にできます。チームメンバー共有は共有機能の本体実装に向けた予約設定です。</small>',
                 '</div>'
             ].join("");
         }
@@ -7449,12 +7471,43 @@
             return String.fromCodePoint(0x25C7, 0x80CC, 0x756A, 0x53F7, 0x33, 0x31, 0x25C7);
         }
 
+        function getSupporterGateActions() {
+            return [
+                {
+                    key: "footer",
+                    code: String.fromCodePoint(0x25C7, 0x4F59, 0x767D, 0x32, 0x37, 0x25C7),
+                    title: "PDFフッター編集",
+                    body: "PDFフッター文言を自由に編集できるようにします。",
+                    button: "フッター編集を有効にする"
+                },
+                {
+                    key: "save-limit",
+                    code: getSupporterGateCode(),
+                    title: "保存上限解除",
+                    body: "この端末で保存済み試合の30件上限を解除します。",
+                    button: "保存上限を解除する"
+                },
+                {
+                    key: "team-share",
+                    code: String.fromCodePoint(0x25A1, 0x5186, 0x9663, 0x36, 0x34, 0x25A1),
+                    title: "チームメンバー共有",
+                    body: "チームメンバー共有機能用の解除状態をこの端末に保存します。",
+                    button: "チーム共有を有効にする"
+                }
+            ];
+        }
+
         function normalizeSupporterGateCode(value) {
             return String(value || "").normalize("NFKC").replace(/\s+/g, "");
         }
 
         function isSupporterGateCodeValid(value) {
-            return normalizeSupporterGateCode(value) === normalizeSupporterGateCode(getSupporterGateCode());
+            return Boolean(findSupporterGateAction(value));
+        }
+
+        function findSupporterGateAction(value) {
+            const normalized = normalizeSupporterGateCode(value);
+            return getSupporterGateActions().find((action) => normalizeSupporterGateCode(action.code) === normalized) || null;
         }
 
         function openSupporterGateMenu() {
@@ -7480,29 +7533,45 @@
         function submitSupporterGateCode() {
             const input = document.getElementById("supporterGateCodeInput");
             const status = document.getElementById("supporterGateStatus");
-            if (!isSupporterGateCodeValid(input?.value || "")) {
+            const action = findSupporterGateAction(input?.value || "");
+            if (!action) {
                 if (status) {
                     status.textContent = "合言葉が違います。案内された記号をそのまま入力してください。";
                 }
                 input?.select?.();
                 return;
             }
-            showSupporterUnlockGuide();
+            showSupporterUnlockGuide(action);
         }
 
-        function showSupporterUnlockGuide() {
+        function showSupporterUnlockGuide(action) {
             const { backdrop, popup } = ensureQaShortcutDialog();
+            const title = action?.title || "支援者設定";
+            const body = action?.body || "支援者設定を開き、必要な機能を有効にしてください。";
+            const key = action?.key || "";
+            const button = action?.button || "有効にする";
             popup.innerHTML = [
-                '<div class="comment-popup-title">解除方法</div>',
-                '<div class="comment-popup-body">支援者設定を開き、必要な機能を有効にしてください。\n\nPDFフッター編集と、保存済み試合の上限解除をこの端末に保存できます。</div>',
+                '<div class="comment-popup-title">解除方法: ' + escapeHtml(title) + '</div>',
+                '<div class="comment-popup-body">' + escapeHtml(body + "\n\n解除状態はこの端末に保存されます。") + '</div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="closeQaShortcutMenu()">閉じる</button>',
-                '<button type="button" class="btn-hit" onclick="openSupporterSettingsMenu()">支援者設定を開く</button>',
+                '<button type="button" class="btn-hit" onclick="applySupporterGateUnlock(\'' + escapeHtml(key) + '\')">' + escapeHtml(button) + '</button>',
                 '</div>'
             ].join("");
             backdrop.classList.add("is-open");
             popup.classList.add("is-open");
             popup.setAttribute("aria-hidden", "false");
+        }
+
+        function applySupporterGateUnlock(key) {
+            if (key === "footer") {
+                setSupporterFeatureEnabled(true);
+            } else if (key === "save-limit") {
+                setSupporterSaveLimitUnlocked(true);
+            } else if (key === "team-share") {
+                setSupporterTeamRosterSharingUnlocked(true);
+            }
+            openSupporterSettingsMenu();
         }
 
         function openSupporterSettingsMenu() {
@@ -7513,7 +7582,7 @@
                 renderSupporterSettingsPanel(),
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="closeQaShortcutMenu()">閉じる</button>',
-                '<button type="button" onclick="enableAllSupporterFeatures()">すべて有効にする</button>',
+                '<button type="button" onclick="openSupporterGateMenu()">合言葉を入力</button>',
                 '</div>'
             ].join("");
             syncSupporterFooterUi();
