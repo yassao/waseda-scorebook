@@ -4477,6 +4477,46 @@
             font-size: 14px;
         }
 
+        .inning-share-draft-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .inning-share-draft-header .comment-popup-title {
+            margin-bottom: 0;
+        }
+
+        .inning-share-draft-count {
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .inning-share-draft-count.is-warning {
+            color: #b42318;
+        }
+
+        .inning-share-length-warning {
+            display: none;
+            margin-top: 8px;
+            padding: 8px 10px;
+            border: 1px solid #fecaca;
+            border-radius: 10px;
+            background: #fff7f7;
+            color: #b42318;
+            font-size: 12px;
+            font-weight: 850;
+            line-height: 1.45;
+        }
+
+        .inning-share-length-warning.is-open {
+            display: block;
+        }
+
         .feedback-popup {
             width: min(620px, calc(100vw - 24px));
         }
@@ -4933,6 +4973,45 @@
             height: 18px;
         }
 
+        .inning-share-options label.inning-share-toggle {
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .inning-share-options .inning-share-toggle-input {
+            appearance: none;
+            position: relative;
+            flex: 0 0 auto;
+            width: 42px;
+            height: 24px;
+            border: 2px solid #cbd8e2;
+            border-radius: 999px;
+            background: #e2e8f0;
+            transition: background 120ms ease, border-color 120ms ease;
+        }
+
+        .inning-share-options .inning-share-toggle-input::after {
+            content: "";
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            left: 2px;
+            top: 2px;
+            border-radius: 999px;
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.28);
+            transition: transform 120ms ease;
+        }
+
+        .inning-share-options .inning-share-toggle-input:checked {
+            border-color: #0f766e;
+            background: #0f766e;
+        }
+
+        .inning-share-options .inning-share-toggle-input:checked::after {
+            transform: translateX(18px);
+        }
+
         .ai-prompt-popup-backdrop {
             position: fixed;
             inset: 0;
@@ -5089,16 +5168,17 @@
 
         .tweet-target-label {
             position: absolute;
-            right: 44px;
+            left: 12px;
+            right: 78px;
             top: 6px;
             z-index: 1;
-            max-width: 46%;
+            max-width: none;
             overflow: hidden;
             color: #9aa6b2;
             font-size: 10px;
             font-weight: 800;
             line-height: 1.2;
-            text-align: right;
+            text-align: left;
             white-space: nowrap;
             pointer-events: none;
         }
@@ -5107,7 +5187,7 @@
             height: 38px;
             min-height: 38px;
             max-height: 48px;
-            padding: 13px 72px 6px 10px;
+            padding: 18px 72px 4px 10px;
             border: 2px solid #d7e1ea;
             border-radius: 14px;
             background: #fff;
@@ -6338,7 +6418,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.29";
+        const APP_VERSION = "0.3.30";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6349,6 +6429,9 @@
         const SUPPORTER_FEATURES_STORAGE_KEY = "cuviu_scorebook_supporter_features_v1";
         const MAX_SAVED_GAME_SLOTS = 30;
         const MAX_TEAM_ROSTER_MEMORY = 80;
+        const X_FREE_WEIGHT_LIMIT = 280;
+        const X_FREE_FULLWIDTH_LIMIT = 140;
+        const X_URL_WEIGHT_LENGTH = 23;
         const INNING_AD_SECONDS = 0;
         const INNING_AD_SKIP_AFTER_SECONDS = 0;
         const PDF_AD_SECONDS = 0;
@@ -19492,6 +19575,48 @@
             return value ? value + "\n" + SCOREBOOK_APP_URL : SCOREBOOK_APP_URL;
         }
 
+        function isXWideCharacter(char) {
+            const code = char.codePointAt(0) || 0;
+            return (
+                (code >= 0x1100 && code <= 0x11FF)
+                || (code >= 0x2E80 && code <= 0xA4CF)
+                || (code >= 0xAC00 && code <= 0xD7AF)
+                || (code >= 0xF900 && code <= 0xFAFF)
+                || (code >= 0xFE10 && code <= 0xFE6F)
+                || (code >= 0xFF00 && code <= 0xFFEF)
+                || (code >= 0x1F000 && code <= 0x1FAFF)
+            );
+        }
+
+        function calculateXDraftWeight(text) {
+            const value = String(text || "");
+            const urlPattern = /https?:\/\/[^\s]+/gi;
+            let weight = 0;
+            let lastIndex = 0;
+            let match;
+            const addTextWeight = (part) => {
+                Array.from(part).forEach((char) => {
+                    weight += isXWideCharacter(char) ? 2 : 1;
+                });
+            };
+            while ((match = urlPattern.exec(value)) !== null) {
+                addTextWeight(value.slice(lastIndex, match.index));
+                weight += X_URL_WEIGHT_LENGTH;
+                lastIndex = match.index + match[0].length;
+            }
+            addTextWeight(value.slice(lastIndex));
+            return weight;
+        }
+
+        function getXDraftLengthInfo(text) {
+            const weight = calculateXDraftWeight(text);
+            return {
+                weight,
+                fullwidthEquivalent: Math.ceil(weight / 2),
+                overFreeLimit: weight > X_FREE_WEIGHT_LIMIT
+            };
+        }
+
         function shouldIncludeScorebookAppUrlInDraft() {
             const checkbox = document.getElementById("inningShareIncludeUrlCheckbox");
             return checkbox ? checkbox.checked : true;
@@ -19500,6 +19625,54 @@
         function shouldIncludeInningShareCommentsInDraft() {
             const checkbox = document.getElementById("inningShareIncludeCommentsCheckbox");
             return checkbox ? checkbox.checked : true;
+        }
+
+        function updateInningShareDraftLengthIndicator() {
+            const textarea = document.getElementById("inningShareDraftText");
+            const counter = document.getElementById("inningShareDraftCount");
+            const warning = document.getElementById("inningShareLengthWarning");
+            if (!textarea) {
+                return null;
+            }
+            const info = getXDraftLengthInfo(textarea.value);
+            if (counter) {
+                const countText = info.fullwidthEquivalent + "/" + X_FREE_FULLWIDTH_LIMIT;
+                if (counter.textContent !== countText) {
+                    counter.textContent = countText;
+                }
+                counter.classList.toggle("is-warning", info.overFreeLimit);
+                counter.title = "通常アカウント向けの目安です。URLは一律23文字として数えます。";
+            }
+            if (warning) {
+                const includeComments = shouldIncludeInningShareCommentsInDraft();
+                const warningText = info.overFreeLimit
+                    ? (includeComments
+                        ? "通常アカウントの目安を超えています。一言メモを外すと短くできます。"
+                        : "一言メモなしでも通常アカウントの目安を超えています。文面を短くしてください。")
+                    : "";
+                warning.classList.toggle("is-open", info.overFreeLimit);
+                if (warning.textContent !== warningText) {
+                    warning.textContent = warningText;
+                }
+            }
+            return info;
+        }
+
+        function alertIfInningShareDraftStillOverFreeLimit() {
+            const textarea = document.getElementById("inningShareDraftText");
+            if (!textarea || shouldIncludeInningShareCommentsInDraft()) {
+                return false;
+            }
+            const info = getXDraftLengthInfo(textarea.value);
+            if (!info.overFreeLimit) {
+                return false;
+            }
+            window.alert(
+                "一言メモなしでも通常アカウントの目安を超えています。\n\n" +
+                "現在: 全角約" + info.fullwidthEquivalent + "文字相当 / 目安: " + X_FREE_FULLWIDTH_LIMIT + "文字\n" +
+                "必要なら文面を短くしてから投稿してください。"
+            );
+            return true;
         }
 
         function buildInningShareDraftFromCurrentOptions() {
@@ -19520,6 +19693,7 @@
                 return "";
             }
             textarea.value = buildInningShareDraftFromCurrentOptions();
+            updateInningShareDraftLengthIndicator();
             return textarea.value;
         }
 
@@ -19532,6 +19706,7 @@
             textarea.value = shouldIncludeScorebookAppUrlInDraft()
                 ? ensureScorebookAppUrl(withHashtag)
                 : withHashtag;
+            updateInningShareDraftLengthIndicator();
             return textarea.value;
         }
 
@@ -19582,10 +19757,14 @@
             }
             const continueText = isGameEndingTransition(pendingInningTransition) ? "試合終了として閉じる" : "次の攻撃へ";
             popup.innerHTML = [
+                '<div class="inning-share-draft-header">',
                 '<div class="comment-popup-title">Xポスト下書き <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
-                '<textarea id="inningShareDraftText" onfocus="this.select()" onclick="this.select()">' + escapeHtml(draft) + '</textarea>',
-                '<div class="inning-share-options"><label><input id="inningShareIncludeCommentsCheckbox" type="checkbox" checked onchange="refreshInningShareDraftFromOptions()">一言メモ/詳細を入れる</label></div>',
-                '<div class="inning-share-options"><label><input id="inningShareIncludeUrlCheckbox" type="checkbox" checked onchange="applyInningShareDraftUrlPreference()">アプリURLを付ける</label></div>',
+                '<div id="inningShareDraftCount" class="inning-share-draft-count" aria-live="polite">0/' + X_FREE_FULLWIDTH_LIMIT + '</div>',
+                '</div>',
+                '<textarea id="inningShareDraftText" oninput="updateInningShareDraftLengthIndicator()" onfocus="this.select()" onclick="this.select()">' + escapeHtml(draft) + '</textarea>',
+                '<div id="inningShareLengthWarning" class="inning-share-length-warning" aria-live="polite"></div>',
+                '<div class="inning-share-options"><label class="inning-share-toggle"><span>一言メモ/詳細を入れる</span><input id="inningShareIncludeCommentsCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="refreshInningShareDraftFromOptions()"></label></div>',
+                '<div class="inning-share-options"><label class="inning-share-toggle"><span>アプリURLを付ける</span><input id="inningShareIncludeUrlCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="applyInningShareDraftUrlPreference()"></label></div>',
                 '<div id="inningShareCopyStatus" class="inning-share-options">Xで投稿/取り消し後は、この画面に戻って「' + escapeHtml(continueText) + '」を押してください。</div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
@@ -19598,6 +19777,7 @@
                 textarea?.focus();
                 textarea?.select();
                 textarea?.setSelectionRange?.(0, textarea.value.length);
+                updateInningShareDraftLengthIndicator();
             });
         }
 
@@ -19612,19 +19792,44 @@
             if (title && !title.textContent.includes(APP_VERSION)) {
                 title.innerHTML = "Xポスト下書き <small>v" + escapeHtml(APP_VERSION) + "</small>";
             }
+            if (popup && !document.getElementById("inningShareDraftCount")) {
+                const titleElement = popup.querySelector(".comment-popup-title");
+                const header = document.createElement("div");
+                header.className = "inning-share-draft-header";
+                const count = document.createElement("div");
+                count.id = "inningShareDraftCount";
+                count.className = "inning-share-draft-count";
+                count.setAttribute("aria-live", "polite");
+                count.textContent = "0/" + X_FREE_FULLWIDTH_LIMIT;
+                if (titleElement) {
+                    titleElement.parentNode?.insertBefore(header, titleElement);
+                    header.append(titleElement, count);
+                }
+            }
+            if (popup && !document.getElementById("inningShareLengthWarning")) {
+                const warning = document.createElement("div");
+                warning.id = "inningShareLengthWarning";
+                warning.className = "inning-share-length-warning";
+                warning.setAttribute("aria-live", "polite");
+                textarea.insertAdjacentElement("afterend", warning);
+            }
+            if (!textarea.getAttribute("oninput")) {
+                textarea.setAttribute("oninput", "updateInningShareDraftLengthIndicator()");
+            }
             if (popup && !document.getElementById("inningShareIncludeUrlCheckbox")) {
                 const options = document.createElement("div");
                 options.className = "inning-share-options";
-                options.innerHTML = '<label><input id="inningShareIncludeUrlCheckbox" type="checkbox" checked onchange="applyInningShareDraftUrlPreference()">アプリURLを付ける</label>';
+                options.innerHTML = '<label class="inning-share-toggle"><span>アプリURLを付ける</span><input id="inningShareIncludeUrlCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="applyInningShareDraftUrlPreference()"></label>';
                 popup.insertBefore(options, document.getElementById("inningShareCopyStatus") || popup.querySelector(".comment-popup-actions"));
                 applyInningShareDraftUrlPreference();
             }
             if (popup && !document.getElementById("inningShareIncludeCommentsCheckbox")) {
                 const options = document.createElement("div");
                 options.className = "inning-share-options";
-                options.innerHTML = '<label><input id="inningShareIncludeCommentsCheckbox" type="checkbox" checked onchange="refreshInningShareDraftFromOptions()">一言メモ/詳細を入れる</label>';
+                options.innerHTML = '<label class="inning-share-toggle"><span>一言メモ/詳細を入れる</span><input id="inningShareIncludeCommentsCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="refreshInningShareDraftFromOptions()"></label>';
                 popup.insertBefore(options, document.getElementById("inningShareIncludeUrlCheckbox")?.closest(".inning-share-options") || document.getElementById("inningShareCopyStatus") || popup.querySelector(".comment-popup-actions"));
             }
+            updateInningShareDraftLengthIndicator();
             const status = document.getElementById("inningShareCopyStatus");
             if (status && !status.textContent.includes("投稿/取り消し後")) {
                 const continueText = isGameEndingTransition(pendingInningTransition) ? "試合終了として閉じる" : "次の攻撃へ";
@@ -19689,6 +19894,7 @@
                 return;
             }
             applyInningShareDraftUrlPreference();
+            alertIfInningShareDraftStillOverFreeLimit();
             const finish = (message) => {
                 if (status) {
                     status.textContent = message;
@@ -19696,6 +19902,7 @@
             };
             copyTextFromTextarea(textarea, { ensureHashtag: true })
                 .then((copied) => {
+                    updateInningShareDraftLengthIndicator();
                     finish(copied ? "コピーしました。" : "コピーできませんでした。選択済みの文面を長押ししてコピーしてください。");
                 })
                 .catch(() => finish("コピーできませんでした。選択済みの文面を長押ししてコピーしてください。"));
@@ -19707,6 +19914,7 @@
                 return;
             }
             applyInningShareDraftUrlPreference();
+            alertIfInningShareDraftStillOverFreeLimit();
             const status = document.getElementById("inningShareCopyStatus");
             if (status) {
                 const continueText = isGameEndingTransition(pendingInningTransition) ? "試合終了として閉じる" : "次の攻撃へ";
