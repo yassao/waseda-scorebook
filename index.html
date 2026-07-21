@@ -4373,6 +4373,69 @@
             font-weight: 900;
         }
 
+        .qa-supporter-status-list {
+            display: grid;
+            gap: 7px;
+        }
+
+        .qa-supporter-status-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+            padding: 8px 10px;
+            border: 1px solid #d7e4ea;
+            border-radius: 11px;
+            background: #ffffff;
+        }
+
+        .qa-supporter-status-label {
+            color: #243447;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .qa-supporter-status-detail {
+            margin-top: 1px;
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1.35;
+        }
+
+        .qa-supporter-status-badge {
+            min-width: 48px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 900;
+            text-align: center;
+        }
+
+        .qa-supporter-status-row.is-on .qa-supporter-status-badge {
+            background: #0f766e;
+            color: #ffffff;
+        }
+
+        .qa-debug-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 9px 10px;
+            border: 1px solid #d7e4ea;
+            border-radius: 11px;
+            background: #ffffff;
+        }
+
+        .qa-debug-toggle span {
+            color: #243447;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
         .qa-supporter-panel label {
             display: flex;
             align-items: center;
@@ -4380,6 +4443,10 @@
             color: #243447;
             font-size: 14px;
             font-weight: 900;
+        }
+
+        .qa-supporter-panel label.qa-debug-toggle {
+            justify-content: space-between;
         }
 
         .qa-supporter-panel input[type="checkbox"] {
@@ -6460,7 +6527,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.37";
+        const APP_VERSION = "0.3.38";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6626,11 +6693,67 @@
             return sanitizeSupporterFooterText(getSupporterSettings().footerText).trim() || DEFAULT_PDF_FOOTER_TEXT;
         }
 
+        function getSupporterStatusItems(settings = getSupporterSettings()) {
+            return [
+                {
+                    key: "footer",
+                    label: "PDFフッター編集",
+                    enabled: settings.enabled,
+                    detail: settings.enabled ? "フッター文言を編集できます" : "合言葉入力後に使えます"
+                },
+                {
+                    key: "saveLimit",
+                    label: "保存上限解除",
+                    enabled: settings.saveLimitUnlocked,
+                    detail: settings.saveLimitUnlocked ? "内部保存の30試合制限を解除中" : "内部保存は30試合まで"
+                },
+                {
+                    key: "teamShare",
+                    label: "チームメンバー共有",
+                    enabled: settings.teamRosterSharingUnlocked,
+                    detail: settings.teamRosterSharingUnlocked ? "支援者枠を登録済み（準備中）" : "機能本体を準備中"
+                }
+            ];
+        }
+
+        function renderSupporterStatusRows(settings = getSupporterSettings()) {
+            return getSupporterStatusItems(settings).map((item) => {
+                return [
+                    '<div id="qaSupporterStatusRow_' + escapeHtml(item.key) + '" class="qa-supporter-status-row' + (item.enabled ? ' is-on' : '') + '">',
+                    '<div>',
+                    '<div class="qa-supporter-status-label">' + escapeHtml(item.label) + '</div>',
+                    '<div id="qaSupporterStatusDetail_' + escapeHtml(item.key) + '" class="qa-supporter-status-detail">' + escapeHtml(item.detail) + '</div>',
+                    '</div>',
+                    '<div id="qaSupporterStatusBadge_' + escapeHtml(item.key) + '" class="qa-supporter-status-badge">' + (item.enabled ? 'ON' : 'OFF') + '</div>',
+                    '</div>'
+                ].join("");
+            }).join("");
+        }
+
+        function syncSupporterStatusRows(settings = getSupporterSettings()) {
+            getSupporterStatusItems(settings).forEach((item) => {
+                const row = document.getElementById("qaSupporterStatusRow_" + item.key);
+                const badge = document.getElementById("qaSupporterStatusBadge_" + item.key);
+                const detail = document.getElementById("qaSupporterStatusDetail_" + item.key);
+                row?.classList.toggle("is-on", item.enabled);
+                if (badge) {
+                    badge.textContent = item.enabled ? "ON" : "OFF";
+                }
+                if (detail) {
+                    detail.textContent = item.detail;
+                }
+            });
+        }
+
         function syncSupporterFooterUi() {
             const settings = getSupporterSettings();
             setElementChecked("qaSupporterFeatureEnabled", settings.enabled);
             setElementChecked("qaSupporterSaveLimitUnlocked", settings.saveLimitUnlocked);
             setElementChecked("qaSupporterTeamRosterSharingUnlocked", settings.teamRosterSharingUnlocked);
+            setElementChecked("qaDebugSupporterFooter", settings.enabled);
+            setElementChecked("qaDebugSupporterSaveLimit", settings.saveLimitUnlocked);
+            setElementChecked("qaDebugSupporterTeamShare", settings.teamRosterSharingUnlocked);
+            syncSupporterStatusRows(settings);
             const footerToggle = document.getElementById("qaSupporterFeatureEnabled");
             if (footerToggle) {
                 footerToggle.disabled = !settings.enabled;
@@ -6686,6 +6809,20 @@
         function setSupporterTeamRosterSharingUnlocked(enabled) {
             const settings = getSupporterSettings();
             settings.teamRosterSharingUnlocked = Boolean(enabled);
+            saveSupporterSettings(settings);
+            syncSupporterFooterUi();
+        }
+
+        function setSupporterDebugFeatureState(key, enabled) {
+            const settings = getSupporterSettings();
+            if (key === "footer") {
+                settings.enabled = Boolean(enabled);
+                settings.footerText = settings.footerText || DEFAULT_PDF_FOOTER_TEXT;
+            } else if (key === "save-limit") {
+                settings.saveLimitUnlocked = Boolean(enabled);
+            } else if (key === "team-share") {
+                settings.teamRosterSharingUnlocked = Boolean(enabled);
+            }
             saveSupporterSettings(settings);
             syncSupporterFooterUi();
         }
@@ -7494,11 +7631,27 @@
             return [
                 '<div class="qa-supporter-panel">',
                 '<div class="qa-supporter-title">支援者設定</div>',
+                '<div class="qa-supporter-status-list" aria-label="現在の支援者機能状態">',
+                renderSupporterStatusRows(settings),
+                '</div>',
                 '<label><input id="qaSupporterFeatureEnabled" type="checkbox" onchange="setSupporterFeatureEnabled(this.checked)"' + footerDisabled + '>PDFフッター編集を有効にする</label>',
                 '<input id="qaSupporterFooterText" type="text" maxlength="80" placeholder="' + escapeHtml(DEFAULT_PDF_FOOTER_TEXT) + '" oninput="setSupporterFooterText(this.value)">',
                 '<label><input id="qaSupporterSaveLimitUnlocked" type="checkbox" onchange="setSupporterSaveLimitUnlocked(this.checked)"' + saveLimitDisabled + '>保存済み試合の上限を解除する</label>',
                 '<label><input id="qaSupporterTeamRosterSharingUnlocked" type="checkbox" onchange="setSupporterTeamRosterSharingUnlocked(this.checked)"' + teamShareDisabled + '>チームメンバー共有を有効にする（準備中）</label>',
                 '<small>この端末に保存されます。未解除の機能は、対応する合言葉を入力すると有効にできます。チームメンバー共有は共有機能の本体実装に向けた予約設定です。</small>',
+                '</div>'
+            ].join("");
+        }
+
+        function renderSupporterDebugPanel() {
+            const settings = getSupporterSettings();
+            return [
+                '<div class="qa-supporter-panel">',
+                '<div class="qa-supporter-title">支援者機能デバッグ</div>',
+                '<label class="qa-debug-toggle"><span>PDFフッター編集</span><input id="qaDebugSupporterFooter" type="checkbox" onchange="setSupporterDebugFeatureState(\'footer\', this.checked)"' + (settings.enabled ? ' checked' : '') + '></label>',
+                '<label class="qa-debug-toggle"><span>保存上限解除</span><input id="qaDebugSupporterSaveLimit" type="checkbox" onchange="setSupporterDebugFeatureState(\'save-limit\', this.checked)"' + (settings.saveLimitUnlocked ? ' checked' : '') + '></label>',
+                '<label class="qa-debug-toggle"><span>チームメンバー共有</span><input id="qaDebugSupporterTeamShare" type="checkbox" onchange="setSupporterDebugFeatureState(\'team-share\', this.checked)"' + (settings.teamRosterSharingUnlocked ? ' checked' : '') + '></label>',
+                '<small>15回タップ後の検証用です。合言葉なしで、この端末の支援者状態を直接ON/OFFできます。</small>',
                 '</div>'
             ].join("");
         }
@@ -7653,7 +7806,8 @@
             const { backdrop, popup } = ensureQaShortcutDialog();
             popup.innerHTML = [
                 '<div class="comment-popup-title">検証メニュー <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
-                '<div class="comment-popup-body">現在の試合を検証用データで上書きできます。</div>',
+                '<div class="comment-popup-body">試合データの検証と支援者状態の切り替えができます。</div>',
+                renderSupporterDebugPanel(),
                 '<div class="qa-shortcut-grid">',
                 renderQaShortcutButton("walkoff-ready", "サヨナラ直前", "9回裏・同点・二死走者なし。HRなどでサヨナラを確認できます。"),
                 renderQaShortcutButton("walkoff-hr", "サヨナラHRを実行", "9回裏同点から本塁打を保存し、サヨナラ終了処理まで一気に進めます。"),
@@ -7669,6 +7823,7 @@
                 "<button type=\"button\" onclick=\"applyQaShortcutPreset('walkoff-ready')\">サヨナラ直前</button>",
                 '</div>'
             ].join("");
+            syncSupporterFooterUi();
             backdrop.classList.add("is-open");
             popup.classList.add("is-open");
             popup.setAttribute("aria-hidden", "false");
