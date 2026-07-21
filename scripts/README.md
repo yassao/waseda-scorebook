@@ -1,6 +1,6 @@
 # CuViu デプロイ手順
 
-`index.html` / `support-thanks.html` と、存在する場合はフィードバック受け口の `feedback.php` / 台帳ビューアの `feedback_admin.php` を Xserver の `cuviu.jp/apps/scorebook/` に反映します。
+`index.html` / `support.html` / `support-thanks.html` と、存在する場合はフィードバック受け口の `feedback.php` / 台帳ビューアの `feedback_admin.php` を Xserver の `cuviu.jp/apps/scorebook/` に反映します。
 あわせて、フィードバック台帳用の非公開ディレクトリ `/home/cuviu001/cuviu.jp/scorebook-feedback/` を作成します。
 
 アプリ紹介HPの正規ページは WordPress の `https://cuviu.jp/baseball-scorebook/` です。貼り替え用HTMLは `docs/baseball-scorebook-wordpress-snippet.html` を使います。

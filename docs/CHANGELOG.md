@@ -1,3 +1,14 @@
+## v0.3.39 [2026-07-21] 支援導線を3択ページ化し検証入口を合言葉化
+
+**変更ファイル:**
+- docs/VERSION
+- index.html
+- scripts/README.md
+- scripts/deploy-cuviu.sh
+- support.html
+
+---
+
 ## v0.3.38 [2026-07-21] 支援者状態表示と検証用切替を追加
 
 **変更ファイル:**

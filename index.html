@@ -4482,27 +4482,6 @@
             line-height: 1.45;
         }
 
-        .qa-secret-version-trigger {
-            min-height: 0;
-            width: auto;
-            margin-left: 6px;
-            padding: 0;
-            border: 0;
-            border-radius: 0;
-            background: transparent;
-            color: #64748b;
-            font: inherit;
-            font-size: 12px;
-            font-weight: 900;
-            line-height: 1;
-            vertical-align: baseline;
-            box-shadow: none;
-        }
-
-        .qa-secret-version-trigger:active {
-            transform: none;
-        }
-
         .ad-gate-popup .comment-popup-title small {
             display: block;
             margin-top: 4px;
@@ -6527,7 +6506,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.38";
+        const APP_VERSION = "0.3.39";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6550,9 +6529,9 @@
             saves: "https://buy.stripe.com/cNifZhg726TAffFfNq43S04",
             share: "https://buy.stripe.com/3cI28r1c86TA0kL1WA43S05"
         };
+        const SUPPORT_MENU_URL = "https://cuviu.jp/apps/scorebook/support.html";
         const SCOREBOOK_APP_URL = "https://cuviu.jp/apps/scorebook/";
         const DEFAULT_PDF_FOOTER_TEXT = "スコアブック by CuViu";
-        const SUPPORTER_SECRET_TAP_THRESHOLD = 15;
         const SCOREBOOK_APP_QR_MATRIX = [
             "000000000000000000000000000000000",
             "000000000000000000000000000000000",
@@ -7182,8 +7161,6 @@
         let appVersionBadgeTapCount = 0;
         let appVersionBadgeTapResetTimer = null;
         let appVersionBadgeLastPointerTapAt = 0;
-        let supporterSecretTapCount = 0;
-        let supporterSecretTapResetTimer = null;
 
         const SCORE_COLORS = {
             ink: "#111",
@@ -7660,6 +7637,10 @@
             return String.fromCodePoint(0x25C7, 0x80CC, 0x756A, 0x53F7, 0x33, 0x31, 0x25C7);
         }
 
+        function getQaShortcutGateCode() {
+            return String.fromCodePoint(0x25A1, 0x691C, 0x8A3C, 0x88CF, 0x37, 0x35, 0x25A1);
+        }
+
         function getSupporterGateActions() {
             return [
                 {
@@ -7722,7 +7703,12 @@
         function submitSupporterGateCode() {
             const input = document.getElementById("supporterGateCodeInput");
             const status = document.getElementById("supporterGateStatus");
-            const action = findSupporterGateAction(input?.value || "");
+            const value = input?.value || "";
+            if (normalizeSupporterGateCode(value) === normalizeSupporterGateCode(getQaShortcutGateCode())) {
+                openQaShortcutMenu();
+                return;
+            }
+            const action = findSupporterGateAction(value);
             if (!action) {
                 if (status) {
                     status.textContent = "合言葉が違います。案内された記号をそのまま入力してください。";
@@ -7766,7 +7752,7 @@
         function openSupporterSettingsMenu() {
             const { backdrop, popup } = ensureQaShortcutDialog();
             popup.innerHTML = [
-                '<div class="comment-popup-title">支援者設定 <button class="qa-secret-version-trigger" type="button" onclick="registerSupporterSecretTap(event)">v' + escapeHtml(APP_VERSION) + '</button></div>',
+                '<div class="comment-popup-title">支援者設定 <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
                 '<div class="comment-popup-body">支援してくれた方向けの端末設定です。</div>',
                 renderSupporterSettingsPanel(),
                 '<div class="comment-popup-actions">',
@@ -7778,28 +7764,6 @@
             backdrop.classList.add("is-open");
             popup.classList.add("is-open");
             popup.setAttribute("aria-hidden", "false");
-        }
-
-        function registerSupporterSecretTap(event) {
-            event?.preventDefault?.();
-            event?.stopPropagation?.();
-            supporterSecretTapCount += 1;
-            if (supporterSecretTapCount >= SUPPORTER_SECRET_TAP_THRESHOLD) {
-                supporterSecretTapCount = 0;
-                if (supporterSecretTapResetTimer) {
-                    clearTimeout(supporterSecretTapResetTimer);
-                    supporterSecretTapResetTimer = null;
-                }
-                openQaShortcutMenu();
-                return;
-            }
-            if (supporterSecretTapResetTimer) {
-                clearTimeout(supporterSecretTapResetTimer);
-            }
-            supporterSecretTapResetTimer = setTimeout(() => {
-                supporterSecretTapCount = 0;
-                supporterSecretTapResetTimer = null;
-            }, 1800);
         }
 
         function openQaShortcutMenu() {
@@ -11062,7 +11026,7 @@
             if (!slot) {
                 return;
             }
-            const supportLink = String(STRIPE_SUPPORT_URLS.footer || "").trim();
+            const supportLink = String(SUPPORT_MENU_URL || "").trim();
             const supportCta = /^https:\/\/.+/i.test(supportLink)
                 ? '<a href="' + escapeHtml(supportLink) + '" target="_blank" rel="noopener">開発支援はこちら</a>'
                 : '<span>開発支援リンクは準備中です。</span>';
