@@ -155,6 +155,13 @@
             background: #ffffff;
         }
 
+        .passphrase-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 48px;
+            gap: 10px;
+            align-items: center;
+        }
+
         .passphrase-label {
             color: var(--muted);
             font-size: 13px;
@@ -168,6 +175,46 @@
             font-weight: 900;
             line-height: 1.25;
             overflow-wrap: anywhere;
+        }
+
+        .copy-code-button {
+            display: inline-grid;
+            place-items: center;
+            width: 48px;
+            height: 48px;
+            border: 2px solid var(--accent);
+            border-radius: 12px;
+            background: #ffffff;
+            color: var(--accent);
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .copy-code-button svg {
+            width: 24px;
+            height: 24px;
+            stroke: currentColor;
+            stroke-width: 2.25;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+        }
+
+        .copy-code-button:active,
+        .copy-code-button.copied {
+            background: var(--accent);
+            color: #ffffff;
+        }
+
+        .copy-status {
+            min-height: 20px;
+            color: var(--accent);
+            font-size: 13px;
+            font-weight: 850;
+        }
+
+        .copy-status.error {
+            color: #b42318;
         }
 
         .actions {
@@ -225,7 +272,16 @@
 
             <div class="passphrase" aria-labelledby="passphraseLabel">
                 <div id="passphraseLabel" class="passphrase-label">合言葉</div>
-                <div id="passphraseCode" class="passphrase-code">◇余白27◇</div>
+                <div class="passphrase-row">
+                    <div id="passphraseCode" class="passphrase-code">◇余白27◇</div>
+                    <button id="copyPassphraseButton" class="copy-code-button" type="button" onclick="copyPassphraseCode()" aria-label="合言葉をコピー" title="合言葉をコピー">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <rect x="8" y="8" width="10" height="12" rx="2"></rect>
+                            <path d="M6 16H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div id="copyStatus" class="copy-status" role="status" aria-live="polite"></div>
             </div>
 
             <ol id="thanksSteps" class="steps">
@@ -295,6 +351,61 @@
             }
         }
 
+        function fallbackCopyText(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.setAttribute("readonly", "");
+            textArea.style.position = "fixed";
+            textArea.style.top = "-1000px";
+            textArea.style.left = "-1000px";
+            document.body.append(textArea);
+            textArea.focus();
+            textArea.select();
+            const didCopy = document.execCommand("copy");
+            textArea.remove();
+            if (!didCopy) {
+                throw new Error("copy failed");
+            }
+        }
+
+        let copyStatusTimer = null;
+
+        function setCopyStatus(message, isError = false) {
+            const status = document.getElementById("copyStatus");
+            const button = document.getElementById("copyPassphraseButton");
+            if (status) {
+                status.textContent = message;
+                status.classList.toggle("error", isError);
+            }
+            if (button) {
+                button.classList.toggle("copied", Boolean(message) && !isError);
+            }
+            if (copyStatusTimer) {
+                clearTimeout(copyStatusTimer);
+            }
+            if (message) {
+                copyStatusTimer = setTimeout(() => setCopyStatus("", false), 1800);
+            }
+        }
+
+        async function copyPassphraseCode() {
+            const code = document.getElementById("passphraseCode")?.textContent?.trim();
+            if (!code) {
+                setCopyStatus("コピーする合言葉がありません。", true);
+                return;
+            }
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(code);
+                } else {
+                    fallbackCopyText(code);
+                }
+                setCopyStatus("コピーしました。");
+            } catch (error) {
+                setCopyStatus("コピーできませんでした。長押しで選択してください。", true);
+            }
+        }
+
         function renderGuide() {
             const params = new URLSearchParams(window.location.search);
             const requestedFeature = params.get("feature") || "footer";
@@ -303,6 +414,7 @@
             setText("thanksTitle", guide.title);
             setText("thanksLead", guide.lead);
             setText("passphraseCode", guide.code);
+            setCopyStatus("", false);
             if (steps) {
                 steps.textContent = "";
                 guide.steps.forEach((step) => {
