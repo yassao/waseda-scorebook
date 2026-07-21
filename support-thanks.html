@@ -117,6 +117,59 @@
             font-weight: 750;
         }
 
+        .feature-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 18px;
+        }
+
+        .feature-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 38px;
+            padding: 7px 12px;
+            border: 1.5px solid var(--line);
+            border-radius: 999px;
+            background: #ffffff;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 850;
+            text-decoration: none;
+        }
+
+        .feature-link.active {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: #ffffff;
+        }
+
+        .passphrase {
+            display: grid;
+            gap: 6px;
+            margin-top: 20px;
+            padding: 14px;
+            border: 2px dashed #b8d4de;
+            border-radius: 14px;
+            background: #ffffff;
+        }
+
+        .passphrase-label {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .passphrase-code {
+            color: var(--ink);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: clamp(24px, 7vw, 34px);
+            font-weight: 900;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+
         .actions {
             display: flex;
             gap: 10px;
@@ -162,16 +215,27 @@
         <div class="brand">CuViu Scorebook</div>
         <section class="panel" aria-labelledby="thanksTitle">
             <h1 id="thanksTitle">ご支援ありがとうございます。</h1>
-            <p>支援者向けに、PDFフッター文言の編集を使えるようにしています。</p>
+            <p id="thanksLead">支援者向けに、PDFフッター文言の編集を使えるようにしています。</p>
 
-            <ol class="steps">
+            <nav class="feature-links" aria-label="支援特典の案内切り替え">
+                <a id="featureLinkFooter" class="feature-link" href="?feature=footer">フッター編集</a>
+                <a id="featureLinkSaves" class="feature-link" href="?feature=saves">保存上限解除</a>
+                <a id="featureLinkShare" class="feature-link" href="?feature=share">チーム共有</a>
+            </nav>
+
+            <div class="passphrase" aria-labelledby="passphraseLabel">
+                <div id="passphraseLabel" class="passphrase-label">合言葉</div>
+                <div id="passphraseCode" class="passphrase-code">◇余白27◇</div>
+            </div>
+
+            <ol id="thanksSteps" class="steps">
                 <li>スコアブックを開き、新規試合を始めます。</li>
                 <li>新規試合を始めた後、画面左上のバージョン表示を7回タップします。</li>
-                <li>支援者設定が開いたら、「PDFフッター編集を有効にする」をオンにします。</li>
-                <li>PDFフッター文言を好きな内容に編集します。</li>
+                <li>合言葉入力欄に上の合言葉を入力します。</li>
+                <li>支援者設定で、対象の機能がオンになっていることを確認します。</li>
             </ol>
 
-            <div class="note">
+            <div id="thanksNote" class="note">
                 設定はこの端末のブラウザに保存されます。別の端末や別のブラウザで使う場合は、同じ手順で有効にしてください。
             </div>
 
@@ -180,5 +244,83 @@
             </div>
         </section>
     </main>
+    <script>
+        const featureGuides = {
+            footer: {
+                title: "PDFフッター編集を有効にできます。",
+                lead: "PDFに表示される既定のフッター文言を、この端末で自由に編集できます。",
+                code: "◇余白27◇",
+                linkId: "featureLinkFooter",
+                steps: [
+                    "スコアブックを開き、新規試合を始めます。",
+                    "新規試合を始めた後、画面左上のバージョン表示を7回タップします。",
+                    "合言葉入力欄に上の合言葉を入力します。",
+                    "「フッター編集を有効にする」を押します。",
+                    "支援者設定で「PDFフッター編集を有効にする」をオンにし、文言を編集します。"
+                ]
+            },
+            saves: {
+                title: "保存上限を解除できます。",
+                lead: "無料版の内部保存30試合制限を、この端末で解除できます。",
+                code: "◇背番号31◇",
+                linkId: "featureLinkSaves",
+                steps: [
+                    "スコアブックを開き、新規試合を始めます。",
+                    "新規試合を始めた後、画面左上のバージョン表示を7回タップします。",
+                    "合言葉入力欄に上の合言葉を入力します。",
+                    "「保存上限を解除する」を押します。",
+                    "支援者設定で「保存済み試合の上限を解除する」がオンになっていることを確認します。"
+                ]
+            },
+            share: {
+                title: "チームメンバー共有の準備ができます。",
+                lead: "チームメンバー共有機能の支援者枠を、この端末に登録できます。",
+                code: "□円陣64□",
+                linkId: "featureLinkShare",
+                steps: [
+                    "スコアブックを開き、新規試合を始めます。",
+                    "新規試合を始めた後、画面左上のバージョン表示を7回タップします。",
+                    "合言葉入力欄に上の合言葉を入力します。",
+                    "「チーム共有を有効にする」を押します。",
+                    "支援者設定で「チームメンバー共有を有効にする」がオンになっていることを確認します。"
+                ],
+                note: "チームメンバー共有は本体側の機能実装を進めている段階です。先に支援者枠だけ登録できます。"
+            }
+        };
+
+        function setText(id, value) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value;
+            }
+        }
+
+        function renderGuide() {
+            const params = new URLSearchParams(window.location.search);
+            const requestedFeature = params.get("feature") || "footer";
+            const guide = featureGuides[requestedFeature] || featureGuides.footer;
+            const steps = document.getElementById("thanksSteps");
+            setText("thanksTitle", guide.title);
+            setText("thanksLead", guide.lead);
+            setText("passphraseCode", guide.code);
+            if (steps) {
+                steps.textContent = "";
+                guide.steps.forEach((step) => {
+                    const item = document.createElement("li");
+                    item.textContent = step;
+                    steps.append(item);
+                });
+            }
+            setText("thanksNote", guide.note || "設定はこの端末のブラウザに保存されます。別の端末や別のブラウザで使う場合は、同じ手順で有効にしてください。");
+            Object.values(featureGuides).forEach((item) => {
+                const link = document.getElementById(item.linkId);
+                if (link) {
+                    link.classList.toggle("active", item === guide);
+                }
+            });
+        }
+
+        renderGuide();
+    </script>
 </body>
 </html>
