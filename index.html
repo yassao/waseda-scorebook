@@ -5919,7 +5919,6 @@
             .play-part-popup {
                 left: 12px !important;
                 right: 12px !important;
-                top: calc(12px + env(safe-area-inset-top)) !important;
                 width: auto !important;
                 max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
             }
@@ -6506,7 +6505,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.40";
+        const APP_VERSION = "0.3.41";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -22021,7 +22020,10 @@
             event?.preventDefault?.();
             playPartPopupState.row = row;
             renderPlayPartCategoryPopup(row);
-            positionPlayPartPopupNear(event.currentTarget);
+            positionPlayPartPopupNear(event.currentTarget, {
+                alignFirstOptionToAnchor: true,
+                estimatedHeightPx: 230
+            });
             showPlayPartPopup();
         }
 
@@ -22594,23 +22596,47 @@
             ].join("");
         }
 
-        function positionPlayPartPopupNear(anchor) {
+        function getPlayPartPopupTop(anchor, options = {}) {
+            const rect = anchor.getBoundingClientRect();
+            const safeTop = 12;
+            const safeBottom = 12;
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 640;
+            const estimatedHeight = Math.min(
+                Math.max(160, Number(options.estimatedHeightPx) || 220),
+                Math.max(160, viewportHeight - safeTop - safeBottom)
+            );
+            const rawTop = options.alignFirstOptionToAnchor
+                ? rect.top - (Number(options.firstOptionOffsetPx) || 54)
+                : rect.bottom + 8;
+            const maxTop = options.alignFirstOptionToAnchor
+                ? Math.max(safeTop, viewportHeight - 96)
+                : Math.max(safeTop, viewportHeight - estimatedHeight - safeBottom);
+            return Math.max(safeTop, Math.min(maxTop, rawTop));
+        }
+
+        function setPlayPartPopupTop(popup, top) {
+            const roundedTop = Math.max(12, Math.round(top));
+            popup.style.top = roundedTop + "px";
+            popup.style.maxHeight = "calc(100dvh - " + roundedTop + "px - 12px - env(safe-area-inset-bottom))";
+        }
+
+        function positionPlayPartPopupNear(anchor, options = {}) {
             const popup = document.getElementById("playPartPopup");
             const rect = anchor.getBoundingClientRect();
             const width = Math.min(330, window.innerWidth - 24);
+            const top = getPlayPartPopupTop(anchor, options);
             if (window.innerWidth <= 480) {
                 popup.style.width = "auto";
                 popup.style.left = "12px";
                 popup.style.right = "12px";
-                popup.style.top = "calc(12px + env(safe-area-inset-top))";
+                setPlayPartPopupTop(popup, top);
                 return;
             }
             popup.style.right = "";
             popup.style.width = width + "px";
             const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.left + rect.width / 2 - width / 2));
-            const top = Math.max(12, Math.min(window.innerHeight - 180, rect.bottom + 8));
             popup.style.left = left + "px";
-            popup.style.top = top + "px";
+            setPlayPartPopupTop(popup, top);
         }
 
         function showPlayPartPopup() {
@@ -26066,19 +26092,24 @@
             popup.classList.add("is-strike-choice");
             popup.classList.toggle("is-left-hand", state.inputLayout === "left");
             popup.classList.toggle("is-right-hand", state.inputLayout !== "left");
-            positionPlayPartPopupNear(anchor);
-            positionStrikeChoicePopup();
+            positionStrikeChoicePopup(anchor);
             showPlayPartPopup();
         }
 
-        function positionStrikeChoicePopup() {
+        function positionStrikeChoicePopup(anchor = null) {
             const popup = document.getElementById("playPartPopup");
             if (!popup) {
                 return;
             }
             const isLeftLayout = state.inputLayout === "left";
-            const safeTop = "calc(12px + env(safe-area-inset-top))";
-            popup.style.top = safeTop;
+            if (anchor) {
+                setPlayPartPopupTop(popup, getPlayPartPopupTop(anchor, {
+                    alignFirstOptionToAnchor: true,
+                    estimatedHeightPx: 340
+                }));
+            } else {
+                setPlayPartPopupTop(popup, 12);
+            }
             popup.style.width = "calc(50vw - 14px)";
             popup.style.maxWidth = "260px";
             popup.style.right = isLeftLayout ? "auto" : "8px";
