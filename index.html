@@ -6506,12 +6506,14 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.39";
+        const APP_VERSION = "0.3.40";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
         const TEAM_ROSTER_MEMORY_STORAGE_KEY = "cuviu_scorebook_team_rosters_v1";
         const START_BLANK_GAME_SESSION_KEY = "cuviu_scorebook_start_blank_game_v1";
+        const PENDING_INNING_TRANSITION_STORAGE_KEY = "cuviu_scorebook_pending_inning_transition_v1";
+        const PENDING_INNING_TRANSITION_MAX_AGE_MS = 6 * 60 * 60 * 1000;
         const INNING_SHARE_DIALOG_STORAGE_KEY = "cuviu_scorebook_hide_inning_share_dialog_v1";
         const PDF_AD_UNWATCHED_COUNT_KEY = "cuviu_scorebook_pdf_ad_unwatched_count_v1";
         const SUPPORTER_FEATURES_STORAGE_KEY = "cuviu_scorebook_supporter_features_v1";
@@ -9325,6 +9327,29 @@
                 loadGameFromLocalStorage();
             }
             hideStartScreen();
+        }
+
+        function shouldResumeSavedGameFromUrl() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                return params.get("resume") === "1" || params.get("continue") === "1";
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function clearResumeSavedGameUrlFlag() {
+            if (!window.history?.replaceState) {
+                return;
+            }
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.delete("resume");
+                url.searchParams.delete("continue");
+                window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+            } catch (error) {
+                // URLを書き換えられない環境では、通常表示を優先します。
+            }
         }
 
         function openStartNewGameConfirm() {
@@ -18810,6 +18835,79 @@
         let playDetailPopupTarget = null;
         let pendingInningTransition = null;
 
+        function isValidHalfValue(value) {
+            return value === "top" || value === "bottom";
+        }
+
+        function readStoredPendingInningTransition() {
+            try {
+                const raw = localStorage.getItem(PENDING_INNING_TRANSITION_STORAGE_KEY);
+                if (!raw) {
+                    return null;
+                }
+                const stored = JSON.parse(raw);
+                if (!stored || typeof stored !== "object") {
+                    localStorage.removeItem(PENDING_INNING_TRANSITION_STORAGE_KEY);
+                    return null;
+                }
+                const savedAt = Number(stored.savedAt) || 0;
+                if (savedAt && Date.now() - savedAt > PENDING_INNING_TRANSITION_MAX_AGE_MS) {
+                    localStorage.removeItem(PENDING_INNING_TRANSITION_STORAGE_KEY);
+                    return null;
+                }
+                const transition = stored.transition && typeof stored.transition === "object"
+                    ? stored.transition
+                    : stored;
+                if (!isValidHalfValue(transition.endedHalf) || !isValidHalfValue(transition.nextHalf)) {
+                    localStorage.removeItem(PENDING_INNING_TRANSITION_STORAGE_KEY);
+                    return null;
+                }
+                return transition;
+            } catch (error) {
+                console.warn("Restore pending inning transition failed", error);
+                try {
+                    localStorage.removeItem(PENDING_INNING_TRANSITION_STORAGE_KEY);
+                } catch (removeError) {
+                    console.warn("Clear broken pending inning transition failed", removeError);
+                }
+                return null;
+            }
+        }
+
+        function rememberPendingInningTransition(transition) {
+            if (!transition) {
+                return;
+            }
+            try {
+                localStorage.setItem(PENDING_INNING_TRANSITION_STORAGE_KEY, JSON.stringify({
+                    savedAt: Date.now(),
+                    transition: deepClone(transition)
+                }));
+                saveGameToLocalStorage();
+            } catch (error) {
+                console.warn("Save pending inning transition failed", error);
+            }
+        }
+
+        function clearPendingInningTransitionStorage() {
+            try {
+                localStorage.removeItem(PENDING_INNING_TRANSITION_STORAGE_KEY);
+            } catch (error) {
+                console.warn("Clear pending inning transition failed", error);
+            }
+        }
+
+        function resumePendingInningTransitionFromStorage() {
+            const transition = readStoredPendingInningTransition();
+            if (!transition) {
+                return false;
+            }
+            pendingInningTransition = transition;
+            performInningTransition(transition);
+            saveGameToLocalStorage();
+            return true;
+        }
+
         function getCellActionLabel(half, row, col) {
             return (half === "top" ? "先攻 " : "後攻 ") + getColumnInningLabel(col) + "回 " + (row + 1) + "番";
         }
@@ -20102,6 +20200,7 @@
 
         function openInningSharePopup(transition) {
             pendingInningTransition = transition;
+            rememberPendingInningTransition(transition);
             const popup = document.getElementById("inningSharePopup");
             const backdrop = document.getElementById("inningSharePopupBackdrop");
             if (!popup || !backdrop) {
@@ -20339,11 +20438,13 @@
 
         function performInningTransition(transition) {
             if (!transition) {
+                clearPendingInningTransitionStorage();
                 closeInningSharePopup();
                 return;
             }
             closeInningSharePopup();
             pendingInningTransition = null;
+            clearPendingInningTransitionStorage();
             if (isGameEndingTransition(transition)) {
                 ensureGameEndDateTime();
                 clearNaturalLanguageInput();
@@ -20356,13 +20457,17 @@
             }
             activateHalf(transition.nextHalf, null, getNextHalfTransitionColumn(transition), { skipSave: true });
             clearNaturalLanguageInput();
+            scheduleGameAutoSave();
         }
 
         async function completeInningTransition(transition = pendingInningTransition) {
             if (!transition) {
+                clearPendingInningTransitionStorage();
                 closeInningSharePopup();
                 return;
             }
+            pendingInningTransition = transition;
+            rememberPendingInningTransition(transition);
             closeInningSharePopup();
             if (!isGameEndingTransition(transition) && shouldShowInningAdBreak(transition)) {
                 await openAdGate({
@@ -27604,11 +27709,17 @@
         initializeScorebookStyleHiddenToggle();
         document.getElementById("naturalLanguageInput").addEventListener("input", scheduleNaturalLanguageParse);
         const shouldStartBlankGame = sessionStorage.getItem(START_BLANK_GAME_SESSION_KEY) === "1";
+        const shouldResumeSavedGame = shouldResumeSavedGameFromUrl();
+        let didLoadSavedGame = false;
         if (shouldStartBlankGame) {
             sessionStorage.removeItem(START_BLANK_GAME_SESSION_KEY);
             localStorage.removeItem(GAME_STORAGE_KEY);
+            clearPendingInningTransitionStorage();
         } else {
-            loadGameFromLocalStorage();
+            didLoadSavedGame = loadGameFromLocalStorage();
+        }
+        if (shouldResumeSavedGame) {
+            clearResumeSavedGameUrlFlag();
         }
         applyScorebookStyleFromUrl();
         updateScorebookStyleUi();
@@ -27616,8 +27727,11 @@
         renderScoreSheet();
         updateDisplay();
         updateGameFlowDisplay();
+        const didResumePendingInningTransition = !shouldStartBlankGame && didLoadSavedGame && resumePendingInningTransitionFromStorage();
         if (shouldStartBlankGame) {
             saveGameToLocalStorage();
+            hideStartScreen();
+        } else if (didResumePendingInningTransition || (shouldResumeSavedGame && didLoadSavedGame)) {
             hideStartScreen();
         } else {
             showStartScreen();
