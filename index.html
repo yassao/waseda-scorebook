@@ -6518,7 +6518,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.42";
+        const APP_VERSION = "0.3.43";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7043,6 +7043,7 @@
             pitches: [],
             pitchNotes: [],
             pitchComments: [],
+            pitchTimestamps: [],
             result: "",
             outScore: "",
             strikes: 0,
@@ -7077,6 +7078,9 @@
             currentConfidence: 1,
             atBatComment: "",
             atBatCommentMeta: null,
+            atBatStartedAt: "",
+            resultSavedAt: "",
+            lastEditedAt: "",
             playDetails: createEmptyPlayDetails(),
             activeHalf: "top",
             inputLayout: "right",
@@ -8183,6 +8187,7 @@
                     pitches: [...state.pitches],
                     pitchNotes: [...state.pitchNotes],
                     pitchComments: deepClone(state.pitchComments || []),
+                    pitchTimestamps: normalizePitchTimestamps(state.pitchTimestamps, state.pitches.length),
                     result: state.result,
                     outScore: state.outScore,
                     strikes: state.strikes,
@@ -8202,6 +8207,9 @@
                     currentConfidence: state.currentConfidence,
                     atBatComment: state.atBatComment,
                     atBatCommentMeta: deepClone(state.atBatCommentMeta),
+                    atBatStartedAt: state.atBatStartedAt || "",
+                    resultSavedAt: state.resultSavedAt || "",
+                    lastEditedAt: state.lastEditedAt || "",
                     playDetails: deepClone(normalizePlayDetails(state.playDetails)),
                     activeHalf: state.activeHalf,
                     inputLayout: state.inputLayout || "right",
@@ -8247,6 +8255,13 @@
             state.fieldingDragBoardVisible = Boolean(state.fieldingDragBoardVisible);
             state.correctionEditContext = null;
             state.playDetails = normalizePlayDetails(snapshot.state.playDetails);
+            state.pitchTimestamps = normalizePitchTimestamps(state.pitchTimestamps, state.pitches.length);
+            state.atBatStartedAt = state.atBatStartedAt || inferAtBatStartedAt({
+                pitchTimestamps: state.pitchTimestamps,
+                atBatCommentMeta: state.atBatCommentMeta
+            });
+            state.resultSavedAt = state.resultSavedAt || "";
+            state.lastEditedAt = state.lastEditedAt || "";
             state.gameInfo = normalizeGameInfo(state.gameInfo || snapshot.game || {});
             state.scoreSheets = {
                 top: normalizeScoreSheet(state.scoreSheets?.top),
@@ -8643,6 +8658,7 @@
                         const paId = "pa_" + String(plateAppearanceSerial).padStart(5, "0");
                         const outsBefore = outsByInning[inningKey] || 0;
                         const outsAfter = Math.max(outsBefore, getSnapshotOutCount(snapshot) || outsBefore);
+                        const pitchTimestamps = normalizePitchTimestamps(snapshot.pitchTimestamps, (snapshot.pitches || []).length);
                         const pitchEvents = (snapshot.pitches || []).map((symbol, pitchIndex) => ({
                             type: "pitch",
                             id: "ev_" + String(eventSerial++).padStart(5, "0"),
@@ -8661,8 +8677,10 @@
                                 type: mapPitchToEventType(symbol, snapshot.pitchNotes?.[pitchIndex]),
                                 symbol,
                                 note: snapshot.pitchNotes?.[pitchIndex] || "",
-                                comment: snapshot.pitchComments?.[pitchIndex]?.text || ""
-                            }
+                                comment: snapshot.pitchComments?.[pitchIndex]?.text || "",
+                                recordedAt: pitchTimestamps[pitchIndex] || ""
+                            },
+                            recordedAt: pitchTimestamps[pitchIndex] || ""
                         }));
                         events.push(...pitchEvents);
 
@@ -8684,7 +8702,10 @@
                             batterResult: buildBatterResultModel(snapshot),
                             outNumber: romanToOutCount(getCentralOutScoreForSnapshot(snapshot)) || null,
                             rawRunnerContext: deepClone(snapshot.runnerContext || null),
-                            runnerStatusEvents
+                            runnerStatusEvents,
+                            atBatStartedAt: snapshot.atBatStartedAt || "",
+                            recordedAt: snapshot.resultSavedAt || "",
+                            lastEditedAt: snapshot.lastEditedAt || ""
                         };
                         events.push(batterResultEvent);
 
@@ -8776,7 +8797,8 @@
                                 type: mapPitchToEventType(symbol, snapshot.pitchNotes?.[pitchIndex]),
                                 symbol,
                                 note: snapshot.pitchNotes?.[pitchIndex] || "",
-                                comment: snapshot.pitchComments?.[pitchIndex]?.text || ""
+                                comment: snapshot.pitchComments?.[pitchIndex]?.text || "",
+                                recordedAt: pitchTimestamps[pitchIndex] || ""
                             })),
                             batterResult: buildBatterResultModel(snapshot),
                             runnerContext: deepClone(snapshot.runnerContext || null),
@@ -8788,6 +8810,9 @@
                             rbi: snapshot.hasRbi ? 1 : 0,
                             rawText: snapshot.note || "",
                             source: snapshot.source || "manual",
+                            atBatStartedAt: snapshot.atBatStartedAt || "",
+                            resultSavedAt: snapshot.resultSavedAt || "",
+                            lastEditedAt: snapshot.lastEditedAt || "",
                             commentIds: commentIdsForPlateAppearance
                         });
                         plateAppearanceSerial += 1;
@@ -14084,12 +14109,38 @@
             return "B" + displayedCount.balls + "-S" + displayedCount.strikes + " P" + state.pitches.length;
         }
 
+        function getCurrentTimestampIso(now = new Date()) {
+            return now instanceof Date ? now.toISOString() : new Date(now).toISOString();
+        }
+
+        function normalizePitchTimestamps(timestamps = [], pitchCount = 0) {
+            const source = Array.isArray(timestamps) ? timestamps : [];
+            return Array.from({ length: Math.max(0, Number(pitchCount) || 0) }, (_, index) => source[index] || "");
+        }
+
+        function inferAtBatStartedAt(source = {}) {
+            const pitchTimestamp = (source.pitchTimestamps || []).find(Boolean);
+            return pitchTimestamp
+                || source.atBatStartedAt
+                || source.atBatCommentMeta?.capturedAt
+                || source.resultSavedAt
+                || "";
+        }
+
+        function markAtBatStarted(now = new Date()) {
+            if (!state.atBatStartedAt) {
+                state.atBatStartedAt = getCurrentTimestampIso(now);
+            }
+            return state.atBatStartedAt;
+        }
+
         function capturePitchTimingMeta() {
             return {
                 balls: state.balls,
                 strikes: state.strikes,
                 pitchIndex: state.pitches.length,
                 pitchSymbol: state.pitches[state.pitches.length - 1] || "",
+                pitchRecordedAt: state.pitchTimestamps?.[state.pitches.length - 1] || "",
                 countLabel: getCurrentCountLabel()
             };
         }
@@ -15016,10 +15067,12 @@
         }
 
         function captureAtBatSnapshot() {
+            const pitchTimestamps = normalizePitchTimestamps(state.pitchTimestamps, state.pitches.length);
             const snapshot = {
                 pitches: [...state.pitches],
                 pitchNotes: [...state.pitchNotes],
                 pitchComments: deepClone(state.pitchComments || []),
+                pitchTimestamps,
                 result: state.result,
                 outScore: state.outScore,
                 strikes: state.strikes,
@@ -15041,6 +15094,14 @@
                 confidence: state.currentConfidence,
                 atBatComment: state.atBatComment,
                 atBatCommentMeta: state.atBatComment ? deepClone(state.atBatCommentMeta || captureCommentTimingMeta()) : null,
+                atBatStartedAt: inferAtBatStartedAt({
+                    atBatStartedAt: state.atBatStartedAt,
+                    pitchTimestamps,
+                    atBatCommentMeta: state.atBatCommentMeta,
+                    resultSavedAt: state.resultSavedAt
+                }),
+                resultSavedAt: state.resultSavedAt || "",
+                lastEditedAt: state.lastEditedAt || "",
                 playDetails: deepClone(normalizePlayDetails(state.playDetails))
             };
             if (
@@ -15196,6 +15257,7 @@
             state.pitches = [...(snapshot.pitches || [])];
             state.pitchNotes = [...(snapshot.pitchNotes || [])];
             state.pitchComments = deepClone(snapshot.pitchComments || []);
+            state.pitchTimestamps = normalizePitchTimestamps(snapshot.pitchTimestamps, state.pitches.length);
             state.result = snapshot.result || "";
             state.outScore = snapshot.outScore || "";
             state.strikes = snapshot.strikes || 0;
@@ -15227,6 +15289,14 @@
             state.currentConfidence = snapshot.confidence || 1;
             state.atBatComment = snapshot.atBatComment || "";
             state.atBatCommentMeta = deepClone(snapshot.atBatCommentMeta || null);
+            state.atBatStartedAt = inferAtBatStartedAt({
+                atBatStartedAt: snapshot.atBatStartedAt,
+                pitchTimestamps: state.pitchTimestamps,
+                atBatCommentMeta: snapshot.atBatCommentMeta,
+                resultSavedAt: snapshot.resultSavedAt
+            });
+            state.resultSavedAt = snapshot.resultSavedAt || "";
+            state.lastEditedAt = snapshot.lastEditedAt || "";
             state.playDetails = normalizePlayDetails(snapshot.playDetails);
 
             setElementValue("fielderSelect", state.selectedFielder);
@@ -20620,6 +20690,15 @@
         }
 
         function saveCurrentToSheet() {
+            const now = new Date();
+            const nowIso = getCurrentTimestampIso(now);
+            markAtBatStarted(now);
+            if (state.resultSavedAt) {
+                state.lastEditedAt = nowIso;
+            } else {
+                state.resultSavedAt = nowIso;
+                state.lastEditedAt = "";
+            }
             const snapshot = captureAtBatSnapshot();
             if (isBatterSafeFielderChoice(snapshot)) {
                 snapshot.outScore = "";
@@ -23411,9 +23490,12 @@
             if (!["wp", "pb"].includes(reason) || state.pitches.length > 0) {
                 return;
             }
+            const now = new Date();
+            markAtBatStarted(now);
             state.pitches.push("ball");
             state.pitchNotes.push(getRunnerReasonPitchNote(reason, action));
             state.pitchComments.push(null);
+            state.pitchTimestamps.push(getCurrentTimestampIso(now));
             recomputePitchState();
         }
 
@@ -24381,6 +24463,7 @@
                 return;
             }
 
+            markAtBatStarted();
             const input = document.getElementById("naturalLanguageInput");
             input.value = buildNaturalTextFromPlayParts(parts, parsed);
             state.parsedInput = parsed;
@@ -25698,6 +25781,10 @@
             const preservedPitches = [...state.pitches];
             const preservedPitchNotes = [...state.pitchNotes];
             const preservedPitchComments = deepClone(state.pitchComments || []);
+            const preservedPitchTimestamps = normalizePitchTimestamps(state.pitchTimestamps, state.pitches.length);
+            const preservedAtBatStartedAt = state.atBatStartedAt || "";
+            const preservedResultSavedAt = state.resultSavedAt || "";
+            const preservedLastEditedAt = state.lastEditedAt || "";
             const preservedStrikes = state.strikes;
             const preservedBalls = state.balls;
             resetState({ preserveCorrectionContext: true });
@@ -25705,9 +25792,13 @@
                 state.pitches = preservedPitches;
                 state.pitchNotes = preservedPitchNotes;
                 state.pitchComments = preservedPitchComments;
+                state.pitchTimestamps = preservedPitchTimestamps;
                 state.strikes = preservedStrikes;
                 state.balls = preservedBalls;
             }
+            state.atBatStartedAt = preservedAtBatStartedAt;
+            state.resultSavedAt = preservedResultSavedAt;
+            state.lastEditedAt = preservedLastEditedAt;
             if (parsed.result === "OI") {
                 parsed.result = "x";
             }
@@ -25937,6 +26028,7 @@
                     updateDisplay();
                     return;
                 }
+                markAtBatStarted();
                 state.result = state.selectedFielder;
                 state.selectedHitType = symbol;
                 state.fieldSequence = [state.selectedFielder];
@@ -25952,6 +26044,7 @@
                 return;
             }
 
+            markAtBatStarted();
             state.result = symbol;
             state.selectedHitType = "none";
             state.selectedBallType = "none";
@@ -26424,10 +26517,13 @@
 
         function addPitch(symbol) {
             pushGameHistory();
-            ensureGameStartDateTime();
+            const now = new Date();
+            ensureGameStartDateTime(now);
+            markAtBatStarted(now);
             state.pitches.push(symbol);
             state.pitchNotes.push("");
             state.pitchComments.push(null);
+            state.pitchTimestamps.push(getCurrentTimestampIso(now));
             recomputePitchState();
 
             if (symbol !== "ball") {
@@ -26444,6 +26540,7 @@
             state.pitches.pop();
             state.pitchNotes.pop();
             state.pitchComments.pop();
+            state.pitchTimestamps.pop();
             recomputePitchState();
             updateDisplay();
         }
@@ -26453,6 +26550,7 @@
                 updateDisplay();
                 return;
             }
+            markAtBatStarted();
             state.result = state.selectedFielder;
             state.fieldSequence = [state.selectedFielder];
             if (!isHitTypeSelection()) {
@@ -26962,6 +27060,7 @@
                     pitches: [],
                     pitchNotes: [],
                     pitchComments: [],
+                    pitchTimestamps: [],
                     result: "",
                     outScore: "",
                     selectedFielder: "",
@@ -26974,7 +27073,10 @@
                     fieldSequence: [],
                     errorMode: "none",
                     baseCover: "none",
-                    confidence: 1
+                    confidence: 1,
+                    atBatStartedAt: "",
+                    resultSavedAt: "",
+                    lastEditedAt: ""
                 };
             return appendRunnerEventPreview(snapshot, entry.event) || snapshot;
         }
@@ -27587,6 +27689,7 @@
             state.pitches = [];
             state.pitchNotes = [];
             state.pitchComments = [];
+            state.pitchTimestamps = [];
             state.result = "";
             state.outScore = "";
             state.strikes = 0;
@@ -27606,6 +27709,9 @@
             state.currentConfidence = 1;
             state.atBatComment = "";
             state.atBatCommentMeta = null;
+            state.atBatStartedAt = "";
+            state.resultSavedAt = "";
+            state.lastEditedAt = "";
             state.playDetails = createEmptyPlayDetails();
 
             setElementValue("fielderSelect", "");
