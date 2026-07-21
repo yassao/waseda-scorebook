@@ -1,3 +1,12 @@
+## v0.3.37 [2026-07-21] Stripe支援リンクを特典別URLに更新
+
+**変更ファイル:**
+- docs/VERSION
+- docs/baseball-scorebook-wordpress-snippet.html
+- index.html
+
+---
+
 ## v0.3.36 [2026-07-21] 支援完了ページに合言葉コピーを追加
 
 **変更ファイル:**

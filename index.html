@@ -5488,7 +5488,6 @@
 
         .support-cta {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
             gap: 10px;
             align-items: center;
             min-height: 72px;
@@ -5512,6 +5511,12 @@
             font-size: 12px;
             font-weight: 700;
             line-height: 1.45;
+        }
+
+        .support-cta-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         .support-cta-button {
@@ -5538,12 +5543,12 @@
         }
 
         @media (max-width: 420px) {
-            .support-cta {
-                grid-template-columns: 1fr;
-            }
-
             .support-cta-button {
                 width: 100%;
+            }
+
+            .support-cta-actions {
+                display: grid;
             }
         }
 
@@ -6455,7 +6460,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.36";
+        const APP_VERSION = "0.3.37";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6473,7 +6478,11 @@
         const INNING_AD_SKIP_AFTER_SECONDS = 0;
         const PDF_AD_SECONDS = 0;
         const PDF_AD_UNWATCHED_LIMIT = 5;
-        const STRIPE_SUPPORT_URL = "https://buy.stripe.com/dRm7sL3kg0vc7Nd30E43S02";
+        const STRIPE_SUPPORT_URLS = {
+            footer: "https://buy.stripe.com/5kQfZhcUQ6TA3wX6cQ43S03",
+            saves: "https://buy.stripe.com/cNifZhg726TAffFfNq43S04",
+            share: "https://buy.stripe.com/3cI28r1c86TA0kL1WA43S05"
+        };
         const SCOREBOOK_APP_URL = "https://cuviu.jp/apps/scorebook/";
         const DEFAULT_PDF_FOOTER_TEXT = "スコアブック by CuViu";
         const SUPPORTER_SECRET_TAP_THRESHOLD = 15;
@@ -6544,19 +6553,23 @@
             if (!container) {
                 return;
             }
-            const supportUrl = String(STRIPE_SUPPORT_URL || "").trim();
-            const isReady = /^https:\/\/.+/i.test(supportUrl);
-            const detailText = isReady
-                ? "ご支援後はPDFフッター文言を編集できます。"
-                : "Stripeの支援リンクは準備中です。";
+            const supportActions = [
+                { key: "footer", label: "フッター編集" },
+                { key: "saves", label: "保存上限解除" },
+                { key: "share", label: "チーム共有" }
+            ].map((action) => {
+                const url = String(STRIPE_SUPPORT_URLS[action.key] || "").trim();
+                return /^https:\/\/.+/i.test(url)
+                    ? '<a class="support-cta-button" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' + escapeHtml(action.label) + '</a>'
+                    : "";
+            }).filter(Boolean).join("");
+            const actionsHtml = supportActions || '<span class="support-cta-button is-disabled" aria-disabled="true">準備中</span>';
             container.innerHTML = [
                 '<div>',
                 '<div class="support-cta-title">スコアブック by CuViu を応援する</div>',
-                '<div class="support-cta-text">継続開発や現場で使いやすい改善に役立てます。' + escapeHtml(detailText) + '</div>',
+                '<div class="support-cta-text">継続開発や現場で使いやすい改善に役立てます。必要な特典を選んで支援できます。</div>',
                 '</div>',
-                isReady
-                    ? '<a class="support-cta-button" href="' + escapeHtml(supportUrl) + '" target="_blank" rel="noopener">開発を支援する</a>'
-                    : '<span class="support-cta-button is-disabled" aria-disabled="true">準備中</span>'
+                '<div class="support-cta-actions">' + actionsHtml + '</div>'
             ].join("");
         }
 
@@ -8839,9 +8852,9 @@
 
         function showSavedGameLimitNotice(extraMessage = "") {
             const { backdrop, popup } = ensureSavedGameLimitPopup();
-            const supportLink = String(STRIPE_SUPPORT_URL || "").trim();
+            const supportLink = String(STRIPE_SUPPORT_URLS.saves || "").trim();
             const supportAction = /^https:\/\/.+/i.test(supportLink)
-                ? '<a class="comment-popup-action-link" href="' + escapeHtml(supportLink) + '" target="_blank" rel="noopener">開発を支援する</a>'
+                ? '<a class="comment-popup-action-link" href="' + escapeHtml(supportLink) + '" target="_blank" rel="noopener">保存上限解除を支援する</a>'
                 : "";
             const reachedText = Number.isFinite(getSavedGameSlotLimit())
                 ? "保存済み試合が" + getSavedGameSlotLimitLabel() + "件に達しました。"
@@ -10894,7 +10907,7 @@
             if (!slot) {
                 return;
             }
-            const supportLink = String(STRIPE_SUPPORT_URL || "").trim();
+            const supportLink = String(STRIPE_SUPPORT_URLS.footer || "").trim();
             const supportCta = /^https:\/\/.+/i.test(supportLink)
                 ? '<a href="' + escapeHtml(supportLink) + '" target="_blank" rel="noopener">開発支援はこちら</a>'
                 : '<span>開発支援リンクは準備中です。</span>';

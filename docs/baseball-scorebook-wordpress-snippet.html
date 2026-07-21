@@ -123,6 +123,12 @@
   flex-wrap: wrap;
   justify-content: center;
 }
+.sb-support-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
 .sb-btn-primary,
 .sb-btn-outline {
   display: inline-flex;
@@ -153,6 +159,11 @@
 }
 .sb-btn-outline:hover {
   background: rgba(255,255,255,0.88);
+}
+.sb-support-links .sb-btn-outline {
+  min-height: 42px;
+  padding: 10px 14px;
+  font-size: 13px;
 }
 .sb-section {
   padding: 56px 0;
@@ -304,6 +315,7 @@
   .sb-roadmap { grid-template-columns: 1fr !important; }
   .sb-hero-content { padding: 40px 16px 32px; }
   .sb-btn-primary, .sb-btn-outline { width: 100%; }
+  .sb-support-links { width: 100%; }
 }
 </style>
 
@@ -323,7 +335,11 @@
       </p>
       <div class="sb-hero-cta">
         <a class="sb-btn-primary" href="https://cuviu.jp/apps/scorebook/" target="_blank" rel="noopener">&#x26be; アプリを開く</a>
-        <a class="sb-btn-outline" href="https://buy.stripe.com/dRm7sL3kg0vc7Nd30E43S02" target="_blank" rel="noopener">開発を支援する</a>
+        <div class="sb-support-links" aria-label="開発支援メニュー">
+          <a class="sb-btn-outline" href="https://buy.stripe.com/5kQfZhcUQ6TA3wX6cQ43S03" target="_blank" rel="noopener">フッター編集を支援</a>
+          <a class="sb-btn-outline" href="https://buy.stripe.com/cNifZhg726TAffFfNq43S04" target="_blank" rel="noopener">保存上限解除を支援</a>
+          <a class="sb-btn-outline" href="https://buy.stripe.com/3cI28r1c86TA0kL1WA43S05" target="_blank" rel="noopener">チーム共有を支援</a>
+        </div>
       </div>
     </div>
   </div>
@@ -392,8 +408,8 @@
         </article>
         <article class="sb-feature">
           <span class="sb-feature-icon">&#x1f91d;</span>
-          <strong>支援者向けフッター編集</strong>
-          <p>支援してくれた方は、PDFフッター文言をチーム名や記録者名などに編集できます。</p>
+          <strong>支援者向け特典</strong>
+          <p>PDFフッター編集、保存上限解除、チームメンバー共有の支援者向け機能を順次広げています。</p>
         </article>
         <article class="sb-feature">
           <span class="sb-feature-icon">&#x1f4dd;</span>
