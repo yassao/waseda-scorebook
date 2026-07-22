@@ -626,6 +626,10 @@
             min-height: 0;
         }
 
+        .top-workspace.input-left {
+            grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+        }
+
         .top-workspace.is-collapsed {
             display: none;
         }
@@ -2320,6 +2324,40 @@
             grid-column: 1 / -1;
         }
 
+        .game-info-reuse-field {
+            grid-column: 1 / -1;
+            display: grid;
+            gap: 5px;
+            padding: 8px 10px;
+            border: 1px solid #d7e1e8;
+            border-radius: 10px;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 11px;
+            font-weight: 850;
+            line-height: 1.4;
+        }
+
+        .game-info-reuse-field label {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .game-info-reuse-field input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #0f766e;
+            flex: 0 0 auto;
+        }
+
+        .game-info-reuse-status {
+            min-height: 16px;
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
         .rule-toggle-field {
             position: relative;
             min-height: 42px;
@@ -3210,7 +3248,7 @@
         }
 
         .pitcher-book-empty {
-            grid-column: span 13;
+            grid-column: span 20;
             justify-content: flex-start;
             color: #64748b;
             font-size: calc(var(--sheet-font) * 0.9);
@@ -4613,6 +4651,45 @@
             display: block;
         }
 
+        .inning-share-split-panel {
+            display: none;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .inning-share-split-panel.is-open {
+            display: grid;
+        }
+
+        .inning-share-split-item {
+            display: grid;
+            gap: 6px;
+            padding: 8px;
+            border: 1px solid #d7e1e8;
+            border-radius: 10px;
+            background: #f8fafc;
+        }
+
+        .inning-share-split-title {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .inning-share-split-panel textarea {
+            min-height: 132px;
+            font-size: 12px;
+        }
+
+        .inning-share-split-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
         .feedback-popup {
             width: min(620px, calc(100vw - 24px));
         }
@@ -5294,6 +5371,14 @@
             line-height: 1.35;
         }
 
+        .tweet-comment-row.has-comment .tweet-target-label {
+            display: none;
+        }
+
+        .tweet-comment-row.has-comment .tweet-comment-input {
+            padding-top: 4px;
+        }
+
         .tweet-comment-input::placeholder {
             color: #9aa6b2;
             opacity: 1;
@@ -5791,6 +5876,10 @@
                 gap: 8px;
                 height: min(42dvh, 300px);
                 max-height: min(42dvh, 300px);
+            }
+
+            .top-workspace.input-left {
+                grid-template-columns: minmax(0, 1.16fr) minmax(0, 0.84fr);
             }
 
             .scorebox-container {
@@ -6318,8 +6407,8 @@
                             <summary>チーム/選手登録</summary>
                             <div class="game-info-body">
                                 <div class="game-flow-bar" aria-label="チーム名">
-                                    <input id="topTeamName" class="team-name-input" list="registeredTeamNameOptions" value="先攻" aria-label="先攻チーム名" onchange="updateTeamName('top', this.value)">
-                                    <input id="bottomTeamName" class="team-name-input" list="registeredTeamNameOptions" value="後攻" aria-label="後攻チーム名" onchange="updateTeamName('bottom', this.value)">
+                                    <input id="topTeamName" class="team-name-input" list="registeredTeamNameOptions" value="先攻" aria-label="先攻チーム名" oninput="updateTeamNameLive('top', this.value)" onchange="updateTeamName('top', this.value)">
+                                    <input id="bottomTeamName" class="team-name-input" list="registeredTeamNameOptions" value="後攻" aria-label="後攻チーム名" oninput="updateTeamNameLive('bottom', this.value)" onchange="updateTeamName('bottom', this.value)">
                                 </div>
                                 <datalist id="registeredTeamNameOptions"></datalist>
                                 <datalist id="registeredPlayerNameOptions"></datalist>
@@ -6353,6 +6442,10 @@
                                     <label>三塁審<input id="gameInfoUmpireThird" type="text" oninput="updateGameInfoField('umpires.third', this.value)"></label>
                                     <label>放送<input id="gameInfoBroadcast" type="text" oninput="updateGameInfoField('broadcast', this.value)"></label>
                                     <label>記録者<input id="gameInfoScorer" type="text" oninput="updateGameInfoField('scorer', this.value)"></label>
+                                    <div class="game-info-reuse-field">
+                                        <label><input id="gameInfoReuseDefaults" type="checkbox" onchange="toggleRememberGameInfoDefaults(this.checked)">大会・球場・審判などを次回も使う</label>
+                                        <div id="gameInfoReuseStatus" class="game-info-reuse-status"></div>
+                                    </div>
                                     <label>先攻投手<input id="gameInfoTopPitcher" type="text" oninput="updateGameInfoField('pitchers.top', this.value)"></label>
                                     <label>先攻P背<input id="gameInfoTopPitcherNumber" type="text" inputmode="numeric" oninput="updateGameInfoField('pitcherNumbers.top', this.value)"></label>
                                     <label>後攻投手<input id="gameInfoBottomPitcher" type="text" oninput="updateGameInfoField('pitchers.bottom', this.value)"></label>
@@ -6518,11 +6611,12 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.45";
+        const APP_VERSION = "0.3.46";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
         const TEAM_ROSTER_MEMORY_STORAGE_KEY = "cuviu_scorebook_team_rosters_v1";
+        const GAME_INFO_DEFAULTS_STORAGE_KEY = "cuviu_scorebook_game_info_defaults_v1";
         const START_BLANK_GAME_SESSION_KEY = "cuviu_scorebook_start_blank_game_v1";
         const PENDING_INNING_TRANSITION_STORAGE_KEY = "cuviu_scorebook_pending_inning_transition_v1";
         const PENDING_INNING_TRANSITION_MAX_AGE_MS = 6 * 60 * 60 * 1000;
@@ -7172,6 +7266,7 @@
         let aiPromptTarget = "twitter";
         let currentAiPromptText = "";
         let isTwitterImporting = false;
+        let isUpdatingInningShareSplitPanel = false;
         const teamRosterMemoryLinks = {
             top: "",
             bottom: ""
@@ -8290,6 +8385,7 @@
             if (commentInput) {
                 commentInput.value = state.atBatComment || "";
             }
+            syncAtBatCommentUi();
             const battingOrderSelect = document.getElementById("battingOrderSelect");
             if (battingOrderSelect) {
                 battingOrderSelect.value = state.battingOrder;
@@ -9542,6 +9638,7 @@
                 clearTeamRosterMemoryLink("top");
                 clearTeamRosterMemoryLink("bottom");
                 state.gameInfo = createDefaultGameInfo();
+                applyGameInfoDefaultsToCurrentGameInfo();
                 state.teamNames = { top: "先攻", bottom: "後攻" };
                 state.playerNames = {
                     top: Array.from({ length: 9 }, () => ""),
@@ -9593,6 +9690,7 @@
                 if (commentInput) {
                     commentInput.value = "";
                 }
+                syncAtBatCommentUi();
                 resetPlayParts();
                 ensureRunnerGuiStep();
                 resetState();
@@ -11569,6 +11667,161 @@
             };
         }
 
+        function getReusableGameInfoDefaults(source = state.gameInfo) {
+            const info = normalizeGameInfo(source);
+            return {
+                competition: info.competition || "",
+                date: info.date || "",
+                venue: info.venue || "",
+                fieldCondition: info.fieldCondition || "",
+                weather: info.weather || "",
+                wind: info.wind || "",
+                attendance: info.attendance || "",
+                broadcast: info.broadcast || "",
+                scorer: info.scorer || "",
+                umpires: {
+                    plate: info.umpires?.plate || "",
+                    first: info.umpires?.first || "",
+                    second: info.umpires?.second || "",
+                    third: info.umpires?.third || ""
+                },
+                benches: {
+                    firstBaseSideTeamId: info.benches?.firstBaseSideTeamId || "team_top",
+                    thirdBaseSideTeamId: info.benches?.thirdBaseSideTeamId || "team_bottom"
+                }
+            };
+        }
+
+        function hasReusableGameInfoDefaults(info) {
+            const source = info || {};
+            return Boolean(
+                [
+                    source.competition,
+                    source.date,
+                    source.venue,
+                    source.fieldCondition,
+                    source.weather,
+                    source.wind,
+                    source.attendance,
+                    source.broadcast,
+                    source.scorer,
+                    source.umpires?.plate,
+                    source.umpires?.first,
+                    source.umpires?.second,
+                    source.umpires?.third
+                ].some((value) => String(value || "").trim())
+            );
+        }
+
+        function loadGameInfoDefaultsMemory() {
+            try {
+                const raw = localStorage.getItem(GAME_INFO_DEFAULTS_STORAGE_KEY);
+                if (!raw) {
+                    return { version: 1, enabled: false, info: getReusableGameInfoDefaults(createDefaultGameInfo()) };
+                }
+                const data = JSON.parse(raw);
+                return {
+                    version: 1,
+                    enabled: Boolean(data?.enabled),
+                    info: getReusableGameInfoDefaults({
+                        ...createDefaultGameInfo(),
+                        ...(data?.info || {})
+                    })
+                };
+            } catch (error) {
+                console.warn("Read game info defaults failed", error);
+                return { version: 1, enabled: false, info: getReusableGameInfoDefaults(createDefaultGameInfo()) };
+            }
+        }
+
+        function writeGameInfoDefaultsMemory(memory) {
+            try {
+                localStorage.setItem(GAME_INFO_DEFAULTS_STORAGE_KEY, JSON.stringify({
+                    version: 1,
+                    enabled: Boolean(memory?.enabled),
+                    info: getReusableGameInfoDefaults(memory?.info || state.gameInfo),
+                    updatedAt: new Date().toISOString()
+                }));
+            } catch (error) {
+                console.warn("Save game info defaults failed", error);
+            }
+        }
+
+        function setGameInfoReuseStatus(message, isError = false) {
+            const status = document.getElementById("gameInfoReuseStatus");
+            if (!status) {
+                return;
+            }
+            status.textContent = message || "";
+            status.style.color = isError ? "#b42318" : "#64748b";
+        }
+
+        function syncGameInfoDefaultsControl() {
+            const memory = loadGameInfoDefaultsMemory();
+            setElementChecked("gameInfoReuseDefaults", memory.enabled);
+            setGameInfoReuseStatus(memory.enabled
+                ? "新規試合に大会・球場・審判などを引き継ぎます。"
+                : "チェックすると、この試合の大会・球場・審判などを次回へ引き継ぎます。");
+        }
+
+        function applyGameInfoDefaultsToCurrentGameInfo() {
+            const memory = loadGameInfoDefaultsMemory();
+            if (!memory.enabled || !hasReusableGameInfoDefaults(memory.info)) {
+                return false;
+            }
+            state.gameInfo = normalizeGameInfo({
+                ...state.gameInfo,
+                ...memory.info,
+                umpires: {
+                    ...(state.gameInfo?.umpires || {}),
+                    ...(memory.info.umpires || {})
+                },
+                benches: {
+                    ...(state.gameInfo?.benches || {}),
+                    ...(memory.info.benches || {})
+                }
+            });
+            return true;
+        }
+
+        function isReusableGameInfoPath(parts) {
+            const key = parts[0] || "";
+            if (["competition", "date", "venue", "fieldCondition", "weather", "wind", "attendance", "broadcast", "scorer"].includes(key)) {
+                return true;
+            }
+            return (key === "umpires" || key === "benches") && parts.length >= 2;
+        }
+
+        function refreshRememberedGameInfoDefaults() {
+            const memory = loadGameInfoDefaultsMemory();
+            if (!memory.enabled) {
+                return;
+            }
+            writeGameInfoDefaultsMemory({
+                enabled: true,
+                info: getReusableGameInfoDefaults(state.gameInfo)
+            });
+            syncGameInfoDefaultsControl();
+        }
+
+        function toggleRememberGameInfoDefaults(checked) {
+            if (checked) {
+                const info = getReusableGameInfoDefaults(state.gameInfo);
+                if (!hasReusableGameInfoDefaults(info)) {
+                    setElementChecked("gameInfoReuseDefaults", false);
+                    setGameInfoReuseStatus("大会名や球場などを入力してから保存できます。", true);
+                    return;
+                }
+                writeGameInfoDefaultsMemory({ enabled: true, info });
+            } else {
+                writeGameInfoDefaultsMemory({
+                    enabled: false,
+                    info: getReusableGameInfoDefaults(state.gameInfo)
+                });
+            }
+            syncGameInfoDefaultsControl();
+        }
+
         function setCalledRuleEnabled(enabled) {
             state.gameInfo = normalizeGameInfo(state.gameInfo);
             state.gameInfo.rules.calledEnabled = Boolean(enabled);
@@ -11660,6 +11913,9 @@
             if ((parts[0] === "pitchers" || parts[0] === "pitcherNumbers") && document.getElementById("playerRosterDetails")?.open) {
                 renderPlayerRosterEditor();
             }
+            if (isReusableGameInfoPath(parts)) {
+                refreshRememberedGameInfoDefaults();
+            }
             scheduleGameAutoSave();
         }
 
@@ -11696,6 +11952,7 @@
             };
             Object.entries(fieldMap).forEach(([id, value]) => setElementValue(id, value || ""));
             syncCalledRuleInputs();
+            syncGameInfoDefaultsControl();
             setPitcherChangeFormDefaults();
             renderPitcherChangeList();
             setFieldingChangeFormDefaults();
@@ -13722,6 +13979,16 @@
             const batter = getCurrentBatterInfo();
             const playerName = batter.name || "選手名未登録";
             label.textContent = "対象: " + inning + "回 " + order + "番 " + playerName + " / " + getCurrentCountLabel();
+            syncAtBatCommentUi();
+        }
+
+        function syncAtBatCommentUi() {
+            const input = document.getElementById("atBatCommentInput");
+            const row = input?.closest(".tweet-comment-row");
+            if (!row) {
+                return;
+            }
+            row.classList.toggle("has-comment", Boolean(String(input.value || state.atBatComment || "").trim()));
         }
 
         function updatePlayDetailButtonState() {
@@ -13760,6 +14027,25 @@
             renderLineScoreBoard();
             renderPlayerRosterEditor();
             maybeApplyRememberedTeamRoster(half, state.teamNames[half]);
+            scheduleGameAutoSave();
+        }
+
+        function updateTeamNameLive(half, value) {
+            if (!["top", "bottom"].includes(half)) {
+                return;
+            }
+            const nextName = String(value || "").trim() || (half === "top" ? "先攻" : "後攻");
+            if (normalizeTeamRosterMemoryKey(state.teamNames?.[half] || "") !== normalizeTeamRosterMemoryKey(nextName)) {
+                clearTeamRosterMemoryLink(half);
+            }
+            state.teamNames[half] = nextName;
+            updateGameFlowDisplay();
+            renderLineScoreBoard();
+            updateCommentTargetLabel();
+            updateRegisteredTeamNameOptions();
+            if (isRosterHalfEmpty(half)) {
+                maybeApplyRememberedTeamRoster(half, nextName);
+            }
             scheduleGameAutoSave();
         }
 
@@ -13935,6 +14221,21 @@
             }
             const key = normalizeTeamRosterMemoryKey(state.teamNames?.[half] || "");
             return Boolean(key && teamRosterMemoryLinks[half] === key && loadTeamRosterMemory().teams[key]);
+        }
+
+        function getTeamRosterMemoryUiState(half, teamName) {
+            const canRememberTeam = isRememberableTeamName(teamName);
+            const template = getTeamRosterTemplate(teamName);
+            const hasRememberedTeam = Boolean(template);
+            const isCurrentSame = hasRememberedTeam && isCurrentRosterSameAsTemplate(half, template);
+            if (isCurrentSame) {
+                setTeamRosterMemoryLink(half, teamName);
+            }
+            return {
+                canRememberTeam,
+                hasRememberedTeam,
+                isRememberedTeam: isTeamRosterMemoryLinked(half) || isCurrentSame
+            };
         }
 
         function captureTeamRosterTemplate(half) {
@@ -15097,9 +15398,7 @@
                 const positions = state.playerPositions?.[half] || Array.from({ length: 9 }, () => "");
                 const pitcherName = state.gameInfo.pitchers?.[half] || "";
                 const pitcherNumber = state.gameInfo.pitcherNumbers?.[half] || "";
-                const canRememberTeam = isRememberableTeamName(teamLabel);
-                const hasRememberedTeam = isTeamRosterRemembered(teamLabel);
-                const isRememberedTeam = isTeamRosterMemoryLinked(half);
+                const { canRememberTeam, hasRememberedTeam, isRememberedTeam } = getTeamRosterMemoryUiState(half, teamLabel);
                 const memoryStatus = canRememberTeam
                     ? (isRememberedTeam
                         ? "このチーム名で保存中。編集すると次回用も更新します。"
@@ -15427,6 +15726,7 @@
             if (commentInput) {
                 commentInput.value = state.atBatComment;
             }
+            syncAtBatCommentUi();
         }
 
         function createBuiltInNaturalLanguageRules() {
@@ -18674,10 +18974,24 @@
             return ["K", "B", "B'", "DB", "HP", "IB", "IF", "OB", "x", "Fc", "H", "T", "RH", "GR", "HR"].includes(result);
         }
 
+        function isRunnerOnlyPitchCountResult(snapshot) {
+            const result = String(snapshot?.result || "").trim().toUpperCase();
+            const isRunnerOnlyResult = ["S", "CS", "DS", "TP", "PO", "TO", "BK"].includes(result);
+            const hasRunnerOnlyEvents = getRunnerStatusEvents(snapshot).length > 0
+                && !snapshot?.selectedFielder
+                && !(Array.isArray(snapshot?.fieldSequence) && snapshot.fieldSequence.length > 0)
+                && !(snapshot?.selectedHitType && snapshot.selectedHitType !== "none")
+                && !["WP", "PB"].includes(result);
+            return isRunnerOnlyResult || hasRunnerOnlyEvents;
+        }
+
         function getSnapshotPitchCount(snapshot) {
             const explicitCount = (snapshot?.pitches || []).length;
             if (explicitCount > 0) {
                 return explicitCount;
+            }
+            if (isRunnerOnlyPitchCountResult(snapshot)) {
+                return 0;
             }
             return isCompletedPlateAppearanceSnapshot(snapshot) ? 1 : 0;
         }
@@ -18710,7 +19024,9 @@
                         .filter((change) => compareSheetPosition(position, change.entry) >= 0)
                         .at(-1);
                     const statIndex = activeChange ? activeChange.index : 0;
-                    stats[statIndex].battersFaced += 1;
+                    if (isCompletedPlateAppearanceSnapshot(snapshot) && !isRunnerOnlyPitchCountResult(snapshot)) {
+                        stats[statIndex].battersFaced += 1;
+                    }
                     stats[statIndex].pitchCount += getSnapshotPitchCount(snapshot);
                 }
             }
@@ -18749,18 +19065,18 @@
             [
                 ["投", 1],
                 ["投方", 1],
-                ["氏名", 3],
-                ["勝敗", 1],
-                ["セーブ", 1],
-                ["投球回数", 3],
-                ["投球数", 2],
+                ["氏名", 4],
+                ["勝敗", 2],
+                ["セーブ", 2],
+                ["登板/メモ", 5],
+                ["投球数", 3],
                 ["打者", 2]
             ].forEach(([text, span]) => {
                 section.appendChild(createPitcherBookCell(text, "pitcher-book-header", span));
             });
 
             if (!rows.length) {
-                section.appendChild(createPitcherBookCell("投手はまだ登録されていません。", "pitcher-book-empty", 14));
+                section.appendChild(createPitcherBookCell("投手はまだ登録されていません。", "pitcher-book-empty", 20));
                 target.appendChild(section);
                 return;
             }
@@ -18779,11 +19095,11 @@
                     : "";
                 section.appendChild(createPitcherBookCell(String(index + 1)));
                 section.appendChild(createPitcherBookCell(getThrowsLabel(pitcher.throws)));
-                section.appendChild(createPitcherBookCell(pitcher.name || "未登録", "pitcher-book-name", 3));
-                section.appendChild(createPitcherBookCell(""));
-                section.appendChild(createPitcherBookCell(""));
-                section.appendChild(createPitcherBookCell([enteredAt, fieldingText].filter(Boolean).join(" / "), "", 3));
-                section.appendChild(createPitcherBookCell(stats.pitchCount ? String(stats.pitchCount) : "", "", 2));
+                section.appendChild(createPitcherBookCell(pitcher.name || "未登録", "pitcher-book-name", 4));
+                section.appendChild(createPitcherBookCell("", "", 2));
+                section.appendChild(createPitcherBookCell("", "", 2));
+                section.appendChild(createPitcherBookCell([enteredAt, fieldingText].filter(Boolean).join(" / "), "", 5));
+                section.appendChild(createPitcherBookCell(stats.pitchCount ? String(stats.pitchCount) : "", "", 3));
                 section.appendChild(createPitcherBookCell(stats.battersFaced ? String(stats.battersFaced) : "", "", 2));
             });
 
@@ -19647,6 +19963,7 @@
                 if (commentInput) {
                     commentInput.value = value;
                 }
+                syncAtBatCommentUi();
             }
             saveActiveSelection();
             renderScoreSheet();
@@ -20339,13 +20656,16 @@
                 const includeComments = shouldIncludeInningShareCommentsInDraft();
                 const warningText = info.overFreeLimit
                     ? (includeComments
-                        ? "通常アカウントの目安を超えています。一言メモを外すと短くできます。"
-                        : "一言メモなしでも通常アカウントの目安を超えています。文面を短くしてください。")
+                        ? "通常アカウントの目安を超えています。一言メモを外すか、分割表示を使ってください。"
+                        : "一言メモなしでも通常アカウントの目安を超えています。分割表示を使うか、文面を短くしてください。")
                     : "";
                 warning.classList.toggle("is-open", info.overFreeLimit);
                 if (warning.textContent !== warningText) {
                     warning.textContent = warningText;
                 }
+            }
+            if (!isUpdatingInningShareSplitPanel) {
+                updateOpenInningShareSplitPanel();
             }
             return info;
         }
@@ -20365,6 +20685,140 @@
                 "必要なら文面を短くしてから投稿してください。"
             );
             return true;
+        }
+
+        function stripCuViuHashtag(text) {
+            return String(text || "")
+                .replace(/\n*\s*#CuViu\s*$/i, "")
+                .trimEnd();
+        }
+
+        function splitInningShareDraftIntoParts(text) {
+            const includeUrl = shouldIncludeScorebookAppUrlInDraft();
+            const source = stripCuViuHashtag(removeScorebookAppUrl(text));
+            const lines = source.split(/\r?\n/);
+            const context = [];
+            let bodyStartIndex = 0;
+            for (let index = 0; index < lines.length; index += 1) {
+                const line = lines[index];
+                const trimmed = line.trim();
+                const isContextLine = index === 0
+                    || /^P/.test(trimmed)
+                    || /^\d+番から$/.test(trimmed)
+                    || /^TB/.test(trimmed)
+                    || trimmed.includes("投手交代");
+                if (!trimmed || !isContextLine) {
+                    bodyStartIndex = index;
+                    break;
+                }
+                context.push(line);
+                bodyStartIndex = index + 1;
+            }
+            const body = lines.slice(bodyStartIndex).filter((line) => line.trim());
+            const part1Body = [];
+            const part2Body = [];
+            const buildPart1 = (items) => [...context, ...items, "続く"].filter((line) => line !== "").join("\n");
+            const buildPart2 = (items) => [
+                ...context,
+                "続き",
+                ...items,
+                "",
+                "#CuViu",
+                includeUrl ? SCOREBOOK_APP_URL : ""
+            ].filter((line, index, array) => line || (array[index - 1] && array[index + 1])).join("\n");
+            body.forEach((line) => {
+                const candidate = buildPart1([...part1Body, line]);
+                if (!part1Body.length || calculateXDraftWeight(candidate) <= X_FREE_WEIGHT_LIMIT) {
+                    part1Body.push(line);
+                } else {
+                    part2Body.push(line);
+                }
+            });
+            if (!part2Body.length && part1Body.length > 1) {
+                part2Body.unshift(part1Body.pop());
+            }
+            return [buildPart1(part1Body), buildPart2(part2Body)];
+        }
+
+        function getInningShareSplitPart(index) {
+            const textarea = document.getElementById("inningShareSplitPart" + index);
+            return textarea?.value || "";
+        }
+
+        function updateOpenInningShareSplitPanel() {
+            const panel = document.getElementById("inningShareSplitPanel");
+            if (!panel?.classList.contains("is-open")) {
+                return;
+            }
+            const sourceTextarea = document.getElementById("inningShareDraftText");
+            const sourceText = sourceTextarea
+                ? (shouldIncludeScorebookAppUrlInDraft()
+                    ? ensureScorebookAppUrl(ensureCuViuHashtag(removeScorebookAppUrl(sourceTextarea.value)))
+                    : ensureCuViuHashtag(removeScorebookAppUrl(sourceTextarea.value)))
+                : "";
+            isUpdatingInningShareSplitPanel = true;
+            try {
+                const parts = splitInningShareDraftIntoParts(sourceText);
+                parts.forEach((text, index) => {
+                    const partIndex = index + 1;
+                    const textarea = document.getElementById("inningShareSplitPart" + partIndex);
+                    const count = document.getElementById("inningShareSplitCount" + partIndex);
+                    if (textarea && textarea.value !== text) {
+                        textarea.value = text;
+                    }
+                    if (count) {
+                        const info = getXDraftLengthInfo(text);
+                        count.textContent = "全角約" + info.fullwidthEquivalent + "/" + X_FREE_FULLWIDTH_LIMIT;
+                        count.classList.toggle("is-warning", info.overFreeLimit);
+                    }
+                });
+            } finally {
+                isUpdatingInningShareSplitPanel = false;
+            }
+        }
+
+        function showInningShareSplitDrafts() {
+            const panel = document.getElementById("inningShareSplitPanel");
+            const status = document.getElementById("inningShareCopyStatus");
+            if (!panel) {
+                return;
+            }
+            panel.classList.add("is-open");
+            updateOpenInningShareSplitPanel();
+            if (status) {
+                status.textContent = "1つ目を投稿してから、2つ目を投稿してください。";
+            }
+        }
+
+        function copyInningShareSplitPart(index) {
+            const textarea = document.getElementById("inningShareSplitPart" + index);
+            const status = document.getElementById("inningShareCopyStatus");
+            if (!textarea) {
+                return;
+            }
+            copyTextFromTextarea(textarea, { ensureHashtag: false })
+                .then((copied) => {
+                    if (status) {
+                        status.textContent = copied ? index + "つ目をコピーしました。" : "コピーできませんでした。選択済みの文面を長押ししてコピーしてください。";
+                    }
+                })
+                .catch(() => {
+                    if (status) {
+                        status.textContent = "コピーできませんでした。選択済みの文面を長押ししてコピーしてください。";
+                    }
+                });
+        }
+
+        function openInningShareSplitPart(index) {
+            const text = getInningShareSplitPart(index);
+            if (!text) {
+                return;
+            }
+            const status = document.getElementById("inningShareCopyStatus");
+            if (status) {
+                status.textContent = index + "つ目をXで開きました。投稿後に戻って続けてください。";
+            }
+            window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text), "_blank", "noopener,noreferrer");
         }
 
         function buildInningShareDraftFromCurrentOptions() {
@@ -20458,10 +20912,23 @@
                 '<div id="inningShareLengthWarning" class="inning-share-length-warning" aria-live="polite"></div>',
                 '<div class="inning-share-options"><label class="inning-share-toggle"><span>一言メモ/詳細を入れる</span><input id="inningShareIncludeCommentsCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="refreshInningShareDraftFromOptions()"></label></div>',
                 '<div class="inning-share-options"><label class="inning-share-toggle"><span>アプリURLを付ける</span><input id="inningShareIncludeUrlCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="applyInningShareDraftUrlPreference()"></label></div>',
+                '<div id="inningShareSplitPanel" class="inning-share-split-panel" aria-live="polite">',
+                '<div class="inning-share-split-item">',
+                '<div class="inning-share-split-title"><span>1つ目</span><span id="inningShareSplitCount1">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
+                '<textarea id="inningShareSplitPart1" readonly onclick="this.select()"></textarea>',
+                '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(1)">コピー</button><button type="button" onclick="openInningShareSplitPart(1)">Xで開く</button></div>',
+                '</div>',
+                '<div class="inning-share-split-item">',
+                '<div class="inning-share-split-title"><span>2つ目</span><span id="inningShareSplitCount2">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
+                '<textarea id="inningShareSplitPart2" readonly onclick="this.select()"></textarea>',
+                '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(2)">コピー</button><button type="button" onclick="openInningShareSplitPart(2)">Xで開く</button></div>',
+                '</div>',
+                '</div>',
                 '<div id="inningShareCopyStatus" class="inning-share-options">Xで投稿/取り消し後は、この画面に戻って「' + escapeHtml(continueText) + '」を押してください。</div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
                 '<button type="button" data-x-post-open="true" onclick="openXPostDraft()">Xで開く</button>',
+                '<button type="button" onclick="showInningShareSplitDrafts()">分割表示</button>',
                 '<button type="button" class="btn-hit" onclick="completeInningTransition()">' + escapeHtml(continueText) + '</button>',
                 '</div>'
             ].join("");
@@ -20522,6 +20989,25 @@
                 options.innerHTML = '<label class="inning-share-toggle"><span>一言メモ/詳細を入れる</span><input id="inningShareIncludeCommentsCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="refreshInningShareDraftFromOptions()"></label>';
                 popup.insertBefore(options, document.getElementById("inningShareIncludeUrlCheckbox")?.closest(".inning-share-options") || document.getElementById("inningShareCopyStatus") || popup.querySelector(".comment-popup-actions"));
             }
+            if (popup && !document.getElementById("inningShareSplitPanel")) {
+                const splitPanel = document.createElement("div");
+                splitPanel.id = "inningShareSplitPanel";
+                splitPanel.className = "inning-share-split-panel";
+                splitPanel.setAttribute("aria-live", "polite");
+                splitPanel.innerHTML = [
+                    '<div class="inning-share-split-item">',
+                    '<div class="inning-share-split-title"><span>1つ目</span><span id="inningShareSplitCount1">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
+                    '<textarea id="inningShareSplitPart1" readonly onclick="this.select()"></textarea>',
+                    '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(1)">コピー</button><button type="button" onclick="openInningShareSplitPart(1)">Xで開く</button></div>',
+                    '</div>',
+                    '<div class="inning-share-split-item">',
+                    '<div class="inning-share-split-title"><span>2つ目</span><span id="inningShareSplitCount2">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
+                    '<textarea id="inningShareSplitPart2" readonly onclick="this.select()"></textarea>',
+                    '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(2)">コピー</button><button type="button" onclick="openInningShareSplitPart(2)">Xで開く</button></div>',
+                    '</div>'
+                ].join("");
+                popup.insertBefore(splitPanel, document.getElementById("inningShareCopyStatus") || popup.querySelector(".comment-popup-actions"));
+            }
             updateInningShareDraftLengthIndicator();
             const status = document.getElementById("inningShareCopyStatus");
             if (status && !status.textContent.includes("投稿/取り消し後")) {
@@ -20537,6 +21023,14 @@
                 xButton.textContent = "Xで開く";
                 xButton.onclick = openXPostDraft;
                 actions.insertBefore(xButton, nextButton || null);
+            }
+            if (actions && !Array.from(actions.querySelectorAll("button")).some((button) => button.textContent.trim() === "分割表示")) {
+                const nextButton = Array.from(actions.querySelectorAll("button")).find((button) => button.classList.contains("btn-hit"));
+                const splitButton = document.createElement("button");
+                splitButton.type = "button";
+                splitButton.textContent = "分割表示";
+                splitButton.onclick = showInningShareSplitDrafts;
+                actions.insertBefore(splitButton, nextButton || null);
             }
         }
 
@@ -21623,6 +22117,7 @@
             if (commentInput) {
                 commentInput.value = comment;
             }
+            syncAtBatCommentUi();
             updateDisplay();
             if (preview) {
                 preview.innerHTML = [
@@ -22002,6 +22497,7 @@
                     const estimated = estimateNikkanBoardContext(parsed, state.baseRunners, getMaxOutCountForActiveInning());
                     applyParsedInput(estimated);
                     state.atBatComment = extractImportCommentText(entry.body, mainPlayText);
+                    syncAtBatCommentUi();
                     const naturalInput = document.getElementById("naturalLanguageInput");
                     if (naturalInput) {
                         naturalInput.value = mainPlayText;
@@ -23792,6 +24288,7 @@
         function updateAtBatComment(value) {
             state.atBatComment = value || "";
             state.atBatCommentMeta = state.atBatComment.trim() ? (state.atBatCommentMeta || captureCommentTimingMeta()) : null;
+            syncAtBatCommentUi();
         }
 
         function getPitchCommentTimingLabel(comment) {
@@ -23833,6 +24330,7 @@
             input.value = "";
             state.atBatComment = "";
             state.atBatCommentMeta = null;
+            syncAtBatCommentUi();
             renderScoreSheet();
             updateDisplay();
             updateRunnerGuiStatus("投球メモ（" + getPitchCommentTimingLabel(comment) + "）");
@@ -27843,6 +28341,7 @@
             if (commentInput) {
                 commentInput.value = "";
             }
+            syncAtBatCommentUi();
             previewExtraResult();
             updateDisplay();
         }
