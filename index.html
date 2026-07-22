@@ -6656,7 +6656,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.56";
+        const APP_VERSION = "0.3.57";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -21102,43 +21102,42 @@
                     isLast && includeUrl ? SCOREBOOK_APP_URL : ""
                 ].filter(Boolean).join("\n");
             };
+            const buildConservativePart = (items, partIndex, endingText) => [
+                "(999/999)",
+                ...context,
+                partIndex === 0 ? "" : "続き",
+                ...items,
+                endingText,
+                "#CuViu",
+                includeUrl ? SCOREBOOK_APP_URL : ""
+            ].filter(Boolean).join("\n");
+            const canFitPart = (items, partIndex) => {
+                const nonFinal = buildConservativePart(items, partIndex, "続く");
+                const final = buildConservativePart(items, partIndex, X_AUTO_GENERATED_SIGNATURE);
+                return calculateXDraftWeight(nonFinal) <= X_FREE_WEIGHT_LIMIT
+                    && calculateXDraftWeight(final) <= X_FREE_WEIGHT_LIMIT;
+            };
 
             const singlePart = buildPart(body, 0, 1);
             if (!body.length || calculateXDraftWeight(singlePart) <= X_FREE_WEIGHT_LIMIT) {
                 return [singlePart];
             }
 
-            function findValidSplit(partCount) {
-                const parts = [];
-                let startIndex = 0;
-                for (let partIndex = 0; partIndex < partCount; partIndex += 1) {
-                    const remainingParts = partCount - partIndex;
-                    const maxEnd = body.length - (remainingParts - 1);
-                    let chosenEnd = -1;
-                    for (let endIndex = startIndex + 1; endIndex <= maxEnd; endIndex += 1) {
-                        const part = buildPart(body.slice(startIndex, endIndex), partIndex, partCount);
-                        if (calculateXDraftWeight(part) > X_FREE_WEIGHT_LIMIT) {
-                            break;
-                        }
-                        chosenEnd = endIndex;
-                    }
-                    if (chosenEnd < 0) {
-                        return null;
-                    }
-                    parts.push(buildPart(body.slice(startIndex, chosenEnd), partIndex, partCount));
-                    startIndex = chosenEnd;
+            const groups = [];
+            let currentGroup = [];
+            body.forEach((unit) => {
+                const candidate = [...currentGroup, unit];
+                if (currentGroup.length && !canFitPart(candidate, groups.length)) {
+                    groups.push(currentGroup);
+                    currentGroup = [unit];
+                    return;
                 }
-                return startIndex === body.length ? parts : null;
+                currentGroup = candidate;
+            });
+            if (currentGroup.length) {
+                groups.push(currentGroup);
             }
-
-            for (let partCount = 2; partCount <= body.length; partCount += 1) {
-                const split = findValidSplit(partCount);
-                if (split) {
-                    return split;
-                }
-            }
-
-            return body.map((line, index) => buildPart([line], index, body.length));
+            return groups.map((items, index) => buildPart(items, index, groups.length));
         }
 
         function renderInningShareSplitItem(partIndex, partCount) {
@@ -21214,6 +21213,9 @@
                     status.textContent = "1つ目から順番に投稿してください。" + (partCount >= 3 ? partCount + "分割です。" : "");
                 }
             }
+            requestAnimationFrame(() => {
+                panel.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+            });
         }
 
         function copyInningShareSplitPart(index) {
@@ -21427,7 +21429,8 @@
             }
             updateInningShareDraftLengthIndicator();
             const status = document.getElementById("inningShareCopyStatus");
-            if (status && !status.textContent.includes("投稿/取り消し後")) {
+            const splitPanel = document.getElementById("inningShareSplitPanel");
+            if (status && !splitPanel?.classList.contains("is-open") && !status.textContent.includes("投稿/取り消し後")) {
                 const continueText = isGameEndingTransition(pendingInningTransition) ? "試合終了として閉じる" : "次の攻撃へ";
                 status.textContent = "Xで投稿/取り消し後は、この画面に戻って「" + continueText + "」を押してください。";
             }
