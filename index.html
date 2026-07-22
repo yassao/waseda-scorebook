@@ -6656,7 +6656,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.59";
+        const APP_VERSION = "0.3.60";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -21161,6 +21161,13 @@
             return groups.map((items, index) => buildPart(items, index, groups.length));
         }
 
+        function getInningShareSplitPartsForDisplay(text) {
+            const value = String(text || "");
+            return getXDraftLengthInfo(value).overFreeLimit
+                ? splitInningShareDraftIntoParts(value)
+                : [value];
+        }
+
         function renderInningShareSplitItem(partIndex, partCount, text = "") {
             const info = getXDraftLengthInfo(text);
             return [
@@ -21176,9 +21183,10 @@
             if (!parts.length) {
                 return '<div id="inningShareSplitPanel" class="inning-share-split-panel is-open" aria-live="polite"><div class="inning-share-split-item">分割候補を作成できませんでした。</div></div>';
             }
-            const body = parts.length <= 1
-                ? '<div class="inning-share-split-item">通常アカウントの目安内です。分割せず、このままXで開けます。</div>'
-                : parts.map((text, index) => renderInningShareSplitItem(index + 1, parts.length, text)).join("");
+            if (parts.length <= 1) {
+                return '<div id="inningShareSplitPanel" class="inning-share-split-panel" aria-live="polite" data-part-count="1"></div>';
+            }
+            const body = parts.map((text, index) => renderInningShareSplitItem(index + 1, parts.length, text)).join("");
             return '<div id="inningShareSplitPanel" class="inning-share-split-panel is-open" aria-live="polite" data-part-count="' + parts.length + '">' + body + '</div>';
         }
 
@@ -21199,7 +21207,7 @@
 
         function updateOpenInningShareSplitPanel() {
             const panel = document.getElementById("inningShareSplitPanel");
-            if (!panel?.classList.contains("is-open")) {
+            if (!panel) {
                 return;
             }
             const sourceTextarea = document.getElementById("inningShareDraftText");
@@ -21210,7 +21218,10 @@
                 : "";
             isUpdatingInningShareSplitPanel = true;
             try {
-                const parts = splitInningShareDraftIntoParts(sourceText);
+                const parts = getInningShareSplitPartsForDisplay(sourceText);
+                if (!panel.classList.contains("is-open") && parts.length <= 1) {
+                    return;
+                }
                 const currentParts = getOpenInningShareParts();
                 const currentKey = currentParts.join("\n---SPLIT---\n");
                 const nextKey = parts.join("\n---SPLIT---\n");
@@ -21375,7 +21386,7 @@
                 return;
             }
             const continueText = isGameEndingTransition(pendingInningTransition) ? "試合終了として閉じる" : "次の攻撃へ";
-            const splitParts = splitInningShareDraftIntoParts(draft);
+            const splitParts = getInningShareSplitPartsForDisplay(draft);
             const splitStatusText = splitParts.length <= 1
                 ? "通常アカウントの目安内です。分割せず、このままXで開けます。"
                 : "分割候補を下に表示しました。1つ目から順番に投稿してください。" + (splitParts.length >= 3 ? splitParts.length + "分割です。" : "");
@@ -21454,7 +21465,7 @@
             if (popup && !document.getElementById("inningShareSplitPanel")) {
                 const splitPanel = document.createElement("div");
                 splitPanel.id = "inningShareSplitPanel";
-                splitPanel.className = "inning-share-split-panel is-open";
+                splitPanel.className = "inning-share-split-panel";
                 splitPanel.setAttribute("aria-live", "polite");
                 popup.insertBefore(splitPanel, document.getElementById("inningShareCopyStatus") || popup.querySelector(".comment-popup-actions"));
             }
