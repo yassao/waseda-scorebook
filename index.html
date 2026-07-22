@@ -6518,7 +6518,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.43";
+        const APP_VERSION = "0.3.44";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8903,6 +8903,17 @@
             };
         }
 
+        function createCompactGameSaveData(data = null) {
+            const source = data || { snapshot: captureGameHistorySnapshot() };
+            const snapshot = normalizeGameSaveData(source);
+            return {
+                schemaVersion: source.schemaVersion || DATA_SCHEMA_VERSION,
+                appVersion: source.appVersion || APP_VERSION,
+                savedAt: source.savedAt || new Date().toISOString(),
+                snapshot: deepClone(snapshot)
+            };
+        }
+
         function setGameSaveStatus(message) {
             const status = document.getElementById("gameSaveStatus");
             if (status) {
@@ -8955,10 +8966,46 @@
             }
         }
 
+        function compactSavedGameSlot(slot) {
+            if (!slot || !slot.data) {
+                return slot;
+            }
+            return {
+                ...slot,
+                schemaVersion: slot.schemaVersion || DATA_SCHEMA_VERSION,
+                appVersion: slot.appVersion || slot.data.appVersion || APP_VERSION,
+                data: createCompactGameSaveData(slot.data)
+            };
+        }
+
+        function setLocalStorageItemWithReplacement(key, payload) {
+            try {
+                localStorage.setItem(key, payload);
+                return;
+            } catch (error) {
+                const previous = localStorage.getItem(key);
+                if (!previous || payload.length >= previous.length) {
+                    throw error;
+                }
+                localStorage.removeItem(key);
+                try {
+                    localStorage.setItem(key, payload);
+                } catch (rewriteError) {
+                    try {
+                        localStorage.setItem(key, previous);
+                    } catch (restoreError) {
+                        console.warn("Restore localStorage value failed", restoreError);
+                    }
+                    throw rewriteError;
+                }
+            }
+        }
+
         function writeSavedGameSlots(slots) {
             const limit = getSavedGameSlotLimit();
             const nextSlots = Number.isFinite(limit) ? slots.slice(0, limit) : slots;
-            localStorage.setItem(SAVED_GAMES_STORAGE_KEY, JSON.stringify(nextSlots));
+            const compactSlots = nextSlots.map((slot) => compactSavedGameSlot(slot));
+            setLocalStorageItemWithReplacement(SAVED_GAMES_STORAGE_KEY, JSON.stringify(compactSlots));
         }
 
         function getSavedGameSlotLimit() {
@@ -9094,7 +9141,7 @@
                 savedAt,
                 appVersion: data.appVersion || APP_VERSION,
                 schemaVersion: data.schemaVersion || DATA_SCHEMA_VERSION,
-                data
+                data: createCompactGameSaveData(data)
             };
         }
 
@@ -9324,8 +9371,21 @@
                 renderSavedGameSlots();
                 return;
             }
-            downloadJsonData(slot.data, "cuviu-scorebook-saved-" + getFilenameTimestamp() + ".json");
+            downloadJsonData(buildSavedGameSlotExportData(slot), "cuviu-scorebook-saved-" + getFilenameTimestamp() + ".json");
             setGameSaveStatus("保存済み試合を書き出しました。");
+        }
+
+        function buildSavedGameSlotExportData(slot) {
+            const data = slot?.data || {};
+            if (data.snapshot && data.plateAppearances && data.events) {
+                return data;
+            }
+            return {
+                schemaVersion: data.schemaVersion || slot?.schemaVersion || DATA_SCHEMA_VERSION,
+                appVersion: data.appVersion || slot?.appVersion || APP_VERSION,
+                savedAt: data.savedAt || slot?.savedAt || new Date().toISOString(),
+                snapshot: normalizeGameSaveData(data)
+            };
         }
 
         function updateStartScreenState() {
@@ -9523,7 +9583,7 @@
                 return;
             }
             try {
-                localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify(createGameSaveData()));
+                setLocalStorageItemWithReplacement(GAME_STORAGE_KEY, JSON.stringify(createCompactGameSaveData()));
                 setGameSaveStatus("自動保存済み: " + new Date().toLocaleString("ja-JP"));
                 updateStartScreenState();
             } catch (error) {
