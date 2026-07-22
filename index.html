@@ -4705,6 +4705,24 @@
             gap: 6px;
         }
 
+        .inning-share-split-actions button,
+        .inning-share-split-actions a {
+            min-height: 44px;
+        }
+
+        .inning-share-split-actions a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #243447;
+            border-radius: 10px;
+            background: #ffffff;
+            color: #13202e;
+            font-size: 14px;
+            font-weight: 850;
+            text-decoration: none;
+        }
+
         .feedback-popup {
             width: min(620px, calc(100vw - 24px));
         }
@@ -6638,7 +6656,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.54";
+        const APP_VERSION = "0.3.55";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -20917,6 +20935,10 @@
             };
         }
 
+        function buildXIntentUrl(text) {
+            return "https://twitter.com/intent/tweet?text=" + encodeURIComponent(text);
+        }
+
         function shouldIncludeScorebookAppUrlInDraft() {
             const checkbox = document.getElementById("inningShareIncludeUrlCheckbox");
             return checkbox ? checkbox.checked : true;
@@ -21064,7 +21086,7 @@
                 '<div class="inning-share-split-item">',
                 '<div class="inning-share-split-title"><span>' + partIndex + 'つ目 / ' + partCount + '</span><span id="inningShareSplitCount' + partIndex + '">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
                 '<textarea id="inningShareSplitPart' + partIndex + '" readonly onclick="this.select()"></textarea>',
-                '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(' + partIndex + ')">コピー</button><button type="button" onclick="openInningShareSplitPart(' + partIndex + ')">Xで開く</button></div>',
+                '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(' + partIndex + ')">コピー</button><a id="inningShareSplitOpen' + partIndex + '" href="#" target="_blank" rel="noopener noreferrer" onclick="return prepareInningShareSplitOpen(' + partIndex + ')">Xで開く</a></div>',
                 '</div>'
             ].join("");
         }
@@ -21099,8 +21121,12 @@
                     const partIndex = index + 1;
                     const textarea = document.getElementById("inningShareSplitPart" + partIndex);
                     const count = document.getElementById("inningShareSplitCount" + partIndex);
+                    const openLink = document.getElementById("inningShareSplitOpen" + partIndex);
                     if (textarea && textarea.value !== text) {
                         textarea.value = text;
+                    }
+                    if (openLink) {
+                        openLink.href = buildXIntentUrl(text);
                     }
                     if (count) {
                         const info = getXDraftLengthInfo(text);
@@ -21146,16 +21172,30 @@
                 });
         }
 
-        function openInningShareSplitPart(index) {
+        function prepareInningShareSplitOpen(index) {
             const text = getInningShareSplitPart(index);
             if (!text) {
-                return;
+                return false;
+            }
+            const link = document.getElementById("inningShareSplitOpen" + index);
+            if (link) {
+                link.href = buildXIntentUrl(text);
             }
             const status = document.getElementById("inningShareCopyStatus");
             if (status) {
                 status.textContent = index + "つ目をXで開きました。投稿後に戻って続けてください。";
             }
-            window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text), "_blank", "noopener,noreferrer");
+            return true;
+        }
+
+        function openInningShareSplitPart(index) {
+            const text = getInningShareSplitPart(index);
+            if (!text) {
+                return;
+            }
+            if (prepareInningShareSplitOpen(index)) {
+                window.open(buildXIntentUrl(text), "_blank", "noopener,noreferrer");
+            }
         }
 
         function buildInningShareDraftFromCurrentOptions() {
@@ -21421,7 +21461,7 @@
                 const continueText = isGameEndingTransition(pendingInningTransition) ? "試合終了として閉じる" : "次の攻撃へ";
                 status.textContent = "Xを閉じたら、この画面に戻って「" + continueText + "」を押してください。";
             }
-            const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(textarea.value);
+            const url = buildXIntentUrl(textarea.value);
             window.open(url, "_blank", "noopener,noreferrer");
         }
 
