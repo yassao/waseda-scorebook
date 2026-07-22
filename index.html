@@ -6638,7 +6638,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.53";
+        const APP_VERSION = "0.3.54";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -21027,36 +21027,26 @@
             }
 
             function findValidSplit(partCount) {
-                const memo = new Map();
-                function search(partIndex, startIndex) {
-                    const memoKey = partIndex + ":" + startIndex;
-                    if (memo.has(memoKey)) {
-                        return memo.get(memoKey);
-                    }
-                    if (partIndex === partCount) {
-                        const result = startIndex === body.length ? [] : null;
-                        memo.set(memoKey, result);
-                        return result;
-                    }
+                const parts = [];
+                let startIndex = 0;
+                for (let partIndex = 0; partIndex < partCount; partIndex += 1) {
                     const remainingParts = partCount - partIndex;
-                    const minEnd = startIndex + 1;
                     const maxEnd = body.length - (remainingParts - 1);
-                    for (let endIndex = maxEnd; endIndex >= minEnd; endIndex -= 1) {
+                    let chosenEnd = -1;
+                    for (let endIndex = startIndex + 1; endIndex <= maxEnd; endIndex += 1) {
                         const part = buildPart(body.slice(startIndex, endIndex), partIndex, partCount);
                         if (calculateXDraftWeight(part) > X_FREE_WEIGHT_LIMIT) {
-                            continue;
+                            break;
                         }
-                        const rest = search(partIndex + 1, endIndex);
-                        if (rest) {
-                            const result = [part, ...rest];
-                            memo.set(memoKey, result);
-                            return result;
-                        }
+                        chosenEnd = endIndex;
                     }
-                    memo.set(memoKey, null);
-                    return null;
+                    if (chosenEnd < 0) {
+                        return null;
+                    }
+                    parts.push(buildPart(body.slice(startIndex, chosenEnd), partIndex, partCount));
+                    startIndex = chosenEnd;
                 }
-                return search(0, 0);
+                return startIndex === body.length ? parts : null;
             }
 
             for (let partCount = 2; partCount <= body.length; partCount += 1) {
