@@ -6034,10 +6034,21 @@
             }
 
             .play-part-popup {
-                left: 12px !important;
-                right: 12px !important;
-                width: auto !important;
                 max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+            }
+
+            .play-part-popup:not(.is-strike-choice) {
+                width: min(330px, calc(72vw - 8px)) !important;
+            }
+
+            .play-part-popup:not(.is-strike-choice).is-left-hand {
+                left: 8px !important;
+                right: auto !important;
+            }
+
+            .play-part-popup:not(.is-strike-choice).is-right-hand {
+                left: auto !important;
+                right: 8px !important;
             }
 
             .play-part-popup.is-strike-choice {
@@ -6627,7 +6638,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.47";
+        const APP_VERSION = "0.3.48";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -17737,19 +17748,44 @@
             }
         }
 
-        function ensureForcedAdvancesForBatterToFirst(advances, originalRunners) {
+        function getRunnerSourceKeyByBaseIndex(baseIndex) {
+            return ["r1", "r2", "r3"][baseIndex] || "";
+        }
+
+        function getAutoForcedAdvanceSkipSources(outLabels) {
+            const skipSources = new Set();
+            (outLabels || []).forEach((outLabel) => {
+                const parsedOut = parseRunnerOutContextEntry(outLabel);
+                const label = parsedOut.label || "";
+                if (parsedOut.sourceBaseIndex >= 0) {
+                    skipSources.add(getRunnerSourceKeyByBaseIndex(parsedOut.sourceBaseIndex));
+                    return;
+                }
+                if (label === "二塁封殺" || label === "二塁アウト" || label === "二盗死" || /^2-[46]T$/.test(label)) {
+                    skipSources.add("r1");
+                } else if (label === "三塁封殺" || label === "三塁アウト" || label === "三盗死" || label === "2-5T") {
+                    skipSources.add("r2");
+                } else if (label === "本塁封殺" || label === "本塁アウト" || label === "2T") {
+                    skipSources.add("r3");
+                }
+            });
+            return skipSources;
+        }
+
+        function ensureForcedAdvancesForBatterToFirst(advances, originalRunners, outLabels = []) {
             const nextAdvances = Array.isArray(advances) ? [...advances] : [];
             if (!hasBatterAdvanceToFirst(nextAdvances)) {
                 return nextAdvances;
             }
             const advanceSet = new Set(nextAdvances.map(getRunnerAdvanceBaseText));
-            if (originalRunners[0] && originalRunners[1] && originalRunners[2] && !hasRunnerAdvanceForSource(advanceSet, "r3")) {
+            const skipSources = getAutoForcedAdvanceSkipSources(outLabels);
+            if (originalRunners[0] && originalRunners[1] && originalRunners[2] && !skipSources.has("r3") && !hasRunnerAdvanceForSource(advanceSet, "r3")) {
                 appendMissingForcedAdvance(nextAdvances, advanceSet, "三走生還");
             }
-            if (originalRunners[0] && originalRunners[1] && !hasRunnerAdvanceForSource(advanceSet, "r2")) {
+            if (originalRunners[0] && originalRunners[1] && !skipSources.has("r2") && !hasRunnerAdvanceForSource(advanceSet, "r2")) {
                 appendMissingForcedAdvance(nextAdvances, advanceSet, "二走→三塁");
             }
-            if (originalRunners[0] && !hasRunnerAdvanceForSource(advanceSet, "r1")) {
+            if (originalRunners[0] && !skipSources.has("r1") && !hasRunnerAdvanceForSource(advanceSet, "r1")) {
                 appendMissingForcedAdvance(nextAdvances, advanceSet, "一走→二塁");
             }
             return nextAdvances;
@@ -17799,7 +17835,7 @@
                 return;
             }
             const deferredBatterAdvances = [];
-            context.advances = ensureForcedAdvancesForBatterToFirst(context.advances || [], originalRunners);
+            context.advances = ensureForcedAdvancesForBatterToFirst(context.advances || [], originalRunners, context.outsOnBases || []);
 
             [...(context.advances || [])]
                 .sort((a, b) => getRunnerAdvancePriority(a) - getRunnerAdvancePriority(b))
@@ -18010,6 +18046,9 @@
                     advanceTrailingRunnersAfterForceOut(runners, event.baseIndex);
                 }
             } else if (snapshot.modifiers?.sacrificeBunt && snapshot.outScore) {
+                if (runners[2]) {
+                    scoreRunnerFromBase(runners, 2, "犠打");
+                }
                 if (runners[1]) {
                     moveRunnerToBase(runners, 1, 2);
                 }
@@ -23604,15 +23643,28 @@
             popup.style.maxHeight = "calc(100dvh - " + roundedTop + "px - 12px - env(safe-area-inset-bottom))";
         }
 
+        function applyPlayPartPopupHandClass(popup) {
+            const isLeftLayout = state.inputLayout === "left";
+            popup.classList.toggle("is-left-hand", isLeftLayout);
+            popup.classList.toggle("is-right-hand", !isLeftLayout);
+        }
+
         function positionPlayPartPopupNear(anchor, options = {}) {
             const popup = document.getElementById("playPartPopup");
             const rect = anchor.getBoundingClientRect();
             const width = Math.min(330, window.innerWidth - 24);
             const top = getPlayPartPopupTop(anchor, options);
+            applyPlayPartPopupHandClass(popup);
             if (window.innerWidth <= 480) {
-                popup.style.width = "auto";
-                popup.style.left = "12px";
-                popup.style.right = "12px";
+                const mobileWidth = Math.min(330, Math.max(250, Math.round(window.innerWidth * 0.72)));
+                popup.style.width = mobileWidth + "px";
+                if (state.inputLayout === "left") {
+                    popup.style.left = "8px";
+                    popup.style.right = "";
+                } else {
+                    popup.style.left = "";
+                    popup.style.right = "8px";
+                }
                 setPlayPartPopupTop(popup, top);
                 return;
             }
@@ -27713,6 +27765,12 @@
                 projected[0] = null;
             } else if (state.modifiers?.sacrificeFly && state.outScore) {
                 projected[2] = null;
+            } else if (state.modifiers?.sacrificeBunt && state.outScore) {
+                const firstRunner = projected[0];
+                const secondRunner = projected[1];
+                projected[2] = secondRunner ? { ...secondRunner, baseIndex: 2 } : null;
+                projected[1] = firstRunner ? { ...firstRunner, baseIndex: 1 } : null;
+                projected[0] = null;
             } else if (state.modifiers?.triplePlay && state.outScore) {
                 const snapshot = captureAtBatSnapshot();
                 const runnerOutEvents = resolveTriplePlayRunnerOutEvents(snapshot, projected.map((item) => item?.runnerRef || null));
@@ -27982,13 +28040,7 @@
             }
             const previewEntry = getRunnerPreviewEntry();
             const activeItems = getProjectedRunnerPreviewItems();
-            const activeKeys = new Set(activeItems.map((item) => getRunnerRefKey(item.runnerRef)));
-            const liveRetiredItems = getLiveRunnerOutPreviewItems()
-                .filter((item) => !activeKeys.has(getRunnerRefKey(item.runnerRef)));
-            const retiredItems = (state.retiredRunnerPreviews || [])
-                .filter((item) => item.runnerRef && !activeKeys.has(getRunnerRefKey(item.runnerRef)))
-                .map((item) => ({ ...item, retired: true }));
-            const items = [...activeItems, ...liveRetiredItems, ...retiredItems]
+            const items = activeItems
                 .sort((a, b) => (a.runnerRef.col - b.runnerRef.col) || (a.runnerRef.row - b.runnerRef.row));
 
             if (!items.length) {
@@ -28010,13 +28062,11 @@
                             getSnapshotByRef(item.runnerRef),
                             getLiveProjectedRunnerEventForRef(item.runnerRef)
                         );
-                const itemClass = "base-runner-preview-item" + (item.retired ? " is-retired" : "");
-                const cardClass = "base-runner-preview-card" + (item.retired ? " is-retired" : "");
-                const labelPrefix = item.retired ? "アウト<br>" : (item.baseIndex + 1) + "塁<br>";
+                const itemClass = "base-runner-preview-item";
+                const cardClass = "base-runner-preview-card";
+                const labelPrefix = (item.baseIndex + 1) + "塁<br>";
                 const tiebreakLabel = isTiebreakRunnerRef(item.runnerRef) ? "<small>タイブレーク走者</small>" : "";
-                const card = item.retired
-                    ? '<div class="' + cardClass + '" aria-label="アウト済み走者">' + generateSheetCellSvg(snapshot) + '</div>'
-                    : '<button type="button" class="' + cardClass + '" onclick="openRunnerActionPopup(\'r' + ((item.sourceBaseIndex ?? item.baseIndex) + 1) + '\', ' + item.baseIndex + ')" aria-label="' + (item.baseIndex + 1) + '塁走者を操作">' + generateSheetCellSvg(snapshot) + '</button>';
+                const card = '<button type="button" class="' + cardClass + '" onclick="openRunnerActionPopup(\'r' + ((item.sourceBaseIndex ?? item.baseIndex) + 1) + '\', ' + item.baseIndex + ')" aria-label="' + (item.baseIndex + 1) + '塁走者を操作">' + generateSheetCellSvg(snapshot) + '</button>';
                 return [
                     '<div class="' + itemClass + '">',
                     '<div class="base-runner-preview-label">' + labelPrefix + getRunnerRefLabel(item.runnerRef) + tiebreakLabel + '</div>',
