@@ -6656,7 +6656,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.58";
+        const APP_VERSION = "0.3.59";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -21012,8 +21012,8 @@
                 const includeComments = shouldIncludeInningShareCommentsInDraft();
                 const warningText = info.overFreeLimit
                     ? (includeComments
-                        ? "通常アカウントの目安を超えています。一言メモを外すか、分割表示を使ってください。"
-                        : "一言メモなしでも通常アカウントの目安を超えています。分割表示を使うか、文面を短くしてください。")
+                        ? "通常アカウントの目安を超えています。一言メモを外すか、下の分割候補を使ってください。"
+                        : "一言メモなしでも通常アカウントの目安を超えています。下の分割候補を使うか、文面を短くしてください。")
                     : "";
                 warning.classList.toggle("is-open", info.overFreeLimit);
                 if (warning.textContent !== warningText) {
@@ -21161,14 +21161,35 @@
             return groups.map((items, index) => buildPart(items, index, groups.length));
         }
 
-        function renderInningShareSplitItem(partIndex, partCount) {
+        function renderInningShareSplitItem(partIndex, partCount, text = "") {
+            const info = getXDraftLengthInfo(text);
             return [
                 '<div class="inning-share-split-item">',
-                '<div class="inning-share-split-title"><span>' + partIndex + 'つ目 / ' + partCount + '</span><span id="inningShareSplitCount' + partIndex + '">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
-                '<textarea id="inningShareSplitPart' + partIndex + '" readonly onclick="selectTextareaForCopy(this)"></textarea>',
+                '<div class="inning-share-split-title"><span>' + partIndex + 'つ目 / ' + partCount + '</span><span id="inningShareSplitCount' + partIndex + '" class="' + (info.overFreeLimit ? 'is-warning' : '') + '">全角約' + info.fullwidthEquivalent + '/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
+                '<textarea id="inningShareSplitPart' + partIndex + '" readonly onclick="selectTextareaForCopy(this)">' + escapeHtml(text) + '</textarea>',
                 '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(' + partIndex + ')">コピー</button><button type="button" onclick="openInningShareSplitPart(' + partIndex + ')">Xで開く</button></div>',
                 '</div>'
             ].join("");
+        }
+
+        function renderInningShareSplitPanel(parts) {
+            if (!parts.length) {
+                return '<div id="inningShareSplitPanel" class="inning-share-split-panel is-open" aria-live="polite"><div class="inning-share-split-item">分割候補を作成できませんでした。</div></div>';
+            }
+            const body = parts.length <= 1
+                ? '<div class="inning-share-split-item">通常アカウントの目安内です。分割せず、このままXで開けます。</div>'
+                : parts.map((text, index) => renderInningShareSplitItem(index + 1, parts.length, text)).join("");
+            return '<div id="inningShareSplitPanel" class="inning-share-split-panel is-open" aria-live="polite" data-part-count="' + parts.length + '">' + body + '</div>';
+        }
+
+        function getOpenInningShareParts() {
+            const panel = document.getElementById("inningShareSplitPanel");
+            if (!panel?.classList.contains("is-open")) {
+                return [];
+            }
+            return Array.from(panel.querySelectorAll("textarea[id^='inningShareSplitPart']"))
+                .map((textarea) => textarea.value)
+                .filter((value) => value.trim());
         }
 
         function getInningShareSplitPart(index) {
@@ -21190,12 +21211,12 @@
             isUpdatingInningShareSplitPanel = true;
             try {
                 const parts = splitInningShareDraftIntoParts(sourceText);
-                const partCount = String(parts.length);
-                if (panel.dataset.partCount !== partCount) {
-                    panel.innerHTML = parts
-                        .map((_, index) => renderInningShareSplitItem(index + 1, parts.length))
-                        .join("");
-                    panel.dataset.partCount = partCount;
+                const currentParts = getOpenInningShareParts();
+                const currentKey = currentParts.join("\n---SPLIT---\n");
+                const nextKey = parts.join("\n---SPLIT---\n");
+                if (panel.dataset.partCount !== String(parts.length) || currentKey !== nextKey) {
+                    panel.outerHTML = renderInningShareSplitPanel(parts);
+                    return;
                 }
                 parts.forEach((text, index) => {
                     const partIndex = index + 1;
@@ -21221,43 +21242,10 @@
             if (!panel) {
                 return;
             }
-            try {
-                document.getSelection?.()?.removeAllRanges?.();
-                if (document.activeElement?.id === "inningShareDraftText") {
-                    document.activeElement.blur();
-                }
-            } catch (error) {
-                console.warn("Could not clear selection before split", error);
-            }
             panel.classList.add("is-open");
-            panel.innerHTML = '<div class="inning-share-split-item">分割を作成しています...</div>';
-            panel.dataset.partCount = "";
             if (status) {
-                status.textContent = "分割を作成しています。";
+                status.textContent = "分割候補は下に表示済みです。必要な投稿から順にコピーまたはXで開いてください。";
             }
-            requestAnimationFrame(() => {
-                try {
-                    updateOpenInningShareSplitPanel();
-                    if (status) {
-                        const partCount = Number(panel.dataset.partCount) || panel.querySelectorAll(".inning-share-split-item").length || 2;
-                        const firstPartInfo = getXDraftLengthInfo(getInningShareSplitPart(1));
-                        if (partCount <= 1) {
-                            status.textContent = firstPartInfo.overFreeLimit
-                                ? "自動分割できませんでした。文面を短くするか、改行を入れてからもう一度お試しください。"
-                                : "通常アカウントの目安内です。分割せず、このままXで開けます。";
-                        } else {
-                            status.textContent = "1つ目から順番に投稿してください。" + (partCount >= 3 ? partCount + "分割です。" : "");
-                        }
-                    }
-                    panel.scrollIntoView?.({ block: "center" });
-                } catch (error) {
-                    console.error("Failed to split X draft", error);
-                    panel.innerHTML = "";
-                    if (status) {
-                        status.textContent = "分割表示に失敗しました。コピーして手動で分けるか、文面を短くしてください。";
-                    }
-                }
-            });
         }
 
         function copyInningShareSplitPart(index) {
@@ -21387,6 +21375,10 @@
                 return;
             }
             const continueText = isGameEndingTransition(pendingInningTransition) ? "試合終了として閉じる" : "次の攻撃へ";
+            const splitParts = splitInningShareDraftIntoParts(draft);
+            const splitStatusText = splitParts.length <= 1
+                ? "通常アカウントの目安内です。分割せず、このままXで開けます。"
+                : "分割候補を下に表示しました。1つ目から順番に投稿してください。" + (splitParts.length >= 3 ? splitParts.length + "分割です。" : "");
             popup.innerHTML = [
                 '<div class="inning-share-draft-header">',
                 '<div class="comment-popup-title">Xポスト下書き <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
@@ -21396,12 +21388,11 @@
                 '<div id="inningShareLengthWarning" class="inning-share-length-warning" aria-live="polite"></div>',
                 '<div class="inning-share-options"><label class="inning-share-toggle"><span>一言メモ/詳細を入れる</span><input id="inningShareIncludeCommentsCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="refreshInningShareDraftFromOptions()"></label></div>',
                 '<div class="inning-share-options"><label class="inning-share-toggle"><span>アプリURLを付ける</span><input id="inningShareIncludeUrlCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="applyInningShareDraftUrlPreference()"></label></div>',
-                '<div id="inningShareSplitPanel" class="inning-share-split-panel" aria-live="polite"></div>',
-                '<div id="inningShareCopyStatus" class="inning-share-options">Xで投稿/取り消し後は、この画面に戻って「' + escapeHtml(continueText) + '」を押してください。</div>',
+                renderInningShareSplitPanel(splitParts),
+                '<div id="inningShareCopyStatus" class="inning-share-options">' + escapeHtml(splitStatusText) + '<br>Xで投稿/取り消し後は、この画面に戻って「' + escapeHtml(continueText) + '」を押してください。</div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
                 '<button type="button" data-x-post-open="true" onclick="openXPostDraft()">Xで開く</button>',
-                '<button type="button" onclick="showInningShareSplitDrafts()">分割表示</button>',
                 '<button type="button" class="btn-hit" onclick="completeInningTransition()">' + escapeHtml(continueText) + '</button>',
                 '</div>'
             ].join("");
@@ -21463,7 +21454,7 @@
             if (popup && !document.getElementById("inningShareSplitPanel")) {
                 const splitPanel = document.createElement("div");
                 splitPanel.id = "inningShareSplitPanel";
-                splitPanel.className = "inning-share-split-panel";
+                splitPanel.className = "inning-share-split-panel is-open";
                 splitPanel.setAttribute("aria-live", "polite");
                 popup.insertBefore(splitPanel, document.getElementById("inningShareCopyStatus") || popup.querySelector(".comment-popup-actions"));
             }
@@ -21483,14 +21474,6 @@
                 xButton.textContent = "Xで開く";
                 xButton.onclick = openXPostDraft;
                 actions.insertBefore(xButton, nextButton || null);
-            }
-            if (actions && !Array.from(actions.querySelectorAll("button")).some((button) => button.textContent.trim() === "分割表示")) {
-                const nextButton = Array.from(actions.querySelectorAll("button")).find((button) => button.classList.contains("btn-hit"));
-                const splitButton = document.createElement("button");
-                splitButton.type = "button";
-                splitButton.textContent = "分割表示";
-                splitButton.onclick = showInningShareSplitDrafts;
-                actions.insertBefore(splitButton, nextButton || null);
             }
         }
 
