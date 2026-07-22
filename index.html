@@ -6638,7 +6638,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.48";
+        const APP_VERSION = "0.3.49";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6655,6 +6655,7 @@
         const X_FREE_WEIGHT_LIMIT = 280;
         const X_FREE_FULLWIDTH_LIMIT = 140;
         const X_URL_WEIGHT_LENGTH = 23;
+        const X_AUTO_GENERATED_SIGNATURE = "スコア入力→X文自動生成";
         const INNING_AD_SECONDS = 0;
         const INNING_AD_SKIP_AFTER_SECONDS = 0;
         const PDF_AD_SECONDS = 0;
@@ -20835,13 +20836,32 @@
             }
             lines.push(getGameScoreLineText({ prefix: gameEnded ? "最終 " : "" }));
             lines.push("");
+            lines.push(X_AUTO_GENERATED_SIGNATURE);
             lines.push("#CuViu");
             return lines.join("\n");
         }
 
+        function stripInningShareSignature(text) {
+            return String(text || "")
+                .replace(/\n*\s*スコア入力→X文自動生成\s*$/u, "")
+                .trimEnd();
+        }
+
+        function ensureInningShareSignature(text) {
+            const value = String(text || "").trimEnd();
+            if (/(^|\n)\s*スコア入力→X文自動生成\s*(\n|$)/u.test(value)) {
+                return value;
+            }
+            if (/(^|\n)\s*#CuViu(\s|\n|$)/i.test(value)) {
+                return value.replace(/(^|\n)(\s*#CuViu\s*(?=\n|$))/i, "$1" + X_AUTO_GENERATED_SIGNATURE + "\n$2");
+            }
+            return value ? value + "\n" + X_AUTO_GENERATED_SIGNATURE : X_AUTO_GENERATED_SIGNATURE;
+        }
+
         function ensureCuViuHashtag(text) {
             const value = String(text || "").trimEnd();
-            return /(^|\s)#CuViu(\s|$)/.test(value) ? value : value + "\n\n#CuViu";
+            const signedValue = ensureInningShareSignature(value);
+            return /(^|\s)#CuViu(\s|$)/.test(signedValue) ? signedValue : signedValue + "\n#CuViu";
         }
 
         function removeScorebookAppUrl(text) {
@@ -20966,7 +20986,7 @@
 
         function splitInningShareDraftIntoParts(text) {
             const includeUrl = shouldIncludeScorebookAppUrlInDraft();
-            const source = stripCuViuHashtag(removeScorebookAppUrl(text));
+            const source = stripInningShareSignature(stripCuViuHashtag(removeScorebookAppUrl(text)));
             const lines = source.split(/\r?\n/);
             const context = [];
             let bodyStartIndex = 0;
@@ -20994,6 +21014,7 @@
                 "続き",
                 ...items,
                 "",
+                X_AUTO_GENERATED_SIGNATURE,
                 "#CuViu",
                 includeUrl ? SCOREBOOK_APP_URL : ""
             ].filter((line, index, array) => line || (array[index - 1] && array[index + 1])).join("\n");
