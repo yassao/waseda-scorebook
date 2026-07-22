@@ -6656,7 +6656,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.57";
+        const APP_VERSION = "0.3.58";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -20947,6 +20947,24 @@
                 || (nav.platform === "MacIntel" && Number(nav.maxTouchPoints || 0) > 1);
         }
 
+        function isTouchLikeDevice() {
+            const nav = window.navigator || {};
+            return Number(nav.maxTouchPoints || 0) > 0 || window.matchMedia?.("(pointer: coarse)")?.matches;
+        }
+
+        function selectTextareaForCopy(textarea) {
+            if (!textarea || isTouchLikeDevice()) {
+                return;
+            }
+            try {
+                textarea.focus({ preventScroll: true });
+            } catch (error) {
+                textarea.focus();
+            }
+            textarea.select();
+            textarea.setSelectionRange?.(0, textarea.value.length);
+        }
+
         function openXIntentUrl(url) {
             if (isIOSWebKitBrowser()) {
                 window.location.href = url;
@@ -21087,7 +21105,10 @@
             if (!bodySource.length && context.length) {
                 bodySource = [context.pop()];
             }
-            const body = bodySource.flatMap((line) => splitXDraftLineIntoUnits(line));
+            const body = [];
+            bodySource.forEach((line) => {
+                splitXDraftLineIntoUnits(line).forEach((unit) => body.push(unit));
+            });
             const buildPart = (items, partIndex, partCount) => {
                 const isFirst = partIndex === 0;
                 const isLast = partIndex === partCount - 1;
@@ -21144,7 +21165,7 @@
             return [
                 '<div class="inning-share-split-item">',
                 '<div class="inning-share-split-title"><span>' + partIndex + 'つ目 / ' + partCount + '</span><span id="inningShareSplitCount' + partIndex + '">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
-                '<textarea id="inningShareSplitPart' + partIndex + '" readonly onclick="this.select()"></textarea>',
+                '<textarea id="inningShareSplitPart' + partIndex + '" readonly onclick="selectTextareaForCopy(this)"></textarea>',
                 '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(' + partIndex + ')">コピー</button><button type="button" onclick="openInningShareSplitPart(' + partIndex + ')">Xで開く</button></div>',
                 '</div>'
             ].join("");
@@ -21200,21 +21221,42 @@
             if (!panel) {
                 return;
             }
-            panel.classList.add("is-open");
-            updateOpenInningShareSplitPanel();
-            if (status) {
-                const partCount = Number(panel.dataset.partCount) || panel.querySelectorAll(".inning-share-split-item").length || 2;
-                const firstPartInfo = getXDraftLengthInfo(getInningShareSplitPart(1));
-                if (partCount <= 1) {
-                    status.textContent = firstPartInfo.overFreeLimit
-                        ? "自動分割できませんでした。文面を短くするか、改行を入れてからもう一度お試しください。"
-                        : "通常アカウントの目安内です。分割せず、このままXで開けます。";
-                } else {
-                    status.textContent = "1つ目から順番に投稿してください。" + (partCount >= 3 ? partCount + "分割です。" : "");
+            try {
+                document.getSelection?.()?.removeAllRanges?.();
+                if (document.activeElement?.id === "inningShareDraftText") {
+                    document.activeElement.blur();
                 }
+            } catch (error) {
+                console.warn("Could not clear selection before split", error);
+            }
+            panel.classList.add("is-open");
+            panel.innerHTML = '<div class="inning-share-split-item">分割を作成しています...</div>';
+            panel.dataset.partCount = "";
+            if (status) {
+                status.textContent = "分割を作成しています。";
             }
             requestAnimationFrame(() => {
-                panel.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+                try {
+                    updateOpenInningShareSplitPanel();
+                    if (status) {
+                        const partCount = Number(panel.dataset.partCount) || panel.querySelectorAll(".inning-share-split-item").length || 2;
+                        const firstPartInfo = getXDraftLengthInfo(getInningShareSplitPart(1));
+                        if (partCount <= 1) {
+                            status.textContent = firstPartInfo.overFreeLimit
+                                ? "自動分割できませんでした。文面を短くするか、改行を入れてからもう一度お試しください。"
+                                : "通常アカウントの目安内です。分割せず、このままXで開けます。";
+                        } else {
+                            status.textContent = "1つ目から順番に投稿してください。" + (partCount >= 3 ? partCount + "分割です。" : "");
+                        }
+                    }
+                    panel.scrollIntoView?.({ block: "center" });
+                } catch (error) {
+                    console.error("Failed to split X draft", error);
+                    panel.innerHTML = "";
+                    if (status) {
+                        status.textContent = "分割表示に失敗しました。コピーして手動で分けるか、文面を短くしてください。";
+                    }
+                }
             });
         }
 
@@ -21350,7 +21392,7 @@
                 '<div class="comment-popup-title">Xポスト下書き <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
                 '<div id="inningShareDraftCount" class="inning-share-draft-count" aria-live="polite">0/' + X_FREE_FULLWIDTH_LIMIT + '</div>',
                 '</div>',
-                '<textarea id="inningShareDraftText" oninput="updateInningShareDraftLengthIndicator()" onfocus="this.select()" onclick="this.select()">' + escapeHtml(draft) + '</textarea>',
+                '<textarea id="inningShareDraftText" oninput="updateInningShareDraftLengthIndicator()">' + escapeHtml(draft) + '</textarea>',
                 '<div id="inningShareLengthWarning" class="inning-share-length-warning" aria-live="polite"></div>',
                 '<div class="inning-share-options"><label class="inning-share-toggle"><span>一言メモ/詳細を入れる</span><input id="inningShareIncludeCommentsCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="refreshInningShareDraftFromOptions()"></label></div>',
                 '<div class="inning-share-options"><label class="inning-share-toggle"><span>アプリURLを付ける</span><input id="inningShareIncludeUrlCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="applyInningShareDraftUrlPreference()"></label></div>',
@@ -21365,9 +21407,7 @@
             ].join("");
             requestAnimationFrame(() => {
                 const textarea = document.getElementById("inningShareDraftText");
-                textarea?.focus();
-                textarea?.select();
-                textarea?.setSelectionRange?.(0, textarea.value.length);
+                selectTextareaForCopy(textarea);
                 updateInningShareDraftLengthIndicator();
             });
         }
