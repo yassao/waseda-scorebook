@@ -6638,7 +6638,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.52";
+        const APP_VERSION = "0.3.53";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -21009,7 +21009,9 @@
             const buildPart = (items, partIndex, partCount) => {
                 const isFirst = partIndex === 0;
                 const isLast = partIndex === partCount - 1;
+                const splitHeader = partCount > 1 ? "(" + (partIndex + 1) + "/" + partCount + ")" : "";
                 return [
+                    splitHeader,
                     ...context,
                     isFirst ? "" : "続き",
                     ...items,
