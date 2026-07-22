@@ -6638,7 +6638,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.50";
+        const APP_VERSION = "0.3.51";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -21018,18 +21018,43 @@
                 "#CuViu",
                 includeUrl ? SCOREBOOK_APP_URL : ""
             ].filter((line, index, array) => line || (array[index - 1] && array[index + 1])).join("\n");
-            body.forEach((line) => {
-                const candidate = buildPart1([...part1Body, line]);
-                if (!part1Body.length || calculateXDraftWeight(candidate) <= X_FREE_WEIGHT_LIMIT) {
-                    part1Body.push(line);
-                } else {
-                    part2Body.push(line);
-                }
-            });
-            if (!part2Body.length && part1Body.length > 1) {
-                part2Body.unshift(part1Body.pop());
+
+            if (body.length <= 1) {
+                return [buildPart1(body), buildPart2([])];
             }
-            return [buildPart1(part1Body), buildPart2(part2Body)];
+
+            const candidates = [];
+            for (let splitIndex = 1; splitIndex < body.length; splitIndex += 1) {
+                const firstItems = body.slice(0, splitIndex);
+                const secondItems = body.slice(splitIndex);
+                const part1 = buildPart1(firstItems);
+                const part2 = buildPart2(secondItems);
+                const part1Weight = calculateXDraftWeight(part1);
+                const part2Weight = calculateXDraftWeight(part2);
+                const part1Over = Math.max(0, part1Weight - X_FREE_WEIGHT_LIMIT);
+                const part2Over = Math.max(0, part2Weight - X_FREE_WEIGHT_LIMIT);
+                candidates.push({
+                    part1,
+                    part2,
+                    splitIndex,
+                    part1Weight,
+                    part2Weight,
+                    part1Over,
+                    part2Over,
+                    totalOver: part1Over + part2Over,
+                    maxOver: Math.max(part1Over, part2Over)
+                });
+            }
+
+            const validCandidates = candidates.filter((candidate) => !candidate.part1Over && !candidate.part2Over);
+            const selected = (validCandidates.length ? validCandidates : candidates)
+                .sort((a, b) =>
+                    (a.totalOver - b.totalOver)
+                    || (a.maxOver - b.maxOver)
+                    || (Math.abs(a.part1Weight - a.part2Weight) - Math.abs(b.part1Weight - b.part2Weight))
+                    || (b.splitIndex - a.splitIndex)
+                )[0];
+            return [selected.part1, selected.part2];
         }
 
         function getInningShareSplitPart(index) {
