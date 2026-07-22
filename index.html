@@ -6638,7 +6638,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.51";
+        const APP_VERSION = "0.3.52";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -21006,55 +21006,75 @@
                 bodyStartIndex = index + 1;
             }
             const body = lines.slice(bodyStartIndex).filter((line) => line.trim());
-            const part1Body = [];
-            const part2Body = [];
-            const buildPart1 = (items) => [...context, ...items, "続く"].filter((line) => line !== "").join("\n");
-            const buildPart2 = (items) => [
-                ...context,
-                "続き",
-                ...items,
-                "",
-                X_AUTO_GENERATED_SIGNATURE,
-                "#CuViu",
-                includeUrl ? SCOREBOOK_APP_URL : ""
-            ].filter((line, index, array) => line || (array[index - 1] && array[index + 1])).join("\n");
+            const buildPart = (items, partIndex, partCount) => {
+                const isFirst = partIndex === 0;
+                const isLast = partIndex === partCount - 1;
+                return [
+                    ...context,
+                    isFirst ? "" : "続き",
+                    ...items,
+                    isLast ? X_AUTO_GENERATED_SIGNATURE : "続く",
+                    isLast ? "#CuViu" : "",
+                    isLast && includeUrl ? SCOREBOOK_APP_URL : ""
+                ].filter(Boolean).join("\n");
+            };
 
-            if (body.length <= 1) {
-                return [buildPart1(body), buildPart2([])];
+            const singlePart = buildPart(body, 0, 1);
+            if (body.length <= 1 || calculateXDraftWeight(singlePart) <= X_FREE_WEIGHT_LIMIT) {
+                return [singlePart];
             }
 
-            const candidates = [];
-            for (let splitIndex = 1; splitIndex < body.length; splitIndex += 1) {
-                const firstItems = body.slice(0, splitIndex);
-                const secondItems = body.slice(splitIndex);
-                const part1 = buildPart1(firstItems);
-                const part2 = buildPart2(secondItems);
-                const part1Weight = calculateXDraftWeight(part1);
-                const part2Weight = calculateXDraftWeight(part2);
-                const part1Over = Math.max(0, part1Weight - X_FREE_WEIGHT_LIMIT);
-                const part2Over = Math.max(0, part2Weight - X_FREE_WEIGHT_LIMIT);
-                candidates.push({
-                    part1,
-                    part2,
-                    splitIndex,
-                    part1Weight,
-                    part2Weight,
-                    part1Over,
-                    part2Over,
-                    totalOver: part1Over + part2Over,
-                    maxOver: Math.max(part1Over, part2Over)
-                });
+            function findValidSplit(partCount) {
+                const memo = new Map();
+                function search(partIndex, startIndex) {
+                    const memoKey = partIndex + ":" + startIndex;
+                    if (memo.has(memoKey)) {
+                        return memo.get(memoKey);
+                    }
+                    if (partIndex === partCount) {
+                        const result = startIndex === body.length ? [] : null;
+                        memo.set(memoKey, result);
+                        return result;
+                    }
+                    const remainingParts = partCount - partIndex;
+                    const minEnd = startIndex + 1;
+                    const maxEnd = body.length - (remainingParts - 1);
+                    for (let endIndex = maxEnd; endIndex >= minEnd; endIndex -= 1) {
+                        const part = buildPart(body.slice(startIndex, endIndex), partIndex, partCount);
+                        if (calculateXDraftWeight(part) > X_FREE_WEIGHT_LIMIT) {
+                            continue;
+                        }
+                        const rest = search(partIndex + 1, endIndex);
+                        if (rest) {
+                            const result = [part, ...rest];
+                            memo.set(memoKey, result);
+                            return result;
+                        }
+                    }
+                    memo.set(memoKey, null);
+                    return null;
+                }
+                return search(0, 0);
             }
 
-            const validCandidates = candidates.filter((candidate) => !candidate.part1Over && !candidate.part2Over);
-            const selected = (validCandidates.length ? validCandidates : candidates)
-                .sort((a, b) =>
-                    (a.totalOver - b.totalOver)
-                    || (a.maxOver - b.maxOver)
-                    || (Math.abs(a.part1Weight - a.part2Weight) - Math.abs(b.part1Weight - b.part2Weight))
-                    || (b.splitIndex - a.splitIndex)
-                )[0];
-            return [selected.part1, selected.part2];
+            for (let partCount = 2; partCount <= body.length; partCount += 1) {
+                const split = findValidSplit(partCount);
+                if (split) {
+                    return split;
+                }
+            }
+
+            return body.map((line, index) => buildPart([line], index, body.length));
+        }
+
+        function renderInningShareSplitItem(partIndex, partCount) {
+            return [
+                '<div class="inning-share-split-item">',
+                '<div class="inning-share-split-title"><span>' + partIndex + 'つ目 / ' + partCount + '</span><span id="inningShareSplitCount' + partIndex + '">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
+                '<textarea id="inningShareSplitPart' + partIndex + '" readonly onclick="this.select()"></textarea>',
+                '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(' + partIndex + ')">コピー</button><button type="button" onclick="openInningShareSplitPart(' + partIndex + ')">Xで開く</button></div>',
+                '</div>'
+            ].join("");
         }
 
         function getInningShareSplitPart(index) {
@@ -21076,6 +21096,13 @@
             isUpdatingInningShareSplitPanel = true;
             try {
                 const parts = splitInningShareDraftIntoParts(sourceText);
+                const partCount = String(parts.length);
+                if (panel.dataset.partCount !== partCount) {
+                    panel.innerHTML = parts
+                        .map((_, index) => renderInningShareSplitItem(index + 1, parts.length))
+                        .join("");
+                    panel.dataset.partCount = partCount;
+                }
                 parts.forEach((text, index) => {
                     const partIndex = index + 1;
                     const textarea = document.getElementById("inningShareSplitPart" + partIndex);
@@ -21103,7 +21130,8 @@
             panel.classList.add("is-open");
             updateOpenInningShareSplitPanel();
             if (status) {
-                status.textContent = "1つ目を投稿してから、2つ目を投稿してください。";
+                const partCount = Number(panel.dataset.partCount) || panel.querySelectorAll(".inning-share-split-item").length || 2;
+                status.textContent = "1つ目から順番に投稿してください。" + (partCount >= 3 ? partCount + "分割です。" : "");
             }
         }
 
@@ -21229,18 +21257,7 @@
                 '<div id="inningShareLengthWarning" class="inning-share-length-warning" aria-live="polite"></div>',
                 '<div class="inning-share-options"><label class="inning-share-toggle"><span>一言メモ/詳細を入れる</span><input id="inningShareIncludeCommentsCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="refreshInningShareDraftFromOptions()"></label></div>',
                 '<div class="inning-share-options"><label class="inning-share-toggle"><span>アプリURLを付ける</span><input id="inningShareIncludeUrlCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="applyInningShareDraftUrlPreference()"></label></div>',
-                '<div id="inningShareSplitPanel" class="inning-share-split-panel" aria-live="polite">',
-                '<div class="inning-share-split-item">',
-                '<div class="inning-share-split-title"><span>1つ目</span><span id="inningShareSplitCount1">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
-                '<textarea id="inningShareSplitPart1" readonly onclick="this.select()"></textarea>',
-                '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(1)">コピー</button><button type="button" onclick="openInningShareSplitPart(1)">Xで開く</button></div>',
-                '</div>',
-                '<div class="inning-share-split-item">',
-                '<div class="inning-share-split-title"><span>2つ目</span><span id="inningShareSplitCount2">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
-                '<textarea id="inningShareSplitPart2" readonly onclick="this.select()"></textarea>',
-                '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(2)">コピー</button><button type="button" onclick="openInningShareSplitPart(2)">Xで開く</button></div>',
-                '</div>',
-                '</div>',
+                '<div id="inningShareSplitPanel" class="inning-share-split-panel" aria-live="polite"></div>',
                 '<div id="inningShareCopyStatus" class="inning-share-options">Xで投稿/取り消し後は、この画面に戻って「' + escapeHtml(continueText) + '」を押してください。</div>',
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
@@ -21311,18 +21328,6 @@
                 splitPanel.id = "inningShareSplitPanel";
                 splitPanel.className = "inning-share-split-panel";
                 splitPanel.setAttribute("aria-live", "polite");
-                splitPanel.innerHTML = [
-                    '<div class="inning-share-split-item">',
-                    '<div class="inning-share-split-title"><span>1つ目</span><span id="inningShareSplitCount1">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
-                    '<textarea id="inningShareSplitPart1" readonly onclick="this.select()"></textarea>',
-                    '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(1)">コピー</button><button type="button" onclick="openInningShareSplitPart(1)">Xで開く</button></div>',
-                    '</div>',
-                    '<div class="inning-share-split-item">',
-                    '<div class="inning-share-split-title"><span>2つ目</span><span id="inningShareSplitCount2">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
-                    '<textarea id="inningShareSplitPart2" readonly onclick="this.select()"></textarea>',
-                    '<div class="inning-share-split-actions"><button type="button" onclick="copyInningShareSplitPart(2)">コピー</button><button type="button" onclick="openInningShareSplitPart(2)">Xで開く</button></div>',
-                    '</div>'
-                ].join("");
                 popup.insertBefore(splitPanel, document.getElementById("inningShareCopyStatus") || popup.querySelector(".comment-popup-actions"));
             }
             updateInningShareDraftLengthIndicator();
