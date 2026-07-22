@@ -2541,6 +2541,21 @@
             font-weight: 800;
         }
 
+        .pitcher-change-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .pitcher-change-actions button {
+            padding: 0 10px;
+            white-space: nowrap;
+        }
+
+        .pitcher-change-actions .pitcher-change-delete {
+            background: #b42318;
+        }
+
         .pitcher-change-empty {
             color: #64748b;
             font-size: 11px;
@@ -6417,8 +6432,9 @@
                                     <textarea id="starterPostInput" placeholder="X投稿のスタメン文を貼り付け 例: 先攻・横浜、後攻・桐蔭学園。&#10;横浜スタメン：3小野、4田島、6池田、5川上、7安食、DH大山、9植村、2脇山　投手・織田"></textarea>
                                     <div class="roster-ocr-actions">
                                         <button type="button" onclick="importStarterPostText()">X投稿から両チーム登録</button>
+                                        <button type="button" onclick="generateScoreboardPhotoRosterPrompt()">写真判定プロンプト生成</button>
                                     </div>
-                                    <div id="starterPostStatus" class="roster-ocr-status">先攻・後攻と各チームのスタメン行をまとめて貼ると、チーム名・守備・名前・投手に分けます。</div>
+                                    <div id="starterPostStatus" class="roster-ocr-status">先攻・後攻と各チームのスタメン行をまとめて貼ると、チーム名・守備・名前・投手に分けます。写真判定はプロンプトをコピーしてChatGPT等に写真と一緒に渡してください。</div>
                                 </div>
                             </div>
                         </details>
@@ -6611,7 +6627,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.46";
+        const APP_VERSION = "0.3.47";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -12078,30 +12094,38 @@
             return { backdrop, popup };
         }
 
-        function openPitcherChangeDialogForHalf(teamHalf, battingHalf = null) {
+        function openPitcherChangeDialogForHalf(teamHalf, battingHalf = null, editOptions = null) {
             cancelPitcherBookPress();
             const context = getPitcherChangeDialogContext(teamHalf, battingHalf);
             const { backdrop, popup } = ensurePitcherChangeDialog();
             const teamName = state.teamNames[context.teamHalf] || (context.teamHalf === "top" ? "先攻" : "後攻");
             const battingTeamName = state.teamNames[context.battingHalf] || (context.battingHalf === "top" ? "先攻" : "後攻");
+            const isEditing = editOptions && Number.isInteger(editOptions.index) && editOptions.index >= 0 && editOptions.change;
+            const change = isEditing ? normalizePitcherChange(editOptions.change) : {};
+            const dialogTitle = isEditing ? "投手交代を編集: " : "投手交代: ";
+            const dialogBody = isEditing
+                ? "記録済みの投手名・背番号・交代位置を修正します。"
+                : context.inning + '回' + getHalfLabel(context.battingHalf) + '・' + battingTeamName + '攻撃 ' + context.battingOrder + '番から';
+            const submitLabel = isEditing ? "更新する" : "記録する";
             popup.innerHTML = [
-                '<div class="comment-popup-title">投手交代: ' + escapeHtml(teamName) + '</div>',
-                '<div class="comment-popup-body">' + escapeHtml(context.inning + '回' + getHalfLabel(context.battingHalf) + '・' + battingTeamName + '攻撃 ' + context.battingOrder + '番から') + '</div>',
+                '<div class="comment-popup-title">' + escapeHtml(dialogTitle + teamName) + '</div>',
+                '<div class="comment-popup-body">' + escapeHtml(dialogBody) + '</div>',
                 '<form class="pitcher-change-dialog-form" onsubmit="savePitcherChangeDialog(event)">',
                     '<input type="hidden" id="pitcherChangeDialogTeam" value="' + escapeHtml(context.teamHalf) + '">',
-                    '<label>投げ方<select id="pitcherChangeDialogThrows"><option value="">未選択</option><option value="right">右</option><option value="left">左</option></select></label>',
-                    '<label>交代回<input id="pitcherChangeDialogInning" type="number" min="1" max="18" inputmode="numeric" value="' + escapeHtml(context.inning) + '"></label>',
-                    '<label>投手名<input id="pitcherChangeDialogName" type="text" placeholder="例: 田中" autofocus></label>',
-                    '<label>背番号<input id="pitcherChangeDialogNumber" type="text" inputmode="numeric" placeholder="例: 11"></label>',
-                    '<label>表/裏<select id="pitcherChangeDialogHalf"><option value="top"' + (context.battingHalf === "top" ? " selected" : "") + '>表</option><option value="bottom"' + (context.battingHalf === "bottom" ? " selected" : "") + '>裏</option></select></label>',
-                    '<label>何番から<input id="pitcherChangeDialogBattingOrder" type="number" min="1" max="9" inputmode="numeric" value="' + escapeHtml(context.battingOrder) + '"></label>',
-                    '<label>前守備<input id="pitcherChangeDialogPreviousPosition" type="text" placeholder="例: 9, 7, DH"></label>',
-                    '<label>再登板<select id="pitcherChangeDialogReentry"><option value="">通常</option><option value="1">再登板</option></select></label>',
-                    '<label class="span-2">メモ<input id="pitcherChangeDialogNote" type="text" placeholder="例: 二死一二塁から"></label>',
-                    '<label class="span-2">守備変更メモ<input id="pitcherChangeDialogFieldingNote" type="text" placeholder="例: 右→投、投→右、再登板"></label>',
+                    '<input type="hidden" id="pitcherChangeDialogEditIndex" value="' + (isEditing ? escapeHtml(editOptions.index) : "") + '">',
+                    '<label>投げ方<select id="pitcherChangeDialogThrows"><option value="">未選択</option><option value="right"' + (change.throws === "right" ? " selected" : "") + '>右</option><option value="left"' + (change.throws === "left" ? " selected" : "") + '>左</option></select></label>',
+                    '<label>交代回<input id="pitcherChangeDialogInning" type="number" min="1" max="18" inputmode="numeric" value="' + escapeHtml(change.inning || context.inning) + '"></label>',
+                    '<label>投手名<input id="pitcherChangeDialogName" type="text" placeholder="例: 田中" value="' + escapeHtml(change.name || "") + '" autofocus></label>',
+                    '<label>背番号<input id="pitcherChangeDialogNumber" type="text" inputmode="numeric" placeholder="例: 11" value="' + escapeHtml(change.number || "") + '"></label>',
+                    '<label>表/裏<select id="pitcherChangeDialogHalf"><option value="top"' + ((change.half || context.battingHalf) === "top" ? " selected" : "") + '>表</option><option value="bottom"' + ((change.half || context.battingHalf) === "bottom" ? " selected" : "") + '>裏</option></select></label>',
+                    '<label>何番から<input id="pitcherChangeDialogBattingOrder" type="number" min="1" max="9" inputmode="numeric" value="' + escapeHtml(change.battingOrder || context.battingOrder) + '"></label>',
+                    '<label>前守備<input id="pitcherChangeDialogPreviousPosition" type="text" placeholder="例: 9, 7, DH" value="' + escapeHtml(change.previousPosition || "") + '"></label>',
+                    '<label>再登板<select id="pitcherChangeDialogReentry"><option value="">通常</option><option value="1"' + (change.reentry ? " selected" : "") + '>再登板</option></select></label>',
+                    '<label class="span-2">メモ<input id="pitcherChangeDialogNote" type="text" placeholder="例: 二死一二塁から" value="' + escapeHtml(change.note || "") + '"></label>',
+                    '<label class="span-2">守備変更メモ<input id="pitcherChangeDialogFieldingNote" type="text" placeholder="例: 右→投、投→右、再登板" value="' + escapeHtml(change.fieldingNote || "") + '"></label>',
                     '<div class="comment-popup-actions span-2">',
                         '<button type="button" onclick="closePitcherChangeDialog()">キャンセル</button>',
-                        '<button type="submit">記録する</button>',
+                        '<button type="submit">' + submitLabel + '</button>',
                     '</div>',
                 '</form>'
             ].join("");
@@ -12109,6 +12133,19 @@
             popup.classList.add("is-open");
             popup.setAttribute("aria-hidden", "false");
             setTimeout(() => document.getElementById("pitcherChangeDialogName")?.focus(), 0);
+        }
+
+        function openPitcherChangeEditDialog(teamHalf, index) {
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
+            const change = state.gameInfo.pitcherChanges[normalizedTeamHalf]?.[index];
+            if (!change) {
+                return;
+            }
+            openPitcherChangeDialogForHalf(normalizedTeamHalf, change.half || getOpponentHalf(normalizedTeamHalf), {
+                change,
+                index
+            });
         }
 
         function savePitcherChangeDialog(event) {
@@ -12119,7 +12156,7 @@
                 alert("投手名を入力してください。");
                 return;
             }
-            const didSave = savePitcherChange(teamHalf, {
+            const changeInput = {
                 name,
                 number: document.getElementById("pitcherChangeDialogNumber")?.value.trim() || "",
                 throws: document.getElementById("pitcherChangeDialogThrows")?.value || "",
@@ -12130,7 +12167,25 @@
                 previousPosition: document.getElementById("pitcherChangeDialogPreviousPosition")?.value.trim() || "",
                 reentry: document.getElementById("pitcherChangeDialogReentry")?.value === "1",
                 fieldingNote: document.getElementById("pitcherChangeDialogFieldingNote")?.value.trim() || ""
-            });
+            };
+            const editIndexValue = document.getElementById("pitcherChangeDialogEditIndex")?.value;
+            const editIndex = editIndexValue === "" ? -1 : Number(editIndexValue);
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            if (Number.isInteger(editIndex) && editIndex >= 0 && state.gameInfo.pitcherChanges[teamHalf]?.[editIndex]) {
+                const existing = state.gameInfo.pitcherChanges[teamHalf][editIndex];
+                state.gameInfo.pitcherChanges[teamHalf][editIndex] = normalizePitcherChange({
+                    ...changeInput,
+                    id: existing.id
+                });
+                renderPitcherChangeList();
+                renderCurrentBatterCard();
+                renderScoreSheet();
+                renderPrintablePitcherExtraPage();
+                scheduleGameAutoSave();
+                closePitcherChangeDialog();
+                return;
+            }
+            const didSave = savePitcherChange(teamHalf, changeInput);
             if (didSave) {
                 closePitcherChangeDialog();
             }
@@ -12188,7 +12243,10 @@
                             escapeHtml(teamName + " " + (throwsText ? throwsText + " " : "") + formatPitcherDisplayName(change.name, change.number)) +
                             '<small>' + escapeHtml(inningText + " " + orderText + noteText) + '</small>' +
                         '</div>' +
-                        '<button type="button" onclick="deletePitcherChange(\'' + teamHalf + '\',' + index + ')">削除</button>' +
+                        '<div class="pitcher-change-actions">' +
+                            '<button type="button" onclick="openPitcherChangeEditDialog(\'' + teamHalf + '\',' + index + ')">編集</button>' +
+                            '<button type="button" class="pitcher-change-delete" onclick="deletePitcherChange(\'' + teamHalf + '\',' + index + ')">削除</button>' +
+                        '</div>' +
                     '</div>'
                 );
             }).join("");
@@ -14925,7 +14983,7 @@
         }
 
         function parseStarterPostRosterBlock(rosterText) {
-            const pitcherMatch = String(rosterText || "").match(/投手[・:：]\s*([^、,，\s]+)/);
+            const pitcherMatch = String(rosterText || "").match(/投手[・:：]\s*([^、,，]+)/);
             const rosterOnlyText = String(rosterText || "").split(/投手[・:：]/)[0];
             const normalized = normalizeStarterRosterEntries(parseStarterPostRosterItems(rosterOnlyText));
             const explicitPitcher = pitcherMatch ? parseStarterPostPitcherToken(pitcherMatch[1]) : null;
@@ -14976,6 +15034,7 @@
         function parseStarterPostText(text) {
             const raw = String(text || "").replace(/\r/g, "");
             const result = {
+                gameInfo: parseStarterImportGameInfoText(raw),
                 teams: {
                     top: { teamName: "", pitcher: "", pitcherNumber: "", entries: [] },
                     bottom: { teamName: "", pitcher: "", pitcherNumber: "", entries: [] }
@@ -15042,6 +15101,87 @@
             return result;
         }
 
+        function normalizeImportedDateText(value) {
+            const text = String(value || "")
+                .trim()
+                .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xFEE0));
+            if (!text) {
+                return "";
+            }
+            const fullDateMatch = text.match(/(\d{4})[\/\-.年]\s*(\d{1,2})[\/\-.月]\s*(\d{1,2})/);
+            if (fullDateMatch) {
+                const [, year, month, day] = fullDateMatch;
+                return [
+                    year,
+                    String(month).padStart(2, "0"),
+                    String(day).padStart(2, "0")
+                ].join("-");
+            }
+            const monthDayMatch = text.match(/(\d{1,2})[\/\-.月]\s*(\d{1,2})/);
+            if (monthDayMatch) {
+                const [, month, day] = monthDayMatch;
+                return [
+                    String(new Date().getFullYear()),
+                    String(month).padStart(2, "0"),
+                    String(day).padStart(2, "0")
+                ].join("-");
+            }
+            return "";
+        }
+
+        function parseStarterImportGameInfoText(text) {
+            const info = {
+                competition: "",
+                date: "",
+                venue: "",
+                umpires: {
+                    plate: "",
+                    first: "",
+                    second: "",
+                    third: ""
+                }
+            };
+            String(text || "").replace(/\r/g, "").split("\n").forEach((line) => {
+                const trimmed = line.trim();
+                if (!trimmed) {
+                    return;
+                }
+                const labelValue = trimmed.match(/^([^:：]+)[：:]\s*(.*)$/);
+                let label = "";
+                let value = "";
+                if (labelValue) {
+                    label = labelValue[1].replace(/\s+/g, "").toUpperCase();
+                    value = labelValue[2].trim();
+                } else {
+                    const umpireMatch = trimmed.match(/^(PL|1B|2B|3B)\s+(.+)$/i);
+                    if (!umpireMatch) {
+                        return;
+                    }
+                    label = umpireMatch[1].toUpperCase();
+                    value = umpireMatch[2].trim();
+                }
+                if (!value) {
+                    return;
+                }
+                if (/^(大会名|大会)$/.test(label)) {
+                    info.competition = value;
+                } else if (/^(年月日|日付|試合日)$/.test(label)) {
+                    info.date = normalizeImportedDateText(value);
+                } else if (/^(球場|会場)$/.test(label)) {
+                    info.venue = value;
+                } else if (/^(球審|PL)$/.test(label)) {
+                    info.umpires.plate = value;
+                } else if (/^(一塁審|一塁|1B)$/.test(label)) {
+                    info.umpires.first = value;
+                } else if (/^(二塁審|二塁|2B)$/.test(label)) {
+                    info.umpires.second = value;
+                } else if (/^(三塁審|三塁|3B)$/.test(label)) {
+                    info.umpires.third = value;
+                }
+            });
+            return info;
+        }
+
         function setStarterPostStatus(message, isError = false) {
             const status = document.getElementById("starterPostStatus");
             if (!status) {
@@ -15099,11 +15239,44 @@
 
         function normalizeRosterImportData(parsed) {
             return {
+                gameInfo: normalizeRosterImportGameInfo(parsed?.gameInfo),
                 teams: {
                     top: normalizeRosterImportTeam(parsed?.teams?.top),
                     bottom: normalizeRosterImportTeam(parsed?.teams?.bottom)
                 }
             };
+        }
+
+        function cleanImportedGameInfoValue(value) {
+            const text = String(value || "").trim();
+            return /^(不明|未読|読取不可|読めない|なし|未設定|[-ー—]+)$/i.test(text) ? "" : text;
+        }
+
+        function normalizeRosterImportGameInfo(info = {}) {
+            return {
+                competition: cleanImportedGameInfoValue(info?.competition),
+                date: normalizeImportedDateText(info?.date || "") || cleanImportedGameInfoValue(info?.date),
+                venue: cleanImportedGameInfoValue(info?.venue),
+                umpires: {
+                    plate: cleanImportedGameInfoValue(info?.umpires?.plate),
+                    first: cleanImportedGameInfoValue(info?.umpires?.first),
+                    second: cleanImportedGameInfoValue(info?.umpires?.second),
+                    third: cleanImportedGameInfoValue(info?.umpires?.third)
+                }
+            };
+        }
+
+        function hasRosterImportGameInfo(info = {}) {
+            const normalized = normalizeRosterImportGameInfo(info);
+            return Boolean(
+                normalized.competition
+                || normalized.date
+                || normalized.venue
+                || normalized.umpires.plate
+                || normalized.umpires.first
+                || normalized.umpires.second
+                || normalized.umpires.third
+            );
         }
 
         function getRosterImportEntryCount(team) {
@@ -15148,6 +15321,27 @@
             ].join("");
         }
 
+        function renderRosterImportGameInfoConfirm(gameInfo) {
+            const info = normalizeRosterImportGameInfo(gameInfo);
+            if (!hasRosterImportGameInfo(info)) {
+                return "";
+            }
+            return [
+                '<section class="roster-import-team roster-import-game-info">',
+                '<div class="roster-import-team-title">試合情報・審判</div>',
+                '<div class="roster-import-meta">',
+                '<label>大会名<input id="rosterImportGameInfoCompetition" value="' + escapeHtml(info.competition || "") + '" placeholder="大会名"></label>',
+                '<label>年月日<input id="rosterImportGameInfoDate" type="date" value="' + escapeHtml(info.date || "") + '"></label>',
+                '<label>球場<input id="rosterImportGameInfoVenue" value="' + escapeHtml(info.venue || "") + '" placeholder="球場"></label>',
+                '<label>球審<input id="rosterImportGameInfoUmpirePlate" value="' + escapeHtml(info.umpires.plate || "") + '" placeholder="球審"></label>',
+                '<label>一塁審<input id="rosterImportGameInfoUmpireFirst" value="' + escapeHtml(info.umpires.first || "") + '" placeholder="一塁審"></label>',
+                '<label>二塁審<input id="rosterImportGameInfoUmpireSecond" value="' + escapeHtml(info.umpires.second || "") + '" placeholder="二塁審"></label>',
+                '<label>三塁審<input id="rosterImportGameInfoUmpireThird" value="' + escapeHtml(info.umpires.third || "") + '" placeholder="三塁審"></label>',
+                '</div>',
+                '</section>'
+            ].join("");
+        }
+
         function openRosterImportConfirmDialog(parsed, options = {}) {
             const data = normalizeRosterImportData(parsed);
             const halves = getRosterImportHalves(data, options);
@@ -15163,16 +15357,20 @@
                 rememberTeamsDefault: options.rememberTeamsDefault === true
             };
             const { backdrop, popup } = ensureRosterImportConfirmDialog();
-            const warning = pendingRosterImport.source === "teamMemory"
-                ? "登録済みメンバーを見つけました。この内容で現在のスタメンに入れるか確認してください。"
-                : pendingRosterImport.source === "starterPost"
-                    ? "守備位置つきのスタメン順として読み取りました。特に先頭の数字が打順ではなく守備位置になっているか確認してください。"
-                    : "読み取り結果を確認してください。先頭の数字が守備位置なのか、打順なのかが怪しい場合はここで直せます。";
+            let warning = "読み取り結果を確認してください。先頭の数字が守備位置なのか、打順なのかが怪しい場合はここで直せます。";
+            if (pendingRosterImport.source === "teamMemory") {
+                warning = "登録済みメンバーを見つけました。この内容で現在のスタメンに入れるか確認してください。";
+            } else if (pendingRosterImport.source === "starterPost") {
+                warning = "守備位置つきのスタメン順として読み取りました。特に先頭の数字が打順ではなく守備位置になっているか確認してください。";
+            } else if (pendingRosterImport.source === "scoreboardPhoto") {
+                warning = "AIが写真から読んだ内容です。選手名・守備位置・投手背番号・審判名を確認してから登録してください。";
+            }
             const rememberChecked = pendingRosterImport.rememberTeamsDefault ? " checked" : "";
             popup.innerHTML = [
                 '<div class="comment-popup-title">スタメン登録の確認</div>',
                 '<div class="roster-import-body">',
                 '<div class="roster-import-warning">' + escapeHtml(warning) + '</div>',
+                renderRosterImportGameInfoConfirm(data.gameInfo),
                 halves.map((half) => renderRosterImportTeamConfirm(half, data.teams[half])).join(""),
                 '<label class="roster-import-remember"><input id="rememberRosterImportTeams" type="checkbox"' + rememberChecked + '>次回もこのメンバーを使う</label>',
                 '<div class="sheet-change-actions">',
@@ -15189,6 +15387,19 @@
 
         function readRosterImportConfirmData() {
             const data = normalizeRosterImportData(pendingRosterImport?.data || {});
+            if (hasRosterImportGameInfo(data.gameInfo)) {
+                data.gameInfo = normalizeRosterImportGameInfo({
+                    competition: document.getElementById("rosterImportGameInfoCompetition")?.value.trim() || "",
+                    date: document.getElementById("rosterImportGameInfoDate")?.value.trim() || "",
+                    venue: document.getElementById("rosterImportGameInfoVenue")?.value.trim() || "",
+                    umpires: {
+                        plate: document.getElementById("rosterImportGameInfoUmpirePlate")?.value.trim() || "",
+                        first: document.getElementById("rosterImportGameInfoUmpireFirst")?.value.trim() || "",
+                        second: document.getElementById("rosterImportGameInfoUmpireSecond")?.value.trim() || "",
+                        third: document.getElementById("rosterImportGameInfoUmpireThird")?.value.trim() || ""
+                    }
+                });
+            }
             (pendingRosterImport?.halves || []).forEach((half) => {
                 data.teams[half].teamName = document.getElementById("rosterImportTeamName_" + half)?.value.trim() || "";
                 data.teams[half].pitcher = document.getElementById("rosterImportPitcher_" + half)?.value.trim() || "";
@@ -15202,9 +15413,30 @@
             return data;
         }
 
+        function applyRosterImportGameInfo(gameInfo) {
+            const info = normalizeRosterImportGameInfo(gameInfo);
+            if (!hasRosterImportGameInfo(info)) {
+                return;
+            }
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            ["competition", "date", "venue"].forEach((key) => {
+                if (info[key]) {
+                    state.gameInfo[key] = info[key];
+                }
+            });
+            ["plate", "first", "second", "third"].forEach((key) => {
+                if (info.umpires[key]) {
+                    state.gameInfo.umpires[key] = info.umpires[key];
+                }
+            });
+            refreshRememberedGameInfoDefaults();
+            syncGameInfoInputs();
+        }
+
         function applyRosterImportData(data, options = {}) {
             pushGameHistory();
             state.gameInfo = normalizeGameInfo(state.gameInfo);
+            applyRosterImportGameInfo(data.gameInfo);
             const halves = getRosterImportHalves(data, options);
             halves.forEach((half) => {
                 const team = data.teams[half];
@@ -15276,7 +15508,7 @@
                 rememberRosterImportTeams(data, halves);
             }
             const statusText = formatRosterImportStatus(data, halves) + "を登録しました。";
-            if (source === "starterPost") {
+            if (source === "starterPost" || source === "scoreboardPhoto") {
                 setStarterPostStatus(statusText);
             } else if (source === "teamMemory") {
                 halves.forEach((half) => setTeamRosterMemoryStatus(half, statusText));
@@ -15286,7 +15518,7 @@
             closeRosterImportConfirmDialog();
         }
 
-        function importStarterPostText() {
+        function importStarterPostText(options = {}) {
             const textarea = document.getElementById("starterPostInput");
             const parsed = parseStarterPostText(textarea?.value || "");
             const topCount = parsed.teams.top.entries.length;
@@ -15296,7 +15528,7 @@
                 return;
             }
             openRosterImportConfirmDialog(parsed, {
-                source: "starterPost",
+                source: options.source || "starterPost",
                 replaceLineup: true
             });
         }
@@ -22081,6 +22313,40 @@
             ].join("\n");
         }
 
+        function buildScoreboardPhotoRosterPrompt() {
+            return [
+                "添付した野球場のスコアボード写真から、チーム名、スタメン、投手、読める範囲の試合情報と審判名を読み取り、スコアブック by CuViu に貼り付ける形式へ整形してください。",
+                "",
+                "最重要:",
+                "出力は整形後テキストだけにしてください。説明、質問、補足、前置き、後書きは絶対に書かないでください。",
+                "写真から読めない箇所は推測で埋めず、「不明」としてください。",
+                "例の名前やチーム名を写真と違う内容に流用しないでください。",
+                "",
+                "形式:",
+                "大会名：不明",
+                "年月日：YYYY-MM-DD",
+                "球場：不明",
+                "球審：不明",
+                "一塁審：不明",
+                "二塁審：不明",
+                "三塁審：不明",
+                "先攻・チーム名スタメン：3選手名、4選手名、6選手名、5選手名、7選手名、DH選手名、9選手名、2選手名　投手・#11投手名",
+                "後攻・チーム名スタメン：7選手名、8選手名、5選手名、3選手名、9選手名、DH選手名、4選手名、2選手名、6選手名　投手・#18投手名",
+                "",
+                "ルール:",
+                "1. スタメン行の各選手の先頭数字は打順ではなく守備位置です。背番号と混同しないでください。",
+                "2. 守備位置は 1投、2捕、3一、4二、5三、6遊、7左、8中、9右、DH のいずれかにしてください。",
+                "3. 投手の背番号が読める場合は「投手・#11田中」のように #背番号+名前で出してください。読めない場合は「投手・田中」で構いません。",
+                "4. チーム名は「先攻・チーム名スタメン」「後攻・チーム名スタメン」の形にしてください。",
+                "5. 審判は PL/1B/2B/3B 表記が写真にある場合、それぞれ球審/一塁審/二塁審/三塁審へ変換してください。",
+                "6. 出力には箇条書き記号、表、コードブロック、説明文を入れないでください。"
+            ].join("\n");
+        }
+
+        function generateScoreboardPhotoRosterPrompt() {
+            showAiPromptPopup("scoreboard-photo", buildScoreboardPhotoRosterPrompt());
+        }
+
         function generateTwitterFormatPrompt() {
             const input = document.getElementById("twitterImportInput");
             showAiPromptPopup("twitter", buildTwitterFormatPrompt((input?.value || "").trim()));
@@ -22164,7 +22430,7 @@
         }
 
         function showAiPromptPopup(target, promptText) {
-            aiPromptTarget = ["one-pa", "nikkan"].includes(target) ? target : "twitter";
+            aiPromptTarget = ["one-pa", "nikkan", "scoreboard-photo"].includes(target) ? target : "twitter";
             currentAiPromptText = promptText || "";
             const popup = document.getElementById("aiPromptPopup");
             const backdrop = document.getElementById("aiPromptPopupBackdrop");
@@ -22180,11 +22446,13 @@
             const titleMap = {
                 "one-pa": "1打席AI変換",
                 nikkan: "日刊スポーツAI変換",
+                "scoreboard-photo": "写真スタメンAI判定",
                 twitter: "1イニングAI変換"
             };
             const resultHelpMap = {
                 "one-pa": "AIの回答をここへ貼ると、1打席入力へ反映して閉じます。",
                 nikkan: "AIの回答をここへ貼ると、日刊スポーツ取り込み欄へ反映して閉じます。",
+                "scoreboard-photo": "AIの回答をここへ貼ると、スタメン確認画面へ進みます。",
                 twitter: "AIの回答をここへ貼ると、X / Twitter取り込みとして反映して閉じます。"
             };
             const title = titleMap[aiPromptTarget] || titleMap.twitter;
@@ -22254,6 +22522,12 @@
                 if (preview) {
                     preview.textContent = "AI整形結果を貼り付けました。先攻または後攻チーム取り込みを押してください。";
                 }
+            } else if (aiPromptTarget === "scoreboard-photo") {
+                const input = document.getElementById("starterPostInput");
+                if (input) {
+                    input.value = result;
+                }
+                importStarterPostText({ source: "scoreboardPhoto" });
             } else {
                 const input = document.getElementById("twitterImportInput");
                 if (input) {
