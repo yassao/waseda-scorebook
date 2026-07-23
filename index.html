@@ -4632,6 +4632,25 @@
             grid-template-columns: 1fr;
         }
 
+        .game-end-support-popup .comment-popup-body {
+            display: grid;
+            gap: 8px;
+            min-height: 0;
+            text-align: center;
+        }
+
+        .game-end-support-lead {
+            color: #0f766e;
+            font-size: 18px;
+            font-weight: 900;
+        }
+
+        .game-end-support-summary {
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
         .ad-gate-countdown {
             color: #0f766e;
             font-weight: 900;
@@ -6726,7 +6745,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.67";
+        const APP_VERSION = "0.3.68";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11420,6 +11439,55 @@
             document.getElementById("adGatePopup")?.classList.remove("is-open");
             document.getElementById("adGatePopup")?.setAttribute("aria-hidden", "true");
             document.getElementById("adGateBackdrop")?.classList.remove("is-open");
+        }
+
+        function closeGameEndSupportDialog() {
+            const popup = document.getElementById("adGatePopup");
+            if (popup) {
+                popup.classList.remove("is-open", "game-end-support-popup");
+                popup.classList.add("ad-gate-popup");
+                popup.setAttribute("aria-hidden", "true");
+            }
+            document.getElementById("adGateBackdrop")?.classList.remove("is-open");
+        }
+
+        function openGameEndSupportDialog() {
+            const popup = document.getElementById("adGatePopup");
+            const backdrop = document.getElementById("adGateBackdrop");
+            if (!popup || !backdrop) {
+                return;
+            }
+            if (popup.parentElement !== document.body) {
+                document.body.appendChild(popup);
+            }
+            if (backdrop.parentElement !== document.body) {
+                document.body.appendChild(backdrop);
+            }
+            const supportLink = String(SUPPORT_MENU_URL || "").trim();
+            const supportAction = /^https:\/\/.+/i.test(supportLink)
+                ? '<a class="comment-popup-action-link" href="' + escapeHtml(supportLink) + '" target="_blank" rel="noopener">開発支援を見る</a>'
+                : "";
+            const summaryText = getGameEndStatusText({ includeScore: true });
+            const summaryHtml = summaryText
+                ? '<div class="game-end-support-summary">' + escapeHtml(summaryText) + '</div>'
+                : "";
+            popup.classList.remove("ad-gate-popup");
+            popup.classList.add("game-end-support-popup");
+            popup.innerHTML = [
+                '<div class="comment-popup-title">試合終了</div>',
+                '<div class="comment-popup-body">',
+                '<div>記録おつかれさまでした。</div>',
+                '<div class="game-end-support-lead">ご支援をお待ちしています。</div>',
+                summaryHtml,
+                '</div>',
+                '<div class="comment-popup-actions">',
+                supportAction,
+                '<button type="button" class="btn-hit" onclick="closeGameEndSupportDialog()">閉じる</button>',
+                '</div>'
+            ].join("");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            backdrop.classList.add("is-open");
         }
 
         function renderAdGateFallback(slot, placement = "inning") {
@@ -22020,6 +22088,7 @@
                 updateDisplay();
                 scheduleGameAutoSave();
                 updateRunnerGuiStatus("試合終了として保存しました: " + getGameEndStatusText({ includeScore: true }));
+                openGameEndSupportDialog();
                 return;
             }
             activateHalf(transition.nextHalf, null, getNextHalfTransitionColumn(transition), { skipSave: true });
