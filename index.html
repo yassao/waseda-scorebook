@@ -6709,7 +6709,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.63";
+        const APP_VERSION = "0.3.64";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -21061,6 +21061,9 @@
             } catch (error) {
                 // 保存できない環境でも、その場の投稿操作は続けます。
             }
+            if (enabled) {
+                hideInningShareRangeMode();
+            }
             updateInningShareDraftLengthIndicator();
         }
 
@@ -21085,15 +21088,18 @@
                 const includeComments = shouldIncludeInningShareCommentsInDraft();
                 const warningText = info.overFreeLimit && !xPremium
                     ? (includeComments
-                        ? "通常アカウントの目安を超えています。一言メモを外すか、文面を短くしてください。"
-                        : "一言メモなしでも通常アカウントの目安を超えています。文面を短くしてください。")
+                        ? "通常アカウントの目安を超えています。「範囲投稿を使う」で分けるか、一言メモを外してください。"
+                        : "一言メモなしでも通常アカウントの目安を超えています。「範囲投稿を使う」で分けてください。")
                     : "";
                 warning.classList.toggle("is-open", Boolean(warningText));
                 if (warning.textContent !== warningText) {
                     warning.textContent = warningText;
                 }
             }
-            refreshInningShareRangeMode(info);
+            const rangePanel = document.getElementById("inningShareRangePanel");
+            if (rangePanel?.classList.contains("is-open")) {
+                refreshInningShareRangeMode(info);
+            }
             return info;
         }
 
@@ -21527,6 +21533,40 @@
             updateInningShareRangePanel();
         }
 
+        function hideInningShareRangeMode() {
+            const panel = document.getElementById("inningShareRangePanel");
+            panel?.classList.remove("is-open");
+            inningShareRangeState = null;
+            const openButton = document.getElementById("inningShareOpenXButton");
+            if (openButton) {
+                openButton.textContent = "Xで開く";
+            }
+        }
+
+        function startInningShareRangeMode() {
+            const textarea = document.getElementById("inningShareDraftText");
+            const status = document.getElementById("inningShareCopyStatus");
+            if (!textarea) {
+                return;
+            }
+            const info = getXDraftLengthInfo(textarea.value);
+            if (isInningShareXPremiumEnabled()) {
+                hideInningShareRangeMode();
+                if (status) {
+                    status.textContent = "X Premium がオンです。全文のままXで開けます。";
+                }
+                return;
+            }
+            if (!info.overFreeLimit) {
+                hideInningShareRangeMode();
+                if (status) {
+                    status.textContent = "通常アカウントの目安内です。分けずに投稿できます。";
+                }
+                return;
+            }
+            refreshInningShareRangeMode(info);
+        }
+
         function adjustInningShareRangeEnd(direction) {
             if (!inningShareRangeState) {
                 const textarea = document.getElementById("inningShareDraftText");
@@ -21729,6 +21769,7 @@
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
                 '<button id="inningShareOpenXButton" type="button" data-x-post-open="true" onclick="openXPostDraft()">Xで開く</button>',
+                '<button type="button" onclick="startInningShareRangeMode()">範囲投稿を使う</button>',
                 '<button type="button" class="btn-hit" onclick="completeInningTransition()">' + escapeHtml(continueText) + '</button>',
                 '</div>'
             ].join("");
@@ -21831,13 +21872,7 @@
         }
 
         function watchInningShareDraftUi() {
-            const popup = document.getElementById("inningSharePopup");
-            if (!popup || typeof MutationObserver === "undefined") {
-                return;
-            }
-            const observer = new MutationObserver(() => repairOpenInningShareDraftUi());
-            observer.observe(popup, { childList: true, subtree: true });
-            repairOpenInningShareDraftUi();
+            // v0.3.62-0.3.63で、下書きDOMの自動補修が範囲投稿UIを連鎖起動していたため停止。
         }
 
         function copyTextFromTextarea(textarea, options = {}) {
@@ -21899,10 +21934,11 @@
             applyInningShareDraftUrlPreference();
             const info = getXDraftLengthInfo(textarea.value);
             if (!isInningShareXPremiumEnabled() && info.overFreeLimit) {
-                refreshInningShareRangeMode(info);
-                if (openCurrentInningShareRangePost()) {
-                    return;
+                const status = document.getElementById("inningShareCopyStatus");
+                if (status) {
+                    status.textContent = "通常アカウントの目安を超えています。「範囲投稿を使う」で分けて投稿してください。";
                 }
+                return;
             }
             alertIfInningShareDraftStillOverFreeLimit();
             const status = document.getElementById("inningShareCopyStatus");
