@@ -6745,7 +6745,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.70";
+        const APP_VERSION = "0.3.71";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -21251,7 +21251,8 @@
             const runnerOutDetailsByBatter = buildShareRunnerOutDetailsByBatter(entries, battingHalf);
             const lines = [
                 "【" + transition.inning + "回" + getHalfLabel(battingHalf) + "｜" + battingTeam + "】",
-                getInningShareScoreLineText({ prefix: gameEnded ? "最終 " : "" })
+                getInningShareScoreLineText({ prefix: gameEnded ? "最終 " : "" }),
+                "投手：" + (getPitcherNameForDefenseHalf(defenseHalf) || "未登録")
             ];
 
             const tiebreakStartText = getTiebreakStartRunnerStatusText(
@@ -21571,6 +21572,7 @@
                 const isContextLine = index === 0
                     || (index === 1 && isScoreContextLine)
                     || /^P/.test(trimmed)
+                    || /^投手[：:]/.test(trimmed)
                     || /^\d+番から$/.test(trimmed)
                     || /^TB/.test(trimmed)
                     || trimmed.includes("投手交代");
