@@ -6745,7 +6745,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.69";
+        const APP_VERSION = "0.3.70";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -20934,27 +20934,309 @@
             return details;
         }
 
+        function getInningShareScoreLineText(options = {}) {
+            const topLine = options.topLine || calculateLineScore("top");
+            const bottomLine = options.bottomLine || calculateLineScore("bottom");
+            const prefix = options.prefix || "";
+            return prefix
+                + getTeamDisplayName("top") + " " + getLineScoreTotal(topLine)
+                + "-" + getLineScoreTotal(bottomLine) + " "
+                + getTeamDisplayName("bottom");
+        }
+
+        function formatInningShareOutCount(outCount) {
+            const count = Math.max(0, Math.min(3, Number(outCount) || 0));
+            return ["無死", "一死", "二死", "三死"][count] || "無死";
+        }
+
+        function formatInningShareBaseSituation(runners = []) {
+            const hasFirst = Boolean(runners[0]);
+            const hasSecond = Boolean(runners[1]);
+            const hasThird = Boolean(runners[2]);
+            if (!hasFirst && !hasSecond && !hasThird) {
+                return "走者なし";
+            }
+            if (hasFirst && hasSecond && hasThird) {
+                return "満塁";
+            }
+            return [
+                hasFirst ? "一" : "",
+                hasSecond ? "二" : "",
+                hasThird ? "三" : ""
+            ].filter(Boolean).join("") + "塁";
+        }
+
+        function formatInningShareSituation(outCount, runners = []) {
+            if ((Number(outCount) || 0) >= 3) {
+                return "チェンジ";
+            }
+            return formatInningShareOutCount(outCount) + formatInningShareBaseSituation(runners);
+        }
+
+        function cloneInningShareRunners(runners = []) {
+            return [0, 1, 2].map((baseIndex) => runners?.[baseIndex] ? { ...runners[baseIndex] } : null);
+        }
+
+        function removeInningShareRunnerRef(runners, ref) {
+            if (!ref) {
+                return;
+            }
+            const refKey = getRunnerRefKey(ref);
+            for (let baseIndex = 0; baseIndex < runners.length; baseIndex += 1) {
+                if (getRunnerRefKey(runners[baseIndex]) === refKey) {
+                    runners[baseIndex] = null;
+                }
+            }
+        }
+
+        function setInningShareRunnerBase(runners, ref, toIndex) {
+            if (!ref) {
+                return;
+            }
+            removeInningShareRunnerRef(runners, ref);
+            if (toIndex >= 0 && toIndex < 3) {
+                runners[toIndex] = { ...ref };
+            }
+        }
+
+        function moveInningShareRunner(runners, fromIndex, toIndex) {
+            if (!runners[fromIndex]) {
+                return;
+            }
+            const runnerRef = { ...runners[fromIndex] };
+            runners[fromIndex] = null;
+            if (toIndex >= 0 && toIndex < 3) {
+                runners[toIndex] = runnerRef;
+            }
+        }
+
+        function advanceTrailingInningShareRunnersAfterForceOut(runners, retiredBaseIndex) {
+            if (retiredBaseIndex < 1) {
+                return;
+            }
+            for (let baseIndex = retiredBaseIndex - 1; baseIndex >= 0; baseIndex -= 1) {
+                if (!runners[baseIndex] || runners[baseIndex + 1]) {
+                    continue;
+                }
+                moveInningShareRunner(runners, baseIndex, baseIndex + 1);
+            }
+        }
+
+        function getInningShareAdvanceBaseText(advance) {
+            return String(advance || "").split(":")[0];
+        }
+
+        function applyInningShareRunnerContext(runners, snapshot, batterRef, originalRunners = []) {
+            const context = snapshot?.runnerContext;
+            if (!context) {
+                return;
+            }
+            const deferredBatterAdvances = [];
+            const advances = ensureForcedAdvancesForBatterToFirst(
+                context.advances || [],
+                originalRunners,
+                context.outsOnBases || []
+            );
+
+            [...advances]
+                .sort((a, b) => getRunnerAdvancePriority(a) - getRunnerAdvancePriority(b))
+                .forEach((advance) => {
+                    const advanceBaseText = getInningShareAdvanceBaseText(advance);
+                    if (advanceBaseText === "一走→二塁") {
+                        setInningShareRunnerBase(runners, originalRunners[0], 1);
+                    } else if (advanceBaseText === "一走→三塁") {
+                        setInningShareRunnerBase(runners, originalRunners[0], 2);
+                    } else if (advanceBaseText === "二走→三塁") {
+                        setInningShareRunnerBase(runners, originalRunners[1], 2);
+                    } else if (advanceBaseText === "二走生還") {
+                        removeInningShareRunnerRef(runners, originalRunners[1]);
+                    } else if (advanceBaseText === "一走生還") {
+                        removeInningShareRunnerRef(runners, originalRunners[0]);
+                    } else if (advanceBaseText === "三走生還") {
+                        removeInningShareRunnerRef(runners, originalRunners[2]);
+                    } else if (advanceBaseText === "二盗") {
+                        setInningShareRunnerBase(runners, originalRunners[0], 1);
+                    } else if (advanceBaseText === "三盗") {
+                        setInningShareRunnerBase(runners, originalRunners[1], 2);
+                    } else if (advanceBaseText === "打者走者一塁セーフ" && batterRef) {
+                        deferredBatterAdvances.push(0);
+                    } else if (advanceBaseText === "打者走者二塁セーフ" && batterRef) {
+                        deferredBatterAdvances.push(1);
+                    } else if (advanceBaseText === "打者走者三塁セーフ" && batterRef) {
+                        deferredBatterAdvances.push(2);
+                    } else if (advanceBaseText === "打者走者生還" && batterRef) {
+                        deferredBatterAdvances.push(3);
+                    }
+                });
+
+            (context.outsOnBases || []).forEach((outLabel) => {
+                const parsedOut = parseRunnerOutContextEntry(outLabel);
+                const outLabelText = parsedOut.label || "";
+                if (parsedOut.source === "batter" || /^打者走者/.test(outLabelText) || outLabelText === "一塁封殺") {
+                    removeInningShareRunnerRef(runners, batterRef);
+                    return;
+                }
+                if (parsedOut.sourceBaseIndex >= 0) {
+                    removeInningShareRunnerRef(runners, originalRunners[parsedOut.sourceBaseIndex]);
+                    if (outLabelText.includes("封殺")) {
+                        advanceTrailingInningShareRunnersAfterForceOut(runners, parsedOut.sourceBaseIndex);
+                    }
+                    return;
+                }
+                if (outLabelText === "二盗死" || outLabelText === "二塁封殺" || outLabelText === "二塁アウト" || /^2-[46]T$/.test(outLabelText)) {
+                    removeInningShareRunnerRef(runners, originalRunners[0]);
+                    if (outLabelText === "二塁封殺") {
+                        advanceTrailingInningShareRunnersAfterForceOut(runners, 0);
+                    }
+                } else if (outLabelText === "三盗死" || outLabelText === "三塁封殺" || outLabelText === "三塁アウト" || outLabelText === "2-5T") {
+                    removeInningShareRunnerRef(runners, originalRunners[1]);
+                    if (outLabelText === "三塁封殺") {
+                        advanceTrailingInningShareRunnersAfterForceOut(runners, 1);
+                    }
+                } else if (outLabelText === "本塁アウト" || outLabelText === "本塁封殺" || outLabelText === "2T") {
+                    removeInningShareRunnerRef(runners, originalRunners[2]);
+                    if (outLabelText === "本塁封殺") {
+                        advanceTrailingInningShareRunnersAfterForceOut(runners, 2);
+                    }
+                }
+            });
+
+            deferredBatterAdvances.forEach((baseIndex) => {
+                if (baseIndex >= 0 && baseIndex < 3) {
+                    setInningShareRunnerBase(runners, batterRef, baseIndex);
+                } else {
+                    removeInningShareRunnerRef(runners, batterRef);
+                }
+            });
+        }
+
+        function projectInningShareRunnersAfterSnapshot(row, col, snapshot, runnersBefore = []) {
+            const runners = cloneInningShareRunners(runnersBefore);
+            const originalRunners = cloneInningShareRunners(runnersBefore);
+            const batterRef = getSheetRef(row, col);
+            const playCode = snapshot?.selectedHitType && snapshot.selectedHitType !== "none"
+                ? snapshot.selectedHitType
+                : snapshot?.result;
+
+            if (playCode === "1B" || playCode === "G" || playCode === "BH" || playCode === "H" || playCode === "T") {
+                moveInningShareRunner(runners, 2, 3);
+                moveInningShareRunner(runners, 1, 2);
+                moveInningShareRunner(runners, 0, 1);
+                runners[0] = batterRef;
+            } else if (playCode === "2B" || playCode === "GR") {
+                moveInningShareRunner(runners, 2, 3);
+                moveInningShareRunner(runners, 1, 3);
+                moveInningShareRunner(runners, 0, 2);
+                runners[1] = batterRef;
+            } else if (playCode === "3B") {
+                moveInningShareRunner(runners, 2, 3);
+                moveInningShareRunner(runners, 1, 3);
+                moveInningShareRunner(runners, 0, 3);
+                runners[2] = batterRef;
+            } else if (playCode === "HR" || playCode === "RH") {
+                moveInningShareRunner(runners, 2, 3);
+                moveInningShareRunner(runners, 1, 3);
+                moveInningShareRunner(runners, 0, 3);
+            } else if (["B", "B'", "DB", "HP", "IB", "IF"].includes(playCode)) {
+                if (runners[0] && runners[1] && runners[2]) {
+                    moveInningShareRunner(runners, 2, 3);
+                }
+                if (runners[1] && runners[0]) {
+                    moveInningShareRunner(runners, 1, 2);
+                }
+                if (runners[0]) {
+                    moveInningShareRunner(runners, 0, 1);
+                }
+                runners[0] = batterRef;
+            } else if (snapshot?.modifiers?.triplePlay && snapshot.outScore) {
+                resolveTriplePlayRunnerOutEvents(snapshot, runners).forEach((event) => {
+                    runners[event.baseIndex] = null;
+                });
+            } else if (snapshot?.modifiers?.doublePlay && snapshot.outScore) {
+                const runnerOutEvents = resolveDoublePlayRunnerOutEvents(snapshot, runners);
+                const batterOutAtFirst = isDoublePlayBatterOutAtFirst(snapshot);
+                runnerOutEvents.forEach((event) => {
+                    runners[event.baseIndex] = null;
+                });
+                if (runnerOutEvents.length >= 2 && !batterOutAtFirst) {
+                    runners[0] = batterRef;
+                } else if (runnerOutEvents.length === 1 && !batterOutAtFirst) {
+                    advanceTrailingInningShareRunnersAfterForceOut(runners, runnerOutEvents[0].baseIndex);
+                }
+            } else if (snapshot?.modifiers?.sacrificeBunt && snapshot.outScore) {
+                moveInningShareRunner(runners, 2, 3);
+                moveInningShareRunner(runners, 1, 2);
+                moveInningShareRunner(runners, 0, 1);
+            } else if (snapshot?.modifiers?.sacrificeFly && snapshot.outScore) {
+                moveInningShareRunner(runners, 2, 3);
+            } else if (playCode === "Fc") {
+                runners[0] = batterRef;
+            } else if (playCode === "S") {
+                if (runners[0]) {
+                    moveInningShareRunner(runners, 0, 1);
+                } else if (runners[1]) {
+                    moveInningShareRunner(runners, 1, 2);
+                }
+            } else if (playCode === "CS") {
+                if (runners[0]) {
+                    runners[0] = null;
+                } else if (runners[1]) {
+                    runners[1] = null;
+                }
+            } else if (!snapshotHasCentralBatterOut(snapshot)) {
+                const reachedBase = getBatterReachedBaseFromSnapshot(snapshot);
+                if (reachedBase >= 1 && reachedBase <= 3) {
+                    runners[reachedBase - 1] = batterRef;
+                }
+            }
+
+            applyInningShareRunnerContext(runners, snapshot, batterRef, originalRunners);
+            return getSnapshotOutCount(snapshot) >= 3 ? [null, null, null] : runners;
+        }
+
+        function getInningShareCommentText(snapshot, options = {}) {
+            if (options.includeComments === false) {
+                return "";
+            }
+            const pitchCommentText = (snapshot?.pitchComments || [])
+                .filter((item) => item?.text)
+                .map((item) => {
+                    const timing = getPitchCommentTimingLabel(item);
+                    return String(item.text).trim() + (timing ? "（" + timing + "）" : "");
+                })
+                .join(" / ");
+            return [
+                pitchCommentText,
+                formatPlayDetailsForShare(snapshot?.playDetails),
+                String(snapshot?.atBatComment || "").trim()
+            ].filter(Boolean).join(" / ");
+        }
+
+        function joinInningShareResultAndSituation(resultText, situationText) {
+            const result = String(resultText || "記録あり").trim();
+            const situation = String(situationText || "").trim();
+            if (!situation) {
+                return result;
+            }
+            return result + (/[。！？!?]$/.test(result) ? "" : "。") + situation;
+        }
+
         function formatSnapshotForInningDraft(half, row, snapshot, extraResultTexts = [], options = {}) {
             const playerName = splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || "未登録（" + (row + 1) + "番）";
-            const includeComments = options.includeComments !== false;
             const result = [
                 getShareResultText(snapshot, { includeScoringEvents: false, includeLaterRunnerEvents: false }),
-                includeComments ? formatPlayDetailsForShare(snapshot?.playDetails) : "",
                 ...extraResultTexts
             ].filter(Boolean).join("、");
-            const atBatComment = includeComments ? String(snapshot?.atBatComment || "").trim() : "";
-            const pitchCommentText = includeComments
-                ? (snapshot?.pitchComments || [])
-                    .filter((item) => item?.text)
-                    .map((item) => {
-                        const timing = getPitchCommentTimingLabel(item);
-                        return String(item.text).trim() + (timing ? "（" + timing + "）" : "");
-                    })
-                    .join(" / ")
-                : "";
-            const noteText = [pitchCommentText, atBatComment].filter(Boolean).join(" / ");
-            const detail = [noteText, result].filter(Boolean).join("　");
-            return playerName + "　" + (detail || "記録あり");
+            const lines = [
+                (row + 1) + "番 " + playerName,
+                options.beforeSituation || "",
+                joinInningShareResultAndSituation(result || "記録あり", options.afterSituation || "")
+            ];
+            const memoText = getInningShareCommentText(snapshot, options);
+            if (memoText) {
+                lines.push("メモ：" + memoText);
+            }
+            return lines.filter(Boolean).join("\n");
         }
 
         function buildInningShareDraft(transition, options = {}) {
@@ -20968,13 +21250,10 @@
             const scoringDetailsByBatter = buildShareScoringDetailsByBatter(entries, battingHalf);
             const runnerOutDetailsByBatter = buildShareRunnerOutDetailsByBatter(entries, battingHalf);
             const lines = [
-                transition.inning + "回" + getHalfLabel(battingHalf) + "・" + battingTeam + "攻撃",
-                "P" + getPitcherNameForDefenseHalf(defenseHalf)
+                "【" + transition.inning + "回" + getHalfLabel(battingHalf) + "｜" + battingTeam + "】",
+                getInningShareScoreLineText({ prefix: gameEnded ? "最終 " : "" })
             ];
 
-            if (firstOrder !== 1) {
-                lines.push(firstOrder + "番から");
-            }
             const tiebreakStartText = getTiebreakStartRunnerStatusText(
                 battingHalf,
                 transition.inning,
@@ -20984,13 +21263,31 @@
             if (tiebreakStartText) {
                 lines.push(tiebreakStartText);
             }
+            lines.push("");
+
+            let simulatedOuts = 0;
+            let simulatedRunners = getInitialBaseRunnersForHalfInning(
+                battingHalf,
+                transition.inning,
+                firstOrder - 1
+            );
 
             entries.forEach((entry) => {
                 pitcherChanges
                     .filter((change) => change.order === entry.row + 1)
                     .forEach((change) => {
-                        lines.push("P交代・" + change.name + (change.note ? "　" + change.note : ""));
+                        lines.push("投手交代：" + change.name + (change.note ? "　" + change.note : ""));
                     });
+                const beforeSituation = formatInningShareSituation(simulatedOuts, simulatedRunners);
+                const afterRunners = projectInningShareRunnersAfterSnapshot(
+                    entry.row,
+                    entry.col,
+                    entry.snapshot,
+                    simulatedRunners
+                );
+                const playOutDelta = getSnapshotPlayOutDelta(entry.snapshot);
+                const recordedOuts = getSnapshotOutCount(entry.snapshot);
+                const afterOuts = Math.min(3, Math.max(recordedOuts, simulatedOuts + playOutDelta));
                 lines.push(formatSnapshotForInningDraft(
                     battingHalf,
                     entry.row,
@@ -20999,15 +21296,21 @@
                         ...(runnerOutDetailsByBatter.get(entry.row + 1) || []),
                         ...(scoringDetailsByBatter.get(entry.row + 1) || [])
                     ],
-                    options
+                    {
+                        ...options,
+                        beforeSituation,
+                        afterSituation: formatInningShareSituation(afterOuts, afterRunners)
+                    }
                 ));
+                lines.push("");
+                simulatedOuts = afterOuts >= 3 ? 3 : afterOuts;
+                simulatedRunners = afterOuts >= 3 ? [null, null, null] : afterRunners;
             });
 
             if (transition.runnerActionSummary) {
                 lines.push(transition.runnerActionSummary);
+                lines.push("");
             }
-            lines.push(getGameScoreLineText({ prefix: gameEnded ? "最終 " : "" }));
-            lines.push("");
             lines.push(X_AUTO_GENERATED_SIGNATURE);
             lines.push("#CuViu");
             return lines.join("\n");
@@ -21264,7 +21567,9 @@
             for (let index = 0; index < lines.length; index += 1) {
                 const line = lines[index];
                 const trimmed = line.trim();
+                const isScoreContextLine = /^(?:最終\s+)?.+\s+\d+\s*-\s*\d+\s+.+$/.test(trimmed);
                 const isContextLine = index === 0
+                    || (index === 1 && isScoreContextLine)
                     || /^P/.test(trimmed)
                     || /^\d+番から$/.test(trimmed)
                     || /^TB/.test(trimmed)
