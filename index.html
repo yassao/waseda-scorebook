@@ -921,6 +921,23 @@
             font-weight: 900;
         }
 
+        .current-batter-card.is-game-ended {
+            grid-template-columns: 1fr;
+            border-color: rgba(15, 118, 110, 0.28);
+            background: #f0fdfa;
+            text-align: center;
+        }
+
+        .current-batter-card.is-game-ended .current-batter-main {
+            color: #0f766e;
+            font-size: 15px;
+        }
+
+        .current-batter-card.is-game-ended .current-batter-meta {
+            text-align: center;
+            white-space: normal;
+        }
+
         .current-batter-pitcher-row {
             grid-column: 1 / -1;
             display: grid;
@@ -6709,7 +6726,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.66";
+        const APP_VERSION = "0.3.67";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -14009,8 +14026,9 @@
             const buildRow = (label, line, isHeader = false, half = "") => {
                 const scores = line.scores || [];
                 const recorded = line.recorded || [];
+                const gameEnded = hasGameEndReason();
                 const rowClasses = ["line-score-row"];
-                if (!isHeader && state.activeHalf === half) {
+                if (!isHeader && !gameEnded && state.activeHalf === half) {
                     rowClasses.push("is-active-half");
                 }
                 const cells = [
@@ -14053,7 +14071,7 @@
                     noteItems.push("黄色=得点板を直接補正中: " + summary.join(" / "));
                 }
                 if (hasGameEndReason()) {
-                    noteItems.push(getGameScoreLineText({ prefix: "最終 " }));
+                    noteItems.push(getGameEndStatusText({ includeScore: true }));
                 }
                 note.textContent = noteItems.join(" / ");
                 note.classList.toggle("is-visible", noteItems.length > 0);
@@ -14070,8 +14088,9 @@
             const topLine = calculateLineScore("top");
             const bottomLine = calculateLineScore("bottom");
             const totalRuns = (line) => (line.scores || []).reduce((sum, score) => sum + score, 0);
+            const gameEnded = hasGameEndReason();
             const teamRow = (half, line) => {
-                const isActive = state.activeHalf === half;
+                const isActive = !gameEnded && state.activeHalf === half;
                 const marker = isActive ? (half === "top" ? "▶" : "◆") : "";
                 return [
                     '<div class="game-mini-score-row' + (isActive ? " game-mini-active" : "") + '">',
@@ -14081,7 +14100,7 @@
                     '</div>'
                 ].join("");
             };
-            const baseItems = getProjectedRunnerPreviewItems();
+            const baseItems = gameEnded ? [] : getProjectedRunnerPreviewItems();
             const occupiedBases = new Set(baseItems.map((item) => item.baseIndex));
             const dotGroup = (label, count, max, className) => {
                 const dots = Array.from({ length: max }, (_, index) =>
@@ -14089,8 +14108,7 @@
                 ).join("");
                 return '<span>' + label + dots + '</span>';
             };
-            const currentOuts = romanToOutCount(getCurrentOutScoreForDisplay()) || getPreviousOutCountForCell(state.selectedSheetRow, state.selectedSheetCol);
-            const gameEnded = hasGameEndReason();
+            const currentOuts = gameEnded ? 0 : (romanToOutCount(getCurrentOutScoreForDisplay()) || getPreviousOutCountForCell(state.selectedSheetRow, state.selectedSheetCol));
             container.innerHTML = [
                 '<div class="game-mini-score">',
                 teamRow("top", topLine),
@@ -14771,6 +14789,17 @@
             if (!card) {
                 return;
             }
+            const gameEndText = getGameEndStatusText({ includeScore: true });
+            if (gameEndText) {
+                card.classList.add("is-game-ended");
+                card.innerHTML = [
+                    '<div class="current-batter-main">ゲームセット</div>',
+                    '<div class="current-batter-meta">' + escapeHtml(gameEndText) + '</div>'
+                ].join("");
+                renderFieldingDragBoard();
+                return;
+            }
+            card.classList.remove("is-game-ended");
             const batter = getCurrentBatterInfo();
             const pitcher = getCurrentOpponentPitcherInfo();
             const opponentHalf = getOpponentHalf(batter.half);
@@ -21958,6 +21987,21 @@
             return findColumnForInning(nextHalf, nextInning);
         }
 
+        function clearGameEndLiveState() {
+            resetState();
+            state.baseRunnersByHalf = {
+                top: [null, null, null],
+                bottom: [null, null, null]
+            };
+            state.baseRunners = state.baseRunnersByHalf[state.activeHalf] || [null, null, null];
+            state.retiredRunnerPreviewsByHalf = {
+                top: [],
+                bottom: []
+            };
+            state.retiredRunnerPreviews = state.retiredRunnerPreviewsByHalf[state.activeHalf] || [];
+            clearCorrectionEditContext();
+        }
+
         function performInningTransition(transition) {
             if (!transition) {
                 clearPendingInningTransitionStorage();
@@ -21969,6 +22013,7 @@
             clearPendingInningTransitionStorage();
             if (isGameEndingTransition(transition)) {
                 ensureGameEndDateTime();
+                clearGameEndLiveState();
                 clearNaturalLanguageInput();
                 renderLineScoreBoard();
                 renderGameMiniStatus();
