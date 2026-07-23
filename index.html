@@ -6609,8 +6609,8 @@
                             <summary>チーム/選手登録</summary>
                             <div class="game-info-body">
                                 <div class="game-flow-bar" aria-label="チーム名">
-                                    <input id="topTeamName" class="team-name-input" list="registeredTeamNameOptions" value="先攻" aria-label="先攻チーム名" oninput="updateTeamNameLive('top', this.value)" onchange="updateTeamName('top', this.value)">
-                                    <input id="bottomTeamName" class="team-name-input" list="registeredTeamNameOptions" value="後攻" aria-label="後攻チーム名" oninput="updateTeamNameLive('bottom', this.value)" onchange="updateTeamName('bottom', this.value)">
+                                    <input id="topTeamName" class="team-name-input" list="registeredTeamNameOptions" value="先攻" aria-label="先攻チーム名" onchange="updateTeamName('top', this.value)" onblur="updateTeamName('top', this.value)">
+                                    <input id="bottomTeamName" class="team-name-input" list="registeredTeamNameOptions" value="後攻" aria-label="後攻チーム名" onchange="updateTeamName('bottom', this.value)" onblur="updateTeamName('bottom', this.value)">
                                 </div>
                                 <datalist id="registeredTeamNameOptions"></datalist>
                                 <datalist id="registeredPlayerNameOptions"></datalist>
@@ -6819,7 +6819,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.72";
+        const APP_VERSION = "0.3.73";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -13925,10 +13925,10 @@
                 quickHalfBtn.setAttribute("aria-pressed", "true");
                 quickHalfBtn.setAttribute("title", "現在: " + activeName + "入力。押すと先攻/後攻を切替");
             }
-            if (topInput && topInput.value !== state.teamNames.top) {
+            if (topInput && document.activeElement !== topInput && topInput.value !== state.teamNames.top) {
                 topInput.value = state.teamNames.top;
             }
-            if (bottomInput && bottomInput.value !== state.teamNames.bottom) {
+            if (bottomInput && document.activeElement !== bottomInput && bottomInput.value !== state.teamNames.bottom) {
                 bottomInput.value = state.teamNames.bottom;
             }
             if (status) {
