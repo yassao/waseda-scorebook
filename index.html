@@ -6709,7 +6709,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.65";
+        const APP_VERSION = "0.3.66";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -21466,7 +21466,6 @@
             const previousButton = document.getElementById("inningShareRangePreviousButton");
             const nextButton = document.getElementById("inningShareRangeNextButton");
             const longerButton = document.getElementById("inningShareRangeLongerButton");
-            const openButton = document.getElementById("inningShareOpenXButton");
             const status = document.getElementById("inningShareCopyStatus");
             const titleText = "分割投稿 " + inningShareRangeState.partIndex + "つ目";
             const countText = "全角約" + info.fullwidthEquivalent + "/" + X_FREE_FULLWIDTH_LIMIT;
@@ -21489,9 +21488,7 @@
             if (longerButton) {
                 longerButton.disabled = !hasNext;
             }
-            if (openButton) {
-                openButton.textContent = "この範囲をXで開く";
-            }
+            setInningShareRangeActionVisibility(true);
             if (status && !status.textContent.includes("Xを閉じたら")) {
                 const nextText = hasNext ? "投稿後に戻って「次の範囲へ」。" : "最後の範囲です。投稿後に戻って「次の攻撃へ」。";
                 const statusText = "通常アカウント向けに現在の範囲だけ投稿します。" + nextText;
@@ -21504,7 +21501,6 @@
         function refreshInningShareRangeMode(info = null) {
             const textarea = document.getElementById("inningShareDraftText");
             const panel = document.getElementById("inningShareRangePanel");
-            const openButton = document.getElementById("inningShareOpenXButton");
             if (!textarea || !panel) {
                 return;
             }
@@ -21512,9 +21508,7 @@
             if (isInningShareXPremiumEnabled() || !currentInfo.overFreeLimit) {
                 panel.classList.remove("is-open");
                 inningShareRangeState = null;
-                if (openButton) {
-                    openButton.textContent = "Xで開く";
-                }
+                setInningShareRangeActionVisibility(false);
                 const status = document.getElementById("inningShareCopyStatus");
                 if (status && !status.textContent.includes("Xを閉じたら") && !status.textContent.includes("コピー")) {
                     const continueText = isGameEndingTransition(pendingInningTransition) ? "試合終了として閉じる" : "次の攻撃へ";
@@ -21532,14 +21526,23 @@
             updateInningShareRangePanel();
         }
 
+        function setInningShareRangeActionVisibility(active) {
+            const openButton = document.getElementById("inningShareOpenXButton");
+            const rangeButton = document.getElementById("inningShareRangeModeButton");
+            if (openButton) {
+                openButton.hidden = Boolean(active);
+                openButton.textContent = "Xで開く";
+            }
+            if (rangeButton) {
+                rangeButton.hidden = Boolean(active);
+            }
+        }
+
         function hideInningShareRangeMode() {
             const panel = document.getElementById("inningShareRangePanel");
             panel?.classList.remove("is-open");
             inningShareRangeState = null;
-            const openButton = document.getElementById("inningShareOpenXButton");
-            if (openButton) {
-                openButton.textContent = "Xで開く";
-            }
+            setInningShareRangeActionVisibility(false);
         }
 
         function startInningShareRangeMode() {
@@ -21752,7 +21755,7 @@
                 '<div class="comment-popup-actions">',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
                 '<button id="inningShareOpenXButton" type="button" data-x-post-open="true" onclick="openXPostDraft()">Xで開く</button>',
-                '<button type="button" onclick="startInningShareRangeMode()">範囲投稿を使う</button>',
+                '<button id="inningShareRangeModeButton" type="button" onclick="startInningShareRangeMode()">範囲投稿を使う</button>',
                 '<button type="button" class="btn-hit" onclick="completeInningTransition()">' + escapeHtml(continueText) + '</button>',
                 '</div>'
             ].join("");
