@@ -2375,6 +2375,27 @@
             font-weight: 800;
         }
 
+        .game-info-share-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .game-info-share-actions button {
+            min-height: 42px;
+            border: 2px solid #0f766e;
+            border-radius: 10px;
+            background: #ffffff;
+            color: #0f766e;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .game-info-share-actions button.share-primary {
+            background: #0f766e;
+            color: #ffffff;
+        }
+
         .rule-toggle-field {
             position: relative;
             min-height: 42px;
@@ -4702,6 +4723,54 @@
             display: block;
         }
 
+        .share-attachment-panel {
+            display: grid;
+            gap: 8px;
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #c7d8e6;
+            border-radius: 10px;
+            background: #f8fafc;
+        }
+
+        .share-attachment-title {
+            color: #334155;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .share-attachment-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px dashed #9bb4c7;
+            border-radius: 9px;
+            background: #ffffff;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .share-attachment-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .share-attachment-actions button {
+            min-height: 42px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .share-attachment-status {
+            min-height: 16px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.45;
+        }
+
         .inning-share-split-panel {
             display: none;
             gap: 10px;
@@ -6551,6 +6620,7 @@
                                     <div class="roster-ocr-actions">
                                         <button type="button" onclick="importStarterPostText()">X投稿から両チーム登録</button>
                                         <button type="button" onclick="generateScoreboardPhotoRosterPrompt()">写真判定プロンプト生成</button>
+                                        <button type="button" onclick="openPreGameShareDraft()">試合前情報をX投稿</button>
                                     </div>
                                     <div id="starterPostStatus" class="roster-ocr-status">先攻・後攻と各チームのスタメン行をまとめて貼ると、チーム名・守備・名前・投手に分けます。写真判定はプロンプトをコピーしてChatGPT等に写真と一緒に渡してください。</div>
                                 </div>
@@ -6579,6 +6649,10 @@
                                     <div class="game-info-reuse-field">
                                         <label><input id="gameInfoReuseDefaults" type="checkbox" onchange="toggleRememberGameInfoDefaults(this.checked)">大会・球場・審判などを次回も使う</label>
                                         <div id="gameInfoReuseStatus" class="game-info-reuse-status"></div>
+                                    </div>
+                                    <div class="game-info-share-actions span-2">
+                                        <button type="button" class="share-primary" onclick="openPreGameShareDraft()">試合前情報をX投稿</button>
+                                        <button type="button" onclick="openCurrentScoreShareDraft()">途中経過をX投稿</button>
                                     </div>
                                     <label>先攻投手<input id="gameInfoTopPitcher" type="text" oninput="updateGameInfoField('pitchers.top', this.value)"></label>
                                     <label>先攻P背<input id="gameInfoTopPitcherNumber" type="text" inputmode="numeric" oninput="updateGameInfoField('pitcherNumbers.top', this.value)"></label>
@@ -6745,7 +6819,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.71";
+        const APP_VERSION = "0.3.72";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7406,6 +7480,7 @@
         let currentAiPromptText = "";
         let isTwitterImporting = false;
         let isUpdatingInningShareSplitPanel = false;
+        let genericShareDraftContext = null;
         const teamRosterMemoryLinks = {
             top: "",
             bottom: ""
@@ -21315,6 +21390,555 @@
             lines.push(X_AUTO_GENERATED_SIGNATURE);
             lines.push("#CuViu");
             return lines.join("\n");
+        }
+
+        function getShareFieldingPositionLabel(value) {
+            const formatted = formatFieldingPositionValue(value);
+            if (!formatted) {
+                return "";
+            }
+            return formatted.replace(/^\d+\s*/, "").trim();
+        }
+
+        function getShareRosterPlayerName(half, row) {
+            return splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || "未登録";
+        }
+
+        function formatShareRosterEntry(half, row) {
+            const name = getShareRosterPlayerName(half, row);
+            const position = getShareFieldingPositionLabel(state.playerPositions?.[half]?.[row] || "");
+            const number = String(state.playerNumbers?.[half]?.[row] || "").trim();
+            const detail = [
+                position,
+                number ? "背" + number : ""
+            ].filter(Boolean).join("・");
+            return (row + 1) + "番 " + name + (detail ? "（" + detail + "）" : "");
+        }
+
+        function formatShareRosterLines(half) {
+            return [
+                (half === "top" ? "先攻" : "後攻") + "・" + getTeamDisplayName(half),
+                Array.from({ length: 9 }, (_, row) => formatShareRosterEntry(half, row)).join("、")
+            ];
+        }
+
+        function formatShareUmpireLine(info) {
+            const umpires = info?.umpires || {};
+            const items = [
+                ["球審", umpires.plate],
+                ["一塁", umpires.first],
+                ["二塁", umpires.second],
+                ["三塁", umpires.third]
+            ].filter((item) => String(item[1] || "").trim());
+            return items.length
+                ? "審判：" + items.map((item) => item[0] + " " + item[1]).join(" / ")
+                : "";
+        }
+
+        function formatShareMetaLine(info) {
+            const meta = [
+                formatPrintDate(info.date),
+                info.venue,
+                info.weather,
+                info.wind ? "風 " + info.wind : "",
+                info.fieldCondition ? "球場状態 " + info.fieldCondition : "",
+                info.attendance ? "観衆 " + info.attendance : "",
+                info.broadcast ? "放送 " + info.broadcast : ""
+            ].filter((value) => String(value || "").trim());
+            return meta.join(" / ");
+        }
+
+        function buildPreGameShareDraft() {
+            const info = normalizeGameInfo(state.gameInfo);
+            const lines = [
+                "【試合前情報】",
+                getTeamDisplayName("top") + " vs " + getTeamDisplayName("bottom")
+            ];
+            if (info.competition) {
+                lines.push(info.competition);
+            }
+            const metaLine = formatShareMetaLine(info);
+            if (metaLine) {
+                lines.push(metaLine);
+            }
+            if (info.startTime) {
+                lines.push("開始予定：" + info.startTime);
+            }
+            lines.push("");
+            lines.push("先発投手");
+            lines.push(getTeamDisplayName("top") + "：" + formatPitcherDisplayName(info.pitchers.top, info.pitcherNumbers.top, "未登録"));
+            lines.push(getTeamDisplayName("bottom") + "：" + formatPitcherDisplayName(info.pitchers.bottom, info.pitcherNumbers.bottom, "未登録"));
+            lines.push("");
+            lines.push("スターティングメンバー");
+            lines.push(...formatShareRosterLines("top"));
+            lines.push("");
+            lines.push(...formatShareRosterLines("bottom"));
+            const umpireLine = formatShareUmpireLine(info);
+            if (umpireLine) {
+                lines.push("");
+                lines.push(umpireLine);
+            }
+            lines.push("");
+            lines.push(X_AUTO_GENERATED_SIGNATURE);
+            lines.push("#CuViu");
+            return lines.join("\n");
+        }
+
+        function formatShareLineScoreRow(label, line, innings) {
+            const scores = line?.scores || [];
+            const recorded = line?.recorded || [];
+            return [
+                label,
+                ...innings.map((inning) => recorded[inning - 1] ? String(scores[inning - 1] || 0) : "-"),
+                "R" + getLineScoreTotal(line),
+                "H" + (line?.hits || 0),
+                "E" + (line?.errors || 0)
+            ].join(" ");
+        }
+
+        function formatShareLineScoreBlock(topLine, bottomLine, innings) {
+            return [
+                ["回", ...innings, "R", "H", "E"].join(" "),
+                formatShareLineScoreRow(getTeamDisplayName("top"), topLine, innings),
+                formatShareLineScoreRow(getTeamDisplayName("bottom"), bottomLine, innings)
+            ].join("\n");
+        }
+
+        function buildCurrentScoreShareDraft() {
+            const topLine = calculateLineScore("top");
+            const bottomLine = calculateLineScore("bottom");
+            const innings = getLineScoreDisplayInnings(topLine, bottomLine);
+            const half = state.activeHalf === "bottom" ? "bottom" : "top";
+            const defenseHalf = getOpponentHalf(half);
+            const row = Math.max(0, Math.min(8, Number(state.selectedSheetRow) || 0));
+            const inningLabel = getColumnInningLabel(state.selectedSheetCol, half);
+            const currentSnapshot = state.scoreSheet?.[row]?.[state.selectedSheetCol] || null;
+            const lines = [
+                "【途中経過】",
+                getInningShareScoreLineText({ topLine, bottomLine }),
+                inningLabel + "回" + getHalfLabel(half) + "・" + getTeamDisplayName(half) + "の攻撃",
+                "投手：" + (getPitcherNameForDefenseHalf(defenseHalf) || "未登録"),
+                "打者：" + (row + 1) + "番 " + getShareRosterPlayerName(half, row),
+                "",
+                formatShareLineScoreBlock(topLine, bottomLine, innings)
+            ];
+            if (currentSnapshot) {
+                const resultText = getShareResultText(currentSnapshot, { includeScoringEvents: true, includeLaterRunnerEvents: true });
+                if (resultText) {
+                    lines.push("");
+                    lines.push("選択打席：" + resultText);
+                }
+            }
+            lines.push("");
+            lines.push(X_AUTO_GENERATED_SIGNATURE);
+            lines.push("#CuViu");
+            return lines.join("\n");
+        }
+
+        function ensureGenericSharePopupLayer() {
+            const popup = document.getElementById("inningSharePopup");
+            const backdrop = document.getElementById("inningSharePopupBackdrop");
+            if (popup && popup.parentElement !== document.body) {
+                document.body.appendChild(popup);
+            }
+            if (backdrop && backdrop.parentElement !== document.body) {
+                document.body.appendChild(backdrop);
+            }
+            return { popup, backdrop };
+        }
+
+        function buildGenericShareDraftWithUrlPreference(text) {
+            const withHashtag = ensureCuViuHashtag(removeScorebookAppUrl(text));
+            const checkbox = document.getElementById("genericShareIncludeUrlCheckbox");
+            const includeUrl = checkbox ? checkbox.checked : true;
+            return includeUrl ? ensureScorebookAppUrl(withHashtag) : withHashtag;
+        }
+
+        function updateGenericShareDraftLengthIndicator() {
+            const textarea = document.getElementById("genericShareDraftText");
+            const counter = document.getElementById("genericShareDraftCount");
+            const warning = document.getElementById("genericShareLengthWarning");
+            if (!textarea) {
+                return null;
+            }
+            const info = getXDraftLengthInfo(textarea.value);
+            const xPremium = isInningShareXPremiumEnabled();
+            if (counter) {
+                counter.textContent = info.fullwidthEquivalent + "/" + X_FREE_FULLWIDTH_LIMIT;
+                counter.classList.toggle("is-warning", info.overFreeLimit && !xPremium);
+            }
+            if (warning) {
+                const warningText = info.overFreeLimit && !xPremium
+                    ? "通常アカウントの目安を超えています。必要に応じて本文を短くするか、コピーして分割投稿してください。"
+                    : "";
+                warning.textContent = warningText;
+                warning.classList.toggle("is-open", Boolean(warningText));
+            }
+            return info;
+        }
+
+        function setGenericShareStatus(message, isError = false) {
+            const status = document.getElementById("genericShareStatus");
+            if (!status) {
+                return;
+            }
+            status.textContent = message || "";
+            status.style.color = isError ? "#b42318" : "#64748b";
+        }
+
+        function setGenericShareXPremiumPreference(enabled) {
+            try {
+                localStorage.setItem(INNING_SHARE_X_PREMIUM_STORAGE_KEY, enabled ? "1" : "0");
+            } catch (error) {
+                // 保存できない環境でも、その場の投稿操作は続けます。
+            }
+            updateGenericShareDraftLengthIndicator();
+        }
+
+        function applyGenericShareDraftUrlPreference() {
+            const textarea = document.getElementById("genericShareDraftText");
+            if (!textarea) {
+                return "";
+            }
+            textarea.value = buildGenericShareDraftWithUrlPreference(textarea.value);
+            updateGenericShareDraftLengthIndicator();
+            return textarea.value;
+        }
+
+        function updateGenericShareAttachmentStatus() {
+            const input = document.getElementById("genericSharePhotoInput");
+            const files = Array.from(input?.files || []);
+            setGenericShareStatus(files.length
+                ? files.length + "枚の写真を選択しました。"
+                : "写真未選択です。画像付き共有ではスコア画像を自動作成します。");
+        }
+
+        function openGenericShareDraftPopup(context) {
+            const sourceContext = context || {};
+            genericShareDraftContext = sourceContext;
+            const { popup, backdrop } = ensureGenericSharePopupLayer();
+            if (!popup || !backdrop) {
+                return;
+            }
+            const draft = ensureScorebookAppUrl(ensureCuViuHashtag(sourceContext.draft || ""));
+            const xPremiumChecked = isInningShareXPremiumEnabled() ? " checked" : "";
+            popup.innerHTML = [
+                '<div class="inning-share-draft-header">',
+                '<div class="comment-popup-title">' + escapeHtml(sourceContext.title || "Xポスト下書き") + ' <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
+                '<div id="genericShareDraftCount" class="inning-share-draft-count" aria-live="polite">0/' + X_FREE_FULLWIDTH_LIMIT + '</div>',
+                '</div>',
+                '<textarea id="genericShareDraftText" oninput="updateGenericShareDraftLengthIndicator()">' + escapeHtml(draft) + '</textarea>',
+                '<div id="genericShareLengthWarning" class="inning-share-length-warning" aria-live="polite"></div>',
+                '<div class="inning-share-options"><label class="inning-share-toggle"><span>X Premium（長文投稿）</span><input id="genericShareXPremiumCheckbox" class="inning-share-toggle-input" type="checkbox"' + xPremiumChecked + ' onchange="setGenericShareXPremiumPreference(this.checked)"></label></div>',
+                '<div class="inning-share-options"><label class="inning-share-toggle"><span>アプリURLを付ける</span><input id="genericShareIncludeUrlCheckbox" class="inning-share-toggle-input" type="checkbox" checked onchange="applyGenericShareDraftUrlPreference()"></label></div>',
+                '<div class="share-attachment-panel">',
+                '<div class="share-attachment-title">写真/画像</div>',
+                '<input id="genericSharePhotoInput" class="share-attachment-input" type="file" accept="image/*" multiple onchange="updateGenericShareAttachmentStatus()">',
+                '<div class="share-attachment-actions">',
+                '<button type="button" onclick="downloadGenericShareImage()">スコア画像を保存</button>',
+                '<button type="button" class="btn-hit" onclick="shareGenericDraftWithImage()">画像付きで共有</button>',
+                '</div>',
+                '<div id="genericShareStatus" class="share-attachment-status" aria-live="polite"></div>',
+                '</div>',
+                '<div class="comment-popup-actions">',
+                '<button type="button" onclick="copyGenericShareDraft()">コピー</button>',
+                '<button type="button" onclick="openGenericXPostDraft()">Xで開く</button>',
+                '<button type="button" onclick="closeGenericShareDraftPopup()">閉じる</button>',
+                '</div>'
+            ].join("");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            backdrop.classList.add("is-open");
+            requestAnimationFrame(() => {
+                selectTextareaForCopy(document.getElementById("genericShareDraftText"));
+                updateGenericShareDraftLengthIndicator();
+                updateGenericShareAttachmentStatus();
+            });
+        }
+
+        function openPreGameShareDraft() {
+            openGenericShareDraftPopup({
+                title: "試合前情報X下書き",
+                kind: "pregame",
+                draft: buildPreGameShareDraft()
+            });
+        }
+
+        function openCurrentScoreShareDraft() {
+            openGenericShareDraftPopup({
+                title: "途中経過X下書き",
+                kind: "score",
+                draft: buildCurrentScoreShareDraft()
+            });
+        }
+
+        function getGenericShareDraftText() {
+            const textarea = document.getElementById("genericShareDraftText");
+            if (!textarea) {
+                return "";
+            }
+            textarea.value = buildGenericShareDraftWithUrlPreference(textarea.value);
+            updateGenericShareDraftLengthIndicator();
+            return textarea.value;
+        }
+
+        function copyGenericShareDraft() {
+            const textarea = document.getElementById("genericShareDraftText");
+            if (!textarea) {
+                return;
+            }
+            getGenericShareDraftText();
+            copyTextFromTextarea(textarea, { ensureHashtag: true })
+                .then((copied) => {
+                    setGenericShareStatus(copied ? "コピーしました。" : "コピーできませんでした。本文を長押ししてコピーしてください。", !copied);
+                })
+                .catch(() => setGenericShareStatus("コピーできませんでした。本文を長押ししてコピーしてください。", true));
+        }
+
+        function openGenericXPostDraft() {
+            const text = getGenericShareDraftText();
+            if (!text) {
+                return;
+            }
+            const info = getXDraftLengthInfo(text);
+            if (!isInningShareXPremiumEnabled() && info.overFreeLimit) {
+                setGenericShareStatus("通常アカウントの目安を超えています。X Premiumを使うか、本文を分けて投稿してください。", true);
+                return;
+            }
+            setGenericShareStatus("Xを開きました。投稿後はこの画面に戻れます。");
+            openXIntentText(text);
+        }
+
+        function closeGenericShareDraftPopup() {
+            genericShareDraftContext = null;
+            document.getElementById("inningSharePopup")?.classList.remove("is-open");
+            document.getElementById("inningSharePopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("inningSharePopupBackdrop")?.classList.remove("is-open");
+        }
+
+        function drawCanvasWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines = Infinity) {
+            let currentY = y;
+            let lineCount = 0;
+            const drawLine = (line) => {
+                if (lineCount >= maxLines) {
+                    return false;
+                }
+                ctx.fillText(line, x, currentY);
+                currentY += lineHeight;
+                lineCount += 1;
+                return true;
+            };
+            String(text || "").split(/\r?\n/).some((paragraph) => {
+                let line = "";
+                const chars = Array.from(paragraph || " ");
+                for (let index = 0; index < chars.length; index += 1) {
+                    const candidate = line + chars[index];
+                    if (line && ctx.measureText(candidate).width > maxWidth) {
+                        if (!drawLine(line)) {
+                            return true;
+                        }
+                        line = chars[index];
+                    } else {
+                        line = candidate;
+                    }
+                }
+                return !drawLine(line);
+            });
+            return currentY;
+        }
+
+        function drawShareImageHeader(ctx, title, subtitle) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, 1200, 675);
+            ctx.fillStyle = "#0f766e";
+            ctx.fillRect(0, 0, 1200, 14);
+            ctx.fillStyle = "#172331";
+            ctx.font = "700 42px sans-serif";
+            ctx.fillText(title, 60, 82);
+            ctx.font = "700 24px sans-serif";
+            ctx.fillStyle = "#475569";
+            drawCanvasWrappedText(ctx, subtitle, 60, 122, 1080, 32, 2);
+        }
+
+        function drawShareLineScoreTable(ctx, topLine, bottomLine, x, y, width) {
+            const innings = getLineScoreDisplayInnings(topLine, bottomLine).slice(0, 12);
+            const labelWidth = 150;
+            const cellWidth = Math.floor((width - labelWidth) / (innings.length + 3));
+            const rowHeight = 46;
+            const drawCell = (text, col, row, options = {}) => {
+                const left = x + (col === 0 ? 0 : labelWidth + (col - 1) * cellWidth);
+                const top = y + row * rowHeight;
+                const w = col === 0 ? labelWidth : cellWidth;
+                ctx.fillStyle = options.fill || "#ffffff";
+                ctx.fillRect(left, top, w, rowHeight);
+                ctx.strokeStyle = "#1f5c2e";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(left, top, w, rowHeight);
+                ctx.fillStyle = options.color || "#172331";
+                ctx.font = (options.bold ? "700 " : "600 ") + "22px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(String(text), left + w / 2, top + rowHeight / 2);
+            };
+            const headers = ["回", ...innings, "R", "H", "E"];
+            headers.forEach((text, index) => drawCell(text, index, 0, { fill: "#eef7f5", bold: true }));
+            const rows = [
+                [getTeamDisplayName("top"), topLine],
+                [getTeamDisplayName("bottom"), bottomLine]
+            ];
+            rows.forEach(([label, line], rowIndex) => {
+                const row = rowIndex + 1;
+                drawCell(label, 0, row, { bold: true });
+                innings.forEach((inning, index) => {
+                    const value = line.recorded?.[inning - 1] ? (line.scores?.[inning - 1] || 0) : "";
+                    drawCell(value, index + 1, row);
+                });
+                drawCell(getLineScoreTotal(line), innings.length + 1, row, { color: "#b42318", bold: true });
+                drawCell(line.hits || 0, innings.length + 2, row, { color: "#0f766e", bold: true });
+                drawCell(line.errors || 0, innings.length + 3, row, { color: "#9a6700", bold: true });
+            });
+            ctx.textAlign = "start";
+            ctx.textBaseline = "alphabetic";
+            return y + rowHeight * 3;
+        }
+
+        function createShareSummaryImageBlob(kind = "score") {
+            return new Promise((resolve, reject) => {
+                const canvas = document.createElement("canvas");
+                canvas.width = 1200;
+                canvas.height = 675;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) {
+                    reject(new Error("Canvas is not available"));
+                    return;
+                }
+                const info = normalizeGameInfo(state.gameInfo);
+                const topLine = calculateLineScore("top");
+                const bottomLine = calculateLineScore("bottom");
+                const subtitle = [
+                    info.competition,
+                    formatPrintDate(info.date),
+                    info.venue
+                ].filter(Boolean).join(" / ");
+                drawShareImageHeader(ctx, kind === "pregame" ? "試合前情報" : "途中経過", subtitle || (getTeamDisplayName("top") + " vs " + getTeamDisplayName("bottom")));
+                let y = 178;
+                ctx.font = "700 30px sans-serif";
+                ctx.fillStyle = "#172331";
+                ctx.fillText(getTeamDisplayName("top") + " vs " + getTeamDisplayName("bottom"), 60, y);
+                y += 48;
+                y = drawShareLineScoreTable(ctx, topLine, bottomLine, 60, y, 1080) + 40;
+                ctx.font = "700 24px sans-serif";
+                ctx.fillStyle = "#0f766e";
+                ctx.fillText("投手", 60, y);
+                ctx.fillStyle = "#172331";
+                ctx.font = "600 24px sans-serif";
+                y = drawCanvasWrappedText(ctx,
+                    getTeamDisplayName("top") + "：" + formatPitcherDisplayName(info.pitchers.top, info.pitcherNumbers.top, "未登録") + "\n" +
+                    getTeamDisplayName("bottom") + "：" + formatPitcherDisplayName(info.pitchers.bottom, info.pitcherNumbers.bottom, "未登録"),
+                    60, y + 38, 520, 34, 3
+                );
+                const detailX = 660;
+                ctx.font = "700 24px sans-serif";
+                ctx.fillStyle = "#0f766e";
+                ctx.fillText(kind === "pregame" ? "スタメン" : "進行", detailX, y - 72);
+                ctx.fillStyle = "#172331";
+                ctx.font = "600 20px sans-serif";
+                const detailText = kind === "pregame"
+                    ? formatShareRosterLines("top").concat([""], formatShareRosterLines("bottom")).join("\n")
+                    : [
+                        getColumnInningLabel() + "回" + getHalfLabel() + "・" + getActiveTeamName() + "攻撃",
+                        "打者：" + (state.selectedSheetRow + 1) + "番 " + getShareRosterPlayerName(state.activeHalf, state.selectedSheetRow),
+                        "投手：" + (getPitcherNameForDefenseHalf(getOpponentHalf(state.activeHalf)) || "未登録")
+                    ].join("\n");
+                drawCanvasWrappedText(ctx, detailText, detailX, y - 34, 480, 30, 9);
+                ctx.strokeStyle = "#d7e1e8";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(40, 612, 1120, 42);
+                ctx.fillStyle = "#334155";
+                ctx.font = "700 18px sans-serif";
+                ctx.fillText("スコアブック by CuViu / " + SCOREBOOK_APP_URL, 60, 639);
+                ctx.fillStyle = "#64748b";
+                ctx.textAlign = "right";
+                ctx.fillText("v" + APP_VERSION, 1140, 639);
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error("Image export failed"));
+                    }
+                }, "image/png");
+            });
+        }
+
+        async function createShareSummaryImageFile(kind = "score") {
+            const blob = await createShareSummaryImageBlob(kind);
+            const filename = "cuviu-scorebook-" + kind + "-" + getFilenameTimestamp() + ".png";
+            if (typeof File === "function") {
+                return new File([blob], filename, { type: "image/png" });
+            }
+            blob.name = filename;
+            return blob;
+        }
+
+        function downloadBlobFile(blob, filename) {
+            try {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                return true;
+            } catch (error) {
+                console.warn("Download blob failed", error);
+                return false;
+            }
+        }
+
+        async function downloadGenericShareImage() {
+            try {
+                const kind = genericShareDraftContext?.kind || "score";
+                const blob = await createShareSummaryImageBlob(kind);
+                const filename = "cuviu-scorebook-" + kind + "-" + getFilenameTimestamp() + ".png";
+                const ok = downloadBlobFile(blob, filename);
+                setGenericShareStatus(ok ? "スコア画像を保存しました。" : "画像保存を開始できませんでした。", !ok);
+            } catch (error) {
+                console.warn("Create share image failed", error);
+                setGenericShareStatus("スコア画像を作成できませんでした。", true);
+            }
+        }
+
+        async function shareGenericDraftWithImage() {
+            const text = getGenericShareDraftText();
+            const input = document.getElementById("genericSharePhotoInput");
+            let files = Array.from(input?.files || []);
+            try {
+                if (!files.length) {
+                    files = [await createShareSummaryImageFile(genericShareDraftContext?.kind || "score")];
+                }
+                const shareData = {
+                    title: genericShareDraftContext?.title || "スコアブック by CuViu",
+                    text,
+                    files
+                };
+                if (navigator.share && (!navigator.canShare || navigator.canShare({ files }))) {
+                    await navigator.share(shareData);
+                    setGenericShareStatus("共有シートを開きました。");
+                    return;
+                }
+                const copied = await navigator.clipboard?.writeText?.(text).then(() => true).catch(() => false);
+                if (!input?.files?.length && files[0]) {
+                    downloadBlobFile(files[0], files[0].name || ("cuviu-scorebook-share-" + getFilenameTimestamp() + ".png"));
+                }
+                setGenericShareStatus(copied
+                    ? "このブラウザでは画像付き共有を直接開けませんでした。本文をコピーし、画像を保存しました。"
+                    : "このブラウザでは画像付き共有を直接開けませんでした。本文をコピーして画像を添付してください。", true);
+            } catch (error) {
+                console.warn("Share with image failed", error);
+                setGenericShareStatus("画像付き共有を開けませんでした。写真アプリから添付するか、本文をコピーしてください。", true);
+            }
         }
 
         function stripInningShareSignature(text) {
