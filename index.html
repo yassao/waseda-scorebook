@@ -6709,7 +6709,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.64";
+        const APP_VERSION = "0.3.65";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6728,7 +6728,6 @@
         const X_FREE_FULLWIDTH_LIMIT = 140;
         const X_URL_WEIGHT_LENGTH = 23;
         const X_SPLIT_UNIT_WEIGHT = 180;
-        const X_RANGE_ADJUST_WEIGHT = 20;
         const X_AUTO_GENERATED_SIGNATURE = "入力スコアからの自動生成";
         const INNING_AD_SECONDS = 0;
         const INNING_AD_SKIP_AFTER_SECONDS = 0;
@@ -21193,9 +21192,9 @@
                 return [
                     splitHeader,
                     ...context,
-                    isFirst ? "" : "続き",
+                    isFirst ? "" : "（続き）",
                     ...items,
-                    isLast ? X_AUTO_GENERATED_SIGNATURE : "続く",
+                    isLast ? X_AUTO_GENERATED_SIGNATURE : "（続く）",
                     isLast ? "#CuViu" : "",
                     isLast && includeUrl ? SCOREBOOK_APP_URL : ""
                 ].filter(Boolean).join("\n");
@@ -21203,14 +21202,14 @@
             const buildConservativePart = (items, partIndex, endingText) => [
                 "(999/999)",
                 ...context,
-                partIndex === 0 ? "" : "続き",
+                partIndex === 0 ? "" : "（続き）",
                 ...items,
                 endingText,
                 "#CuViu",
                 includeUrl ? SCOREBOOK_APP_URL : ""
             ].filter(Boolean).join("\n");
             const canFitPart = (items, partIndex) => {
-                const nonFinal = buildConservativePart(items, partIndex, "続く");
+                const nonFinal = buildConservativePart(items, partIndex, "（続く）");
                 const final = buildConservativePart(items, partIndex, X_AUTO_GENERATED_SIGNATURE);
                 return calculateXDraftWeight(nonFinal) <= X_FREE_WEIGHT_LIMIT
                     && calculateXDraftWeight(final) <= X_FREE_WEIGHT_LIMIT;
@@ -21393,9 +21392,9 @@
             const hasPrevious = start > 0 || partIndex > 1;
             const hasNext = end < chars.length;
             return [
-                hasPrevious ? "続き" : "",
+                hasPrevious ? "（続き）" : "",
                 body,
-                hasNext ? "続く" : ""
+                hasNext ? "（続く）" : ""
             ].filter(Boolean).join("\n");
         }
 
@@ -21577,31 +21576,15 @@
             }
             const chars = getInningShareRangeChars(inningShareRangeState.source);
             const delta = direction > 0 ? 1 : -1;
-            const targetWeight = Math.max(
-                1,
-                calculateXDraftWeight(getCurrentInningShareRangePost()) + (direction > 0 ? X_RANGE_ADJUST_WEIGHT : -X_RANGE_ADJUST_WEIGHT)
-            );
             let nextEnd = inningShareRangeState.end;
             if (delta > 0) {
-                while (nextEnd < chars.length) {
-                    const candidateEnd = nextEnd + 1;
-                    const candidateText = buildInningShareRangePost(inningShareRangeState.source, inningShareRangeState.start, candidateEnd, inningShareRangeState.partIndex);
-                    const candidateWeight = calculateXDraftWeight(candidateText);
-                    if (candidateWeight > X_FREE_WEIGHT_LIMIT || candidateWeight > targetWeight) {
-                        break;
-                    }
+                const candidateEnd = Math.min(nextEnd + 1, chars.length);
+                const candidateText = buildInningShareRangePost(inningShareRangeState.source, inningShareRangeState.start, candidateEnd, inningShareRangeState.partIndex);
+                if (calculateXDraftWeight(candidateText) <= X_FREE_WEIGHT_LIMIT) {
                     nextEnd = candidateEnd;
                 }
             } else {
-                while (nextEnd > inningShareRangeState.start + 1) {
-                    const candidateEnd = nextEnd - 1;
-                    const candidateText = buildInningShareRangePost(inningShareRangeState.source, inningShareRangeState.start, candidateEnd, inningShareRangeState.partIndex);
-                    if (calculateXDraftWeight(candidateText) <= targetWeight) {
-                        nextEnd = candidateEnd;
-                        break;
-                    }
-                    nextEnd = candidateEnd;
-                }
+                nextEnd = Math.max(inningShareRangeState.start + 1, nextEnd - 1);
             }
             inningShareRangeState.end = nextEnd;
             inningShareRangeState.history = inningShareRangeState.history.slice(0, inningShareRangeState.partIndex);
@@ -21758,8 +21741,8 @@
                 '<div class="inning-share-range-header"><span id="inningShareRangeTitle">分割投稿</span><span id="inningShareRangeCount">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
                 '<div id="inningShareRangePreview" class="inning-share-range-preview"></div>',
                 '<div class="inning-share-range-actions">',
-                '<button id="inningShareRangeShorterButton" type="button" onclick="adjustInningShareRangeEnd(-1)">少し短く</button>',
-                '<button id="inningShareRangeLongerButton" type="button" onclick="adjustInningShareRangeEnd(1)">少し長く</button>',
+                '<button id="inningShareRangeShorterButton" type="button" onclick="adjustInningShareRangeEnd(-1)">一文字減らす</button>',
+                '<button id="inningShareRangeLongerButton" type="button" onclick="adjustInningShareRangeEnd(1)">一文字増やす</button>',
                 '<button id="inningShareRangePreviousButton" type="button" onclick="moveInningShareRange(-1)">前の範囲</button>',
                 '<button id="inningShareRangeNextButton" type="button" onclick="moveInningShareRange(1)">次の範囲へ</button>',
                 '<button type="button" class="btn-hit" onclick="openCurrentInningShareRangePost()">この範囲をXで開く</button>',
@@ -21843,8 +21826,8 @@
                     '<div class="inning-share-range-header"><span id="inningShareRangeTitle">分割投稿</span><span id="inningShareRangeCount">0/' + X_FREE_FULLWIDTH_LIMIT + '</span></div>',
                     '<div id="inningShareRangePreview" class="inning-share-range-preview"></div>',
                     '<div class="inning-share-range-actions">',
-                    '<button id="inningShareRangeShorterButton" type="button" onclick="adjustInningShareRangeEnd(-1)">少し短く</button>',
-                    '<button id="inningShareRangeLongerButton" type="button" onclick="adjustInningShareRangeEnd(1)">少し長く</button>',
+                    '<button id="inningShareRangeShorterButton" type="button" onclick="adjustInningShareRangeEnd(-1)">一文字減らす</button>',
+                    '<button id="inningShareRangeLongerButton" type="button" onclick="adjustInningShareRangeEnd(1)">一文字増やす</button>',
                     '<button id="inningShareRangePreviousButton" type="button" onclick="moveInningShareRange(-1)">前の範囲</button>',
                     '<button id="inningShareRangeNextButton" type="button" onclick="moveInningShareRange(1)">次の範囲へ</button>',
                     '<button type="button" class="btn-hit" onclick="openCurrentInningShareRangePost()">この範囲をXで開く</button>',
