@@ -1,3 +1,12 @@
+## v0.3.69 [2026-07-24] 広告代替枠にスポンサー募集を表示
+
+**変更ファイル:**
+- docs/VERSION
+- docs/baseball-scorebook-wordpress-snippet.html
+- index.html
+
+---
+
 ## v0.3.68 [2026-07-24] 試合終了後に支援案内を表示
 
 **変更ファイル:**

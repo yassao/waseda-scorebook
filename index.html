@@ -6745,7 +6745,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.68";
+        const APP_VERSION = "0.3.69";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -6775,8 +6775,10 @@
             share: "https://buy.stripe.com/3cI28r1c86TA0kL1WA43S05"
         };
         const SUPPORT_MENU_URL = "https://cuviu.jp/apps/scorebook/support.html";
+        const SPONSOR_CONTACT_EMAIL = "info@cuviu.jp";
+        const SPONSOR_CONTACT_MAILTO = "mailto:" + SPONSOR_CONTACT_EMAIL + "?subject=" + encodeURIComponent("スコアブック by CuViu スポンサー掲載の相談");
         const SCOREBOOK_APP_URL = "https://cuviu.jp/apps/scorebook/";
-        const DEFAULT_PDF_FOOTER_TEXT = "スコアブック by CuViu";
+        const DEFAULT_PDF_FOOTER_TEXT = "スコアブック by CuViu / 開発支援・スポンサー募集中 info@cuviu.jp";
         const SCOREBOOK_APP_QR_MATRIX = [
             "000000000000000000000000000000000",
             "000000000000000000000000000000000",
@@ -11494,15 +11496,15 @@
             if (!slot) {
                 return;
             }
-            const supportLink = String(SUPPORT_MENU_URL || "").trim();
-            const supportCta = /^https:\/\/.+/i.test(supportLink)
-                ? '<a href="' + escapeHtml(supportLink) + '" target="_blank" rel="noopener">開発支援はこちら</a>'
-                : '<span>開発支援リンクは準備中です。</span>';
-            const lead = "ご支援をお待ちしています。";
+            const contactLink = String(SPONSOR_CONTACT_MAILTO || "").trim();
+            const contactCta = contactLink
+                ? '<a href="' + escapeHtml(contactLink) + '">お問い合わせはこちら</a>'
+                : '<span>' + escapeHtml(SPONSOR_CONTACT_EMAIL) + '</span>';
+            const lead = "開発支援・スポンサー募集中";
             slot.innerHTML = [
                 '<div class="ad-gate-fallback">',
                 '<strong>' + escapeHtml(lead) + '</strong>',
-                supportCta,
+                '<span>この枠への掲載や応援に関するご相談は ' + contactCta + '</span>',
                 '</div>'
             ].join("");
         }

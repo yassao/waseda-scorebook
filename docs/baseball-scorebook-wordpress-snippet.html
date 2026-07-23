@@ -268,6 +268,39 @@
   font-size: 13px;
   font-weight: 700;
 }
+.sb-sponsor-box {
+  display: grid;
+  gap: 10px;
+  padding: 24px;
+  border: 1px solid rgba(15,118,110,0.22);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.74);
+  box-shadow: 0 12px 28px rgba(26,43,74,0.08);
+}
+.sb-sponsor-box strong {
+  color: var(--sb-ink);
+  font-size: clamp(18px, 3vw, 24px);
+  line-height: 1.45;
+}
+.sb-sponsor-box p {
+  margin: 0;
+  color: var(--sb-muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+.sb-sponsor-box a {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: var(--sb-green);
+  color: white;
+  font-weight: 900;
+  text-decoration: none;
+}
 .sb-cta-bottom {
   padding: 56px 24px;
   text-align: center;
@@ -436,6 +469,16 @@
     </section>
 
     <section class="sb-section">
+      <span class="sb-section-label">Sponsor</span>
+      <h2>スポンサー募集</h2>
+      <div class="sb-sponsor-box">
+        <strong>野球観戦・スコア記録ユーザーに届く広告枠を用意しています。</strong>
+        <p>アプリ内の切り替え画面や紹介ページなどへの掲載について相談できます。掲載内容や期間は個別に調整します。</p>
+        <a href="mailto:info@cuviu.jp">お問い合わせはこちら</a>
+      </div>
+    </section>
+
+    <section class="sb-section">
       <span class="sb-section-label">Focus</span>
       <h2>開発中・改善中</h2>
       <div class="sb-roadmap">
@@ -461,7 +504,7 @@
 
   <div class="sb-cta-bottom">
     <h2>さっそく使ってみる</h2>
-    <p>インストール不要。ブラウザからすぐ使えます。開発支援も歓迎しています。</p>
+    <p>インストール不要。ブラウザからすぐ使えます。開発支援・スポンサー相談も歓迎しています。</p>
     <a href="https://cuviu.jp/apps/scorebook/" class="sb-cta-main" target="_blank" rel="noopener">アプリを開く</a>
   </div>
 
