@@ -7274,7 +7274,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.81";
+        const APP_VERSION = "0.3.82";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -12692,7 +12692,7 @@
                     text: shareText,
                     files
                 };
-                if (navigator.share && (!navigator.canShare || navigator.canShare({ files }))) {
+                if (navigator.share) {
                     try {
                         await navigator.share(shareData);
                         return;
@@ -12703,8 +12703,11 @@
                         console.warn("Scorebook JPG native share failed", shareError);
                     }
                 }
-                files.forEach((file) => downloadBlobFile(file, file.name || ("cuviu-scorebook-" + getFilenameTimestamp() + ".jpg")));
-                openScorebookJpgShareDraft(files.length + "枚のJPGを保存しました。X投稿時に画像として添付してください。");
+                for (const file of files) {
+                    downloadBlobFile(file, file.name || ("cuviu-scorebook-" + getFilenameTimestamp() + ".jpg"));
+                    await new Promise((resolve) => setTimeout(resolve, 250));
+                }
+                openScorebookJpgShareDraft(files.length + "枚のJPG保存を開始しました。X投稿時に画像として添付してください。");
             } catch (error) {
                 console.warn("Scorebook JPG export failed", error);
                 window.alert("JPG出力に失敗しました。PDF出力、または画面スクリーンショットもお試しください。");
