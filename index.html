@@ -7262,7 +7262,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.76";
+        const APP_VERSION = "0.3.77";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7285,6 +7285,8 @@
         const INNING_AD_SECONDS = 0;
         const INNING_AD_SKIP_AFTER_SECONDS = 0;
         const PDF_AD_SECONDS = 0;
+        const JPG_EXPORT_SCALE = 2;
+        const JPG_EXPORT_QUALITY = 0.94;
         const PDF_AD_UNWATCHED_LIMIT = 5;
         const STRIPE_SUPPORT_URLS = {
             footer: "https://buy.stripe.com/5kQfZhcUQ6TA3wX6cQ43S03",
@@ -11979,11 +11981,25 @@
             );
         }
 
+        function isExportAdGatePlacement(placement) {
+            return placement === "pdf" || placement === "jpg";
+        }
+
+        function getAdGatePrimaryText(placement) {
+            if (placement === "pdf") {
+                return "PDF出力へ進む";
+            }
+            if (placement === "jpg") {
+                return "JPG出力へ進む";
+            }
+            return "次の攻撃へ進む";
+        }
+
         function shouldSkipAdGate(options = {}) {
             if (!AD_GATE_CONFIG.enabled) {
                 return true;
             }
-            if (options.placement === "pdf") {
+            if (isExportAdGatePlacement(options.placement)) {
                 return false;
             }
             if (AD_GATE_CONFIG.skipWhenOffline && !isNetworkOnline()) {
@@ -12125,7 +12141,7 @@
                     resolve(true);
                 };
                 const updatePrimaryButton = () => {
-                    const primaryText = placement === "pdf" ? "PDF出力へ進む" : "次の攻撃へ進む";
+                    const primaryText = getAdGatePrimaryText(placement);
                     const primary = document.getElementById("adGatePrimaryBtn");
                     if (primary) {
                         primary.textContent = primaryText;
@@ -12160,7 +12176,7 @@
                                 clearInterval(timerId);
                                 timerId = null;
                             }
-                            if ((!skippable && placement === "pdf") || skippable) {
+                            if ((!skippable && isExportAdGatePlacement(placement)) || skippable) {
                                 setTimeout(finish, 450);
                             }
                         }
@@ -12544,8 +12560,8 @@
             const files = [];
             for (const target of targets) {
                 const blob = await renderPrintElementToJpegBlob(target.element, {
-                    scale: window.devicePixelRatio >= 2 ? 1.6 : 2,
-                    quality: 0.92
+                    scale: JPG_EXPORT_SCALE,
+                    quality: JPG_EXPORT_QUALITY
                 });
                 const filename = "cuviu-scorebook-" + target.suffix + "-" + timestamp + ".jpg";
                 if (typeof File === "function") {
@@ -12561,7 +12577,7 @@
 
         async function exportScorebookJpg() {
             await openAdGate({
-                placement: "pdf",
+                placement: "jpg",
                 skippable: true,
                 seconds: PDF_AD_SECONDS,
                 skipAfterSeconds: 0
@@ -12569,17 +12585,25 @@
             resetPdfAdUnwatchedCount();
             try {
                 const files = await createScorebookJpgFiles();
+                const shareText = buildScorebookJpgShareDraft();
                 const shareData = {
                     title: "スコアブック by CuViu",
-                    text: "スコアブック画像",
+                    text: shareText,
                     files
                 };
                 if (navigator.share && (!navigator.canShare || navigator.canShare({ files }))) {
-                    await navigator.share(shareData);
-                } else {
-                    files.forEach((file) => downloadBlobFile(file, file.name || ("cuviu-scorebook-" + getFilenameTimestamp() + ".jpg")));
-                    window.alert("JPG画像を出力しました。X投稿時に画像として添付してください。");
+                    try {
+                        await navigator.share(shareData);
+                        return;
+                    } catch (shareError) {
+                        if (shareError?.name === "AbortError") {
+                            return;
+                        }
+                        console.warn("Scorebook JPG native share failed", shareError);
+                    }
                 }
+                files.forEach((file) => downloadBlobFile(file, file.name || ("cuviu-scorebook-" + getFilenameTimestamp() + ".jpg")));
+                openScorebookJpgShareDraft(files.length + "枚のJPGを保存しました。X投稿時に画像として添付してください。");
             } catch (error) {
                 console.warn("Scorebook JPG export failed", error);
                 window.alert("JPG出力に失敗しました。PDF出力、または画面スクリーンショットもお試しください。");
@@ -22523,6 +22547,42 @@
             return lines.join("\n");
         }
 
+        function buildScorebookJpgShareDraft() {
+            const info = normalizeGameInfo(state.gameInfo);
+            const topLine = calculateLineScore("top");
+            const bottomLine = calculateLineScore("bottom");
+            const endStatus = getGameEndStatusText({ includeScore: true });
+            const lines = ["【スコアブック画像】"];
+            if (endStatus) {
+                lines.push(endStatus);
+            } else {
+                lines.push(getInningShareScoreLineText({ topLine, bottomLine }));
+                lines.push(getColumnInningLabel() + "回" + getHalfLabel() + "・" + getActiveTeamName() + "攻撃中");
+            }
+            const metaLine = formatShareMetaLine(info);
+            if (info.competition || metaLine) {
+                lines.push("");
+                if (info.competition) {
+                    lines.push(info.competition);
+                }
+                if (metaLine) {
+                    lines.push(metaLine);
+                }
+            }
+            lines.push("");
+            lines.push("スコアブックとテキスト速報を画像出力しました。");
+            return ensureScorebookAppUrl(ensureCuViuHashtag(lines.join("\n")));
+        }
+
+        function openScorebookJpgShareDraft(message = "") {
+            openGenericShareDraftPopup({
+                title: "JPG投稿文",
+                kind: "jpg-export",
+                draft: buildScorebookJpgShareDraft(),
+                initialStatus: message || "保存したJPGを選ぶと、本文と一緒に共有できます。"
+            });
+        }
+
         function ensureGenericSharePopupLayer() {
             const popup = document.getElementById("inningSharePopup");
             const backdrop = document.getElementById("inningSharePopupBackdrop");
@@ -22598,7 +22658,9 @@
             const files = Array.from(input?.files || []);
             setGenericShareStatus(files.length
                 ? files.length + "枚の写真を選択しました。"
-                : "写真未選択です。画像付き共有ではスコア画像を自動作成します。");
+                : genericShareDraftContext?.kind === "jpg-export"
+                    ? "保存したJPGを選ぶと、本文と一緒に共有できます。"
+                    : "写真未選択です。画像付き共有ではスコア画像を自動作成します。");
         }
 
         function openGenericShareDraftPopup(context) {
@@ -22610,6 +22672,11 @@
             }
             const draft = ensureScorebookAppUrl(ensureCuViuHashtag(sourceContext.draft || ""));
             const xPremiumChecked = isInningShareXPremiumEnabled() ? " checked" : "";
+            const isJpgExportShare = sourceContext.kind === "jpg-export";
+            const scoreImageSaveButton = isJpgExportShare
+                ? ""
+                : '<button type="button" onclick="downloadGenericShareImage()">スコア画像を保存</button>';
+            const imageShareButtonLabel = isJpgExportShare ? "選んだ画像付きで共有" : "画像付きで共有";
             popup.innerHTML = [
                 '<div class="inning-share-draft-header">',
                 '<div class="comment-popup-title">' + escapeHtml(sourceContext.title || "Xポスト下書き") + ' <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
@@ -22623,8 +22690,8 @@
                 '<div class="share-attachment-title">写真/画像</div>',
                 '<input id="genericSharePhotoInput" class="share-attachment-input" type="file" accept="image/*" multiple onchange="updateGenericShareAttachmentStatus()">',
                 '<div class="share-attachment-actions">',
-                '<button type="button" onclick="downloadGenericShareImage()">スコア画像を保存</button>',
-                '<button type="button" class="btn-hit" onclick="shareGenericDraftWithImage()">画像付きで共有</button>',
+                scoreImageSaveButton,
+                '<button type="button" class="btn-hit" onclick="shareGenericDraftWithImage()">' + escapeHtml(imageShareButtonLabel) + '</button>',
                 '</div>',
                 '<div id="genericShareStatus" class="share-attachment-status" aria-live="polite"></div>',
                 '</div>',
@@ -22641,6 +22708,9 @@
                 selectTextareaForCopy(document.getElementById("genericShareDraftText"));
                 updateGenericShareDraftLengthIndicator();
                 updateGenericShareAttachmentStatus();
+                if (sourceContext.initialStatus) {
+                    setGenericShareStatus(sourceContext.initialStatus, Boolean(sourceContext.initialStatusIsError));
+                }
             });
         }
 
@@ -22907,6 +22977,13 @@
             const input = document.getElementById("genericSharePhotoInput");
             let files = Array.from(input?.files || []);
             try {
+                if (!files.length && genericShareDraftContext?.kind === "jpg-export") {
+                    const copied = await navigator.clipboard?.writeText?.(text).then(() => true).catch(() => false);
+                    setGenericShareStatus(copied
+                        ? "本文をコピーしました。保存したJPGをXで添付してください。"
+                        : "保存したJPGをXで添付し、本文をコピーして投稿してください。", !copied);
+                    return;
+                }
                 if (!files.length) {
                     files = [await createShareSummaryImageFile(genericShareDraftContext?.kind || "score")];
                 }
