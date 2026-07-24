@@ -5072,11 +5072,19 @@
             font-size: 16px;
         }
 
+        .ad-gate-fallback.is-support strong {
+            color: #0f4f8a;
+        }
+
         .ad-gate-fallback a {
             color: #0f766e;
             font-weight: 900;
             text-decoration: underline;
             text-underline-offset: 3px;
+        }
+
+        .ad-gate-fallback.is-support a {
+            color: #0f4f8a;
         }
 
         .ad-gate-box script {
@@ -7264,7 +7272,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.78";
+        const APP_VERSION = "0.3.79";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7300,6 +7308,8 @@
         const SPONSOR_CONTACT_MAILTO = "mailto:" + SPONSOR_CONTACT_EMAIL + "?subject=" + encodeURIComponent("スコアブック by CuViu スポンサー掲載の相談");
         const SCOREBOOK_APP_URL = "https://cuviu.jp/apps/scorebook/";
         const DEFAULT_PDF_FOOTER_TEXT = "スコアブック by CuViu / 開発支援・スポンサー募集中 info@cuviu.jp";
+        let adGateFallbackRotation = 0;
+        let pendingJpgStyleSelectionResolve = null;
         const SCOREBOOK_APP_QR_MATRIX = [
             "000000000000000000000000000000000",
             "000000000000000000000000000000000",
@@ -8318,7 +8328,9 @@
             updateScorebookStyleUi();
             renderScoreSheet();
             updateDisplay();
-            scheduleGameAutoSave();
+            if (!options.skipSave) {
+                scheduleGameAutoSave();
+            }
             if (!options.silent) {
                 alert(nextStyle === "keio"
                     ? "実験中のスコアブック表示に切り替えました。入力ロジックは通常表示と共通です。"
@@ -12069,15 +12081,30 @@
             if (!slot) {
                 return;
             }
+            const showSupport = placement !== "inning"
+                ? true
+                : (adGateFallbackRotation++ % 2 === 0);
+            if (showSupport) {
+                const supportLink = String(SUPPORT_MENU_URL || "").trim();
+                const supportCta = /^https:\/\/.+/i.test(supportLink)
+                    ? '<a href="' + escapeHtml(supportLink) + '" target="_blank" rel="noopener">開発支援はこちら</a>'
+                    : '<span>開発支援はこちら</span>';
+                slot.innerHTML = [
+                    '<div class="ad-gate-fallback is-support">',
+                    '<strong>開発支援をお願いします</strong>',
+                    '<span>保存上限解除やPDFフッター編集などの支援メニューがあります。' + supportCta + '</span>',
+                    '</div>'
+                ].join("");
+                return;
+            }
             const contactLink = String(SPONSOR_CONTACT_MAILTO || "").trim();
             const contactCta = contactLink
                 ? '<a href="' + escapeHtml(contactLink) + '">お問い合わせはこちら</a>'
                 : '<span>' + escapeHtml(SPONSOR_CONTACT_EMAIL) + '</span>';
-            const lead = "開発支援・スポンサー募集中";
             slot.innerHTML = [
                 '<div class="ad-gate-fallback">',
-                '<strong>' + escapeHtml(lead) + '</strong>',
-                '<span>この枠への掲載や応援に関するご相談は ' + contactCta + '</span>',
+                '<strong>スポンサー募集中</strong>',
+                '<span>この枠への掲載に関するご相談は ' + contactCta + '</span>',
                 '</div>'
             ].join("");
         }
@@ -12263,6 +12290,56 @@
 
         function cleanupScorebookPrintMode() {
             setTimeout(resetScorebookPrintMode, 900);
+        }
+
+        function closeJpgStyleSelectionPopup() {
+            document.getElementById("jpgStylePopup")?.classList.remove("is-open");
+            document.getElementById("jpgStylePopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("jpgStyleBackdrop")?.classList.remove("is-open");
+        }
+
+        function resolveJpgStyleSelection(style) {
+            const resolve = pendingJpgStyleSelectionResolve;
+            pendingJpgStyleSelectionResolve = null;
+            closeJpgStyleSelectionPopup();
+            if (typeof resolve === "function") {
+                resolve(style ? normalizeScorebookStyle(style) : "");
+            }
+        }
+
+        function openJpgStyleSelectionPopup() {
+            let backdrop = document.getElementById("jpgStyleBackdrop");
+            let popup = document.getElementById("jpgStylePopup");
+            if (!backdrop) {
+                backdrop = document.createElement("div");
+                backdrop.id = "jpgStyleBackdrop";
+                backdrop.className = "comment-popup-backdrop";
+                backdrop.onclick = () => resolveJpgStyleSelection("");
+                document.body.appendChild(backdrop);
+            }
+            if (!popup) {
+                popup = document.createElement("div");
+                popup.id = "jpgStylePopup";
+                popup.className = "comment-popup";
+                popup.setAttribute("aria-hidden", "true");
+                document.body.appendChild(popup);
+            }
+            const currentStyle = normalizeScorebookStyle(state.scorebookStyle);
+            popup.innerHTML = [
+                '<div class="comment-popup-title">JPG形式を選択</div>',
+                '<div class="comment-popup-body">出力するスコアブックの形式を選んでください。現在の画面表示は出力後に戻ります。</div>',
+                '<div class="comment-popup-actions">',
+                '<button type="button" class="btn-hit" onclick="resolveJpgStyleSelection(\'waseda\')">早稲田式' + (currentStyle === "waseda" ? "（現在）" : "") + '</button>',
+                '<button type="button" class="btn-hit" onclick="resolveJpgStyleSelection(\'keio\')">慶応式' + (currentStyle === "keio" ? "（現在）" : "") + '</button>',
+                '<button type="button" onclick="resolveJpgStyleSelection(\'\')">キャンセル</button>',
+                '</div>'
+            ].join("");
+            backdrop.classList.add("is-open");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            return new Promise((resolve) => {
+                pendingJpgStyleSelectionResolve = resolve;
+            });
         }
 
         function waitForAnimationFrames(count = 1) {
@@ -12551,33 +12628,53 @@
             return canvasToJpegBlob(canvas, options.quality || 0.92);
         }
 
-        async function createScorebookJpgFiles() {
-            prepareScorebookJpgMode();
-            await waitForAnimationFrames(2);
-            const timestamp = getPrintFilenameTimestamp();
-            const targets = getJpgExportTargets();
-            if (!targets.length) {
-                throw new Error("JPG出力できるページがありません。");
+        async function createScorebookJpgFiles(options = {}) {
+            const originalStyle = normalizeScorebookStyle(state.scorebookStyle);
+            const exportStyle = normalizeScorebookStyle(options.scorebookStyle || originalStyle);
+            const shouldRestoreStyle = exportStyle !== originalStyle;
+            if (shouldRestoreStyle) {
+                state.scorebookStyle = exportStyle;
+                updateScorebookStyleUi();
             }
-            const files = [];
-            for (const target of targets) {
-                const blob = await renderPrintElementToJpegBlob(target.element, {
-                    scale: JPG_EXPORT_SCALE,
-                    quality: JPG_EXPORT_QUALITY
-                });
-                const filename = "cuviu-scorebook-" + target.suffix + "-" + timestamp + ".jpg";
-                if (typeof File === "function") {
-                    files.push(new File([blob], filename, { type: "image/jpeg" }));
-                } else {
-                    blob.name = filename;
-                    files.push(blob);
+            try {
+                prepareScorebookJpgMode();
+                await waitForAnimationFrames(2);
+                const timestamp = getPrintFilenameTimestamp();
+                const targets = getJpgExportTargets();
+                if (!targets.length) {
+                    throw new Error("JPG出力できるページがありません。");
                 }
-                await waitForAnimationFrames(1);
+                const files = [];
+                for (const target of targets) {
+                    const blob = await renderPrintElementToJpegBlob(target.element, {
+                        scale: JPG_EXPORT_SCALE,
+                        quality: JPG_EXPORT_QUALITY
+                    });
+                    const filename = "cuviu-scorebook-" + exportStyle + "-" + target.suffix + "-" + timestamp + ".jpg";
+                    if (typeof File === "function") {
+                        files.push(new File([blob], filename, { type: "image/jpeg" }));
+                    } else {
+                        blob.name = filename;
+                        files.push(blob);
+                    }
+                    await waitForAnimationFrames(1);
+                }
+                return files;
+            } finally {
+                if (shouldRestoreStyle) {
+                    state.scorebookStyle = originalStyle;
+                    updateScorebookStyleUi();
+                    renderScoreSheet();
+                    updateDisplay();
+                }
             }
-            return files;
         }
 
         async function exportScorebookJpg() {
+            const selectedStyle = await openJpgStyleSelectionPopup();
+            if (!selectedStyle) {
+                return;
+            }
             await openAdGate({
                 placement: "jpg",
                 skippable: true,
@@ -12586,7 +12683,7 @@
             });
             resetPdfAdUnwatchedCount();
             try {
-                const files = await createScorebookJpgFiles();
+                const files = await createScorebookJpgFiles({ scorebookStyle: selectedStyle });
                 const shareText = buildScorebookJpgShareDraft();
                 const shareData = {
                     title: "スコアブック by CuViu",
@@ -20461,10 +20558,30 @@
             return isRunnerOnlyResult || hasRunnerOnlyEvents;
         }
 
+        function isBallInPlayPitchCountResult(snapshot) {
+            if (!snapshot || isRunnerOnlyPitchCountResult(snapshot)) {
+                return false;
+            }
+            const result = String(snapshot.result || "").trim().toUpperCase();
+            if (["K", "B", "B'", "DB", "HP", "IB", "WP", "PB"].includes(result)) {
+                return false;
+            }
+            if (snapshot.selectedHitType && snapshot.selectedHitType !== "none") {
+                return true;
+            }
+            if (snapshot.selectedFielder) {
+                return true;
+            }
+            if (Array.isArray(snapshot.fieldSequence) && snapshot.fieldSequence.length > 0) {
+                return true;
+            }
+            return ["FC", "H", "T", "RH", "GR", "HR", "IF"].includes(result);
+        }
+
         function getSnapshotPitchCount(snapshot) {
             const explicitCount = (snapshot?.pitches || []).length;
             if (explicitCount > 0) {
-                return explicitCount;
+                return explicitCount + (isBallInPlayPitchCountResult(snapshot) ? 1 : 0);
             }
             if (isRunnerOnlyPitchCountResult(snapshot)) {
                 return 0;
