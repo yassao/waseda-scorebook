@@ -1557,6 +1557,18 @@
             font-weight: 900;
         }
 
+        .pdf-export-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .pdf-export-btn.jpg-export-btn {
+            border-color: #4080a8;
+            background: #e6f4fb;
+            color: #172331;
+        }
+
         .pdf-export-options {
             display: grid;
             gap: 8px;
@@ -1648,6 +1660,409 @@
 
         body.printing-scorebook .print-extra-page.has-extra-page {
             display: block;
+        }
+
+        html.jpg-exporting,
+        body.jpg-exporting {
+            width: 210mm !important;
+            min-height: 297mm !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+            color: #111111 !important;
+        }
+
+        body.jpg-exporting .app-shell {
+            display: none !important;
+        }
+
+        body.jpg-exporting .print-scorebook-page {
+            display: block !important;
+            width: 210mm;
+            box-sizing: border-box;
+            margin: 0 !important;
+            padding: 0;
+            background: #ffffff;
+            overflow: visible;
+            --sheet-green: #111111;
+            --sheet-order-w: 6.2mm;
+            --sheet-name-w: 18.4mm;
+            --sheet-number-w: 5.9mm;
+            --sheet-cell-w: calc((var(--print-content-w) - var(--sheet-order-w) - var(--sheet-name-w) - var(--sheet-number-w)) / var(--sheet-inning-count, 9));
+            --sheet-cell-h: min(17.6mm, calc(var(--sheet-cell-w) * 0.95));
+            --sheet-header-h: 4.6mm;
+            --sheet-font: 2mm;
+            --sheet-zoom: 0.58;
+            --print-content-w: 197.9mm;
+        }
+
+        body.jpg-exporting.keio-scorebook-style .print-scorebook-page {
+            --sheet-cell-h: min(18.8mm, calc(var(--sheet-cell-w) * 1.05));
+            --sheet-header-h: 4.4mm;
+            --sheet-font: 1.9mm;
+        }
+
+        body.jpg-exporting .print-scorebook-team-page {
+            display: block !important;
+            width: 198mm;
+            height: 281mm;
+            box-sizing: border-box;
+            margin: 5mm auto !important;
+            padding: 0.6mm;
+            background: #ffffff;
+            overflow: hidden;
+        }
+
+        body.jpg-exporting .print-scorebook-team-page + .print-scorebook-team-page {
+            margin-top: 8mm !important;
+        }
+
+        body.jpg-exporting .print-extra-page.has-extra-page {
+            display: block !important;
+            width: 190mm;
+            min-height: 270mm;
+            box-sizing: border-box;
+            margin: 10mm auto 0 !important;
+            padding: 4mm;
+            background: #ffffff;
+            color: #111111;
+            overflow: visible;
+        }
+
+        body.jpg-exporting .print-extra-title {
+            margin: 0 0 2.6mm;
+            font-size: 4mm;
+            line-height: 1.2;
+            font-weight: 900;
+            text-align: center;
+        }
+
+        body.jpg-exporting .print-extra-note {
+            margin: 0 0 3mm;
+            font-size: 2.2mm;
+            line-height: 1.45;
+            color: #333333;
+            text-align: center;
+        }
+
+        body.jpg-exporting .print-extra-section-title {
+            margin: 3mm 0 1.2mm;
+            padding: 0.7mm 1mm;
+            border: 0.35mm solid #111111;
+            background: #f3f4f6;
+            font-size: 2.5mm;
+            font-weight: 900;
+        }
+
+        body.jpg-exporting .print-extra-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 2mm;
+            line-height: 1.25;
+            font-weight: 700;
+        }
+
+        body.jpg-exporting .print-extra-table th,
+        body.jpg-exporting .print-extra-table td {
+            border: 0.3mm solid #111111;
+            padding: 0.75mm;
+            vertical-align: top;
+            word-break: break-word;
+        }
+
+        body.jpg-exporting .print-extra-table th {
+            background: #f8fafc;
+            text-align: center;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        body.jpg-exporting .print-extra-memo {
+            font-size: 1.85mm;
+            color: #333333;
+        }
+
+        body.jpg-exporting .print-text-summary-page.has-extra-page {
+            font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+            min-height: 270mm;
+            height: auto;
+            overflow: visible;
+        }
+
+        body.jpg-exporting .print-summary-scoreboard {
+            width: 100%;
+            margin: 0 0 3mm;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 2.4mm;
+            line-height: 1.25;
+            font-weight: 800;
+        }
+
+        body.jpg-exporting .print-summary-scoreboard th,
+        body.jpg-exporting .print-summary-scoreboard td {
+            border: 0.3mm solid #d0d5dd;
+            padding: 0.8mm;
+            text-align: center;
+        }
+
+        body.jpg-exporting .print-summary-scoreboard th {
+            background: #edf2f7;
+            font-weight: 900;
+        }
+
+        body.jpg-exporting .print-summary-scoreboard .team-cell {
+            text-align: left;
+            color: #0b3fa6;
+            font-weight: 900;
+        }
+
+        body.jpg-exporting .print-summary-inning-title {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 2.5mm;
+            align-items: center;
+            padding: 1.6mm 2mm;
+            border-top: 0.8mm solid #34449b;
+            background: #eeeeef;
+            font-size: 3mm;
+            font-weight: 900;
+        }
+
+        body.jpg-exporting .print-summary-inning-title.is-bottom {
+            border-top-color: #f28c00;
+        }
+
+        body.jpg-exporting .print-summary-pa {
+            padding: 1.9mm 1.8mm;
+            border-bottom: 0.25mm solid #e1e5ea;
+            font-size: 2.65mm;
+            line-height: 1.55;
+        }
+
+        body.jpg-exporting .print-summary-pa-main {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.6mm;
+            align-items: baseline;
+            font-weight: 800;
+        }
+
+        body.jpg-exporting .print-summary-order {
+            color: #444444;
+        }
+
+        body.jpg-exporting .print-summary-player {
+            color: #0039a6;
+            font-size: 2.85mm;
+            font-weight: 900;
+        }
+
+        body.jpg-exporting .print-summary-result {
+            color: #222222;
+        }
+
+        body.jpg-exporting .print-summary-comment {
+            margin-top: 0.5mm;
+            padding-left: 8mm;
+            color: #333333;
+            font-weight: 900;
+        }
+
+        body.jpg-exporting .print-summary-pitcher-change {
+            padding: 1.2mm 1.8mm;
+            color: #0b3fa6;
+            font-size: 2.35mm;
+            font-weight: 900;
+        }
+
+        body.jpg-exporting .print-summary-totals {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            width: 86mm;
+            margin: 2mm 0 0 4mm;
+            border: 0.3mm solid #d7dce2;
+            font-size: 2.4mm;
+            font-weight: 900;
+        }
+
+        body.jpg-exporting .print-summary-totals div {
+            padding: 1.1mm;
+            border-right: 0.3mm solid #d7dce2;
+            text-align: center;
+        }
+
+        body.jpg-exporting .print-summary-totals div:last-child {
+            border-right: 0;
+        }
+
+        body.jpg-exporting .print-info-table,
+        body.jpg-exporting .print-line-score-table {
+            width: var(--print-content-w);
+            margin: 0 auto;
+            border-collapse: collapse;
+            table-layout: fixed;
+            color: #111111;
+            font-size: 2mm;
+            line-height: 1.1;
+            font-weight: 700;
+        }
+
+        body.jpg-exporting .print-info-table th,
+        body.jpg-exporting .print-info-table td,
+        body.jpg-exporting .print-line-score-table th,
+        body.jpg-exporting .print-line-score-table td {
+            border: 0.35mm solid #111111;
+            padding: 0.35mm 0.7mm;
+            height: 4mm;
+            vertical-align: middle;
+            overflow: hidden;
+        }
+
+        body.jpg-exporting .print-info-table th,
+        body.jpg-exporting .print-line-score-table th {
+            text-align: center;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        body.jpg-exporting .print-sheet-title {
+            border: 0.35mm solid #111111;
+            border-bottom: 0;
+            padding: 0.35mm 1mm;
+            font-size: 2.1mm;
+            font-weight: 900;
+            text-align: center;
+        }
+
+        body.jpg-exporting .print-sheet-block {
+            width: var(--print-content-w);
+            margin: 0 auto;
+        }
+
+        body.jpg-exporting .print-sheet-grid {
+            display: grid;
+            --sheet-cell-w: calc((var(--print-content-w) - var(--sheet-order-w) - var(--sheet-name-w) - var(--sheet-number-w)) / var(--sheet-inning-count, 9));
+            --sheet-cell-h: min(17.6mm, calc(var(--sheet-cell-w) * 0.95));
+            grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(var(--sheet-inning-count, 18), var(--sheet-cell-w));
+            width: max-content;
+            max-width: var(--print-content-w);
+            margin: 0 auto;
+            border-left: 0.35mm solid #111111;
+            border-top: 0.35mm solid #111111;
+            background: #ffffff;
+        }
+
+        body.jpg-exporting .print-sheet-grid .sheet-header,
+        body.jpg-exporting .print-sheet-grid .sheet-label,
+        body.jpg-exporting .print-sheet-grid .sheet-cell,
+        body.jpg-exporting .print-sheet-grid .pitcher-book-label,
+        body.jpg-exporting .print-sheet-grid .pitcher-book-cell {
+            border-color: #111111 !important;
+            color: #111111;
+        }
+
+        body.jpg-exporting .print-sheet-grid .sheet-cell {
+            padding: 0;
+        }
+
+        body.jpg-exporting .print-sheet-grid .sheet-cell-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        body.jpg-exporting .print-sheet-grid .sheet-comment-link {
+            position: absolute;
+            top: 0.45mm;
+            right: 0.45mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 3.2mm;
+            height: 2.5mm;
+            border: 0.22mm solid rgba(51, 65, 85, 0.55);
+            border-radius: 1.1mm;
+            background: rgba(255, 255, 255, 0.82);
+            color: transparent;
+            font-size: 0;
+            font-weight: 400;
+            line-height: 1;
+            text-decoration: none;
+            z-index: 5;
+        }
+
+        body.jpg-exporting .print-sheet-grid .pitcher-book-section {
+            grid-column: 1 / -1;
+            grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(var(--sheet-inning-count, 18), var(--sheet-cell-w));
+            border-left: 0;
+            border-top: 0.5mm solid #111111;
+        }
+
+        body.jpg-exporting.keio-scorebook-style .print-sheet-grid {
+            --sheet-cell-h: min(18.8mm, calc(var(--sheet-cell-w) * 1.05));
+        }
+
+        body.jpg-exporting .print-sheet-grid .pitcher-book-cell,
+        body.jpg-exporting .print-sheet-grid .pitcher-book-label {
+            min-height: 3.35mm;
+            font-size: 1.72mm;
+            padding: 0.1mm;
+        }
+
+        body.jpg-exporting .print-free-footer {
+            width: var(--print-content-w);
+            margin: 0 auto;
+            min-height: 11.5mm;
+            padding: 0.7mm 1.1mm;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 1.2mm;
+            align-items: center;
+            border: 0.25mm solid #777777;
+            color: #555555;
+            font-size: 1.75mm;
+            line-height: 1.2;
+            text-align: left;
+            overflow: hidden;
+        }
+
+        body.jpg-exporting .print-footer-qr {
+            width: 9.6mm;
+            height: 9.6mm;
+            display: block;
+            flex: 0 0 auto;
+        }
+
+        body.jpg-exporting .print-footer-body {
+            min-width: 0;
+            display: grid;
+            gap: 0.35mm;
+        }
+
+        body.jpg-exporting .print-footer-brand {
+            color: #333333;
+            font-size: 2mm;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        body.jpg-exporting .print-footer-url {
+            color: #555555;
+            font-size: 1.65mm;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        body.jpg-exporting .print-footer-version {
+            color: #555555;
+            font-size: 1.75mm;
+            font-weight: 800;
+            white-space: nowrap;
         }
 
         body.scorebook-view-mode .global-apply-row,
@@ -6753,7 +7168,10 @@
                             <div class="pdf-supporter-note">この端末に保存されます。標準のQRコードとバージョン番号は残ります。</div>
                         </div>
                     </div>
-                    <button type="button" class="pdf-export-btn" onclick="exportScorebookPdf()">PDF出力</button>
+                    <div class="pdf-export-buttons">
+                        <button type="button" class="pdf-export-btn" onclick="exportScorebookPdf()">PDF出力</button>
+                        <button type="button" class="pdf-export-btn jpg-export-btn" onclick="exportScorebookJpg()">JPG出力</button>
+                    </div>
                 </div>
 
                 <details class="options-menu">
@@ -6844,7 +7262,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.75";
+        const APP_VERSION = "0.3.76";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10375,7 +10793,7 @@
 
         function appendPrintCell(row, tagName, text, colSpan = 1, className = "") {
             const cell = document.createElement(tagName);
-            cell.textContent = text || "";
+            cell.textContent = text === null || text === undefined ? "" : String(text);
             if (colSpan > 1) {
                 cell.colSpan = colSpan;
             }
@@ -11248,9 +11666,11 @@
             });
         }
 
+        let forcePrintTextSummaryForExport = false;
+
         function isPrintTextSummaryEnabled() {
             const checkbox = document.getElementById("pdfTextSummaryCheckbox");
-            return Boolean(checkbox?.checked) || hasAnyPrintComments();
+            return forcePrintTextSummaryForExport || Boolean(checkbox?.checked) || hasAnyPrintComments();
         }
 
         function renderPrintCommentLink(snapshot, half, row, col) {
@@ -11372,7 +11792,7 @@
                 const tr = document.createElement("tr");
                 appendPrintCell(tr, "td", getTeamDisplayName(half), 1, "team-cell");
                 innings.forEach((inning) => {
-                    const value = line.recorded[inning - 1] ? line.scores[inning - 1] : "";
+                    const value = line.recorded[inning - 1] ? line.scores[inning - 1] : 0;
                     appendPrintCell(tr, "td", value);
                 });
                 appendPrintCell(tr, "td", line.scores.reduce((sum, score) => sum + score, 0));
@@ -11813,13 +12233,359 @@
             document.body.classList.add("printing-scorebook");
         }
 
+        function resetScorebookPrintMode() {
+            document.body.classList.remove("printing-scorebook");
+            document.body.classList.remove("jpg-exporting");
+            document.body.classList.remove("has-extra-print-page");
+            document.documentElement.classList.remove("jpg-exporting");
+            document.documentElement.classList.remove("has-extra-print-page");
+            forcePrintTextSummaryForExport = false;
+            restorePrintDocumentTitle();
+        }
+
         function cleanupScorebookPrintMode() {
-            setTimeout(() => {
-                document.body.classList.remove("printing-scorebook");
-                document.body.classList.remove("has-extra-print-page");
-                document.documentElement.classList.remove("has-extra-print-page");
-                restorePrintDocumentTitle();
-            }, 900);
+            setTimeout(resetScorebookPrintMode, 900);
+        }
+
+        function waitForAnimationFrames(count = 1) {
+            return new Promise((resolve) => {
+                let remaining = Math.max(1, Number(count) || 1);
+                const step = () => {
+                    remaining -= 1;
+                    if (remaining <= 0) {
+                        resolve();
+                    } else {
+                        requestAnimationFrame(step);
+                    }
+                };
+                requestAnimationFrame(step);
+            });
+        }
+
+        function prepareScorebookJpgMode() {
+            forcePrintTextSummaryForExport = true;
+            prepareScorebookPrintMode();
+            document.body.classList.remove("printing-scorebook");
+            document.body.classList.add("jpg-exporting");
+            document.documentElement.classList.add("jpg-exporting");
+            renderPrintableScorebookPage();
+        }
+
+        function getJpgExportTargets() {
+            const targets = [];
+            const addTarget = (element, suffix) => {
+                if (element) {
+                    targets.push({ element, suffix });
+                }
+            };
+            addTarget(document.querySelector(".print-scorebook-team-page[data-half='top']"), "scorebook-top");
+            addTarget(document.querySelector(".print-scorebook-team-page[data-half='bottom']"), "scorebook-bottom");
+            addTarget(document.getElementById("printPitcherExtraPage")?.classList.contains("has-extra-page")
+                ? document.getElementById("printPitcherExtraPage")
+                : null, "changes");
+            addTarget(document.getElementById("printTextSummaryPage")?.classList.contains("has-extra-page")
+                ? document.getElementById("printTextSummaryPage")
+                : null, "progress");
+            return targets;
+        }
+
+        const HTML2CANVAS_SCRIPT_URL = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+        let html2CanvasLoadPromise = null;
+
+        function loadHtml2Canvas() {
+            if (typeof window.html2canvas === "function") {
+                return Promise.resolve(window.html2canvas);
+            }
+            if (html2CanvasLoadPromise) {
+                return html2CanvasLoadPromise;
+            }
+            html2CanvasLoadPromise = new Promise((resolve, reject) => {
+                const script = document.createElement("script");
+                script.src = HTML2CANVAS_SCRIPT_URL;
+                script.async = true;
+                script.onload = () => {
+                    if (typeof window.html2canvas === "function") {
+                        resolve(window.html2canvas);
+                    } else {
+                        reject(new Error("html2canvasを読み込めませんでした。"));
+                    }
+                };
+                script.onerror = () => reject(new Error("html2canvasを読み込めませんでした。"));
+                document.head.appendChild(script);
+            }).catch((error) => {
+                html2CanvasLoadPromise = null;
+                throw error;
+            });
+            return html2CanvasLoadPromise;
+        }
+
+        const JPG_INLINE_STYLE_PROPERTIES = [
+            "align-content",
+            "align-items",
+            "background",
+            "background-color",
+            "border",
+            "border-bottom",
+            "border-collapse",
+            "border-color",
+            "border-left",
+            "border-radius",
+            "border-right",
+            "border-spacing",
+            "border-style",
+            "border-top",
+            "border-width",
+            "box-shadow",
+            "box-sizing",
+            "color",
+            "display",
+            "fill",
+            "flex",
+            "flex-basis",
+            "flex-direction",
+            "flex-grow",
+            "flex-shrink",
+            "flex-wrap",
+            "font",
+            "font-family",
+            "font-size",
+            "font-style",
+            "font-weight",
+            "gap",
+            "grid-column",
+            "grid-column-end",
+            "grid-column-start",
+            "grid-row",
+            "grid-row-end",
+            "grid-row-start",
+            "grid-template-columns",
+            "grid-template-rows",
+            "height",
+            "justify-content",
+            "left",
+            "letter-spacing",
+            "line-height",
+            "margin",
+            "max-height",
+            "max-width",
+            "min-height",
+            "min-width",
+            "opacity",
+            "overflow",
+            "padding",
+            "position",
+            "right",
+            "stroke",
+            "stroke-width",
+            "table-layout",
+            "text-align",
+            "text-decoration",
+            "text-overflow",
+            "top",
+            "transform",
+            "transform-origin",
+            "vertical-align",
+            "visibility",
+            "white-space",
+            "width",
+            "word-break",
+            "z-index"
+        ];
+
+        function copyComputedStylesForJpg(source, target) {
+            if (!(source instanceof Element) || !(target instanceof Element)) {
+                return;
+            }
+            const computed = getComputedStyle(source);
+            JPG_INLINE_STYLE_PROPERTIES.forEach((property) => {
+                const value = computed.getPropertyValue(property);
+                if (value) {
+                    target.style.setProperty(property, value, computed.getPropertyPriority(property));
+                }
+            });
+            const sourceChildren = Array.from(source.children);
+            const targetChildren = Array.from(target.children);
+            sourceChildren.forEach((child, index) => copyComputedStylesForJpg(child, targetChildren[index]));
+        }
+
+        function cloneElementForJpg(element) {
+            const clone = element.cloneNode(true);
+            if (clone instanceof Element) {
+                clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+                clone.style.margin = "0";
+            }
+            copyComputedStylesForJpg(element, clone);
+            return clone;
+        }
+
+        function loadImageFromBlob(blob) {
+            return new Promise((resolve, reject) => {
+                const image = new Image();
+                const url = URL.createObjectURL(blob);
+                image.onload = () => {
+                    URL.revokeObjectURL(url);
+                    resolve(image);
+                };
+                image.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    reject(new Error("画像の読み込みに失敗しました。"));
+                };
+                image.src = url;
+            });
+        }
+
+        function canvasToJpegBlob(canvas, quality = 0.92) {
+            return new Promise((resolve, reject) => {
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error("JPEGの作成に失敗しました。"));
+                    }
+                }, "image/jpeg", quality);
+            });
+        }
+
+        function createJpgRenderStage(element) {
+            const stage = document.createElement("div");
+            stage.setAttribute("aria-hidden", "true");
+            Object.assign(stage.style, {
+                position: "absolute",
+                top: "0",
+                left: "0",
+                zIndex: "2147483647",
+                width: "210mm",
+                background: "#ffffff",
+                pointerEvents: "none"
+            });
+            let renderNode;
+            if (element.classList.contains("print-scorebook-team-page")) {
+                const wrapper = document.createElement("div");
+                wrapper.className = "print-scorebook-page";
+                const clone = element.cloneNode(true);
+                wrapper.appendChild(clone);
+                stage.appendChild(wrapper);
+                renderNode = clone;
+            } else {
+                const clone = element.cloneNode(true);
+                stage.appendChild(clone);
+                renderNode = clone;
+            }
+            document.body.appendChild(stage);
+            return { stage, renderNode };
+        }
+
+        async function renderPrintElementToJpegBlob(element, options = {}) {
+            const rect = element.getBoundingClientRect();
+            const width = Math.ceil(rect.width);
+            const height = Math.ceil(rect.height);
+            if (!width || !height) {
+                throw new Error("出力対象のサイズを取得できませんでした。");
+            }
+            const scale = Math.max(1, Math.min(Number(options.scale) || 2, 3));
+            const html2canvas = await loadHtml2Canvas();
+            const { stage, renderNode } = createJpgRenderStage(element);
+            try {
+                await waitForAnimationFrames(1);
+                const renderRect = renderNode.getBoundingClientRect();
+                const renderWidth = Math.ceil(renderRect.width) || width;
+                const renderHeight = Math.ceil(renderRect.height) || height;
+                const renderedCanvas = await html2canvas(renderNode, {
+                    backgroundColor: "#ffffff",
+                    height: renderHeight,
+                    logging: false,
+                    scale,
+                    scrollX: 0,
+                    scrollY: 0,
+                    useCORS: true,
+                    width: renderWidth,
+                    windowWidth: Math.max(document.documentElement.scrollWidth, renderWidth),
+                    windowHeight: Math.max(document.documentElement.scrollHeight, renderHeight)
+                });
+                if (renderedCanvas) {
+                    return canvasToJpegBlob(renderedCanvas, options.quality || 0.92);
+                }
+            } finally {
+                stage.remove();
+            }
+            const clone = cloneElementForJpg(element);
+            const serialized = new XMLSerializer().serializeToString(clone);
+            const svgMarkup = [
+                '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '">',
+                '<foreignObject width="100%" height="100%">',
+                serialized,
+                '</foreignObject>',
+                '</svg>'
+            ].join("");
+            const svgBlob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
+            const image = await loadImageFromBlob(svgBlob);
+            const canvas = document.createElement("canvas");
+            canvas.width = width * scale;
+            canvas.height = height * scale;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+                throw new Error("Canvasを利用できません。");
+            }
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.scale(scale, scale);
+            ctx.drawImage(image, 0, 0, width, height);
+            return canvasToJpegBlob(canvas, options.quality || 0.92);
+        }
+
+        async function createScorebookJpgFiles() {
+            prepareScorebookJpgMode();
+            await waitForAnimationFrames(2);
+            const timestamp = getPrintFilenameTimestamp();
+            const targets = getJpgExportTargets();
+            if (!targets.length) {
+                throw new Error("JPG出力できるページがありません。");
+            }
+            const files = [];
+            for (const target of targets) {
+                const blob = await renderPrintElementToJpegBlob(target.element, {
+                    scale: window.devicePixelRatio >= 2 ? 1.6 : 2,
+                    quality: 0.92
+                });
+                const filename = "cuviu-scorebook-" + target.suffix + "-" + timestamp + ".jpg";
+                if (typeof File === "function") {
+                    files.push(new File([blob], filename, { type: "image/jpeg" }));
+                } else {
+                    blob.name = filename;
+                    files.push(blob);
+                }
+                await waitForAnimationFrames(1);
+            }
+            return files;
+        }
+
+        async function exportScorebookJpg() {
+            await openAdGate({
+                placement: "pdf",
+                skippable: true,
+                seconds: PDF_AD_SECONDS,
+                skipAfterSeconds: 0
+            });
+            resetPdfAdUnwatchedCount();
+            try {
+                const files = await createScorebookJpgFiles();
+                const shareData = {
+                    title: "スコアブック by CuViu",
+                    text: "スコアブック画像",
+                    files
+                };
+                if (navigator.share && (!navigator.canShare || navigator.canShare({ files }))) {
+                    await navigator.share(shareData);
+                } else {
+                    files.forEach((file) => downloadBlobFile(file, file.name || ("cuviu-scorebook-" + getFilenameTimestamp() + ".jpg")));
+                    window.alert("JPG画像を出力しました。X投稿時に画像として添付してください。");
+                }
+            } catch (error) {
+                console.warn("Scorebook JPG export failed", error);
+                window.alert("JPG出力に失敗しました。PDF出力、または画面スクリーンショットもお試しください。");
+            } finally {
+                resetScorebookPrintMode();
+            }
         }
 
         async function exportScorebookPdf() {
@@ -22012,7 +22778,7 @@
                 const row = rowIndex + 1;
                 drawCell(label, 0, row, { bold: true });
                 innings.forEach((inning, index) => {
-                    const value = line.recorded?.[inning - 1] ? (line.scores?.[inning - 1] || 0) : "";
+                    const value = line.recorded?.[inning - 1] ? (line.scores?.[inning - 1] || 0) : 0;
                     drawCell(value, index + 1, row);
                 });
                 drawCell(getLineScoreTotal(line), innings.length + 1, row, { color: "#b42318", bold: true });
