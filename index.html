@@ -1704,18 +1704,18 @@
                 --sheet-order-w: 6.2mm;
                 --sheet-name-w: 18.4mm;
                 --sheet-number-w: 5.9mm;
-                --sheet-cell-w: 9.2mm;
-                --sheet-cell-h: 7.8mm;
-                --sheet-header-h: 4.2mm;
-                --sheet-font: 1.7mm;
-                --sheet-zoom: 0.46;
+                --sheet-cell-w: calc((var(--print-content-w) - var(--sheet-order-w) - var(--sheet-name-w) - var(--sheet-number-w)) / var(--sheet-inning-count, 9));
+                --sheet-cell-h: min(17.6mm, calc(var(--sheet-cell-w) * 0.95));
+                --sheet-header-h: 4.6mm;
+                --sheet-font: 2mm;
+                --sheet-zoom: 0.58;
                 --print-content-w: 197.9mm;
             }
 
             body.printing-scorebook.keio-scorebook-style .print-scorebook-page {
-                --sheet-cell-h: 10.2mm;
+                --sheet-cell-h: min(18.8mm, calc(var(--sheet-cell-w) * 1.05));
                 --sheet-header-h: 4.4mm;
-                --sheet-font: 1.55mm;
+                --sheet-font: 1.9mm;
             }
 
             body.printing-scorebook .print-scorebook-team-page {
@@ -1989,6 +1989,8 @@
 
             body.printing-scorebook .print-sheet-grid {
                 display: grid;
+                --sheet-cell-w: calc((var(--print-content-w) - var(--sheet-order-w) - var(--sheet-name-w) - var(--sheet-number-w)) / var(--sheet-inning-count, 9));
+                --sheet-cell-h: min(17.6mm, calc(var(--sheet-cell-w) * 0.95));
                 grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(var(--sheet-inning-count, 18), var(--sheet-cell-w));
                 width: max-content;
                 max-width: var(--print-content-w);
@@ -2053,6 +2055,10 @@
                 grid-template-columns: var(--sheet-order-w) var(--sheet-name-w) var(--sheet-number-w) repeat(var(--sheet-inning-count, 18), var(--sheet-cell-w));
                 border-left: 0;
                 border-top: 0.5mm solid #111111;
+            }
+
+            body.printing-scorebook.keio-scorebook-style .print-sheet-grid {
+                --sheet-cell-h: min(18.8mm, calc(var(--sheet-cell-w) * 1.05));
             }
 
             body.printing-scorebook .print-sheet-grid .pitcher-book-cell,
@@ -3121,8 +3127,8 @@
         }
 
         .sheet-roster-slots {
-            display: grid;
-            grid-template-rows: repeat(3, 1fr);
+            display: flex;
+            flex-direction: column;
             width: 100%;
             height: 100%;
         }
@@ -3131,6 +3137,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            flex: 1 1 0;
             min-height: 0;
             padding: 0 2px;
             border-bottom: 1px dotted rgba(31, 92, 46, 0.55);
@@ -3141,6 +3148,24 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .sheet-roster-slot.is-current {
+            flex: 1.35 1 0;
+            color: #172331;
+            font-size: calc(var(--sheet-font) * 0.98);
+            font-weight: 900;
+        }
+
+        .sheet-roster-slot.is-previous {
+            flex: 0.72 1 0;
+            color: #94a3b8;
+            font-size: calc(var(--sheet-font) * 0.68);
+            font-weight: 700;
+        }
+
+        .sheet-roster-slot.is-empty {
+            color: transparent;
         }
 
         .sheet-roster-slot:last-child {
@@ -6819,7 +6844,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.74";
+        const APP_VERSION = "0.3.75";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7556,11 +7581,7 @@
                     { value: "fielding_error_onbase", label: "打球処理エラー", group: "エラー系" },
                     { value: "throw_error_onbase", label: "送球エラー", group: "エラー系" },
                     { value: "receive_error_onbase", label: "捕球エラー", group: "エラー系" },
-                    { value: "force_fc", label: "封殺＆Fc", group: "Fc系" },
-                    { value: "home_force_fc", label: "本塁封殺Fc", group: "Fc系" },
-                    { value: "bunt_failed_fc", label: "バント失敗Fc", group: "Fc系" },
-                    { value: "squeeze_failed_fc", label: "スクイズ失敗Fc", group: "Fc系" },
-                    { value: "fc_all_safe", label: "Fcオールセーフ", group: "Fc系" },
+                    { value: "fc_onbase", label: "Fc", group: "Fc系" },
                     { value: "dropped_third", label: "振り逃げ", group: "三振系" },
                     { value: "other_interference", label: "打撃妨害", group: "その他の出塁" }
                 ]
@@ -7687,14 +7708,6 @@
 
         function forceOutContextFromSequence(fieldSequence) {
             const context = createEmptyRunnerContext();
-            const forceBaseFielder = Array.isArray(fieldSequence) ? fieldSequence[1] : null;
-            if (forceBaseFielder === "2") {
-                addUniqueContextEntry(context.outsOnBases, "本塁封殺");
-            } else if (forceBaseFielder === "5") {
-                addUniqueContextEntry(context.outsOnBases, "三塁封殺");
-            } else if (forceBaseFielder === "4" || forceBaseFielder === "6") {
-                addUniqueContextEntry(context.outsOnBases, "二塁封殺");
-            }
             addUniqueContextEntry(context.advances, "打者走者一塁セーフ");
             return compactRunnerContext(context);
         }
@@ -7718,7 +7731,6 @@
         function buildSqueezeFailedFcParsed(text, fieldSequence = null, baseContext = null, fallbackFielder = "1") {
             const sequence = fieldSequence || extractFieldSequenceFromText(text) || [fallbackFielder || "1", "2"];
             const context = createEmptyRunnerContext();
-            addUniqueContextEntry(context.outsOnBases, getForceOutLabelFromSequence(sequence));
             addUniqueContextEntry(context.advances, "打者走者一塁セーフ");
             return {
                 fielder: sequence[0] || fallbackFielder || "1",
@@ -10944,6 +10956,43 @@
             return table;
         }
 
+        function getPrintLineScoreInnings() {
+            return getLineScoreDisplayInnings(
+                calculateLineScore("top"),
+                calculateLineScore("bottom"),
+                { includeCurrentInning: false }
+            );
+        }
+
+        function hasPrintSheetDataInColumn(half, col) {
+            const sheet = state.scoreSheets?.[half] || createEmptyScoreSheet();
+            for (let row = 0; row < 9; row += 1) {
+                if (sheet[row]?.[col]) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function getPrintSheetColumns(half) {
+            const innings = getPrintLineScoreInnings();
+            const labels = getInningLabels(half);
+            const selected = new Set();
+            innings.forEach((inning) => {
+                const matchingCols = labels
+                    .map((label, col) => Number(label) === Number(inning) ? col : -1)
+                    .filter((col) => col >= 0);
+                const fallbackCol = Math.max(0, Math.min(MAX_INNINGS - 1, Number(inning) - 1));
+                const cols = matchingCols.length ? matchingCols : [fallbackCol];
+                cols.forEach((col, index) => {
+                    if (index === 0 || hasPrintSheetDataInColumn(half, col)) {
+                        selected.add(col);
+                    }
+                });
+            });
+            return Array.from(selected).sort((a, b) => a - b);
+        }
+
         function createPrintSheetBlock(half) {
             const block = document.createElement("section");
             block.className = "print-sheet-block";
@@ -10954,7 +11003,10 @@
             grid.className = "print-sheet-grid";
             block.appendChild(title);
             block.appendChild(grid);
-            renderScoreSheetHalf(grid, half, false, { printMode: true });
+            renderScoreSheetHalf(grid, half, false, {
+                printMode: true,
+                columns: getPrintSheetColumns(half)
+            });
             return block;
         }
 
@@ -11209,27 +11261,17 @@
             return '<a class="sheet-comment-link" href="' + href + '" aria-label="一言コメントへ移動" title="一言コメントへ移動"></a>';
         }
 
-        function getSummaryPitcherName(defenseHalf, battingHalf, inning) {
-            const info = normalizeGameInfo(state.gameInfo);
-            const targetOrder = (Number(inning) * 2) + (battingHalf === "bottom" ? 1 : 0);
-            const latest = (info.pitcherChanges?.[defenseHalf] || [])
-                .filter((change) => {
-                    const changeOrder = (Number(change.inning) * 2) + (change.half === "bottom" ? 1 : 0);
-                    return Number.isFinite(changeOrder) && changeOrder <= targetOrder;
-                })
-                .sort((a, b) => {
-                    const aOrder = (Number(a.inning) * 2) + (a.half === "bottom" ? 1 : 0);
-                    const bOrder = (Number(b.inning) * 2) + (b.half === "bottom" ? 1 : 0);
-                    return aOrder - bOrder;
-                })
-                .pop();
-            return latest
-                ? formatPitcherDisplayName(latest.name, latest.number)
-                : formatPitcherDisplayName(info.pitchers?.[defenseHalf], info.pitcherNumbers?.[defenseHalf]);
+        function getSummaryPitcherName(defenseHalf, battingHalf, section) {
+            const firstEntry = section?.entries?.[0];
+            return getPitcherNameForDefenseHalf(defenseHalf, {
+                battingHalf,
+                row: firstEntry?.row ?? 0,
+                col: firstEntry?.col ?? findColumnForInning(battingHalf, section?.inning || 1)
+            });
         }
 
         function getPrintSummaryPlayerName(half, row) {
-            return splitRosterNameSlots(state.playerNames?.[half]?.[row] || "")[0] || "未登録";
+            return getRosterActivePlayerName(state.playerNames?.[half]?.[row] || "") || "未登録";
         }
 
         function getPrintSummaryComment(snapshot) {
@@ -11264,31 +11306,55 @@
             const sections = [];
             ["top", "bottom"].forEach((half) => {
                 const sheet = state.scoreSheets?.[half] || createEmptyScoreSheet();
-                for (let col = 0; col < MAX_INNINGS; col += 1) {
-                    const entries = [];
-                    for (let row = 0; row < 9; row += 1) {
-                        const snapshot = sheet[row]?.[col];
-                        if (snapshot) {
-                            entries.push({ row, col, snapshot });
-                        }
-                    }
+                getRecordedInningsFrom(half, 1).forEach((inning) => {
+                    const entries = getOrderedCellsForInning(half, inning)
+                        .map(({ row, col }) => {
+                            const snapshot = sheet[row]?.[col];
+                            return snapshot ? { row, col, snapshot } : null;
+                        })
+                        .filter(Boolean);
                     if (entries.length) {
                         sections.push({
                             half,
-                            inning: getInningLabels(half)[col] || (col + 1),
-                            col,
+                            inning,
                             entries
                         });
                     }
-                }
+                });
             });
             return sections.sort((a, b) => {
                 const inningDiff = Number(a.inning) - Number(b.inning);
                 if (inningDiff !== 0) {
                     return inningDiff;
                 }
-                return a.half === b.half ? a.col - b.col : (a.half === "top" ? -1 : 1);
+                return a.half === b.half ? 0 : (a.half === "top" ? -1 : 1);
             });
+        }
+
+        function getPitcherChangeKey(change) {
+            return [
+                change?.name || "",
+                change?.entry?.col ?? "",
+                change?.entry?.row ?? "",
+                change?.order ?? "",
+                change?.note || ""
+            ].join("|");
+        }
+
+        function appendPitcherChangesForPrintEntry(page, pitcherChanges, entry, renderedKeys) {
+            pitcherChanges
+                .filter((change) => compareSheetPosition(entry, change.entry) === 0)
+                .forEach((change) => {
+                    const key = getPitcherChangeKey(change);
+                    if (renderedKeys.has(key)) {
+                        return;
+                    }
+                    renderedKeys.add(key);
+                    const changeLine = document.createElement("div");
+                    changeLine.className = "print-summary-pitcher-change";
+                    changeLine.textContent = "P交代・" + change.name + (change.note ? "　" + change.note : "");
+                    page.appendChild(changeLine);
+                });
         }
 
         function appendPrintTextSummaryScoreboard(page) {
@@ -11352,20 +11418,14 @@
             const teamLabel = document.createElement("span");
             teamLabel.textContent = getTeamDisplayName(section.half) + "の攻撃";
             const pitcherLabel = document.createElement("span");
-            pitcherLabel.textContent = "P " + getSummaryPitcherName(defenseHalf, section.half, section.inning);
+            pitcherLabel.textContent = "P " + getSummaryPitcherName(defenseHalf, section.half, section);
             title.append(inningLabel, teamLabel, pitcherLabel);
             page.appendChild(title);
 
             const totals = { runs: 0, hits: 0, walks: 0 };
+            const renderedPitcherChangeKeys = new Set();
             section.entries.forEach((entry, entryIndex) => {
-                pitcherChanges
-                    .filter((change) => change.order === entry.row + 1)
-                    .forEach((change) => {
-                        const changeLine = document.createElement("div");
-                        changeLine.className = "print-summary-pitcher-change";
-                        changeLine.textContent = "P交代・" + change.name + (change.note ? "　" + change.note : "");
-                        page.appendChild(changeLine);
-                    });
+                appendPitcherChangesForPrintEntry(page, pitcherChanges, entry, renderedPitcherChangeKeys);
 
                 totals.runs += getPrintSummaryRuns(entry.snapshot);
                 totals.hits += isPrintSummaryHit(entry.snapshot) ? 1 : 0;
@@ -14944,10 +15004,11 @@
             const half = state.activeHalf === "bottom" ? "bottom" : "top";
             const index = Math.max(0, Math.min(8, Number(state.selectedSheetRow) || 0));
             const order = index + 1;
+            const rosterName = state.playerNames[half]?.[index] || "";
             return {
                 half,
                 order,
-                name: state.playerNames[half]?.[index] || "",
+                name: getRosterActivePlayerName(rosterName),
                 number: state.playerNumbers[half]?.[index] || "",
                 position: state.playerPositions?.[half]?.[index] || ""
             };
@@ -15023,6 +15084,24 @@
                 names[1] || "",
                 names.slice(2).join("/") || ""
             ];
+        }
+
+        function getRosterActivePlayerName(playerName) {
+            const names = splitRosterNameSlots(playerName).filter(Boolean);
+            return names[names.length - 1] || "";
+        }
+
+        function getRosterSlotClass(nameSlots, slotIndex) {
+            const lastFilledIndex = nameSlots.reduce((last, name, index) => name ? index : last, -1);
+            const classes = ["sheet-roster-slot"];
+            if (!nameSlots[slotIndex]) {
+                classes.push("is-empty");
+            } else if (slotIndex === lastFilledIndex) {
+                classes.push("is-current");
+            } else {
+                classes.push("is-previous");
+            }
+            return classes.join(" ");
         }
 
         function normalizeRosterOcrLine(line) {
@@ -19425,17 +19504,13 @@
 
         function getPitcherChangeForSheetCell(sheetHalf, row, col) {
             const info = normalizeGameInfo(state.gameInfo);
-            const inningLabel = String(getInningLabels(sheetHalf)[col] || (col + 1));
-            const battingOrder = row + 1;
+            const position = normalizeSheetPosition({ row, col });
             const changes = ["top", "bottom"].flatMap((teamHalf) => (
                 (info.pitcherChanges[teamHalf] || []).map((change, index) => ({ teamHalf, change, index }))
             ));
             return changes.find(({ change }) => {
-                const changeInning = String(change.inning || "");
-                const changeOrder = Number(change.battingOrder) || 1;
                 return change.half === sheetHalf
-                    && changeInning === inningLabel
-                    && changeOrder === battingOrder;
+                    && compareSheetPosition(position, getPitcherEntryPosition(change, sheetHalf)) === 0;
             }) || null;
         }
 
@@ -19651,7 +19726,7 @@
             return cell;
         }
 
-        function renderPitcherBook(target, half) {
+        function renderPitcherBook(target, half, options = {}) {
             const section = document.createElement("div");
             section.className = "pitcher-book-section";
             section.onpointerdown = () => startPitcherBookPress(half);
@@ -19664,27 +19739,40 @@
             };
             const rows = getPitcherRowsForHalf(half);
             const pitcherStats = calculatePitcherStatsForTeam(half);
+            const totalColumns = Math.max(4, Number(options.totalColumns) || (MAX_INNINGS + 3));
+            const compactPrint = Boolean(options.printMode) && totalColumns < 18;
             const title = document.createElement("div");
             title.className = "pitcher-book-label pitcher-book-title";
             title.textContent = "投手";
             title.style.gridRow = "span " + Math.max(2, rows.length + 1);
             section.appendChild(title);
 
-            [
-                ["投", 1],
-                ["投方", 1],
-                ["氏名", 4],
-                ["勝敗", 2],
-                ["セーブ", 2],
-                ["登板/メモ", 5],
-                ["投球数", 3],
-                ["打者", 2]
-            ].forEach(([text, span]) => {
+            const compactNameSpan = Math.max(2, Math.floor((totalColumns - 2) * 0.3));
+            const compactEnteredSpan = Math.max(2, totalColumns - 1 - 1 - compactNameSpan - 2 - 1);
+            const headerCells = compactPrint
+                ? [
+                    ["投方", 1],
+                    ["氏名", compactNameSpan],
+                    ["登板/メモ", compactEnteredSpan],
+                    ["球数", 2],
+                    ["打者", 1]
+                ]
+                : [
+                    ["投", 1],
+                    ["投方", 1],
+                    ["氏名", 4],
+                    ["勝敗", 2],
+                    ["セーブ", 2],
+                    ["登板/メモ", 5],
+                    ["投球数", 3],
+                    ["打者", 2]
+                ];
+            headerCells.forEach(([text, span]) => {
                 section.appendChild(createPitcherBookCell(text, "pitcher-book-header", span));
             });
 
             if (!rows.length) {
-                section.appendChild(createPitcherBookCell("投手はまだ登録されていません。", "pitcher-book-empty", 20));
+                section.appendChild(createPitcherBookCell("投手はまだ登録されていません。", "pitcher-book-empty", totalColumns - 1));
                 target.appendChild(section);
                 return;
             }
@@ -19701,14 +19789,22 @@
                         pitcher.enteredAt.fieldingNote || pitcher.enteredAt.note || ""
                     ].filter(Boolean).join(" ")
                     : "";
-                section.appendChild(createPitcherBookCell(String(index + 1)));
-                section.appendChild(createPitcherBookCell(getThrowsLabel(pitcher.throws)));
-                section.appendChild(createPitcherBookCell(pitcher.name || "未登録", "pitcher-book-name", 4));
-                section.appendChild(createPitcherBookCell("", "", 2));
-                section.appendChild(createPitcherBookCell("", "", 2));
-                section.appendChild(createPitcherBookCell([enteredAt, fieldingText].filter(Boolean).join(" / "), "", 5));
-                section.appendChild(createPitcherBookCell(stats.pitchCount ? String(stats.pitchCount) : "", "", 3));
-                section.appendChild(createPitcherBookCell(stats.battersFaced ? String(stats.battersFaced) : "", "", 2));
+                if (compactPrint) {
+                    section.appendChild(createPitcherBookCell(getThrowsLabel(pitcher.throws)));
+                    section.appendChild(createPitcherBookCell(pitcher.name || "未登録", "pitcher-book-name", compactNameSpan));
+                    section.appendChild(createPitcherBookCell([enteredAt, fieldingText].filter(Boolean).join(" / "), "", compactEnteredSpan));
+                    section.appendChild(createPitcherBookCell(stats.pitchCount ? String(stats.pitchCount) : "", "", 2));
+                    section.appendChild(createPitcherBookCell(stats.battersFaced ? String(stats.battersFaced) : "", "", 1));
+                } else {
+                    section.appendChild(createPitcherBookCell(String(index + 1)));
+                    section.appendChild(createPitcherBookCell(getThrowsLabel(pitcher.throws)));
+                    section.appendChild(createPitcherBookCell(pitcher.name || "未登録", "pitcher-book-name", 4));
+                    section.appendChild(createPitcherBookCell("", "", 2));
+                    section.appendChild(createPitcherBookCell("", "", 2));
+                    section.appendChild(createPitcherBookCell([enteredAt, fieldingText].filter(Boolean).join(" / "), "", 5));
+                    section.appendChild(createPitcherBookCell(stats.pitchCount ? String(stats.pitchCount) : "", "", 3));
+                    section.appendChild(createPitcherBookCell(stats.battersFaced ? String(stats.battersFaced) : "", "", 2));
+                }
             });
 
             target.appendChild(section);
@@ -19763,6 +19859,12 @@
         function renderScoreSheetHalf(target, half, interactive, options = {}) {
             const sheet = state.scoreSheets[half] || createEmptyScoreSheet();
             const printMode = Boolean(options.printMode);
+            const visibleColumns = Array.isArray(options.columns) && options.columns.length
+                ? options.columns
+                    .map((col) => Math.max(0, Math.min(MAX_INNINGS - 1, Number(col) || 0)))
+                    .filter((col, index, cols) => cols.indexOf(col) === index)
+                : Array.from({ length: MAX_INNINGS }, (_, index) => index);
+            target.style.setProperty("--sheet-inning-count", String(Math.max(1, visibleColumns.length)));
             const previousSheet = state.scoreSheet;
             state.scoreSheet = sheet;
             [
@@ -19777,12 +19879,12 @@
             });
 
             const inningLabels = getInningLabels(half);
-            for (let inning = 1; inning <= MAX_INNINGS; inning += 1) {
+            visibleColumns.forEach((col) => {
                 const header = document.createElement("div");
                 header.className = "sheet-header";
-                header.textContent = String(inningLabels[inning - 1] || inning);
+                header.textContent = String(inningLabels[col] || (col + 1));
                 target.appendChild(header);
-            }
+            });
 
             for (let row = 0; row < 9; row += 1) {
                 const label = document.createElement("div");
@@ -19796,9 +19898,9 @@
                 const nameSlots = splitRosterNameSlots(playerName);
                 roster.innerHTML = [
                     '<div class="sheet-roster-slots">',
-                    '<div class="sheet-roster-slot">' + escapeHtml(nameSlots[0]) + '</div>',
-                    '<div class="sheet-roster-slot">' + escapeHtml(nameSlots[1]) + '</div>',
-                    '<div class="sheet-roster-slot">' + escapeHtml(nameSlots[2]) + '</div>',
+                    '<div class="' + getRosterSlotClass(nameSlots, 0) + '">' + escapeHtml(nameSlots[0]) + '</div>',
+                    '<div class="' + getRosterSlotClass(nameSlots, 1) + '">' + escapeHtml(nameSlots[1]) + '</div>',
+                    '<div class="' + getRosterSlotClass(nameSlots, 2) + '">' + escapeHtml(nameSlots[2]) + '</div>',
                     '</div>'
                 ].join("");
                 if (interactive) {
@@ -19818,7 +19920,7 @@
                 number.textContent = state.playerNumbers[half]?.[row] || "";
                 target.appendChild(number);
 
-                for (let col = 0; col < MAX_INNINGS; col += 1) {
+                visibleColumns.forEach((col) => {
                     const button = document.createElement(printMode ? "div" : "button");
                     button.className = "sheet-cell";
                     if (!printMode) {
@@ -19867,9 +19969,12 @@
                     }
 
                     target.appendChild(button);
-                }
+                });
             }
-            renderPitcherBook(target, half);
+            renderPitcherBook(target, half, {
+                printMode,
+                totalColumns: visibleColumns.length + 3
+            });
             state.scoreSheet = previousSheet;
         }
 
@@ -19961,6 +20066,7 @@
         let commentPopupTarget = null;
         let cellActionTarget = null;
         let playDetailPopupTarget = null;
+        let pinchPlayerDialogTarget = null;
         let pendingInningTransition = null;
 
         function isValidHalfValue(value) {
@@ -20668,6 +20774,7 @@
                     const change = info.pitcherChanges?.[normalizedDefenseHalf]?.[activeChange.sourceIndex];
                     return formatPitcherDisplayName(change?.name, change?.number);
                 }
+                return formatPitcherDisplayName(info.pitchers?.[normalizedDefenseHalf], info.pitcherNumbers?.[normalizedDefenseHalf]);
             }
             const changes = info.pitcherChanges?.[normalizedDefenseHalf] || [];
             const latestChange = changes[changes.length - 1];
@@ -20683,6 +20790,7 @@
                 .map((change) => ({
                     name: formatPitcherDisplayName(change.name, change.number),
                     order: Number(change.battingOrder) || 0,
+                    entry: getPitcherEntryPosition(change, battingHalf),
                     note: change.note || ""
                 }));
         }
@@ -23272,26 +23380,111 @@
                 return;
             }
             const currentName = state.playerNames[half]?.[row] || "";
+            const currentNumber = state.playerNumbers[half]?.[row] || "";
             const label = (state.teamNames[half] || (half === "top" ? "先攻" : "後攻")) + " " + (row + 1) + "番";
-            const nextName = window.prompt(label + "の代打/代走/交代選手名を入力してください。現在: " + (currentName || "未登録"), "");
-            if (!nextName) {
+            const { backdrop, popup } = ensurePinchPlayerDialog();
+            pinchPlayerDialogTarget = { half, row };
+            backdrop.onclick = closePinchPlayerDialog;
+            popup.innerHTML = [
+                '<div class="comment-popup-title">代打/代走: ' + escapeHtml(label) + '</div>',
+                '<div class="comment-popup-body">' + escapeHtml("現在: " + (currentName || "未登録") + (currentNumber ? " / #" + currentNumber : "")) + '</div>',
+                '<form class="pitcher-change-dialog-form" onsubmit="savePinchPlayerDialog(event)">',
+                    '<label class="span-2">選手名<input id="pinchPlayerNameInput" type="text" autocomplete="off" placeholder="例: 山田 / #12 山田" autofocus></label>',
+                    '<label class="span-2">背番号<input id="pinchPlayerNumberInput" type="text" inputmode="numeric" autocomplete="off" placeholder="例: 12"></label>',
+                    '<div class="comment-popup-actions span-2">',
+                        '<button type="button" onclick="closePinchPlayerDialog()">キャンセル</button>',
+                        '<button type="submit" class="btn-hit">登録</button>',
+                    '</div>',
+                '</form>'
+            ].join("");
+            backdrop.classList.add("is-open");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            setTimeout(() => document.getElementById("pinchPlayerNameInput")?.focus(), 0);
+        }
+
+        function ensurePinchPlayerDialog() {
+            let backdrop = document.getElementById("pinchPlayerDialogBackdrop");
+            let popup = document.getElementById("pinchPlayerDialog");
+            if (!backdrop) {
+                backdrop = document.createElement("div");
+                backdrop.id = "pinchPlayerDialogBackdrop";
+                backdrop.className = "comment-popup-backdrop";
+                backdrop.onclick = closePinchPlayerDialog;
+                document.body.appendChild(backdrop);
+            }
+            if (!popup) {
+                popup = document.createElement("div");
+                popup.id = "pinchPlayerDialog";
+                popup.className = "comment-popup";
+                popup.setAttribute("aria-hidden", "true");
+                document.body.appendChild(popup);
+            }
+            return { backdrop, popup };
+        }
+
+        function normalizeJerseyNumberText(value) {
+            return String(value || "")
+                .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xFEE0))
+                .replace(/[^\d]/g, "")
+                .slice(0, 3);
+        }
+
+        function parsePinchPlayerDialogInput(nameText, numberText) {
+            let name = String(nameText || "").trim();
+            let number = normalizeJerseyNumberText(numberText);
+            if (!number) {
+                const match = name.match(/^(?:#|背番号)?\s*([0-9０-９]{1,3})\s*[・:：.\-、\s]*(.+)$/);
+                if (match) {
+                    number = normalizeJerseyNumberText(match[1]);
+                    name = String(match[2] || "").trim();
+                }
+            }
+            return { name, number };
+        }
+
+        function savePinchPlayerDialog(event) {
+            event?.preventDefault();
+            if (!pinchPlayerDialogTarget) {
                 return;
             }
-            const cleaned = nextName.trim();
-            if (!cleaned) {
+            const { half, row } = pinchPlayerDialogTarget;
+            const parsed = parsePinchPlayerDialogInput(
+                document.getElementById("pinchPlayerNameInput")?.value || "",
+                document.getElementById("pinchPlayerNumberInput")?.value || ""
+            );
+            if (!parsed.name) {
+                alert("選手名を入力してください。");
                 return;
             }
             pushGameHistory();
             if (!state.playerNames[half]) {
                 state.playerNames[half] = Array.from({ length: 9 }, () => "");
             }
+            if (!state.playerNumbers[half]) {
+                state.playerNumbers[half] = Array.from({ length: 9 }, () => "");
+            }
             const names = splitRosterNameSlots(state.playerNames[half][row]).filter(Boolean);
-            names.push(cleaned);
+            names.push(parsed.name);
             state.playerNames[half][row] = names.slice(0, 3).join("/");
+            if (parsed.number) {
+                state.playerNumbers[half][row] = parsed.number;
+            }
+            updateRegisteredPlayerNameOptions();
             renderPlayerRosterEditor();
             renderScoreSheet();
             renderCurrentBatterCard();
+            updateCommentTargetLabel();
+            maybeRefreshRememberedTeamRoster(half);
             scheduleGameAutoSave();
+            closePinchPlayerDialog();
+        }
+
+        function closePinchPlayerDialog() {
+            document.getElementById("pinchPlayerDialog")?.classList.remove("is-open");
+            document.getElementById("pinchPlayerDialog")?.setAttribute("aria-hidden", "true");
+            document.getElementById("pinchPlayerDialogBackdrop")?.classList.remove("is-open");
+            pinchPlayerDialogTarget = null;
         }
 
         function saveCurrentToSheet() {
@@ -26655,34 +26848,19 @@
                         addBatterExtraAdvance(parsed, 2, "receive", sequence[0] || parsed.fielder, sequence);
                         break;
                     case "fc_onbase":
-                        parsed.result = parsed.result || "Fc";
-                        parsed.runnerContext.advances.push("一走→二塁");
-                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
-                        break;
                     case "force_fc":
-                        parsed.result = parsed.result || "Fc";
-                        parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
-                        parsed.runnerContext.outsOnBases.push(getForceOutLabelFromSequence(sequence));
-                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
-                        break;
                     case "home_force_fc":
-                        if (sequence.length < 2) {
-                            sequence = [parsed.fielder && parsed.fielder !== "?" ? parsed.fielder : "?", "2"];
-                            parsed.fieldSequence = sequence;
-                            parsed.fielder = sequence[0];
-                        }
+                    case "fc_all_safe":
                         parsed.result = parsed.result || "Fc";
                         parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
-                        parsed.runnerContext.outsOnBases.push("本塁封殺");
-                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        addUniqueContextEntry(parsed.runnerContext.advances, "打者走者一塁セーフ");
                         break;
                     case "bunt_failed_fc":
                         parsed.result = parsed.result || "Fc";
                         parsed.ballType = "ground";
                         parsed.modifiers.bunt = true;
                         parsed.modifiers.buntFailed = true;
-                        parsed.runnerContext.outsOnBases.push(getForceOutLabelFromSequence(sequence));
-                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        addUniqueContextEntry(parsed.runnerContext.advances, "打者走者一塁セーフ");
                         break;
                     case "squeeze_failed_fc":
                         if (sequence.length < 2) {
@@ -26695,14 +26873,7 @@
                         parsed.modifiers.bunt = true;
                         parsed.modifiers.buntFailed = true;
                         parsed.modifiers.squeezeFailed = true;
-                        parsed.runnerContext.outsOnBases.push(getForceOutLabelFromSequence(sequence));
-                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
-                        break;
-                    case "fc_all_safe":
-                        parsed.result = parsed.result || "Fc";
-                        parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
-                        addForcedAdvanceEntries(parsed);
-                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        addUniqueContextEntry(parsed.runnerContext.advances, "打者走者一塁セーフ");
                         break;
                     case "dropped_third":
                         parsed.result = parsed.result || "K";
@@ -26889,8 +27060,7 @@
                     case "force_2_batter_safe":
                         parsed.result = parsed.result || "Fc";
                         parsed.ballType = parsed.ballType === "none" ? "ground" : parsed.ballType;
-                        parsed.runnerContext.outsOnBases.push("二塁封殺");
-                        parsed.runnerContext.advances.push("打者走者一塁セーフ");
+                        addUniqueContextEntry(parsed.runnerContext.advances, "打者走者一塁セーフ");
                         break;
                     case "force_3":
                         parsed.runnerContext.outsOnBases.push("三塁封殺");
