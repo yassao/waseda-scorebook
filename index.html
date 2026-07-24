@@ -4933,6 +4933,26 @@
             text-decoration: none;
         }
 
+        .jpg-file-share-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .jpg-file-share-list button {
+            min-height: 50px;
+            border-color: #4080a8;
+            background: #e6f4fb;
+            color: #172331;
+            font-weight: 900;
+        }
+
+        .jpg-file-share-note {
+            color: #64748b;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
         .defense-change-menu .comment-popup-body {
             min-height: 0;
         }
@@ -7377,7 +7397,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.86";
+        const APP_VERSION = "0.3.87";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8047,6 +8067,7 @@
         let isTwitterImporting = false;
         let isUpdatingInningShareSplitPanel = false;
         let genericShareDraftContext = null;
+        let pendingScorebookJpgFiles = [];
         const teamRosterMemoryLinks = {
             top: "",
             bottom: ""
@@ -13164,6 +13185,10 @@
             resetPdfAdUnwatchedCount();
             try {
                 const files = await createScorebookJpgFiles({ scorebookStyle: selectedStyle });
+                if (files.length > 1) {
+                    openScorebookJpgFileSharePopup(files);
+                    return;
+                }
                 const shareText = buildScorebookJpgShareDraft();
                 const shareData = {
                     title: "スコアブック by CuViu",
@@ -23180,6 +23205,97 @@
                 draft: buildScorebookJpgShareDraft(),
                 initialStatus: message || "保存したJPGを選ぶと、本文と一緒に共有できます。"
             });
+        }
+
+        function getScorebookJpgFileLabel(file, index, total) {
+            const name = String(file?.name || "");
+            let label = "JPG画像";
+            if (name.includes("scorebook-top")) {
+                label = "先攻スコアブック";
+            } else if (name.includes("scorebook-bottom")) {
+                label = "後攻スコアブック";
+            } else if (name.includes("changes")) {
+                label = "選手交代表";
+            } else if (name.includes("progress")) {
+                label = "テキスト速報";
+            }
+            return (index + 1) + "/" + total + " " + label;
+        }
+
+        function setScorebookJpgFileShareStatus(message, isError = false) {
+            const status = document.getElementById("scorebookJpgFileShareStatus");
+            if (!status) {
+                return;
+            }
+            status.textContent = message || "";
+            status.style.color = isError ? "#b42318" : "#64748b";
+        }
+
+        function closeScorebookJpgFileSharePopup() {
+            pendingScorebookJpgFiles = [];
+            document.getElementById("inningSharePopup")?.classList.remove("is-open");
+            document.getElementById("inningSharePopup")?.setAttribute("aria-hidden", "true");
+            document.getElementById("inningSharePopupBackdrop")?.classList.remove("is-open");
+        }
+
+        async function shareScorebookJpgFile(index) {
+            const file = pendingScorebookJpgFiles[index];
+            if (!file) {
+                setScorebookJpgFileShareStatus("画像が見つかりません。もう一度JPG出力してください。", true);
+                return;
+            }
+            const files = [file];
+            const label = getScorebookJpgFileLabel(file, index, pendingScorebookJpgFiles.length);
+            try {
+                if (navigator.share && (!navigator.canShare || navigator.canShare({ files }))) {
+                    await navigator.share({
+                        title: "スコアブック by CuViu",
+                        files
+                    });
+                    setScorebookJpgFileShareStatus(label + "を共有しました。続けて次の画像を保存できます。");
+                    return;
+                }
+            } catch (error) {
+                if (error?.name === "AbortError") {
+                    setScorebookJpgFileShareStatus(label + "の共有を取り消しました。");
+                    return;
+                }
+                console.warn("Single JPG share failed", error);
+            }
+            const downloaded = downloadBlobFile(file, file.name || ("cuviu-scorebook-" + getFilenameTimestamp() + ".jpg"));
+            setScorebookJpgFileShareStatus(
+                downloaded ? label + "の保存を開始しました。" : label + "を保存できませんでした。",
+                !downloaded
+            );
+        }
+
+        function openScorebookJpgFileSharePopup(files) {
+            pendingScorebookJpgFiles = Array.from(files || []);
+            const { popup, backdrop } = ensureGenericSharePopupLayer();
+            if (!popup || !backdrop) {
+                pendingScorebookJpgFiles.forEach((file) => downloadBlobFile(file, file.name || ("cuviu-scorebook-" + getFilenameTimestamp() + ".jpg")));
+                return;
+            }
+            const buttons = pendingScorebookJpgFiles.map((file, index) => {
+                return '<button type="button" onclick="shareScorebookJpgFile(' + index + ')">' + escapeHtml(getScorebookJpgFileLabel(file, index, pendingScorebookJpgFiles.length)) + 'を保存/共有</button>';
+            }).join("");
+            popup.innerHTML = [
+                '<div class="comment-popup-title">JPG保存 <small>v' + escapeHtml(APP_VERSION) + '</small></div>',
+                '<div class="comment-popup-body">',
+                '<div class="jpg-file-share-note">iPhone/Chromeでは複数画像の一括保存が1枚だけになることがあります。上から順に1枚ずつ保存/共有してください。</div>',
+                '<div class="jpg-file-share-list">',
+                buttons,
+                '</div>',
+                '<div id="scorebookJpgFileShareStatus" class="share-attachment-status" aria-live="polite">JPGを' + pendingScorebookJpgFiles.length + '枚作成しました。</div>',
+                '</div>',
+                '<div class="comment-popup-actions">',
+                '<button type="button" onclick="openScorebookJpgShareDraft(\'必要な画像を保存したら、X投稿時に添付してください。\')">投稿文を開く</button>',
+                '<button type="button" onclick="closeScorebookJpgFileSharePopup()">閉じる</button>',
+                '</div>'
+            ].join("");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+            backdrop.classList.add("is-open");
         }
 
         function ensureGenericSharePopupLayer() {
