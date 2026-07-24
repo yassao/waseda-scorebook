@@ -1595,6 +1595,51 @@
             accent-color: #0f766e;
         }
 
+        .summary-photo-uploader {
+            display: grid;
+            gap: 6px;
+            padding: 8px 10px;
+            border: 1.5px solid #d9e4ec;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.78);
+        }
+
+        .summary-photo-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .summary-photo-upload-btn,
+        .summary-photo-clear-btn {
+            min-height: 32px;
+            padding: 6px 10px;
+            border: 1.5px solid #0f766e;
+            border-radius: 9px;
+            background: #eefaf7;
+            color: #0f766e;
+            font-size: 13px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .summary-photo-clear-btn {
+            border-color: #d9e4ec;
+            background: #ffffff;
+            color: #526273;
+        }
+
+        .summary-photo-input {
+            display: none;
+        }
+
+        .summary-photo-status {
+            color: #637587;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
         .pdf-supporter-panel {
             display: none;
             gap: 7px;
@@ -1863,6 +1908,31 @@
 
         body.jpg-exporting .print-summary-result {
             color: #222222;
+        }
+
+        body.jpg-exporting .print-summary-photo-strip {
+            display: flex;
+            gap: 2mm;
+            flex-wrap: wrap;
+            margin-top: 1.2mm;
+            padding-left: 8mm;
+        }
+
+        body.jpg-exporting .print-summary-photo {
+            display: grid;
+            gap: 0.4mm;
+            margin: 0;
+            color: #64748b;
+            font-size: 1.8mm;
+            font-weight: 800;
+        }
+
+        body.jpg-exporting .print-summary-photo img {
+            width: 22mm;
+            height: 15mm;
+            border: 0.3mm solid #d7dce2;
+            border-radius: 1mm;
+            object-fit: cover;
         }
 
         body.jpg-exporting .print-summary-comment {
@@ -2312,6 +2382,31 @@
 
             body.printing-scorebook .print-summary-result {
                 color: #222222;
+            }
+
+            body.printing-scorebook .print-summary-photo-strip {
+                display: flex;
+                gap: 2mm;
+                flex-wrap: wrap;
+                margin-top: 1.2mm;
+                padding-left: 8mm;
+            }
+
+            body.printing-scorebook .print-summary-photo {
+                display: grid;
+                gap: 0.4mm;
+                margin: 0;
+                color: #64748b;
+                font-size: 1.8mm;
+                font-weight: 800;
+            }
+
+            body.printing-scorebook .print-summary-photo img {
+                width: 22mm;
+                height: 15mm;
+                border: 0.3mm solid #d7dce2;
+                border-radius: 1mm;
+                object-fit: cover;
             }
 
             body.printing-scorebook .print-summary-comment {
@@ -7172,6 +7267,16 @@
                 <div class="pdf-action-row">
                     <div class="pdf-export-options">
                         <label><input id="pdfTextSummaryCheckbox" type="checkbox">テキスト速報ページも出力</label>
+                        <div class="summary-photo-uploader">
+                            <div class="summary-photo-actions">
+                                <label class="summary-photo-upload-btn">
+                                    速報写真を追加
+                                    <input id="summaryPhotoInput" class="summary-photo-input" type="file" accept="image/*,.heic,.heif" multiple onchange="handleSummaryPhotoUpload(this.files)">
+                                </label>
+                                <button type="button" class="summary-photo-clear-btn" onclick="clearSummaryPhotos()">クリア</button>
+                            </div>
+                            <div id="summaryPhotoStatus" class="summary-photo-status">写真未選択。撮影時刻に近い打席へ自動で入ります。</div>
+                        </div>
                         <div id="pdfSupporterFooterPanel" class="pdf-supporter-panel" aria-hidden="true">
                             <div class="pdf-supporter-heading">PDFフッター文言</div>
                             <input id="pdfSupporterFooterText" type="text" maxlength="80" placeholder="スコアブック by CuViu" oninput="setSupporterFooterText(this.value)">
@@ -7272,7 +7377,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.84";
+        const APP_VERSION = "0.3.85";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7287,6 +7392,10 @@
         const SUPPORTER_FEATURES_STORAGE_KEY = "cuviu_scorebook_supporter_features_v1";
         const MAX_SAVED_GAME_SLOTS = 30;
         const MAX_TEAM_ROSTER_MEMORY = 80;
+        const MAX_SUMMARY_PHOTOS = 16;
+        const SUMMARY_PHOTO_MAX_SIZE = 520;
+        const SUMMARY_PHOTO_JPEG_QUALITY = 0.82;
+        const SUMMARY_PHOTO_MATCH_WINDOW_MS = 30 * 60 * 1000;
         const X_FREE_WEIGHT_LIMIT = 280;
         const X_FREE_FULLWIDTH_LIMIT = 140;
         const X_URL_WEIGHT_LENGTH = 23;
@@ -11683,10 +11792,258 @@
         }
 
         let forcePrintTextSummaryForExport = false;
+        let printSummaryPhotos = [];
 
         function isPrintTextSummaryEnabled() {
             const checkbox = document.getElementById("pdfTextSummaryCheckbox");
-            return forcePrintTextSummaryForExport || Boolean(checkbox?.checked) || hasAnyPrintComments();
+            return forcePrintTextSummaryForExport || Boolean(checkbox?.checked) || hasAnyPrintComments() || printSummaryPhotos.length > 0;
+        }
+
+        function updateSummaryPhotoStatus(message = "") {
+            const status = document.getElementById("summaryPhotoStatus");
+            if (!status) {
+                return;
+            }
+            if (message) {
+                status.textContent = message;
+                return;
+            }
+            if (!printSummaryPhotos.length) {
+                status.textContent = "写真未選択。撮影時刻に近い打席へ自動で入ります。";
+                return;
+            }
+            status.textContent = printSummaryPhotos.length + "枚をテキスト速報に入れます。撮影時刻に近い打席へ自動配置します。";
+        }
+
+        function clearSummaryPhotos() {
+            printSummaryPhotos = [];
+            const input = document.getElementById("summaryPhotoInput");
+            if (input) {
+                input.value = "";
+            }
+            updateSummaryPhotoStatus();
+            renderPrintableTextSummaryPage();
+        }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result || ""));
+                reader.onerror = () => reject(new Error("写真を読み込めませんでした。"));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function loadImageFromDataUrl(dataUrl) {
+            return new Promise((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => resolve(image);
+                image.onerror = () => reject(new Error("写真画像を表示用に変換できませんでした。"));
+                image.src = dataUrl;
+            });
+        }
+
+        function canvasToDataUrl(canvas, quality = SUMMARY_PHOTO_JPEG_QUALITY) {
+            try {
+                return canvas.toDataURL("image/jpeg", quality);
+            } catch (error) {
+                return "";
+            }
+        }
+
+        async function createSummaryPhotoDataUrl(file) {
+            const sourceDataUrl = await readFileAsDataUrl(file);
+            try {
+                const image = await loadImageFromDataUrl(sourceDataUrl);
+                const maxSide = Math.max(image.naturalWidth || image.width || 1, image.naturalHeight || image.height || 1);
+                const scale = Math.min(1, SUMMARY_PHOTO_MAX_SIZE / maxSide);
+                const width = Math.max(1, Math.round((image.naturalWidth || image.width || 1) * scale));
+                const height = Math.max(1, Math.round((image.naturalHeight || image.height || 1) * scale));
+                const canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) {
+                    return sourceDataUrl;
+                }
+                ctx.drawImage(image, 0, 0, width, height);
+                return canvasToDataUrl(canvas) || sourceDataUrl;
+            } catch (error) {
+                return sourceDataUrl;
+            }
+        }
+
+        function parseExifDateTimeText(value) {
+            const match = String(value || "").trim().match(/^(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?/);
+            if (!match) {
+                return null;
+            }
+            const date = new Date(
+                Number(match[1]),
+                Number(match[2]) - 1,
+                Number(match[3]),
+                Number(match[4]),
+                Number(match[5]),
+                Number(match[6] || 0)
+            );
+            const ms = date.getTime();
+            return Number.isFinite(ms) ? ms : null;
+        }
+
+        function readExifAsciiValue(view, entryOffset, tiffStart, littleEndian) {
+            const type = view.getUint16(entryOffset + 2, littleEndian);
+            const count = view.getUint32(entryOffset + 4, littleEndian);
+            if (type !== 2 || !Number.isFinite(count) || count <= 0 || count > 64) {
+                return "";
+            }
+            const inline = count <= 4;
+            const valueOffset = inline ? entryOffset + 8 : tiffStart + view.getUint32(entryOffset + 8, littleEndian);
+            if (valueOffset < 0 || valueOffset + count > view.byteLength) {
+                return "";
+            }
+            let text = "";
+            for (let index = 0; index < count; index += 1) {
+                const code = view.getUint8(valueOffset + index);
+                if (!code) {
+                    break;
+                }
+                text += String.fromCharCode(code);
+            }
+            return text;
+        }
+
+        function findExifTag(view, ifdOffset, tiffStart, littleEndian, targetTags) {
+            if (ifdOffset < 0 || ifdOffset + 2 > view.byteLength) {
+                return null;
+            }
+            const count = view.getUint16(ifdOffset, littleEndian);
+            for (let index = 0; index < count; index += 1) {
+                const entryOffset = ifdOffset + 2 + (index * 12);
+                if (entryOffset + 12 > view.byteLength) {
+                    break;
+                }
+                const tag = view.getUint16(entryOffset, littleEndian);
+                if (targetTags.includes(tag)) {
+                    return { tag, entryOffset };
+                }
+            }
+            return null;
+        }
+
+        function parseJpegExifTimestamp(buffer) {
+            const view = new DataView(buffer);
+            if (view.byteLength < 12 || view.getUint16(0, false) !== 0xffd8) {
+                return null;
+            }
+            let offset = 2;
+            while (offset + 4 < view.byteLength) {
+                if (view.getUint8(offset) !== 0xff) {
+                    return null;
+                }
+                const marker = view.getUint8(offset + 1);
+                const segmentLength = view.getUint16(offset + 2, false);
+                const segmentStart = offset + 4;
+                if (marker === 0xe1 && segmentStart + 10 < view.byteLength) {
+                    const signature = [0, 1, 2, 3, 4, 5]
+                        .map((index) => String.fromCharCode(view.getUint8(segmentStart + index)))
+                        .join("");
+                    if (signature === "Exif\u0000\u0000") {
+                        const tiffStart = segmentStart + 6;
+                        const byteOrder = String.fromCharCode(view.getUint8(tiffStart), view.getUint8(tiffStart + 1));
+                        const littleEndian = byteOrder === "II";
+                        if (!littleEndian && byteOrder !== "MM") {
+                            return null;
+                        }
+                        if (view.getUint16(tiffStart + 2, littleEndian) !== 42) {
+                            return null;
+                        }
+                        const ifd0Offset = tiffStart + view.getUint32(tiffStart + 4, littleEndian);
+                        const exifPointer = findExifTag(view, ifd0Offset, tiffStart, littleEndian, [0x8769]);
+                        if (exifPointer) {
+                            const exifIfdOffset = tiffStart + view.getUint32(exifPointer.entryOffset + 8, littleEndian);
+                            const originalDate = findExifTag(view, exifIfdOffset, tiffStart, littleEndian, [0x9003, 0x9004]);
+                            if (originalDate) {
+                                return parseExifDateTimeText(readExifAsciiValue(view, originalDate.entryOffset, tiffStart, littleEndian));
+                            }
+                        }
+                        const dateTime = findExifTag(view, ifd0Offset, tiffStart, littleEndian, [0x0132]);
+                        if (dateTime) {
+                            return parseExifDateTimeText(readExifAsciiValue(view, dateTime.entryOffset, tiffStart, littleEndian));
+                        }
+                    }
+                }
+                if (!segmentLength || segmentLength < 2) {
+                    break;
+                }
+                offset += 2 + segmentLength;
+            }
+            return null;
+        }
+
+        async function getSummaryPhotoTimestampMs(file) {
+            try {
+                if (/jpe?g$/i.test(file.type || "") || /\.jpe?g$/i.test(file.name || "")) {
+                    const buffer = await file.slice(0, 256 * 1024).arrayBuffer();
+                    const exifTimestamp = parseJpegExifTimestamp(buffer);
+                    if (Number.isFinite(exifTimestamp)) {
+                        return exifTimestamp;
+                    }
+                }
+            } catch (error) {
+                // EXIFが読めない写真でも、ファイル時刻で配置を続行します。
+            }
+            return Number.isFinite(file.lastModified) ? file.lastModified : Date.now();
+        }
+
+        function isSupportedSummaryPhotoFile(file) {
+            return Boolean(file)
+                && (
+                    String(file.type || "").startsWith("image/")
+                    || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name || "")
+                );
+        }
+
+        async function createSummaryPhotoItem(file, index) {
+            const timestampMs = await getSummaryPhotoTimestampMs(file);
+            const dataUrl = await createSummaryPhotoDataUrl(file);
+            return {
+                id: "summary-photo-" + Date.now() + "-" + index,
+                name: file.name || ("写真" + (index + 1)),
+                timestampMs,
+                dataUrl
+            };
+        }
+
+        async function handleSummaryPhotoUpload(fileList) {
+            const files = Array.from(fileList || []).filter(isSupportedSummaryPhotoFile).slice(0, MAX_SUMMARY_PHOTOS);
+            const input = document.getElementById("summaryPhotoInput");
+            if (!files.length) {
+                if (input) {
+                    input.value = "";
+                }
+                updateSummaryPhotoStatus("写真を選択できませんでした。JPEG/PNG/WebP/HEICを選んでください。");
+                return;
+            }
+            updateSummaryPhotoStatus("写真を読み込んでいます...");
+            const summaryCheckbox = document.getElementById("pdfTextSummaryCheckbox");
+            if (summaryCheckbox) {
+                summaryCheckbox.checked = true;
+            }
+            try {
+                printSummaryPhotos = (await Promise.all(files.map(createSummaryPhotoItem)))
+                    .filter((photo) => photo.dataUrl)
+                    .sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
+                updateSummaryPhotoStatus();
+                renderPrintableTextSummaryPage();
+            } catch (error) {
+                console.warn("Summary photo load failed", error);
+                printSummaryPhotos = [];
+                updateSummaryPhotoStatus("写真を読み込めませんでした。枚数を減らして再度お試しください。");
+            } finally {
+                if (input) {
+                    input.value = "";
+                }
+            }
         }
 
         function renderPrintCommentLink(snapshot, half, row, col) {
@@ -11843,14 +12200,128 @@
             page.appendChild(box);
         }
 
-        function appendPrintTextSummarySection(page, section) {
+        function parsePrintSummaryTimestampMs(value) {
+            if (!value) {
+                return null;
+            }
+            const ms = Date.parse(String(value));
+            return Number.isFinite(ms) ? ms : null;
+        }
+
+        function getPrintSummaryEntryTimeRange(entry) {
+            const snapshot = entry?.snapshot || {};
+            const pitchTimes = (snapshot.pitchTimestamps || [])
+                .map(parsePrintSummaryTimestampMs)
+                .filter((ms) => Number.isFinite(ms));
+            const start = parsePrintSummaryTimestampMs(snapshot.atBatStartedAt)
+                || pitchTimes[0]
+                || parsePrintSummaryTimestampMs(snapshot.atBatCommentMeta?.capturedAt)
+                || parsePrintSummaryTimestampMs(snapshot.resultSavedAt);
+            const end = parsePrintSummaryTimestampMs(snapshot.resultSavedAt)
+                || pitchTimes[pitchTimes.length - 1]
+                || parsePrintSummaryTimestampMs(snapshot.lastEditedAt)
+                || start;
+            if (!Number.isFinite(start) && !Number.isFinite(end)) {
+                return null;
+            }
+            const safeStart = Number.isFinite(start) ? start : end;
+            const safeEnd = Number.isFinite(end) ? end : safeStart;
+            return {
+                start: Math.min(safeStart, safeEnd),
+                end: Math.max(safeStart, safeEnd),
+                midpoint: safeStart + ((safeEnd - safeStart) / 2)
+            };
+        }
+
+        function formatPrintSummaryClock(ms) {
+            if (!Number.isFinite(ms)) {
+                return "";
+            }
+            const date = new Date(ms);
+            return String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
+        }
+
+        function getPrintSummarySectionTimeRange(section) {
+            const ranges = (section?.entries || [])
+                .map(getPrintSummaryEntryTimeRange)
+                .filter(Boolean);
+            if (!ranges.length) {
+                return "";
+            }
+            const start = Math.min(...ranges.map((range) => range.start));
+            const end = Math.max(...ranges.map((range) => range.end));
+            const startText = formatPrintSummaryClock(start);
+            const endText = formatPrintSummaryClock(end);
+            return startText && endText ? startText + "~" + endText : "";
+        }
+
+        function getPrintSummaryPhotoAssignments(sections) {
+            if (!printSummaryPhotos.length || !sections?.length) {
+                return new Map();
+            }
+            const entryRanges = sections
+                .flatMap((section) => section.entries || [])
+                .map((entry) => ({ entry, range: getPrintSummaryEntryTimeRange(entry) }))
+                .filter((item) => item.range);
+            if (!entryRanges.length) {
+                return new Map();
+            }
+            const assignments = new Map();
+            printSummaryPhotos.forEach((photo) => {
+                const timestamp = Number(photo.timestampMs);
+                if (!Number.isFinite(timestamp)) {
+                    return;
+                }
+                let best = null;
+                entryRanges.forEach((item) => {
+                    const { start, end, midpoint } = item.range;
+                    let distance = Math.abs(timestamp - midpoint);
+                    if (timestamp >= start && timestamp <= end) {
+                        distance = 0;
+                    } else {
+                        distance = Math.min(Math.abs(timestamp - start), Math.abs(timestamp - end), distance);
+                    }
+                    if (!best || distance < best.distance) {
+                        best = { entry: item.entry, distance };
+                    }
+                });
+                if (!best || best.distance > SUMMARY_PHOTO_MATCH_WINDOW_MS) {
+                    return;
+                }
+                const key = best.entry;
+                const list = assignments.get(key) || [];
+                list.push(photo);
+                assignments.set(key, list);
+            });
+            return assignments;
+        }
+
+        function createPrintSummaryPhotoStrip(photos) {
+            const strip = document.createElement("div");
+            strip.className = "print-summary-photo-strip";
+            photos.forEach((photo) => {
+                const figure = document.createElement("figure");
+                figure.className = "print-summary-photo";
+                const image = document.createElement("img");
+                image.src = photo.dataUrl;
+                image.alt = "速報写真 " + (formatPrintSummaryClock(photo.timestampMs) || "");
+                const caption = document.createElement("figcaption");
+                caption.textContent = formatPrintSummaryClock(photo.timestampMs) || photo.name || "写真";
+                figure.append(image, caption);
+                strip.appendChild(figure);
+            });
+            return strip;
+        }
+
+        function appendPrintTextSummarySection(page, section, photoAssignments = new Map()) {
             const defenseHalf = getOpponentHalf(section.half);
             const pitcherChanges = getPitcherChangesForDraft(defenseHalf, section.half, section.inning);
+            const timeRangeText = getPrintSummarySectionTimeRange(section);
             const title = document.createElement("div");
             title.className = "print-summary-inning-title" + (section.half === "bottom" ? " is-bottom" : "");
             title.id = "summary-" + section.half + "-" + section.inning;
             const inningLabel = document.createElement("span");
-            inningLabel.textContent = section.inning + "回" + getHalfLabel(section.half);
+            inningLabel.textContent = section.inning + "回" + getHalfLabel(section.half) + (timeRangeText ? " " + timeRangeText : "");
             const teamLabel = document.createElement("span");
             teamLabel.textContent = getTeamDisplayName(section.half) + "の攻撃";
             const pitcherLabel = document.createElement("span");
@@ -11892,6 +12363,10 @@
                     main.appendChild(comment);
                 }
                 item.appendChild(main);
+                const photos = photoAssignments.get(entry) || [];
+                if (photos.length) {
+                    item.appendChild(createPrintSummaryPhotoStrip(photos));
+                }
                 page.appendChild(item);
             });
 
@@ -11932,7 +12407,8 @@
                 empty.textContent = "打席記録はまだありません。";
                 page.appendChild(empty);
             } else {
-                sections.forEach((section) => appendPrintTextSummarySection(page, section));
+                const photoAssignments = getPrintSummaryPhotoAssignments(sections);
+                sections.forEach((section) => appendPrintTextSummarySection(page, section, photoAssignments));
             }
         }
 
