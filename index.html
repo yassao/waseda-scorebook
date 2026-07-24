@@ -7272,7 +7272,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.79";
+        const APP_VERSION = "0.3.84";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11885,13 +11885,13 @@
                 result.className = "print-summary-result";
                 result.textContent = getShareResultText(entry.snapshot) || "記録あり";
                 main.append(order, player, result);
-                item.appendChild(main);
                 if (commentText) {
-                    const comment = document.createElement("div");
-                    comment.className = "print-summary-comment";
+                    const comment = document.createElement("span");
+                    comment.className = "print-summary-result";
                     comment.textContent = commentText;
-                    item.appendChild(comment);
+                    main.appendChild(comment);
                 }
+                item.appendChild(main);
                 page.appendChild(item);
             });
 
