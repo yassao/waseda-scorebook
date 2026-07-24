@@ -7275,7 +7275,7 @@
                                 </label>
                                 <button type="button" class="summary-photo-clear-btn" onclick="clearSummaryPhotos()">クリア</button>
                             </div>
-                            <div id="summaryPhotoStatus" class="summary-photo-status">写真未選択。撮影時刻に近い打席へ自動で入ります。</div>
+                            <div id="summaryPhotoStatus" class="summary-photo-status">写真未選択。PDFでは撮影時刻に近い打席へ自動で入ります。</div>
                         </div>
                         <div id="pdfSupporterFooterPanel" class="pdf-supporter-panel" aria-hidden="true">
                             <div class="pdf-supporter-heading">PDFフッター文言</div>
@@ -7377,7 +7377,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.85";
+        const APP_VERSION = "0.3.86";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -11793,10 +11793,11 @@
 
         let forcePrintTextSummaryForExport = false;
         let printSummaryPhotos = [];
+        let suppressPrintSummaryPhotosForJpg = false;
 
         function isPrintTextSummaryEnabled() {
             const checkbox = document.getElementById("pdfTextSummaryCheckbox");
-            return forcePrintTextSummaryForExport || Boolean(checkbox?.checked) || hasAnyPrintComments() || printSummaryPhotos.length > 0;
+            return forcePrintTextSummaryForExport || Boolean(checkbox?.checked) || hasAnyPrintComments() || (printSummaryPhotos.length > 0 && !suppressPrintSummaryPhotosForJpg);
         }
 
         function updateSummaryPhotoStatus(message = "") {
@@ -11809,10 +11810,10 @@
                 return;
             }
             if (!printSummaryPhotos.length) {
-                status.textContent = "写真未選択。撮影時刻に近い打席へ自動で入ります。";
+                status.textContent = "写真未選択。PDFでは撮影時刻に近い打席へ自動で入ります。";
                 return;
             }
-            status.textContent = printSummaryPhotos.length + "枚をテキスト速報に入れます。撮影時刻に近い打席へ自動配置します。";
+            status.textContent = printSummaryPhotos.length + "枚をPDFのテキスト速報に入れます。JPGは複数保存の安定性を優先して写真なしで出力します。";
         }
 
         function clearSummaryPhotos() {
@@ -12256,7 +12257,7 @@
         }
 
         function getPrintSummaryPhotoAssignments(sections) {
-            if (!printSummaryPhotos.length || !sections?.length) {
+            if (suppressPrintSummaryPhotosForJpg || !printSummaryPhotos.length || !sections?.length) {
                 return new Map();
             }
             const entryRanges = sections
@@ -13112,6 +13113,8 @@
                 state.scorebookStyle = exportStyle;
                 updateScorebookStyleUi();
             }
+            const previousPhotoSuppress = suppressPrintSummaryPhotosForJpg;
+            suppressPrintSummaryPhotosForJpg = true;
             try {
                 prepareScorebookJpgMode();
                 await waitForAnimationFrames(2);
@@ -13137,6 +13140,7 @@
                 }
                 return files;
             } finally {
+                suppressPrintSummaryPhotosForJpg = previousPhotoSuppress;
                 if (shouldRestoreStyle) {
                     state.scorebookStyle = originalStyle;
                     updateScorebookStyleUi();
