@@ -7429,7 +7429,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.90";
+        const APP_VERSION = "0.3.91";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8300,23 +8300,7 @@
             return compactMatch ? compactMatch[1].split("") : null;
         }
 
-        function getForceOutSourceFromLabel(label) {
-            if (label === "二塁封殺") {
-                return "r1";
-            }
-            if (label === "三塁封殺") {
-                return "r2";
-            }
-            if (label === "本塁封殺") {
-                return "r3";
-            }
-            if (label === "一塁封殺") {
-                return "batter";
-            }
-            return "";
-        }
-
-        function addImplicitFielderChoiceContextEntries(context, fieldSequence, runners = state.baseRunners, options = {}) {
+        function addImplicitFielderChoiceContextEntries(context) {
             if (!context) {
                 return context;
             }
@@ -8333,36 +8317,20 @@
             if (!hasBatterOut) {
                 addUniqueContextEntry(context.advances, "打者走者一塁セーフ");
             }
-            const sequence = Array.isArray(fieldSequence)
-                ? fieldSequence.filter((step) => /^[1-9]$/.test(String(step || "")))
-                : [];
-            if (options.skipForceOut || sequence.length < 2 || context.outsOnBases.length > 0) {
-                return context;
-            }
-            const forceLabel = getForceOutLabelFromSequence(sequence);
-            const source = getForceOutSourceFromLabel(forceLabel);
-            if (!source || source === "batter") {
-                return context;
-            }
-            const sourceBaseIndex = getRunnerSourceBaseIndex(source);
-            if (Array.isArray(runners) && sourceBaseIndex >= 0 && !runners[sourceBaseIndex]) {
-                return context;
-            }
-            addUniqueContextEntry(context.outsOnBases, encodeRunnerOutContext(source, forceLabel));
             return context;
         }
 
-        function getFielderChoiceContextWithImplicitPlays(snapshot, runners = state.baseRunners) {
+        function getFielderChoiceContextWithImplicitPlays(snapshot) {
             if (!snapshot || snapshot.result !== "Fc") {
                 return snapshot?.runnerContext || null;
             }
             const context = snapshot.runnerContext ? deepClone(snapshot.runnerContext) : createEmptyRunnerContext();
-            return compactRunnerContext(addImplicitFielderChoiceContextEntries(context, snapshot.fieldSequence, runners));
+            return compactRunnerContext(addImplicitFielderChoiceContextEntries(context));
         }
 
         function forceOutContextFromSequence(fieldSequence) {
             const context = createEmptyRunnerContext();
-            return compactRunnerContext(addImplicitFielderChoiceContextEntries(context, fieldSequence, state.baseRunners));
+            return compactRunnerContext(addImplicitFielderChoiceContextEntries(context));
         }
 
         function buildForceOutFcParsed(text, fieldSequence = null, baseContext = null) {
@@ -31588,7 +31556,7 @@
             applyStandardRunnerProjection(projected);
             applyRunnerContextProjection(projected);
             const batterSafeBase = getBatterSafeBaseFromRunnerContext();
-            if (batterSafeBase >= 1 && batterSafeBase <= 3) {
+            if (batterSafeBase >= 1 && batterSafeBase <= 3 && !projected[batterSafeBase - 1]) {
                 placeProjectedRunner(
                     projected,
                     getSheetRef(state.selectedSheetRow, state.selectedSheetCol),
