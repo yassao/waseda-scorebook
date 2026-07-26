@@ -7431,7 +7431,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.92";
+        const APP_VERSION = "0.3.93";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -9504,6 +9504,7 @@
             });
             const info = normalizeGameInfo(state.gameInfo);
             const pitcherRows = ["top", "bottom"].flatMap((half) => {
+                const pitcherStats = calculatePitcherStatsForTeam(half);
                 const starterName = info.pitchers[half] || "";
                 const starter = {
                     teamId: getTeamId(half),
@@ -9515,7 +9516,7 @@
                     save: false,
                     inningsPitched: "",
                     pitchCountByInning: [],
-                    totalPitchCount: 0
+                    totalPitchCount: pitcherStats[0]?.pitchCount || 0
                 };
                 const changes = (info.pitcherChanges[half] || []).map((change, changeIndex) => ({
                     teamId: getTeamId(half),
@@ -9537,7 +9538,7 @@
                     save: false,
                     inningsPitched: "",
                     pitchCountByInning: [],
-                    totalPitchCount: 0
+                    totalPitchCount: pitcherStats[changeIndex + 1]?.pitchCount || 0
                 }));
                 return [starter, ...changes].filter((pitcher) => pitcher.name || pitcher.role === "starter");
             });
