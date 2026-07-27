@@ -7431,7 +7431,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.93";
+        const APP_VERSION = "0.3.94";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -7894,6 +7894,7 @@
                 runnerMovement: "",
                 rbi: "",
                 earnedRun: "",
+                pitchCountOverride: "",
                 errorDetail: "",
                 runnerOutReason: "",
                 officialNote: ""
@@ -7902,10 +7903,14 @@
 
         function normalizePlayDetails(details) {
             const source = details || {};
+            const pitchCountOverride = parseOptionalInteger(source.pitchCountOverride);
             return {
                 runnerMovement: String(source.runnerMovement || "").trim(),
                 rbi: ["yes", "no"].includes(source.rbi) ? source.rbi : "",
                 earnedRun: ["earned", "unearned"].includes(source.earnedRun) ? source.earnedRun : "",
+                pitchCountOverride: Number.isInteger(pitchCountOverride) && pitchCountOverride >= 0
+                    ? Math.min(30, pitchCountOverride)
+                    : "",
                 errorDetail: String(source.errorDetail || "").trim(),
                 runnerOutReason: String(source.runnerOutReason || "").trim(),
                 officialNote: String(source.officialNote || "").trim()
@@ -7918,6 +7923,7 @@
                 normalized.runnerMovement
                 || normalized.rbi
                 || normalized.earnedRun
+                || Number.isInteger(normalized.pitchCountOverride)
                 || normalized.errorDetail
                 || normalized.runnerOutReason
                 || normalized.officialNote
@@ -7946,6 +7952,14 @@
             if (earnedRunLabel) {
                 items.push({ label: "得点", text: earnedRunLabel });
             }
+            if (Number.isInteger(normalized.pitchCountOverride)) {
+                items.push({
+                    label: "球数補正",
+                    text: normalized.pitchCountOverride + "球",
+                    share: false,
+                    comment: false
+                });
+            }
             if (normalized.errorDetail) {
                 items.push({ label: "失策", text: normalized.errorDetail });
             }
@@ -7959,11 +7973,15 @@
         }
 
         function formatPlayDetailsForShare(details) {
-            return getPlayDetailsDisplayItems(details).map((item) => item.text).join("、");
+            return getPlayDetailsDisplayItems(details)
+                .filter((item) => item.share !== false)
+                .map((item) => item.text)
+                .join("、");
         }
 
         function formatPlayDetailsForComment(details) {
             return getPlayDetailsDisplayItems(details)
+                .filter((item) => item.comment !== false)
                 .map((item) => item.label + ": " + item.text)
                 .join(" / ");
         }
@@ -21216,10 +21234,53 @@
             return ["FC", "H", "T", "RH", "GR", "HR", "IF"].includes(result);
         }
 
+        function getPitchTimingCountFromValue(value, maxCount = 0) {
+            if (!value) {
+                return maxCount;
+            }
+            if (Array.isArray(value)) {
+                return value.reduce((currentMax, item) => getPitchTimingCountFromValue(item, currentMax), maxCount);
+            }
+            if (typeof value !== "object") {
+                return maxCount;
+            }
+            const directPitchIndex = Number(value.pitchIndex);
+            if (Number.isFinite(directPitchIndex) && directPitchIndex > 0) {
+                maxCount = Math.max(maxCount, Math.floor(directPitchIndex));
+            }
+            Object.values(value).forEach((child) => {
+                maxCount = getPitchTimingCountFromValue(child, maxCount);
+            });
+            return maxCount;
+        }
+
+        function getSnapshotPitchTimingCount(snapshot) {
+            if (!snapshot) {
+                return 0;
+            }
+            return Math.max(
+                getPitchTimingCountFromValue(snapshot.runnerStatusEvents),
+                getPitchTimingCountFromValue(snapshot.runnerContext),
+                getPitchTimingCountFromValue(snapshot.atBatCommentMeta),
+                getPitchTimingCountFromValue(snapshot.pitchComments)
+            );
+        }
+
+        function getSnapshotPitchCountOverride(snapshot) {
+            const override = normalizePlayDetails(snapshot?.playDetails).pitchCountOverride;
+            return Number.isInteger(override) ? override : null;
+        }
+
         function getSnapshotPitchCount(snapshot) {
+            const override = getSnapshotPitchCountOverride(snapshot);
+            if (override !== null) {
+                return override;
+            }
             const explicitCount = (snapshot?.pitches || []).length;
-            if (explicitCount > 0) {
-                return explicitCount + (isBallInPlayPitchCountResult(snapshot) ? 1 : 0);
+            const timingCount = getSnapshotPitchTimingCount(snapshot);
+            const recordedPitchCount = Math.max(explicitCount, timingCount);
+            if (recordedPitchCount > 0) {
+                return recordedPitchCount + (isBallInPlayPitchCountResult(snapshot) ? 1 : 0);
             }
             if (isRunnerOnlyPitchCountResult(snapshot)) {
                 return 0;
@@ -22047,6 +22108,7 @@
                 '<option value="earned"' + getPlayDetailSelected("earned", details.earnedRun) + '>自責点</option>',
                 '<option value="unearned"' + getPlayDetailSelected("unearned", details.earnedRun) + '>非自責点</option>',
                 '</select></label>',
+                '<label>球数補正<input id="playDetailPitchCountOverride" type="number" min="0" max="30" inputmode="numeric" value="' + escapeHtml(Number.isInteger(details.pitchCountOverride) ? String(details.pitchCountOverride) : "") + '" placeholder="例: 4"></label>',
                 '</div>',
                 '<label>失策・送球<input id="playDetailErrorDetail" type="text" value="' + escapeHtml(details.errorDetail) + '" placeholder="例: 6の一塁高送球E / 7落球E"></label>',
                 '<label>走者アウト<select id="playDetailRunnerOutReason">',
@@ -22080,6 +22142,7 @@
                 runnerMovement: document.getElementById("playDetailRunnerMovement")?.value || "",
                 rbi: document.getElementById("playDetailRbi")?.value || "",
                 earnedRun: document.getElementById("playDetailEarnedRun")?.value || "",
+                pitchCountOverride: document.getElementById("playDetailPitchCountOverride")?.value || "",
                 errorDetail: document.getElementById("playDetailErrorDetail")?.value || "",
                 runnerOutReason: document.getElementById("playDetailRunnerOutReason")?.value || "",
                 officialNote: document.getElementById("playDetailOfficialNote")?.value || ""
