@@ -9,13 +9,14 @@
 
 1. `docs/CHANGELOG.md`
    - バージョン
-   - 日付
+   - 公開日（`YYYY-MM-DD`形式）
    - 変更内容の1行要約
    - 変更ファイル
    - 必要に応じた主な変更点
 2. `docs/DEBUG_LOG.md`
    - 実施したテストと確認内容
 3. `docs/RELEASE_POSTS.md`
+   - 公開日（`YYYY-MM-DD`形式）
    - そのままXへ投稿できる短い変更説明
 4. Git
    - バージョン付きコミット

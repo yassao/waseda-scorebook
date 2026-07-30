@@ -127,9 +127,11 @@ test("release ledger version matches the application version", () => {
     const changelog = fs.readFileSync(path.join(ROOT, "docs", "CHANGELOG.md"), "utf8");
     const releasePosts = fs.readFileSync(path.join(ROOT, "docs", "RELEASE_POSTS.md"), "utf8");
     const appVersion = html.match(/const APP_VERSION = "([^"]+)";/)?.[1];
+    const versionPattern = appVersion.replaceAll(".", "\\.");
+    const datedHeadingPattern = `## v${versionPattern} \\[\\d{4}-\\d{2}-\\d{2}\\]`;
     assert.equal(versionFile, appVersion);
-    assert.match(changelog, new RegExp(`^## v${appVersion.replaceAll(".", "\\.")} `));
-    assert.match(releasePosts, new RegExp(`^## v${appVersion.replaceAll(".", "\\.")} `, "m"));
+    assert.match(changelog, new RegExp(`^${datedHeadingPattern}`));
+    assert.match(releasePosts, new RegExp(`^${datedHeadingPattern}`, "m"));
 });
 
 test("pitch counts include the ball put in play but not runner-only actions", () => {
