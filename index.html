@@ -7431,7 +7431,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.3.94";
+        const APP_VERSION = "0.3.95";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -10192,6 +10192,7 @@
         }
 
         let pendingFailedGameSaveData = null;
+        let gameSaveFailurePopupShown = false;
 
         function ensureGameSaveFailurePopup() {
             let backdrop = document.getElementById("gameSaveFailurePopupBackdrop");
@@ -10221,6 +10222,7 @@
 
         function showGameSaveFailurePopup(data = null) {
             pendingFailedGameSaveData = data || null;
+            gameSaveFailurePopupShown = true;
             const { backdrop, popup } = ensureGameSaveFailurePopup();
             popup.innerHTML = [
                 '<div class="comment-popup-title">試合データを保存できませんでした</div>',
@@ -10615,13 +10617,21 @@
             if (isRestoringSavedGame) {
                 return;
             }
+            let data = null;
             try {
-                setLocalStorageItemWithReplacement(GAME_STORAGE_KEY, JSON.stringify(createCompactGameSaveData()));
+                data = createCompactGameSaveData();
+                setLocalStorageItemWithReplacement(GAME_STORAGE_KEY, JSON.stringify(data));
+                gameSaveFailurePopupShown = false;
                 setGameSaveStatus("自動保存済み: " + new Date().toLocaleString("ja-JP"));
                 updateStartScreenState();
             } catch (error) {
                 console.warn("Auto save failed", error);
                 setGameSaveStatus("自動保存に失敗しました。試合データ書き出しでバックアップしてください。");
+                pendingFailedGameSaveData = data;
+                if (!gameSaveFailurePopupShown) {
+                    gameSaveFailurePopupShown = true;
+                    showGameSaveFailurePopup(data);
+                }
             }
         }
 
@@ -21283,6 +21293,10 @@
                 return recordedPitchCount + (isBallInPlayPitchCountResult(snapshot) ? 1 : 0);
             }
             if (isRunnerOnlyPitchCountResult(snapshot)) {
+                return 0;
+            }
+            const result = String(snapshot?.result || "").trim().toUpperCase();
+            if (result === "IB" || result === "B'") {
                 return 0;
             }
             return isCompletedPlateAppearanceSnapshot(snapshot) ? 1 : 0;

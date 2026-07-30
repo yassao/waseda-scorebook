@@ -1,33 +1,33 @@
-# 早稲田式野球スコアブック試作
+# スコアブック by CuViu
 
-早稲田式スコアブックをもとにした、Webベースの野球スコア記録アプリの試作です。  
-現時点では `1打席の記録` をかなり細かく扱えるところまで進んでいて、あわせて `9人 × 12回` のシート土台も入っています。
+球場での入力を中心に設計した、Webベースの野球スコア記録アプリです。
+早稲田式と慶應式を切り替えられ、試合中の入力から保存、PDF/JPG出力、X投稿用の文章作成までを扱います。
 
-GitHub:
-[https://github.com/yassao/waseda-scorebook](https://github.com/yassao/waseda-scorebook)
+- 公開アプリ: [https://cuviu.jp/apps/scorebook/](https://cuviu.jp/apps/scorebook/)
+- 紹介ページ: [https://cuviu.jp/baseball-scorebook/](https://cuviu.jp/baseball-scorebook/)
+- GitHub: [https://github.com/yassao/waseda-scorebook](https://github.com/yassao/waseda-scorebook)
 
 ## 目的
 
-- 早稲田式スコアブックをスマホでも扱いやすくする
-- 将来的に `PWA` や `iPhoneアプリ化` へつなげる
-- 自然言語入力や音声入力で、実況メモからスコアへ反映できるようにする
+- 紙のスコアブックの記録力を、スマートフォンで扱いやすくする
+- 入力内容を試合データ、PDF、画像、テキスト速報へ再利用する
+- 現場で迷いやすい走者処理や守備変更を、確認しながら入力できるようにする
 
 ## 現在の主な機能
 
+- 早稲田式 / 慶應式の表示切替
 - SVGベースのスコアボックス描画
-- 投球欄の記録
-- 守備位置、打球種別、方向ドット
-- 単打 / 二塁打 / 三塁打 / 本塁打の赤斜線
-- ゴロ安 / バントヒットの半円
-- `BH`、`E`、`A-D` などの補助表記
-- `Ⅰ / Ⅱ / Ⅲ / ● / ○ / ℓ` の中央表示
-- 自然言語入力の初期辞書
-- ユーザー修正内容の `localStorage` 保存
-- `9人 × 9回` シートの土台
-- 打席保存、選択、次打席への移動
-- ミニSVGでのシート反映
-- 一部の走者進塁・走者アウト追記
-- 盗塁 / 盗塁刺 / 重盗 / 三重盗 / 走塁妨害 / 守備妨害などの補助記号
+- 投球、打席結果、走者進塁、走者アウトの記録
+- 18回まで伸長できるスコアシート
+- スタメン、代打、代走、投手交代、守備位置変更の管理
+- ドラッグ操作と一覧入力を連動させたシート変更
+- 簡易スコアボード、R/H/E、投手球数の表示
+- 端末内の自動保存、複数試合保存、JSON書き出し / 読み込み
+- 早稲田式 / 慶應式PDFとJPG、テキスト速報画像の出力
+- 試合前情報、イニング経過、試合結果のX投稿文作成
+- 通常アカウント向けのX範囲投稿とX Premium向け長文投稿
+- 文字認識結果や生成AIの回答を確認してから登録する入力支援
+- 一言メモ、打席時刻、試合開始 / 終了時刻の保存
 
 ## 対応している入力例
 
@@ -52,25 +52,34 @@ GitHub:
 
 ## ファイル構成
 
-- [index.html](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/index.html)
-  メインアプリ本体
-- [baseball-one-check-01.html](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/baseball-one-check-01.html)
-- [baseball-one-check-02.html](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/baseball-one-check-02.html)
-- [baseball-one-check-03.html](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/baseball-one-check-03.html)
-- [baseball-one-check-04.html](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/baseball-one-check-04.html)
-  `BASEBALL ONE` 比較用の確認ページ
+- [index.html](index.html): メインアプリ本体
+- [support.html](support.html): 開発支援の案内
+- [support-thanks.html](support-thanks.html): 支援後の機能案内
+- [docs/](docs): 仕様、変更履歴、確認記録
+- [tests/](tests): 保存・球数などの回帰テスト
+- [scripts/](scripts): リリースとデプロイ
 
 ## 使い方
 
-1. `index.html` をブラウザで開く
-2. ボタン入力または自然言語入力で1打席を作る
-3. `この打席を保存` でシートへ反映する
-4. `次の打席へ` で次セルへ進む
+1. チーム、選手、試合設定を登録する
+2. `B`、`S`、`打球結果`などからプレーを入力する
+3. 走者とアウトを確認して`次打者へ`進む
+4. 試合データ、PDF、JPG、X投稿文を必要に応じて出力する
+
+## 動作確認
+
+組み込みJavaScriptの回帰テスト:
+
+```zsh
+node --test tests/scorebook-regression.test.js
+```
+
+公開前は、iPhone相当幅で主要入力と出力導線も確認します。
 
 ## バージョン管理
 
-現在のバージョンは [docs/VERSION](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/VERSION) で管理します。  
-変更履歴は [docs/CHANGELOG.md](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/CHANGELOG.md) に1行要約つきで残します。
+現在のバージョンは [docs/VERSION](docs/VERSION) と `index.html` の `APP_VERSION` で一致させます。
+変更履歴は [docs/CHANGELOG.md](docs/CHANGELOG.md) に残します。リリーススクリプトは両者が不一致の場合に処理を中止します。
 
 小さな修正:
 
@@ -94,33 +103,31 @@ zsh scripts/deploy-cuviu.sh
 
 公開用マニュアルとは別に、開発中の判断基準を以下に残します。
 
-- [docs/INPUT_POLICY.md](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/INPUT_POLICY.md)
+- [docs/INPUT_POLICY.md](docs/INPUT_POLICY.md)
   入力UI、自然文入力、X/日刊スポーツ取り込み、つぶやきの方針
-- [docs/SCOREBOOK_RULES.md](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/SCOREBOOK_RULES.md)
+- [docs/SCOREBOOK_RULES.md](docs/SCOREBOOK_RULES.md)
   早稲田式スコアブックの記号ルールと解釈方針
-- [docs/JSON_DESIGN.md](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/JSON_DESIGN.md)
+- [docs/JSON_DESIGN.md](docs/JSON_DESIGN.md)
   保存JSON、イベントログ、慶応式展開に向けたデータ設計
-- [docs/IMPLEMENTATION_PLAN.md](/Users/yasufumi/Documents/Codex/2026-04-25-web-iphone-pwa-python-basic-mac/docs/IMPLEMENTATION_PLAN.md)
+- [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)
   6月末公開に向けた実装順序とフェーズ計画
 
 ## 現状の注意点
 
-- 走者進塁の完全自動追跡はまだ途中
-- 併殺や封殺のケースは一部のみ対応
-- `9人 × 12回` シートはまだ表裏分離や交代処理が未実装
-- ミニシート表示は簡易SVGで、本体ボックスの完全再現ではない
+- FC、複合プレー、走者だけがアウトになる場面は、リアルタイム表示を確認してユーザーが最終確定する
+- 球数は入力された投球記録を基準にし、欠落がある場合は投手欄から手動補正する
+- ブラウザの保存容量には端末差があるため、重要な試合はJSONも書き出す
 
 ## 次の優先候補
 
-- 走者進塁と走者アウトの自動追記を強化
-- `表 / 裏` と `先攻 / 後攻` を持つ
-- スタメン、交代、代打、代走の管理
-- シート側のミニSVGを本体表示にさらに近づける
-- `localStorage` 保存 / 読み込みの整理
-- PWA化
+- 実戦データを用いた走者処理・球数・投手交代の回帰テスト拡充
+- 写真のタイムスタンプと打席時刻を使った試合経過への自動配置
+- チームメンバー共有の安全なデータ設計
+- PWA / iPhoneアプリ化
 
 ## 開発メモ
 
 - まとまった変更ごとに GitHub へ push してバックアップする運用
 - 実装は `HTML / CSS / JavaScript` の単体ファイル中心
+- 変更は回帰テスト、iPhone幅の表示確認、実ブラウザ確認を通してから公開する
 - 将来的にデータモデルを分離し、自然言語解析と描画を独立させる想定

@@ -1,3 +1,23 @@
+## v0.3.95 [2026-07-30] 保存安全性と球数集計の回帰防止
+
+**変更ファイル:**
+- docs/CHANGELOG.md
+- docs/DEBUG_LOG.md
+- docs/VERSION
+- index.html
+- README.md
+- scripts/release_scorebook.sh
+- tests/scorebook-regression.test.js
+
+**主な変更:**
+- 自動保存に失敗した場合、試合データを即時書き出しできるダイアログを表示。
+- 投球記録のない申告敬遠を0球として集計。
+- 球数、投手交代後の帰属、手動球数補正、版番号の回帰テストを追加。
+- リリース時に `docs/VERSION` とアプリ版が不一致なら処理を中止。
+- v0.3.76以降に止まっていたリリース台帳を現行版へ同期。
+
+---
+
 ## v0.3.75 [2026-07-24] PDF出力とFc入力を改善
 
 **変更ファイル:**

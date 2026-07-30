@@ -30,6 +30,15 @@ if [[ ! -f "$VERSION_FILE" ]]; then
 fi
 
 CURRENT_VERSION="$(tr -d '[:space:]' < "$VERSION_FILE")"
+INDEX_VERSION=""
+if [[ -f "$INDEX_FILE" ]]; then
+  INDEX_VERSION="$(sed -n 's/.*const APP_VERSION = "\([^"]*\)";.*/\1/p' "$INDEX_FILE" | head -1)"
+fi
+if [[ -n "$INDEX_VERSION" && "$CURRENT_VERSION" != "$INDEX_VERSION" ]]; then
+  echo "リリース中止: docs/VERSION ($CURRENT_VERSION) と index.html ($INDEX_VERSION) が一致しません。" >&2
+  echo "先に両方を同じ現在版へ揃えてください。" >&2
+  exit 1
+fi
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
 MAJOR="${MAJOR:-0}"
 MINOR="${MINOR:-0}"
