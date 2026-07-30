@@ -124,8 +124,12 @@ function loadScorebookTestApi() {
 test("release ledger version matches the application version", () => {
     const html = fs.readFileSync(INDEX_PATH, "utf8");
     const versionFile = fs.readFileSync(path.join(ROOT, "docs", "VERSION"), "utf8").trim();
+    const changelog = fs.readFileSync(path.join(ROOT, "docs", "CHANGELOG.md"), "utf8");
+    const releasePosts = fs.readFileSync(path.join(ROOT, "docs", "RELEASE_POSTS.md"), "utf8");
     const appVersion = html.match(/const APP_VERSION = "([^"]+)";/)?.[1];
     assert.equal(versionFile, appVersion);
+    assert.match(changelog, new RegExp(`^## v${appVersion.replaceAll(".", "\\.")} `));
+    assert.match(releasePosts, new RegExp(`^## v${appVersion.replaceAll(".", "\\.")} `, "m"));
 });
 
 test("pitch counts include the ball put in play but not runner-only actions", () => {

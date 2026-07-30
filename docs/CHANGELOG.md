@@ -1,3 +1,34 @@
+## v0.4.1 [2026-07-30] Sol運用とリリース履歴・X告知文の保存を開始
+
+**変更ファイル:**
+- README.md
+- docs/CHANGELOG.md
+- docs/DEBUG_LOG.md
+- docs/NEXT_RELEASE_NOTE.txt
+- docs/RELEASE_POLICY.md
+- docs/RELEASE_POSTS.md
+- docs/VERSION
+- index.html
+- scripts/release_scorebook.sh
+- tests/scorebook-regression.test.js
+
+**主な変更:**
+- 今後の開発をSolで進める新しい版の起点をv0.4.1に設定。
+- TTscore2の運用を参考に、変更履歴を版ごとに保存する方針を明文化。
+- リリースごとのX投稿用説明文を保存するファイルと自動生成処理を追加。
+- 変更履歴またはX投稿文の更新漏れを回帰テストで検出。
+
+**X投稿文:**
+
+> スコアブック by CuViuをv0.4.1に更新しました。
+>
+> 自動保存失敗時の緊急書き出し、球数集計の見直し、回帰テスト追加など、試合中の安心感を中心に改善。今後は更新内容も継続してお知らせします。
+>
+> https://cuviu.jp/apps/scorebook/
+> #CuViu #野球スコア
+
+---
+
 ## v0.3.95 [2026-07-30] 保存安全性と球数集計の回帰防止
 
 **変更ファイル:**

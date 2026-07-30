@@ -79,12 +79,24 @@ node --test tests/scorebook-regression.test.js
 ## バージョン管理
 
 現在のバージョンは [docs/VERSION](docs/VERSION) と `index.html` の `APP_VERSION` で一致させます。
-変更履歴は [docs/CHANGELOG.md](docs/CHANGELOG.md) に残します。リリーススクリプトは両者が不一致の場合に処理を中止します。
+変更履歴は [docs/CHANGELOG.md](docs/CHANGELOG.md)、X投稿文は [docs/RELEASE_POSTS.md](docs/RELEASE_POSTS.md) に残します。詳細は [docs/RELEASE_POLICY.md](docs/RELEASE_POLICY.md) を参照してください。リリーススクリプトは版番号が不一致の場合に処理を中止します。
 
 小さな修正:
 
 ```zsh
 zsh scripts/release_patch_scorebook.sh "変更内容の1行要約"
+```
+
+`docs/NEXT_RELEASE_NOTE.txt` の先頭行を使う場合:
+
+```zsh
+zsh scripts/release_patch_scorebook.sh
+```
+
+コミットやプッシュをせず生成結果だけ確認する場合:
+
+```zsh
+zsh scripts/release_patch_scorebook.sh --dry-run "変更内容の1行要約"
 ```
 
 新機能:
