@@ -3129,6 +3129,16 @@
             gap: 12px;
         }
 
+        .player-roster-swap-actions {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .player-roster-swap-actions button {
+            min-height: 42px;
+            width: min(100%, 320px);
+        }
+
         .quick-half-toggle-slot {
             display: flex;
             align-items: stretch;
@@ -7431,7 +7441,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.1";
+        const APP_VERSION = "0.4.2";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -17537,6 +17547,123 @@
             window.setTimeout(focusRosterActiveFirstBatter, 80);
         }
 
+        function hasTeamSwapGameStarted(source = state) {
+            const hasSnapshot = ["top", "bottom"].some((half) => (
+                (source.scoreSheets?.[half] || []).some((row) => (
+                    Array.isArray(row) && row.some(Boolean)
+                ))
+            ));
+            const hasScoreOverride = ["top", "bottom"].some((half) => (
+                (source.scoreOverridesByHalf?.[half] || []).some((value) => value !== null && value !== undefined)
+            ));
+            const hasRunner = ["top", "bottom"].some((half) => (
+                (source.baseRunnersByHalf?.[half] || []).some(Boolean)
+            ));
+            const info = normalizeGameInfo(source.gameInfo);
+            const hasChanges = ["top", "bottom"].some((half) => (
+                (info.pitcherChanges?.[half] || []).length > 0
+                || (info.fieldingChanges?.[half] || []).length > 0
+            ));
+            return Boolean(
+                hasSnapshot
+                || hasScoreOverride
+                || hasRunner
+                || hasChanges
+                || (source.pitches || []).length
+                || source.result
+                || source.outScore
+                || source.selectedFielder
+                || (source.fieldSequence || []).length
+                || source.atBatStartedAt
+                || source.resultSavedAt
+                || info.rules?.endReason
+            );
+        }
+
+        function swapTeamIndexedValue(source = {}) {
+            return {
+                ...source,
+                top: deepClone(source.bottom),
+                bottom: deepClone(source.top)
+            };
+        }
+
+        function getSwappedTeamName(value, half) {
+            return isDefaultTeamLabel(value) ? (half === "top" ? "先攻" : "後攻") : value;
+        }
+
+        function getSwappedBenchTeamId(teamId) {
+            if (teamId === "team_top") {
+                return "team_bottom";
+            }
+            if (teamId === "team_bottom") {
+                return "team_top";
+            }
+            return teamId;
+        }
+
+        function swapRegisteredTeamStateBeforeGame(source = state) {
+            source.gameInfo = normalizeGameInfo(source.gameInfo);
+            source.teamNames = {
+                top: getSwappedTeamName(source.teamNames?.bottom || "後攻", "top"),
+                bottom: getSwappedTeamName(source.teamNames?.top || "先攻", "bottom")
+            };
+            [
+                "playerNames",
+                "playerNumbers",
+                "playerPositions",
+                "scoreSheets",
+                "inningLabelsByHalf",
+                "scoreOverridesByHalf",
+                "baseRunnersByHalf",
+                "retiredRunnerPreviewsByHalf",
+                "selectionsByHalf"
+            ].forEach((key) => {
+                source[key] = swapTeamIndexedValue(source[key]);
+            });
+            source.gameInfo.pitchers = swapTeamIndexedValue(source.gameInfo.pitchers);
+            source.gameInfo.pitcherNumbers = swapTeamIndexedValue(source.gameInfo.pitcherNumbers);
+            source.gameInfo.pitcherChanges = swapTeamIndexedValue(source.gameInfo.pitcherChanges);
+            source.gameInfo.fieldingChanges = swapTeamIndexedValue(source.gameInfo.fieldingChanges);
+            source.gameInfo.benches = {
+                ...source.gameInfo.benches,
+                firstBaseSideTeamId: getSwappedBenchTeamId(source.gameInfo.benches.firstBaseSideTeamId),
+                thirdBaseSideTeamId: getSwappedBenchTeamId(source.gameInfo.benches.thirdBaseSideTeamId)
+            };
+            source.activeHalf = "top";
+            const selection = source.selectionsByHalf?.top || { row: 0, col: 0 };
+            source.selectedSheetRow = Number.isInteger(selection.row) ? selection.row : 0;
+            source.selectedSheetCol = Number.isInteger(selection.col) ? selection.col : 0;
+            source.battingOrder = String(source.selectedSheetRow + 1);
+        }
+
+        function swapRegisteredTeamsBeforeGame() {
+            if (hasTeamSwapGameStarted()) {
+                window.alert("試合開始後は先攻・後攻を入れ替えられません。試合データを書き出してから、新規試合で登録し直してください。");
+                return;
+            }
+            const topName = state.teamNames.top || "先攻";
+            const bottomName = state.teamNames.bottom || "後攻";
+            if (!window.confirm(
+                topName + " と " + bottomName + " の先攻・後攻を入れ替えますか？\n\n" +
+                "チーム名、スタメン、背番号、守備位置、先発投手、ベンチ情報をまとめて交換します。"
+            )) {
+                return;
+            }
+            pushGameHistory();
+            swapRegisteredTeamStateBeforeGame();
+            const previousTopMemoryLink = teamRosterMemoryLinks.top;
+            teamRosterMemoryLinks.top = teamRosterMemoryLinks.bottom;
+            teamRosterMemoryLinks.bottom = previousTopMemoryLink;
+            syncActiveHalfRefs();
+            resetState();
+            updateGameFlowDisplay();
+            renderPlayerRosterEditor();
+            updateRegisteredTeamNameOptions();
+            updateRegisteredPlayerNameOptions();
+            scheduleGameAutoSave();
+        }
+
         function renderPlayerRosterEditor() {
             const container = document.getElementById("playerRosterEditor");
             if (!container) {
@@ -17545,7 +17672,12 @@
             state.gameInfo = normalizeGameInfo(state.gameInfo);
             updateRegisteredTeamNameOptions();
             updateRegisteredPlayerNameOptions();
-            container.innerHTML = getRosterDisplayOrder().map((half) => {
+            const swapAction = [
+                '<div class="player-roster-swap-actions">',
+                '<button type="button" onclick="swapRegisteredTeamsBeforeGame()" title="登録済みの両チームを試合開始前に交換">先攻/後攻を入れ替え</button>',
+                '</div>'
+            ].join("");
+            const teamEditors = getRosterDisplayOrder().map((half) => {
                 const teamLabel = state.teamNames[half] || (half === "top" ? "先攻" : "後攻");
                 const names = state.playerNames[half] || Array.from({ length: 9 }, () => "");
                 const numbers = state.playerNumbers[half] || Array.from({ length: 9 }, () => "");
@@ -17593,6 +17725,7 @@
                     '</div>'
                 ].join("");
             }).join("");
+            container.innerHTML = swapAction + teamEditors;
         }
 
         function activateHalf(half, row = null, col = null, options = {}) {

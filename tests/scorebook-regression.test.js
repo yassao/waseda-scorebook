@@ -113,6 +113,8 @@ function loadScorebookTestApi() {
             + "getSnapshotPitchCount,"
             + "calculatePitcherStatsForTeam,"
             + "saveGameToLocalStorage,"
+            + "hasTeamSwapGameStarted,"
+            + "swapRegisteredTeamStateBeforeGame,"
             + "storage: localStorage,"
             + "setSaveFailureHandler(handler) { showGameSaveFailurePopup = handler; }"
             + "};",
@@ -132,6 +134,59 @@ test("release ledger version matches the application version", () => {
     assert.equal(versionFile, appVersion);
     assert.match(changelog, new RegExp(`^${datedHeadingPattern}`));
     assert.match(releasePosts, new RegExp(`^${datedHeadingPattern}`, "m"));
+});
+
+test("registered teams can be swapped together before the first play", () => {
+    const api = loadScorebookTestApi();
+    api.state.teamNames = { top: "A高校", bottom: "B高校" };
+    api.state.playerNames = {
+        top: ["A1", ...Array(8).fill("")],
+        bottom: ["B1", ...Array(8).fill("")]
+    };
+    api.state.playerNumbers = {
+        top: ["1", ...Array(8).fill("")],
+        bottom: ["11", ...Array(8).fill("")]
+    };
+    api.state.playerPositions = {
+        top: ["6", ...Array(8).fill("")],
+        bottom: ["8", ...Array(8).fill("")]
+    };
+    api.state.gameInfo = api.normalizeGameInfo({
+        pitchers: { top: "A投手", bottom: "B投手" },
+        pitcherNumbers: { top: "10", bottom: "20" },
+        benches: {
+            firstBaseSideTeamId: "team_top",
+            thirdBaseSideTeamId: "team_bottom"
+        }
+    });
+
+    assert.equal(api.hasTeamSwapGameStarted(), false);
+    api.swapRegisteredTeamStateBeforeGame();
+
+    assert.equal(api.state.teamNames.top, "B高校");
+    assert.equal(api.state.teamNames.bottom, "A高校");
+    assert.equal(api.state.playerNames.top[0], "B1");
+    assert.equal(api.state.playerNumbers.top[0], "11");
+    assert.equal(api.state.playerPositions.top[0], "8");
+    assert.equal(api.state.gameInfo.pitchers.top, "B投手");
+    assert.equal(api.state.gameInfo.pitcherNumbers.top, "20");
+    assert.equal(api.state.gameInfo.benches.firstBaseSideTeamId, "team_bottom");
+    assert.equal(api.state.gameInfo.benches.thirdBaseSideTeamId, "team_top");
+    assert.equal(api.state.activeHalf, "top");
+});
+
+test("registered team swapping is blocked after scoring input starts", () => {
+    const api = loadScorebookTestApi();
+    api.state.pitches = ["B"];
+    assert.equal(api.hasTeamSwapGameStarted(), true);
+
+    api.state.pitches = [];
+    api.state.scoreSheets = {
+        top: api.createEmptyScoreSheet(),
+        bottom: api.createEmptyScoreSheet()
+    };
+    api.state.scoreSheets.top[0][0] = { result: "7" };
+    assert.equal(api.hasTeamSwapGameStarted(), true);
 });
 
 test("pitch counts include the ball put in play but not runner-only actions", () => {
