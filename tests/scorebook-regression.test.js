@@ -329,6 +329,108 @@ test("pitch counts are assigned to the pitcher active at each batting position",
     );
 });
 
+test("pitch counts stay with the relief pitcher when the batting order wraps from ninth to first", () => {
+    const api = loadScorebookTestApi();
+    api.state.gameInfo = api.normalizeGameInfo({
+        pitchers: {
+            top: "先発",
+            bottom: "相手先発"
+        },
+        pitcherChanges: {
+            top: [{
+                name: "救援",
+                inning: "9",
+                entryCol: 8,
+                battingOrder: 9
+            }],
+            bottom: []
+        }
+    });
+    api.state.scoreSheets = {
+        top: api.createEmptyScoreSheet(),
+        bottom: api.createEmptyScoreSheet()
+    };
+    api.state.inningLabelsByHalf = {
+        top: Array.from({ length: 18 }, (_, index) => index + 1),
+        bottom: Array.from({ length: 18 }, (_, index) => index + 1)
+    };
+    api.state.activeHalf = "top";
+    api.state.selectedSheetRow = 0;
+    api.state.selectedSheetCol = 0;
+    api.state.scoreSheets.bottom[7][8] = {
+        pitches: ["B", "S"],
+        result: "6",
+        selectedFielder: "6"
+    };
+    api.state.scoreSheets.bottom[8][8] = {
+        pitches: ["B"],
+        result: "9",
+        selectedFielder: "9"
+    };
+    api.state.scoreSheets.bottom[0][8] = {
+        pitches: ["B", "S", "F"],
+        result: "8",
+        selectedFielder: "8"
+    };
+
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(api.calculatePitcherStatsForTeam("top"))),
+        [
+            { pitchCount: 3, battersFaced: 1 },
+            { pitchCount: 6, battersFaced: 2 }
+        ]
+    );
+});
+
+test("a late relief change after batting around does not claim earlier batters in the inning", () => {
+    const api = loadScorebookTestApi();
+    api.state.gameInfo = api.normalizeGameInfo({
+        pitchers: {
+            top: "相手先発",
+            bottom: "先発"
+        },
+        pitcherChanges: {
+            top: [],
+            bottom: [{
+                name: "救援",
+                inning: "6",
+                entryCol: 5,
+                battingOrder: 5
+            }]
+        }
+    });
+    api.state.scoreSheets = {
+        top: api.createEmptyScoreSheet(),
+        bottom: api.createEmptyScoreSheet()
+    };
+    api.state.inningLabelsByHalf = {
+        top: [1, 2, 3, 4, 5, 6, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+        bottom: Array.from({ length: 18 }, (_, index) => index + 1)
+    };
+    api.state.activeHalf = "bottom";
+    api.state.selectedSheetRow = 0;
+    api.state.selectedSheetCol = 0;
+    api.state.scoreSheets.top[4][4] = { result: "PO" };
+    [5, 6, 7, 8, 0, 1, 2, 3, 4].forEach((row) => {
+        api.state.scoreSheets.top[row][5] = {
+            pitches: ["S"],
+            result: "K"
+        };
+    });
+    api.state.scoreSheets.top[5][6] = {
+        pitches: ["S"],
+        result: "K"
+    };
+
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(api.calculatePitcherStatsForTeam("bottom"))),
+        [
+            { pitchCount: 8, battersFaced: 8 },
+            { pitchCount: 2, battersFaced: 2 }
+        ]
+    );
+});
+
 test("an autosave failure offers one emergency export prompt until saving recovers", () => {
     const api = loadScorebookTestApi();
     let promptCount = 0;

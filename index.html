@@ -7448,7 +7448,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.3";
+        const APP_VERSION = "0.4.4";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -21289,6 +21289,85 @@
             };
         }
 
+        function getPitcherTimelineContexts(battingHalf) {
+            const normalizedBattingHalf = battingHalf === "bottom" ? "bottom" : "top";
+            const labels = getInningLabels(normalizedBattingHalf).map((label, index) => String(label || (index + 1)));
+            const sheet = state.scoreSheets[normalizedBattingHalf] || [];
+            const contexts = Array.from({ length: MAX_INNINGS }, () => null);
+            let inningStartRow = 0;
+            let col = 0;
+
+            while (col < MAX_INNINGS) {
+                const label = labels[col] || String(col + 1);
+                let groupEnd = col + 1;
+                while (groupEnd < MAX_INNINGS && labels[groupEnd] === label) {
+                    groupEnd += 1;
+                }
+
+                const occupiedRows = new Set();
+                for (let groupCol = col; groupCol < groupEnd; groupCol += 1) {
+                    for (let row = 0; row < 9; row += 1) {
+                        if (sheet[row]?.[groupCol]) {
+                            occupiedRows.add(row);
+                        }
+                    }
+                }
+                if (occupiedRows.size > 0 && occupiedRows.size < 9) {
+                    const inferredStarts = Array.from(occupiedRows)
+                        .filter((row) => !occupiedRows.has((row + 8) % 9));
+                    if (inferredStarts.length === 1) {
+                        inningStartRow = inferredStarts[0];
+                    }
+                }
+
+                let lastOrdinal = -1;
+                for (let groupCol = col; groupCol < groupEnd; groupCol += 1) {
+                    const columnOffset = groupCol - col;
+                    contexts[groupCol] = {
+                        inningIndex: col,
+                        inningStartRow,
+                        columnOffset
+                    };
+                    for (let row = 0; row < 9; row += 1) {
+                        if (!sheet[row]?.[groupCol]) {
+                            continue;
+                        }
+                        const rowOffset = (row - inningStartRow + 9) % 9;
+                        lastOrdinal = Math.max(lastOrdinal, (columnOffset * 9) + rowOffset);
+                    }
+                }
+
+                if (lastOrdinal >= 0) {
+                    inningStartRow = (inningStartRow + lastOrdinal + 1) % 9;
+                }
+                col = groupEnd;
+            }
+            return contexts;
+        }
+
+        function getPitcherTimelinePosition(position, battingHalf) {
+            const normalizedPosition = normalizeSheetPosition(position);
+            const context = getPitcherTimelineContexts(battingHalf)[normalizedPosition.col] || {
+                inningIndex: normalizedPosition.col,
+                inningStartRow: 0,
+                columnOffset: 0
+            };
+            return {
+                inningIndex: context.inningIndex,
+                plateAppearanceIndex: (context.columnOffset * 9)
+                    + ((normalizedPosition.row - context.inningStartRow + 9) % 9)
+            };
+        }
+
+        function comparePitcherTimelinePosition(a, b, battingHalf) {
+            const left = getPitcherTimelinePosition(a, battingHalf);
+            const right = getPitcherTimelinePosition(b, battingHalf);
+            if (left.inningIndex !== right.inningIndex) {
+                return left.inningIndex - right.inningIndex;
+            }
+            return left.plateAppearanceIndex - right.plateAppearanceIndex;
+        }
+
         function getResolvedPitcherEntryCol(change, battingHalf) {
             const labels = getInningLabels(battingHalf).map((label) => String(label));
             const label = String(change?.inning || "");
@@ -21323,7 +21402,7 @@
                     entry: getPitcherEntryPosition(change, battingHalf)
                 }))
                 .sort((a, b) => {
-                    const positionCompare = compareSheetPosition(a.entry, b.entry);
+                    const positionCompare = comparePitcherTimelinePosition(a.entry, b.entry, battingHalf);
                     return positionCompare || (a.sourceIndex - b.sourceIndex);
                 });
         }
@@ -21331,7 +21410,7 @@
         function getActivePitcherChangeForPosition(teamHalf, battingHalf, position) {
             const currentPosition = normalizeSheetPosition(position);
             return getPitcherChangesWithEntryPositions(teamHalf, battingHalf)
-                .filter((change) => compareSheetPosition(currentPosition, change.entry) >= 0)
+                .filter((change) => comparePitcherTimelinePosition(currentPosition, change.entry, battingHalf) >= 0)
                 .at(-1) || null;
         }
 
@@ -21466,7 +21545,7 @@
                     }
                     const position = normalizeSheetPosition({ col, row });
                     const activeChange = changes
-                        .filter((change) => compareSheetPosition(position, change.entry) >= 0)
+                        .filter((change) => comparePitcherTimelinePosition(position, change.entry, battingHalf) >= 0)
                         .at(-1);
                     const statIndex = activeChange ? activeChange.index : 0;
                     if (isCompletedPlateAppearanceSnapshot(snapshot) && !isRunnerOnlyPitchCountResult(snapshot)) {
