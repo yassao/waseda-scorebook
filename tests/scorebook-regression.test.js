@@ -115,6 +115,7 @@ function loadScorebookTestApi() {
             + "saveGameToLocalStorage,"
             + "hasTeamSwapGameStarted,"
             + "swapRegisteredTeamStateBeforeGame,"
+            + "getInningCorrectionRollbackDepth,"
             + "storage: localStorage,"
             + "setSaveFailureHandler(handler) { showGameSaveFailurePopup = handler; }"
             + "};",
@@ -187,6 +188,58 @@ test("registered team swapping is blocked after scoring input starts", () => {
     };
     api.state.scoreSheets.top[0][0] = { result: "7" };
     assert.equal(api.hasTeamSwapGameStarted(), true);
+});
+
+test("inning correction rollback also removes an accidental third strike", () => {
+    const api = loadScorebookTestApi();
+    const beforeThirdStrike = {
+        state: {
+            activeHalf: "top",
+            selectedSheetRow: 2,
+            selectedSheetCol: 0,
+            pitches: ["calledStrike", "foul"],
+            result: "",
+            strikes: 2
+        }
+    };
+    const beforeSave = {
+        state: {
+            activeHalf: "top",
+            selectedSheetRow: 2,
+            selectedSheetCol: 0,
+            pitches: ["calledStrike", "foul", "calledStrike"],
+            result: "K",
+            strikes: 3
+        }
+    };
+
+    assert.equal(api.getInningCorrectionRollbackDepth([beforeThirdStrike, beforeSave]), 2);
+});
+
+test("inning correction rollback keeps non-strikeout input editable", () => {
+    const api = loadScorebookTestApi();
+    const beforeResult = {
+        state: {
+            activeHalf: "bottom",
+            selectedSheetRow: 4,
+            selectedSheetCol: 3,
+            pitches: ["ball"],
+            result: "",
+            strikes: 0
+        }
+    };
+    const beforeSave = {
+        state: {
+            activeHalf: "bottom",
+            selectedSheetRow: 4,
+            selectedSheetCol: 3,
+            pitches: ["ball"],
+            result: "8",
+            strikes: 0
+        }
+    };
+
+    assert.equal(api.getInningCorrectionRollbackDepth([beforeResult, beforeSave]), 1);
 });
 
 test("pitch counts include the ball put in play but not runner-only actions", () => {

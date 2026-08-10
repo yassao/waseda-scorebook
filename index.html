@@ -4957,6 +4957,13 @@
             font-weight: 800;
         }
 
+        .comment-popup-actions .inning-share-correction-button {
+            grid-column: 1 / -1;
+            border-color: #b45309;
+            background: #fff7ed;
+            color: #92400e;
+        }
+
         .comment-popup-action-link {
             display: inline-flex;
             align-items: center;
@@ -7441,7 +7448,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.2";
+        const APP_VERSION = "0.4.3";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -25083,6 +25090,7 @@
                 '<div class="comment-popup-body">' + bodyHtml + '</div>',
                 '<div class="inning-share-options"><label><input id="inningShareSkipCheckbox" type="checkbox">今後このダイアログを表示しない</label></div>',
                 '<div class="comment-popup-actions">',
+                '<button type="button" class="inning-share-correction-button" onclick="returnToInningInputForCorrection()">入力を修正</button>',
                 '<button type="button" onclick="showInningShareDraft()">シェアする</button>',
                 '<button type="button" class="btn-hit" onclick="continueAfterInningShareDialog()">' + escapeHtml(continueText) + '</button>',
                 '</div>'
@@ -25130,6 +25138,7 @@
                 '<textarea id="inningShareDraftText" class="inning-share-source-draft" oninput="updateInningShareDraftLengthIndicator()">' + escapeHtml(draft) + '</textarea>',
                 '<div id="inningShareLengthWarning" class="inning-share-length-warning" aria-live="polite"></div>',
                 '<div class="comment-popup-actions">',
+                '<button type="button" class="inning-share-correction-button" onclick="returnToInningInputForCorrection()">入力を修正</button>',
                 '<button type="button" onclick="copyInningShareDraft()">コピー</button>',
                 '<button id="inningShareOpenXButton" type="button" data-x-post-open="true"' + fullOpenHidden + ' onclick="openXPostDraft()">全文をXで開く</button>',
                 '<button type="button" class="btn-hit" onclick="completeInningTransition()">' + escapeHtml(continueText) + '</button>',
@@ -25223,6 +25232,14 @@
                 status.textContent = "Xで投稿/取り消し後は、この画面に戻って「" + continueText + "」を押してください。";
             }
             const actions = popup?.querySelector(".comment-popup-actions");
+            if (actions && !actions.querySelector(".inning-share-correction-button")) {
+                const correctionButton = document.createElement("button");
+                correctionButton.type = "button";
+                correctionButton.className = "inning-share-correction-button";
+                correctionButton.textContent = "入力を修正";
+                correctionButton.onclick = returnToInningInputForCorrection;
+                actions.prepend(correctionButton);
+            }
             if (actions && !actions.querySelector("[data-x-post-open]") && !Array.from(actions.querySelectorAll("button")).some((button) => ["Xで開く", "全文をXで開く"].includes(button.textContent.trim()))) {
                 const nextButton = Array.from(actions.querySelectorAll("button")).find((button) => button.textContent.includes("次"));
                 const xButton = document.createElement("button");
@@ -25318,6 +25335,81 @@
             document.getElementById("inningSharePopup")?.classList.remove("is-open");
             document.getElementById("inningSharePopup")?.setAttribute("aria-hidden", "true");
             document.getElementById("inningSharePopupBackdrop")?.classList.remove("is-open");
+        }
+
+        function isAutomaticThirdStrikeHistoryStep(beforeSaveEntry, beforeLastPitchEntry) {
+            const current = beforeSaveEntry?.state;
+            const previous = beforeLastPitchEntry?.state;
+            if (!current || !previous) {
+                return false;
+            }
+            if (
+                current.activeHalf !== previous.activeHalf
+                || current.selectedSheetRow !== previous.selectedSheetRow
+                || current.selectedSheetCol !== previous.selectedSheetCol
+                || current.result !== "K"
+                || Number(current.strikes) < 3
+                || Number(previous.strikes) !== 2
+                || previous.result === "K"
+            ) {
+                return false;
+            }
+            const currentPitches = Array.isArray(current.pitches) ? current.pitches : [];
+            const previousPitches = Array.isArray(previous.pitches) ? previous.pitches : [];
+            if (currentPitches.length !== previousPitches.length + 1) {
+                return false;
+            }
+            if (!previousPitches.every((pitch, index) => pitch === currentPitches[index])) {
+                return false;
+            }
+            return ["calledStrike", "swingStrike", "buntSwing", "buntFoul"].includes(currentPitches[currentPitches.length - 1]);
+        }
+
+        function getInningCorrectionRollbackDepth(history = gameHistory) {
+            if (!Array.isArray(history) || history.length === 0) {
+                return 0;
+            }
+            if (history.length >= 2 && isAutomaticThirdStrikeHistoryStep(
+                history[history.length - 1],
+                history[history.length - 2]
+            )) {
+                return 2;
+            }
+            return 1;
+        }
+
+        function returnToInningInputForCorrection() {
+            const transition = pendingInningTransition;
+            const rollbackDepth = getInningCorrectionRollbackDepth();
+            let rollbackSnapshot = null;
+            for (let index = 0; index < rollbackDepth; index += 1) {
+                rollbackSnapshot = gameHistory.pop() || rollbackSnapshot;
+            }
+
+            closeInningSharePopup();
+            pendingInningTransition = null;
+            clearPendingInningTransitionStorage();
+            redoHistory.length = 0;
+
+            if (rollbackSnapshot) {
+                const message = rollbackDepth >= 2
+                    ? "誤入力前の2ストライクに戻しました"
+                    : "攻守交代前の入力に戻しました。内容を修正して保存してください";
+                restoreGameHistorySnapshot(rollbackSnapshot, message);
+            } else if (transition) {
+                selectSheetCell(transition.endedRow, transition.endedCol, { half: transition.endedHalf });
+                if (
+                    state.result === "K"
+                    && Number(state.strikes) >= 3
+                    && ["calledStrike", "swingStrike", "buntSwing", "buntFoul"].includes(state.pitches[state.pitches.length - 1])
+                ) {
+                    undoPitch();
+                }
+                updateRunnerGuiStatus("保存済みの打席を修正モードで開きました");
+            }
+
+            updateHistoryButtons();
+            saveGameToLocalStorage();
         }
 
         function continueAfterInningShareDialog() {
