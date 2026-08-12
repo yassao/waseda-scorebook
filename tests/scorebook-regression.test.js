@@ -137,6 +137,15 @@ test("release ledger version matches the application version", () => {
     assert.match(releasePosts, new RegExp(`^${datedHeadingPattern}`, "m"));
 });
 
+test("header exposes direct live import and keeps secondary actions in one menu", () => {
+    const html = fs.readFileSync(INDEX_PATH, "utf8");
+    assert.match(html, /class="header-live-import-btn"[^>]+onclick="openOnePlateAppearanceImport\(\)"[^>]*>実況入力<\/button>/);
+    assert.match(html, /id="headerMenuPanel"[^>]+aria-hidden="true"/);
+    assert.match(html, /id="workspaceToggleBtn"[^>]+class="workspace-toggle-btn header-menu-action"/);
+    assert.match(html, /id="inputLayoutToggleBtn"[^>]+class="input-layout-toggle-btn header-menu-action"/);
+    assert.match(html, /function openOnePlateAppearanceImport\(\)[\s\S]*showOptionPanel\("x", \{ onePlateDirect: true \}\);/);
+});
+
 test("registered teams can be swapped together before the first play", () => {
     const api = loadScorebookTestApi();
     api.state.teamNames = { top: "A高校", bottom: "B高校" };
