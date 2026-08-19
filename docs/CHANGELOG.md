@@ -1,3 +1,22 @@
+## v0.4.6 [2026-08-20] AI写真登録の長文貼り付けを安定化
+
+**変更ファイル:**
+- docs/RELEASE_POSTS.md
+- docs/VERSION
+- index.html
+- tests/scorebook-regression.test.js
+
+**X投稿文:**
+
+> スコアブック by CuViuをv0.4.6に更新しました。
+> 
+> AI写真登録で大会・審判情報を含む全文を貼り付けても、両チームの選手名と投手を登録できるよう修正。ChatGPT回答の装飾や不可視改行にも対応しました。
+> 
+> https://cuviu.jp/apps/scorebook/
+> #CuViu #野球スコア
+
+---
+
 ## v0.4.5 [2026-08-13] 実況入力への直行ボタンとヘッダーメニューを追加
 
 **変更ファイル:**

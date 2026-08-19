@@ -116,6 +116,8 @@ function loadScorebookTestApi() {
             + "hasTeamSwapGameStarted,"
             + "swapRegisteredTeamStateBeforeGame,"
             + "getInningCorrectionRollbackDepth,"
+            + "normalizeStarterImportText,"
+            + "parseStarterPostText,"
             + "storage: localStorage,"
             + "setSaveFailureHandler(handler) { showGameSaveFailurePopup = handler; }"
             + "};",
@@ -144,6 +146,56 @@ test("header exposes direct live import and keeps secondary actions in one menu"
     assert.match(html, /id="workspaceToggleBtn"[^>]+class="workspace-toggle-btn header-menu-action"/);
     assert.match(html, /id="inputLayoutToggleBtn"[^>]+class="input-layout-toggle-btn header-menu-action"/);
     assert.match(html, /function openOnePlateAppearanceImport\(\)[\s\S]*showOptionPanel\("x", \{ onePlateDirect: true \}\);/);
+});
+
+test("AI photo response imports game details and both complete lineups", () => {
+    const api = loadScorebookTestApi();
+    const parsed = api.parseStarterPostText([
+        "大会名：不明",
+        "年月日：不明",
+        "球場：不明",
+        "球審：不明",
+        "一塁審：不明",
+        "二塁審：不明",
+        "三塁審：不明",
+        "左線審：不明",
+        "右線審：不明",
+        "先攻・智弁和歌山スタメン：8長友悠成、3荒井優聖、9井本陽太、2山田凛虎、4楠本龍生、DH松本虎太郎、6川原一将、7山下晃平、5黒川梨太郎　投手・#1和気匠太",
+        "後攻・横浜スタメン：3小野舜友、4田島陽翔、6池田聖摩、5川上慧、7江坂佳史、9千島大翼、DH安食琥太郎、2脇山魁音、8小林大雅　投手・#1織田翔希"
+    ].join("\n"));
+
+    assert.equal(parsed.teams.top.teamName, "智弁和歌山");
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(parsed.teams.top.entries.map((entry) => entry.name))),
+        ["長友悠成", "荒井優聖", "井本陽太", "山田凛虎", "楠本龍生", "松本虎太郎", "川原一将", "山下晃平", "黒川梨太郎"]
+    );
+    assert.equal(parsed.teams.top.pitcher, "和気匠太");
+    assert.equal(parsed.teams.top.pitcherNumber, "1");
+    assert.equal(parsed.teams.bottom.teamName, "横浜");
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(parsed.teams.bottom.entries.map((entry) => entry.name))),
+        ["小野舜友", "田島陽翔", "池田聖摩", "川上慧", "江坂佳史", "千島大翼", "安食琥太郎", "脇山魁音", "小林大雅"]
+    );
+    assert.equal(parsed.teams.bottom.pitcher, "織田翔希");
+    assert.equal(parsed.teams.bottom.pitcherNumber, "1");
+});
+
+test("AI photo response tolerates copied markdown and Unicode line separators", () => {
+    const api = loadScorebookTestApi();
+    const decorated = [
+        "```text",
+        "**大会名：不明**",
+        "- **球審：不明**",
+        "- **先攻・智弁和歌山スタメン：**8長友悠成、3荒井優聖、9井本陽太、2山田凛虎、4楠本龍生、DH松本虎太郎、6川原一将、7山下晃平、5黒川梨太郎　投手・#1和気匠太",
+        "- **後攻・横浜スタメン：**3小野舜友、4田島陽翔、6池田聖摩、5川上慧、7江坂佳史、9千島大翼、DH安食琥太郎、2脇山魁音、8小林大雅　投手・#1織田翔希",
+        "```"
+    ].join("\u2028");
+    const parsed = api.parseStarterPostText(decorated);
+
+    assert.equal(parsed.teams.top.entries.length, 9);
+    assert.equal(parsed.teams.top.entries[0].name, "長友悠成");
+    assert.equal(parsed.teams.bottom.entries.length, 9);
+    assert.equal(parsed.teams.bottom.entries[8].name, "小林大雅");
 });
 
 test("registered teams can be swapped together before the first play", () => {

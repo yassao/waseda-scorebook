@@ -7598,7 +7598,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.5";
+        const APP_VERSION = "0.4.6";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -16821,6 +16821,23 @@
                 .trim();
         }
 
+        function normalizeStarterImportText(text) {
+            return String(text || "")
+                .replace(/\r\n?/g, "\n")
+                .replace(/[\u2028\u2029]/g, "\n")
+                .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
+                .split("\n")
+                .map((line) => String(line || "")
+                    .trim()
+                    .replace(/^```(?:text|txt)?\s*$/i, "")
+                    .replace(/^#{1,6}\s+/, "")
+                    .replace(/^>\s*/, "")
+                    .replace(/^(?:[-*•●・]\s+|\d+[.)]\s+)/, "")
+                    .replace(/\*\*|__/g, "")
+                    .trim())
+                .join("\n");
+        }
+
         function normalizeRosterOcrPosition(position) {
             const value = String(position || "").trim().toUpperCase();
             if (value === "D" || value === "O" || value === "0") {
@@ -17128,7 +17145,7 @@
         }
 
         function parseStarterPostText(text) {
-            const raw = String(text || "").replace(/\r/g, "");
+            const raw = normalizeStarterImportText(text);
             const result = {
                 gameInfo: parseStarterImportGameInfoText(raw),
                 teams: {
@@ -17239,7 +17256,7 @@
                     right: ""
                 }
             };
-            String(text || "").replace(/\r/g, "").split("\n").forEach((line) => {
+            normalizeStarterImportText(text).split("\n").forEach((line) => {
                 const trimmed = line.trim();
                 if (!trimmed) {
                     return;
@@ -26919,7 +26936,7 @@
                 '</div>',
                 '<textarea id="aiPromptText" class="nl-input import-textarea ai-prompt-textarea" readonly onclick="this.select()">' + escapeHtml(currentAiPromptText) + '</textarea>',
                 '<div class="import-help">2. AIの回答を下へ貼り付けます。' + resultHelp + '</div>',
-                '<textarea id="aiPromptResultInput" class="nl-input import-textarea ai-result-textarea" placeholder="AIの変換結果をここに貼り付け" onpaste="setTimeout(applyAiPromptResult, 80)"></textarea>',
+                '<textarea id="aiPromptResultInput" class="nl-input import-textarea ai-result-textarea" placeholder="AIの変換結果をここに貼り付け" onpaste="handleAiPromptResultPaste(event)"></textarea>',
                 '<div class="ai-prompt-actions">',
                 '<button type="button" onclick="closeAiPromptPopup()">キャンセル</button>',
                 '<button type="button" onclick="applyAiPromptResult()">貼り付け結果を反映</button>',
@@ -26950,6 +26967,18 @@
             if (navigator.clipboard?.writeText && promptText) {
                 navigator.clipboard.writeText(promptText).catch(() => {});
             }
+        }
+
+        function handleAiPromptResultPaste(event) {
+            const textarea = event?.currentTarget || document.getElementById("aiPromptResultInput");
+            const clipboardText = event?.clipboardData?.getData("text/plain") || "";
+            if (textarea && clipboardText) {
+                event.preventDefault();
+                textarea.value = clipboardText;
+                applyAiPromptResult();
+                return;
+            }
+            setTimeout(applyAiPromptResult, 180);
         }
 
         function applyAiPromptResult() {
