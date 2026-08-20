@@ -118,6 +118,10 @@ function loadScorebookTestApi() {
             + "getInningCorrectionRollbackDepth,"
             + "normalizeStarterImportText,"
             + "parseStarterPostText,"
+            + "captureGameHistorySnapshot,"
+            + "isInningShareEveryInningEnabled,"
+            + "setInningShareEveryInning,"
+            + "getInningShareFlowMode,"
             + "storage: localStorage,"
             + "setSaveFailureHandler(handler) { showGameSaveFailurePopup = handler; }"
             + "};",
@@ -145,7 +149,24 @@ test("header exposes direct live import and keeps secondary actions in one menu"
     assert.match(html, /id="headerMenuPanel"[^>]+aria-hidden="true"/);
     assert.match(html, /id="workspaceToggleBtn"[^>]+class="workspace-toggle-btn header-menu-action"/);
     assert.match(html, /id="inputLayoutToggleBtn"[^>]+class="input-layout-toggle-btn header-menu-action"/);
+    assert.match(html, /onclick="openHeaderMenuDetails\('playerRosterDetails'\)"[^>]*>[\s\S]*?チーム・選手<\/span>/);
+    assert.match(html, /onclick="openHeaderMenuDetails\('gameSettingsDetails'\)"[^>]*>[\s\S]*?試合設定<\/span>/);
+    assert.match(html, /id="playerRosterDetails"[^>]+data-header-menu-section/);
+    assert.match(html, /id="gameSettingsDetails"[^>]+data-header-menu-section/);
+    assert.match(html, /id="gameInfoShareEveryInning"[^>]+onchange="setInningShareEveryInning\(this\.checked\)"/);
     assert.match(html, /function openOnePlateAppearanceImport\(\)[\s\S]*showOptionPanel\("x", \{ onePlateDirect: true \}\);/);
+});
+
+test("every-inning X sharing is stored with the game and opens the draft directly", () => {
+    const api = loadScorebookTestApi();
+    assert.equal(api.isInningShareEveryInningEnabled(), false);
+    assert.equal(api.getInningShareFlowMode(), "prompt");
+
+    api.setInningShareEveryInning(true);
+    assert.equal(api.isInningShareEveryInningEnabled(), true);
+    assert.equal(api.getInningShareFlowMode(), "draft");
+    assert.equal(api.getInningShareFlowMode({ showShareDialog: false }), "skip");
+    assert.equal(api.captureGameHistorySnapshot().state.shareEveryInning, true);
 });
 
 test("AI photo response imports game details and both complete lineups", () => {
