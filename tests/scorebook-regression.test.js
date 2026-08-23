@@ -186,6 +186,24 @@ test("Ninja AdMax uses a same-origin srcdoc iframe without sandbox restrictions"
     assert.match(skipSource, /AD_GATE_CONFIG\.skipWhenOffline && !isNetworkOnline\(\)/);
 });
 
+test("inning breaks default to alternating support and sponsor messages", () => {
+    const html = fs.readFileSync(INDEX_PATH, "utf8");
+    const configSource = html.match(/const AD_GATE_CONFIG = \{[\s\S]*?\n        \};/)?.[0] || "";
+    const fallbackSource = html.match(/function renderAdGateFallback\(slot, placement = "inning"\) \{[\s\S]*?\n        \}/)?.[0] || "";
+    const mountSource = html.match(/function mountAdGateAdProvider\(placement = "inning"\) \{[\s\S]*?\n        \}/)?.[0] || "";
+
+    assert.match(configSource, /enabled: true/);
+    assert.match(configSource, /provider: "none"/);
+    assert.match(configSource, /skipWhenOffline: true/);
+    assert.match(fallbackSource, /adGateFallbackRotation\+\+ % 2 === 0/);
+    assert.match(fallbackSource, /開発支援をお願いします/);
+    assert.match(fallbackSource, /スポンサー募集中/);
+    assert.match(html, /const SUPPORT_MENU_URL = "https:\/\/cuviu\.jp\/apps\/scorebook\/support\.html"/);
+    assert.match(mountSource, /AD_GATE_CONFIG\.provider !== "ninja_admax"/);
+    assert.match(mountSource, /NINJA_ADMAX_INNING_SCRIPT_URL/);
+    assert.doesNotMatch(mountSource, /frame\.setAttribute\("sandbox"/);
+});
+
 test("AI photo response imports game details and both complete lineups", () => {
     const api = loadScorebookTestApi();
     const parsed = api.parseStarterPostText([
