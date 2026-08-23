@@ -1,3 +1,22 @@
+## v0.4.8 [2026-08-23] 忍者AdMaxの広告枠をiframe描画へ変更
+
+**変更ファイル:**
+- docs/RELEASE_POSTS.md
+- docs/VERSION
+- index.html
+- tests/scorebook-regression.test.js
+
+**X投稿文:**
+
+> スコアブック by CuViuをv0.4.8に更新しました。
+> 
+> イニング間表示の安定性を改善しました。
+> 
+> https://cuviu.jp/apps/scorebook/
+> #CuViu #野球スコア
+
+---
+
 ## v0.4.7 [2026-08-20] 毎回X投稿設定とヘッダーメニュー整理
 
 **変更ファイル:**

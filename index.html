@@ -5353,8 +5353,13 @@
             color: #0f4f8a;
         }
 
-        .ad-gate-box script {
-            display: none;
+        .ad-gate-frame {
+            display: block;
+            width: 320px;
+            max-width: 100%;
+            height: 100px;
+            margin: 0 auto;
+            border: 0;
         }
 
         .ad-gate-message {
@@ -7611,7 +7616,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.7";
+        const APP_VERSION = "0.4.8";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -12960,16 +12965,30 @@
                 return;
             }
             slot.replaceChildren();
-            const script = document.createElement("script");
-            script.src = NINJA_ADMAX_INNING_SCRIPT_URL;
-            script.async = true;
-            slot.appendChild(script);
+            const frame = document.createElement("iframe");
+            frame.className = "ad-gate-frame";
+            frame.width = "320";
+            frame.height = "100";
+            frame.scrolling = "no";
+            frame.setAttribute("frameborder", "0");
+            frame.setAttribute("title", "広告");
+            frame.setAttribute("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox");
+            frame.addEventListener("load", () => {
+                frame.dataset.loaded = "true";
+            });
+            frame.srcdoc = [
+                '<!doctype html><html><head><meta charset="utf-8">',
+                '<style>html,body{margin:0;padding:0;overflow:hidden;text-align:center;}</style>',
+                '</head><body>',
+                '<script src="' + NINJA_ADMAX_INNING_SCRIPT_URL + '"><\/script>',
+                '</body></html>'
+            ].join("");
+            slot.appendChild(frame);
             window.setTimeout(() => {
-                const hasAdContent = Array.from(slot.children).some((child) => child !== script);
-                if (!hasAdContent) {
+                if (frame.dataset.loaded !== "true") {
                     renderAdGateFallback(slot, placement);
                 }
-            }, 1200);
+            }, 2000);
         }
 
         function openAdGate(options = {}) {

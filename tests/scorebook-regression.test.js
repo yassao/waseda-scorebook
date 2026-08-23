@@ -169,6 +169,24 @@ test("every-inning X sharing is stored with the game and opens the draft directl
     assert.equal(api.captureGameHistorySnapshot().state.shareEveryInning, true);
 });
 
+test("Ninja AdMax is isolated in a sandboxed srcdoc iframe", () => {
+    const html = fs.readFileSync(INDEX_PATH, "utf8");
+    const mountSource = html.match(/function mountAdGateAdProvider\(placement = "inning"\) \{[\s\S]*?\n        \}/)?.[0] || "";
+
+    assert.match(mountSource, /document\.createElement\("iframe"\)/);
+    assert.match(mountSource, /frame\.setAttribute\("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox"\)/);
+    assert.match(mountSource, /frame\.srcdoc =/);
+    assert.match(mountSource, /frame\.addEventListener\("load"/);
+    assert.match(mountSource, /slot\.dataset\.loaded === "true"/);
+    assert.match(mountSource, /placement !== "inning" \|\| AD_GATE_CONFIG\.provider !== "ninja_admax"/);
+    assert.match(mountSource, /frame\.dataset\.loaded !== "true"[\s\S]*renderAdGateFallback\(slot, placement\)/);
+    assert.doesNotMatch(mountSource, /allow-same-origin/);
+    assert.doesNotMatch(mountSource, /document\.createElement\("script"\)/);
+
+    const skipSource = html.match(/function shouldSkipAdGate\(options = \{\}\) \{[\s\S]*?\n        \}/)?.[0] || "";
+    assert.match(skipSource, /AD_GATE_CONFIG\.skipWhenOffline && !isNetworkOnline\(\)/);
+});
+
 test("AI photo response imports game details and both complete lineups", () => {
     const api = loadScorebookTestApi();
     const parsed = api.parseStarterPostText([
