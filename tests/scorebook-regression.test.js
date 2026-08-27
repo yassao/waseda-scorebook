@@ -118,6 +118,7 @@ function loadScorebookTestApi() {
             + "getInningCorrectionRollbackDepth,"
             + "normalizeStarterImportText,"
             + "parseStarterPostText,"
+            + "parseOnePitchNaturalLanguage,"
             + "captureGameHistorySnapshot,"
             + "isInningShareEveryInningEnabled,"
             + "setInningShareEveryInning,"
@@ -170,10 +171,47 @@ test("direct live input advances to the next batter and closes after a successfu
     const html = fs.readFileSync(INDEX_PATH, "utf8");
     const finishSource = html.match(/function finishOnePlateAppearanceInput\(\) \{[\s\S]*?\n        \}/)?.[0] || "";
 
-    assert.match(html, /onclick="finishOnePlateAppearanceInput\(\)"[^>]*>次打者へ<\/button>/);
+    assert.match(html, /id="onePlateAppearanceApplyButton"[^>]+onclick="finishOnePlateAppearanceInput\(\)"/);
+    assert.match(html, /function syncOnePlateAppearanceActionButton\(text = null\) \{[\s\S]*button\.textContent = "次打者へ";/);
     assert.match(finishSource, /applyOnePlateAppearanceText\(\)/);
     assert.match(finishSource, /const didAdvance = applyNaturalLanguage\(\);/);
     assert.match(finishSource, /if \(didAdvance\) \{[\s\S]*closeImportOptions\(\);/);
+});
+
+test("direct live input accepts individual pitch calls without advancing the batter", () => {
+    const api = loadScorebookTestApi();
+    const html = fs.readFileSync(INDEX_PATH, "utf8");
+    const parserSource = html.match(/function parseOnePitchNaturalLanguage\(text\) \{[\s\S]*?\n        \}/)?.[0] || "";
+    const finishSource = html.match(/function finishOnePlateAppearanceInput\(\) \{[\s\S]*?\n        \}/)?.[0] || "";
+
+    assert.match(html, /id="onePlateAppearanceApplyButton"/);
+    assert.match(parserSource, /calledStrike/);
+    assert.match(parserSource, /swingStrike/);
+    assert.match(parserSource, /ball/);
+    assert.match(parserSource, /foul/);
+    assert.match(parserSource, /buntFoul/);
+    assert.match(parserSource, /buntSwing/);
+    assert.match(finishSource, /appliedKind === "pitch"/);
+    assert.match(finishSource, /return;/);
+
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(api.parseOnePitchNaturalLanguage("見逃しストライク"))),
+        { symbol: "calledStrike", label: "見逃しストライク" }
+    );
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(api.parseOnePitchNaturalLanguage("空振りストライク"))),
+        { symbol: "swingStrike", label: "空振りストライク" }
+    );
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(api.parseOnePitchNaturalLanguage("初球はボール"))),
+        { symbol: "ball", label: "ボール" }
+    );
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(api.parseOnePitchNaturalLanguage("ファール"))),
+        { symbol: "foul", label: "ファウル" }
+    );
+    assert.equal(api.parseOnePitchNaturalLanguage("空振り三振"), null);
+    assert.equal(api.parseOnePitchNaturalLanguage("四球"), null);
 });
 
 test("every-inning X sharing is stored with the game and opens the draft directly", () => {

@@ -7128,7 +7128,7 @@
                 </span>
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
-                <button type="button" class="header-live-import-btn" onclick="openOnePlateAppearanceImport()" aria-label="1打席の実況入力を開く">実況入力</button>
+                <button type="button" class="header-live-import-btn" onclick="openOnePlateAppearanceImport()" aria-label="1球・1打席の実況入力を開く">実況入力</button>
                 <button id="headerMenuBtn" type="button" class="header-menu-btn" onclick="toggleHeaderMenu()" aria-label="メニューを開く" aria-controls="headerMenuPanel" aria-expanded="false">☰</button>
                 <button id="headerMenuBackdrop" type="button" class="header-menu-backdrop" onclick="closeHeaderMenu()" aria-label="メニューを閉じる" tabindex="-1"></button>
                 <nav id="headerMenuPanel" class="header-menu-panel" aria-label="アプリメニュー" aria-hidden="true">
@@ -7566,10 +7566,10 @@
                                         </div>
                                     </div>
                                     <div class="ai-import-card">
-                                        <div class="ai-import-title">1打席入力（音声・自然文向け）</div>
-                                        <textarea id="naturalLanguageInput" class="nl-input import-textarea one-pa-textarea" placeholder="例: 低め変化球を拾ってセンター前ヒット。二走はホーム生還"></textarea>
+                                        <div class="ai-import-title">1球・1打席入力（音声・自然文向け）</div>
+                                        <textarea id="naturalLanguageInput" class="nl-input import-textarea one-pa-textarea" placeholder="例: ボール / 見逃しストライク / 空振りストライク / センター前ヒット"></textarea>
                                         <div class="ai-import-actions">
-                                            <button onclick="finishOnePlateAppearanceInput()">次打者へ</button>
+                                            <button id="onePlateAppearanceApplyButton" onclick="finishOnePlateAppearanceInput()" disabled>実況を入力</button>
                                             <button onclick="generateOnePlateAppearancePrompt()">AI変換プロンプト生成</button>
                                             <button onclick="clearOnePlateAppearanceInput()">内容クリア</button>
                                         </div>
@@ -7577,7 +7577,7 @@
                                 </div>
                                 <div id="twitterImportPreview" class="nl-preview">X / Twitter取り込みは1イニング分ずつ貼り付けてください。現在の回・打順の続きから推定で取り込み、原文は吹き出しコメントとして残します。</div>
                                 <div id="naturalLanguagePreview" class="nl-preview compact hidden-preview">ここに解釈結果を表示します。</div>
-                                <div class="import-help">曖昧な音声入力は、まずAI変換プロンプトで「1打席だけの短い結果」に整形してから貼り直すと安定します。</div>
+                                <div class="import-help">1球の内容はそのままカウントへ記録します。曖昧な打席結果は、AI変換プロンプトで短い結果表記に整えてから貼り直すと安定します。</div>
                             </div>
                         </section>
                         <section id="optionPanelSave" class="section options-panel">
@@ -7616,7 +7616,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.11";
+        const APP_VERSION = "0.4.12";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8484,6 +8484,33 @@
                 .replace(/\s+/g, "")
                 .replace(/[・、,，。\.！!？?]/g, "")
                 .trim();
+        }
+
+        function parseOnePitchNaturalLanguage(text) {
+            let normalized = normalizeNaturalLanguageKey(text)
+                .replace(/^(?:第?[0-9]+球目?|初球|次の球)(?:は)?/, "")
+                .replace(/(?:です|でした)$/, "");
+            const aliases = {
+                ボール: { symbol: "ball", label: "ボール" },
+                ボール球: { symbol: "ball", label: "ボール" },
+                外れてボール: { symbol: "ball", label: "ボール" },
+                ストライク: { symbol: "calledStrike", label: "見逃しストライク" },
+                見逃し: { symbol: "calledStrike", label: "見逃しストライク" },
+                見逃しストライク: { symbol: "calledStrike", label: "見逃しストライク" },
+                見逃しのストライク: { symbol: "calledStrike", label: "見逃しストライク" },
+                ストライク見逃し: { symbol: "calledStrike", label: "見逃しストライク" },
+                空振り: { symbol: "swingStrike", label: "空振りストライク" },
+                空振りストライク: { symbol: "swingStrike", label: "空振りストライク" },
+                空振りのストライク: { symbol: "swingStrike", label: "空振りストライク" },
+                ストライク空振り: { symbol: "swingStrike", label: "空振りストライク" },
+                ファウル: { symbol: "foul", label: "ファウル" },
+                ファール: { symbol: "foul", label: "ファウル" },
+                バントファウル: { symbol: "buntFoul", label: "バントファウル" },
+                バントファール: { symbol: "buntFoul", label: "バントファウル" },
+                バント空振り: { symbol: "buntSwing", label: "バント空振り" },
+                バント空振りストライク: { symbol: "buntSwing", label: "バント空振り" }
+            };
+            return aliases[normalized] ? { ...aliases[normalized] } : null;
         }
 
         function normalizeBaseballDigits(text) {
@@ -11254,6 +11281,7 @@
             optionsMenu.setAttribute("open", "");
             showOptionPanel("x", { onePlateDirect: true });
             const card = input.closest(".ai-import-card");
+            syncOnePlateAppearanceActionButton();
             input.focus({ preventScroll: true });
             requestAnimationFrame(() => {
                 card?.scrollIntoView({ block: "start" });
@@ -26918,9 +26946,35 @@
                 input.focus();
             }
             if (preview) {
-                preview.textContent = "1打席入力をクリアしました。音声入力や自然文を貼り直せます。";
+                preview.textContent = "実況入力をクリアしました。1球または1打席の内容を入れ直せます。";
             }
             scheduleNaturalLanguageParse();
+        }
+
+        function syncOnePlateAppearanceActionButton(text = null) {
+            const input = document.getElementById("naturalLanguageInput");
+            const button = document.getElementById("onePlateAppearanceApplyButton");
+            if (!button) {
+                return;
+            }
+            const inputText = text === null ? (input?.value || "").trim() : String(text || "").trim();
+            const pitchInput = parseOnePitchNaturalLanguage(inputText);
+            const pitchCompletedPlate = !inputText
+                && state.pitches.length > 0
+                && ["B", "K"].includes(state.result);
+
+            if (pitchInput) {
+                button.textContent = "1球を入力";
+                button.disabled = false;
+                return;
+            }
+            if (inputText || pitchCompletedPlate) {
+                button.textContent = "次打者へ";
+                button.disabled = false;
+                return;
+            }
+            button.textContent = "実況を入力";
+            button.disabled = true;
         }
 
         function applyOnePlateAppearanceText() {
@@ -26929,10 +26983,33 @@
             const text = (input?.value || "").trim();
             if (!text) {
                 if (preview) {
-                    preview.textContent = "1打席入力欄が空です。音声入力や自然文を入れてください。";
+                    preview.textContent = "実況入力欄が空です。1球または1打席の内容を入れてください。";
                 }
                 return false;
             }
+
+            const pitchInput = parseOnePitchNaturalLanguage(text);
+            if (pitchInput) {
+                addPitch(pitchInput.symbol);
+                if (input) {
+                    input.value = "";
+                    input.focus({ preventScroll: true });
+                }
+                if (preview) {
+                    const countText = state.result === "K"
+                        ? "3ストライクです。「次打者へ」で打席を確定してください。"
+                        : state.result === "B"
+                            ? "4ボールです。「次打者へ」で打席を確定してください。"
+                            : "現在 " + state.balls + "ボール " + state.strikes + "ストライクです。次の球を続けて入力できます。";
+                    preview.innerHTML = [
+                        "<div>1球入力: " + escapeHtml(pitchInput.label) + "</div>",
+                        "<div class=\"import-help\">" + escapeHtml(countText) + "</div>"
+                    ].join("");
+                }
+                syncOnePlateAppearanceActionButton("");
+                return "pitch";
+            }
+
             parseNaturalLanguage();
             if (!state.parsedInput) {
                 return false;
@@ -26954,11 +27031,24 @@
                         : "<div class=\"import-help\">コメント部分はありません。内容が曖昧な場合は、AI変換プロンプトで短い結果表記に整えてから貼り直してください。</div>"
                 ].join("");
             }
-            return true;
+            return "plate";
         }
 
         function finishOnePlateAppearanceInput() {
-            if (!applyOnePlateAppearanceText()) {
+            const inputText = (document.getElementById("naturalLanguageInput")?.value || "").trim();
+            if (!inputText && state.pitches.length > 0 && ["B", "K"].includes(state.result)) {
+                const didAdvance = applyNaturalLanguage();
+                if (didAdvance) {
+                    closeImportOptions();
+                }
+                return;
+            }
+
+            const appliedKind = applyOnePlateAppearanceText();
+            if (!appliedKind) {
+                return;
+            }
+            if (appliedKind === "pitch") {
                 return;
             }
             const didAdvance = applyNaturalLanguage();
@@ -27417,7 +27507,21 @@
                     resetState();
                 }
                 preview.textContent = "ここに解釈結果を表示します。";
+                syncOnePlateAppearanceActionButton("");
                 updateDisplay();
+                return;
+            }
+
+            const pitchInput = parseOnePitchNaturalLanguage(input);
+            if (pitchInput) {
+                state.parsedInput = null;
+                syncCorrectionControls(null);
+                preview.innerHTML = [
+                    "1球入力:",
+                    escapeHtml(pitchInput.label),
+                    "ボタンを押すまでカウントには反映しません。"
+                ].join("<br>");
+                syncOnePlateAppearanceActionButton(input);
                 return;
             }
 
@@ -27427,12 +27531,14 @@
             if (!parsed) {
                 preview.textContent = "まだ解釈できませんでした。例: ショートゴロ内野安打 / センター前ヒット / ライトオーバー二塁打";
                 syncCorrectionControls(null);
+                syncOnePlateAppearanceActionButton(input);
                 return;
             }
 
             applyParsedInput(parsed);
             syncCorrectionControls(parsed);
             syncPreviewFromParsed(parsed, "解釈");
+            syncOnePlateAppearanceActionButton(input);
         }
 
         function scheduleNaturalLanguageParse() {

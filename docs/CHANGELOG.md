@@ -1,3 +1,22 @@
+## v0.4.12 [2026-08-27] 実況入力で1球ごとの投球を記録可能に
+
+**変更ファイル:**
+- docs/RELEASE_POSTS.md
+- docs/VERSION
+- index.html
+- tests/scorebook-regression.test.js
+
+**X投稿文:**
+
+> スコアブック by CuViuをv0.4.12に更新しました。
+> 
+> 実況入力で1球ごとの投球を記録可能に
+> 
+> https://cuviu.jp/apps/scorebook/
+> #CuViu #野球スコア
+
+---
+
 ## v0.4.11 [2026-08-27] 死球と実況入力の操作を改善
 
 **変更ファイル:**
