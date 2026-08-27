@@ -157,6 +157,25 @@ test("header exposes direct live import and keeps secondary actions in one menu"
     assert.match(html, /function openOnePlateAppearanceImport\(\)[\s\S]*showOptionPanel\("x", \{ onePlateDirect: true \}\);/);
 });
 
+test("dead ball play parts skip fielder and direction selection", () => {
+    const html = fs.readFileSync(INDEX_PATH, "utf8");
+    const helperSource = html.match(/function requiresPlayPartFielderInput\(value\) \{[\s\S]*?\n        \}/)?.[0] || "";
+    const chooseSource = html.match(/function choosePlayPartResult\(category, value\) \{[\s\S]*?\n        \}/)?.[0] || "";
+
+    assert.match(helperSource, /\["walk", "intentional_walk", "hbp"\]/);
+    assert.match(chooseSource, /if \(!requiresPlayPartFielderInput\(value\)\) \{[\s\S]*closePlayPartPopup\(\);[\s\S]*return;/);
+});
+
+test("direct live input advances to the next batter and closes after a successful save", () => {
+    const html = fs.readFileSync(INDEX_PATH, "utf8");
+    const finishSource = html.match(/function finishOnePlateAppearanceInput\(\) \{[\s\S]*?\n        \}/)?.[0] || "";
+
+    assert.match(html, /onclick="finishOnePlateAppearanceInput\(\)"[^>]*>次打者へ<\/button>/);
+    assert.match(finishSource, /applyOnePlateAppearanceText\(\)/);
+    assert.match(finishSource, /const didAdvance = applyNaturalLanguage\(\);/);
+    assert.match(finishSource, /if \(didAdvance\) \{[\s\S]*closeImportOptions\(\);/);
+});
+
 test("every-inning X sharing is stored with the game and opens the draft directly", () => {
     const api = loadScorebookTestApi();
     assert.equal(api.isInningShareEveryInningEnabled(), false);

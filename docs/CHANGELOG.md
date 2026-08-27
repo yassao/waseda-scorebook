@@ -1,3 +1,22 @@
+## v0.4.11 [2026-08-27] 死球と実況入力の操作を改善
+
+**変更ファイル:**
+- docs/RELEASE_POSTS.md
+- docs/VERSION
+- index.html
+- tests/scorebook-regression.test.js
+
+**X投稿文:**
+
+> スコアブック by CuViuをv0.4.11に更新しました。
+> 
+> 死球と実況入力の操作を改善
+> 
+> https://cuviu.jp/apps/scorebook/
+> #CuViu #野球スコア
+
+---
+
 ## v0.4.10 [2026-08-23] イニング間表示を開発支援導線へ変更
 
 **変更ファイル:**

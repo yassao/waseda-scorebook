@@ -7569,7 +7569,7 @@
                                         <div class="ai-import-title">1打席入力（音声・自然文向け）</div>
                                         <textarea id="naturalLanguageInput" class="nl-input import-textarea one-pa-textarea" placeholder="例: 低め変化球を拾ってセンター前ヒット。二走はホーム生還"></textarea>
                                         <div class="ai-import-actions">
-                                            <button onclick="applyOnePlateAppearanceText()">1打席を反映</button>
+                                            <button onclick="finishOnePlateAppearanceInput()">次打者へ</button>
                                             <button onclick="generateOnePlateAppearancePrompt()">AI変換プロンプト生成</button>
                                             <button onclick="clearOnePlateAppearanceInput()">内容クリア</button>
                                         </div>
@@ -7616,7 +7616,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.10";
+        const APP_VERSION = "0.4.11";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -26275,13 +26275,13 @@
             if (!confirmDoublePlayInterpretation(previewSnapshot)) {
                 updateRunnerGuiStatus("併殺の走者アウトを確認してください");
                 syncPreviewFromCurrentState("確認");
-                return;
+                return false;
             }
             const correctionInning = getColumnInningLabel(state.selectedSheetCol, state.activeHalf);
             const hadScoreOverride = isCorrectionEdit && hasScoreOverride(state.activeHalf, correctionInning);
             if (hadScoreOverride && !clearScoreOverrideForInningIfNeeded(state.activeHalf, correctionInning, false)) {
                 updateRunnerGuiStatus("確認: 得点板の直接補正を維持したため、修正保存を中止しました");
-                return;
+                return false;
             }
             pushGameHistory();
             if (hadScoreOverride) {
@@ -26304,9 +26304,10 @@
                 updateDisplay();
                 scheduleGameAutoSave();
                 updateRunnerGuiStatus(formatCorrectionInningTransitionStatus(correctionTransition));
-                return;
+                return true;
             }
             advanceAfterSave(snapshot);
+            return true;
         }
 
         function isLikelyNikkanInningToken(token) {
@@ -26930,9 +26931,12 @@
                 if (preview) {
                     preview.textContent = "1打席入力欄が空です。音声入力や自然文を入れてください。";
                 }
-                return;
+                return false;
             }
             parseNaturalLanguage();
+            if (!state.parsedInput) {
+                return false;
+            }
             const mainPlayText = extractTwitterMainPlayText(text);
             const comment = extractImportCommentText(text, mainPlayText);
             state.atBatComment = comment;
@@ -26949,6 +26953,17 @@
                         ? "<div class=\"import-help\">吹き出しコメント: " + escapeHtml(comment) + "</div>"
                         : "<div class=\"import-help\">コメント部分はありません。内容が曖昧な場合は、AI変換プロンプトで短い結果表記に整えてから貼り直してください。</div>"
                 ].join("");
+            }
+            return true;
+        }
+
+        function finishOnePlateAppearanceInput() {
+            if (!applyOnePlateAppearanceText()) {
+                return;
+            }
+            const didAdvance = applyNaturalLanguage();
+            if (didAdvance) {
+                closeImportOptions();
             }
         }
 
@@ -27723,6 +27738,10 @@
             applyPlayParts();
         }
 
+        function requiresPlayPartFielderInput(value) {
+            return !["walk", "intentional_walk", "hbp"].includes(value);
+        }
+
         function choosePlayPartResult(category, value) {
             const row = playPartPopupState.row;
             if (!row) {
@@ -27738,6 +27757,10 @@
             contentSelect.value = value;
             updatePlayPartRowLabels(row);
             applyPlayParts();
+            if (!requiresPlayPartFielderInput(value)) {
+                closePlayPartPopup();
+                return;
+            }
             renderPlayPartNumberPad(row);
         }
 
@@ -30002,20 +30025,18 @@
 
         function applyNaturalLanguage() {
             if (state.parsedInput) {
-                saveAndAdvanceCurrentPlate();
-                return;
+                return saveAndAdvanceCurrentPlate();
             }
 
             if (!document.getElementById("naturalLanguageInput").value.trim() && (state.result || state.pitches.length > 0)) {
-                saveAndAdvanceCurrentPlate();
-                return;
+                return saveAndAdvanceCurrentPlate();
             }
 
             parseNaturalLanguage();
             if (!state.parsedInput) {
-                return;
+                return false;
             }
-            saveAndAdvanceCurrentPlate();
+            return saveAndAdvanceCurrentPlate();
         }
 
         function refreshGlobalApplyButtonState() {
