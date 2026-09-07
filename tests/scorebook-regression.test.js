@@ -119,6 +119,15 @@ function loadScorebookTestApi() {
             + "normalizeStarterImportText,"
             + "parseStarterPostText,"
             + "parseOnePitchNaturalLanguage,"
+            + "buildParsedInput,"
+            + "getKeioCompactRunnerLabel,"
+            + "getKeioCompactOutLabel,"
+            + "getKeioRunnerOutReasonCode,"
+            + "getKeioOfficialNoteCode,"
+            + "getKeioResultLabel,"
+            + "getKeioOnBaseSymbol,"
+            + "generateKeioSheetCellSvg,"
+            + "renderPitcherChangeMarker,"
             + "captureGameHistorySnapshot,"
             + "isInningShareEveryInningEnabled,"
             + "setInningShareEveryInning,"
@@ -156,6 +165,114 @@ test("header exposes direct live import and keeps secondary actions in one menu"
     assert.match(html, /id="gameSettingsDetails"[^>]+data-header-menu-section/);
     assert.match(html, /id="gameInfoShareEveryInning"[^>]+onchange="setInningShareEveryInning\(this\.checked\)"/);
     assert.match(html, /function openOnePlateAppearanceImport\(\)[\s\S]*showOptionPanel\("x", \{ onePlateDirect: true \}\);/);
+});
+
+test("import menu uses generic compact tabs and keeps direct live controls above the fold", () => {
+    const html = fs.readFileSync(INDEX_PATH, "utf8");
+
+    assert.doesNotMatch(html, /日刊スポーツ/);
+    assert.match(html, /id="optionNavNikkan"[\s\S]*?>Web速報<br><small>インポート<\/small><\/button>/);
+    assert.match(html, /id="optionNavX"[\s\S]*?>X投稿<br><small>インポート<\/small><\/button>/);
+    assert.match(html, /id="optionNavSave"[\s\S]*?>試合データ<br><small>保存・読込<\/small><\/button>/);
+    assert.match(html, /\.options-nav \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+    assert.match(html, /\.options-menu\.one-pa-direct-mode #optionPanelX \.one-pa-textarea \{[\s\S]*?height: 64px;/);
+    assert.match(html, /\.options-menu\.one-pa-direct-mode #optionPanelX \.ai-import-actions \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+});
+
+test("Keio renderer uses the official NPB result and substitution symbols", () => {
+    const api = loadScorebookTestApi();
+
+    assert.equal(api.getKeioResultLabel({ result: "B" }), "BB");
+    assert.equal(api.getKeioResultLabel({ result: "IB" }), "B*");
+    assert.equal(api.getKeioResultLabel({ result: "B'" }), "B*");
+    assert.equal(api.getKeioResultLabel({ result: "HP" }), "D");
+    assert.equal(api.getKeioResultLabel({ result: "DB" }), "D");
+    assert.equal(api.getKeioResultLabel({ result: "W" }), "W");
+    assert.equal(api.getKeioResultLabel({ result: "P" }), "P");
+    assert.equal(api.getKeioResultLabel({ result: "BK" }), "bk");
+    assert.equal(api.getKeioResultLabel({ result: "S" }), "O");
+    assert.equal(api.getKeioResultLabel({ result: "CS" }), "cs");
+    assert.equal(api.getKeioResultLabel({ result: "Fc", fieldSequence: ["4", "2"] }), "4Fc2");
+    assert.equal(api.getKeioResultLabel({ result: "Fc", fieldSequence: [] }), "Fc");
+    assert.equal(api.getKeioResultLabel({
+        result: "K",
+        outScore: "",
+        modifiers: { droppedThirdStrike: true, droppedThirdStrikeCause: "wildPitch" }
+    }), "KW");
+    assert.equal(api.getKeioResultLabel({
+        result: "K",
+        outScore: "",
+        modifiers: { droppedThirdStrike: true, droppedThirdStrikeCause: "passedBall" }
+    }), "KP");
+    assert.equal(api.getKeioCompactRunnerLabel("暴投"), "W");
+    assert.equal(api.getKeioCompactRunnerLabel("捕逸"), "P");
+    assert.equal(api.getKeioCompactRunnerLabel("ボーク"), "bk");
+    assert.equal(api.getKeioCompactRunnerLabel("野選"), "Fc");
+    assert.equal(api.getKeioCompactOutLabel({ label: "盗塁死", outType: "caughtStealing" }), "cs");
+    assert.equal(api.getKeioRunnerOutReasonCode("盗塁死"), "cs");
+    assert.equal(api.getKeioOfficialNoteCode("代打"), "H");
+    assert.equal(api.getKeioOfficialNoteCode("PR"), "R");
+    assert.equal(
+        api.getKeioCompactOutLabel({ label: "CS:2-6B", outType: "caughtStealing" }),
+        "cs 2-6B"
+    );
+    assert.equal(api.getKeioOnBaseSymbol({
+        result: "K",
+        outScore: "",
+        modifiers: { droppedThirdStrike: true, droppedThirdStrikeCause: "wildPitch" }
+    }), "KW");
+    assert.equal(api.getKeioOnBaseSymbol({
+        result: "K",
+        outScore: "",
+        modifiers: { droppedThirdStrike: true, droppedThirdStrikeCause: "passedBall" }
+    }), "KP");
+});
+
+test("natural language preserves dropped-third-strike cause for Keio output", () => {
+    const api = loadScorebookTestApi();
+    const wildPitch = api.buildParsedInput("振り逃げ暴投");
+    const passedBall = api.buildParsedInput("振り逃げ捕逸");
+
+    assert.equal(wildPitch.result, "K");
+    assert.equal(wildPitch.modifiers.droppedThirdStrike, true);
+    assert.equal(wildPitch.modifiers.droppedThirdStrikeCause, "wildPitch");
+    assert.equal(passedBall.result, "K");
+    assert.equal(passedBall.modifiers.droppedThirdStrike, true);
+    assert.equal(passedBall.modifiers.droppedThirdStrikeCause, "passedBall");
+});
+
+test("Keio SVG and pitcher change output keep official symbols", () => {
+    const api = loadScorebookTestApi();
+    const intentionalWalkSvg = api.generateKeioSheetCellSvg({
+        result: "IB",
+        selectedHitType: "none",
+        pitches: []
+    });
+    const hitByPitchSvg = api.generateKeioSheetCellSvg({
+        result: "HP",
+        selectedHitType: "none",
+        pitches: []
+    });
+    const fieldersChoiceSvg = api.generateKeioSheetCellSvg({
+        result: "Fc",
+        selectedFielder: "4",
+        fieldSequence: ["4", "2"],
+        selectedHitType: "none",
+        pitches: []
+    });
+
+    assert.match(intentionalWalkSvg, />B\*<\/text>/);
+    assert.doesNotMatch(intentionalWalkSvg, />IB<\/text>/);
+    assert.match(hitByPitchSvg, />D<\/text>/);
+    assert.doesNotMatch(hitByPitchSvg, />HP<\/text>/);
+    assert.match(fieldersChoiceSvg, />4Fc2<\/text>/);
+    assert.doesNotMatch(fieldersChoiceSvg, />Fc<\/text>/);
+
+    api.state.scorebookStyle = "keio";
+    assert.match(
+        api.renderPitcherChangeMarker({ change: { name: "今村" } }),
+        />P・今村<\/div>/
+    );
 });
 
 test("dead ball play parts skip fielder and direction selection", () => {

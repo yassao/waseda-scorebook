@@ -6680,19 +6680,29 @@
 
         .options-nav {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 8px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
             margin-bottom: 12px;
         }
 
         .options-nav button {
             min-height: 44px;
-            padding: 8px 10px;
+            min-width: 0;
+            padding: 6px 4px;
             border-radius: 12px;
             border: 2px solid #d8e1e8;
             background: #fff;
             color: #22313f;
-            font-size: 14px;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .options-nav button small {
+            display: block;
+            margin-top: 2px;
+            color: inherit;
+            font-size: 10px;
             font-weight: 800;
         }
 
@@ -6726,6 +6736,47 @@
 
         .options-menu.one-pa-direct-mode #optionPanelX .ai-import-grid {
             grid-template-columns: minmax(0, 1fr);
+        }
+
+        .options-menu.one-pa-direct-mode .options-header {
+            margin-bottom: 6px;
+        }
+
+        .options-menu.one-pa-direct-mode .options-nav {
+            margin-bottom: 8px;
+        }
+
+        .options-menu.one-pa-direct-mode #optionPanelX::before {
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+
+        .options-menu.one-pa-direct-mode #optionPanelX .one-pa-textarea {
+            height: 64px;
+            min-height: 64px;
+            resize: none;
+        }
+
+        .options-menu.one-pa-direct-mode #optionPanelX .ai-import-actions {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 5px;
+        }
+
+        .options-menu.one-pa-direct-mode #optionPanelX .ai-import-actions button {
+            min-width: 0;
+            min-height: 40px;
+            padding: 6px 3px;
+            font-size: 11px;
+        }
+
+        .options-menu.one-pa-direct-mode #twitterImportPreview {
+            min-height: 32px;
+            padding: 5px 7px;
+            font-size: 12px;
+        }
+
+        .options-menu.one-pa-direct-mode #optionPanelX .direct-mode-help {
+            display: none;
         }
 
         @media (max-width: 480px) {
@@ -7536,19 +7587,19 @@
                             <button type="button" class="options-close-btn" onclick="closeImportOptions()">閉じる</button>
                         </div>
                         <div class="options-nav" role="tablist" aria-label="インポート機能">
-                            <button id="optionNavNikkan" type="button" class="is-active" onclick="showOptionPanel('nikkan')">日刊スポーツ<br>インポート</button>
-                            <button id="optionNavX" type="button" onclick="showOptionPanel('x')">X / Twitter<br>インポート</button>
-                            <button id="optionNavSave" type="button" onclick="showOptionPanel('save')">保存 / 読込<br>試合データ</button>
+                            <button id="optionNavNikkan" type="button" class="is-active" onclick="showOptionPanel('nikkan')">Web速報<br><small>インポート</small></button>
+                            <button id="optionNavX" type="button" onclick="showOptionPanel('x')">X投稿<br><small>インポート</small></button>
+                            <button id="optionNavSave" type="button" onclick="showOptionPanel('save')">試合データ<br><small>保存・読込</small></button>
                         </div>
                         <section id="optionPanelNikkan" class="section options-panel is-active">
-                            <div class="section-title">日刊スポーツ 全体インポート</div>
+                            <div class="section-title">スポーツ紙・Web速報 インポート</div>
                             <div class="nl-panel">
-                                <textarea id="nikkanBoardInput" class="nl-input import-textarea" placeholder="日刊スポーツの打者成績表を複数行まとめて貼り付け"></textarea>
+                                <textarea id="nikkanBoardInput" class="nl-input import-textarea" placeholder="スポーツ紙やWeb速報の打者成績表を複数行まとめて貼り付け"></textarea>
                                 <div class="nl-actions nikkan-actions">
                                     <button onclick="importNikkanSportsBoardForCurrentHalf()">表示中チームへ取り込み</button>
                                     <button class="secondary-ai-action" onclick="generateNikkanSportsPrompt()">AI変換</button>
                                 </div>
-                                <div id="nikkanBoardPreview" class="nl-preview">日刊スポーツの打者成績表をまとめて貼り付けます。アウト・走者・得点は推定で反映します。</div>
+                                <div id="nikkanBoardPreview" class="nl-preview">スポーツ紙やWeb速報の打者成績表をまとめて貼り付けます。アウト・走者・得点は推定で反映します。</div>
                                 <div class="import-help">低確度のセルはシート上でグレーハッチ表示にします。あとでタップして修正できます。</div>
                             </div>
                         </section>
@@ -7566,18 +7617,18 @@
                                         </div>
                                     </div>
                                     <div class="ai-import-card">
-                                        <div class="ai-import-title">1球・1打席入力（音声・自然文向け）</div>
+                                        <div class="ai-import-title">1球・1打席入力（音声・自然文）</div>
                                         <textarea id="naturalLanguageInput" class="nl-input import-textarea one-pa-textarea" placeholder="例: ボール / 見逃しストライク / 空振りストライク / センター前ヒット"></textarea>
                                         <div class="ai-import-actions">
                                             <button id="onePlateAppearanceApplyButton" onclick="finishOnePlateAppearanceInput()" disabled>実況を入力</button>
-                                            <button onclick="generateOnePlateAppearancePrompt()">AI変換プロンプト生成</button>
-                                            <button onclick="clearOnePlateAppearanceInput()">内容クリア</button>
+                                            <button onclick="generateOnePlateAppearancePrompt()">AI変換</button>
+                                            <button onclick="clearOnePlateAppearanceInput()">クリア</button>
                                         </div>
                                     </div>
                                 </div>
                                 <div id="twitterImportPreview" class="nl-preview">X / Twitter取り込みは1イニング分ずつ貼り付けてください。現在の回・打順の続きから推定で取り込み、原文は吹き出しコメントとして残します。</div>
                                 <div id="naturalLanguagePreview" class="nl-preview compact hidden-preview">ここに解釈結果を表示します。</div>
-                                <div class="import-help">1球の内容はそのままカウントへ記録します。曖昧な打席結果は、AI変換プロンプトで短い結果表記に整えてから貼り直すと安定します。</div>
+                                <div class="import-help direct-mode-help">1球の内容はそのままカウントへ記録します。曖昧な打席結果は、AI変換プロンプトで短い結果表記に整えてから貼り直すと安定します。</div>
                             </div>
                         </section>
                         <section id="optionPanelSave" class="section options-panel">
@@ -7616,7 +7667,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.12";
+        const APP_VERSION = "0.4.13";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8198,7 +8249,8 @@
                 triplePlay: false,
                 threeBuntStrikeout: false,
                 swingStrikeout: false,
-                droppedThirdStrike: false
+                droppedThirdStrike: false,
+                droppedThirdStrikeCause: ""
             },
             fieldSequence: [],
             errorMode: "none",
@@ -9011,6 +9063,7 @@
                 threeBuntStrikeout: false,
                 swingStrikeout: false,
                 droppedThirdStrike: false,
+                droppedThirdStrikeCause: "",
                 ...overrides
             };
         }
@@ -11275,11 +11328,15 @@
             closeHeaderMenu();
             const optionsMenu = document.querySelector(".options-menu");
             const input = document.getElementById("naturalLanguageInput");
+            const preview = document.getElementById("twitterImportPreview");
             if (!optionsMenu || !input) {
                 return;
             }
             optionsMenu.setAttribute("open", "");
             showOptionPanel("x", { onePlateDirect: true });
+            if (preview) {
+                preview.textContent = "1球または1打席を入力してください。";
+            }
             const card = input.closest(".ai-import-card");
             syncOnePlateAppearanceActionButton();
             input.focus({ preventScroll: true });
@@ -18290,7 +18347,8 @@
                 triplePlay: false,
                 threeBuntStrikeout: false,
                 swingStrikeout: false,
-                droppedThirdStrike: false
+                droppedThirdStrike: false,
+                droppedThirdStrikeCause: ""
             });
             state.fieldSequence = [...(snapshot.fieldSequence || (state.selectedFielder ? [state.selectedFielder] : []))];
             state.errorMode = snapshot.errorMode || "none";
@@ -18331,6 +18389,8 @@
             addRule(["見逃し三振"], { result: "K", note: "初期マスタ: 見逃し三振" });
             addRule(["空振り三振"], { result: "K", modifiers: { swingStrikeout: true }, note: "初期マスタ: 空振り三振" });
             addRule(["バント三振", "スリーバント失敗"], { result: "K", modifiers: { threeBuntStrikeout: true }, note: "初期マスタ: バント三振" });
+            addRule(["振り逃げ暴投", "暴投による振り逃げ", "ワイルドピッチで振り逃げ"], { result: "K", outScore: "", modifiers: { droppedThirdStrike: true, droppedThirdStrikeCause: "wildPitch" }, runnerContext: { advances: ["打者走者一塁セーフ:暴投"] }, note: "初期マスタ: 振り逃げ暴投" });
+            addRule(["振り逃げ捕逸", "捕逸による振り逃げ", "パスボールで振り逃げ"], { result: "K", outScore: "", modifiers: { droppedThirdStrike: true, droppedThirdStrikeCause: "passedBall" }, runnerContext: { advances: ["打者走者一塁セーフ:捕逸"] }, note: "初期マスタ: 振り逃げ捕逸" });
             addRule(["振り逃げ", "三振振り逃げ"], { result: "K", outScore: "", modifiers: { droppedThirdStrike: true }, runnerContext: { advances: ["打者走者一塁セーフ"] }, note: "初期マスタ: 振り逃げ" });
             addRule(["振り逃げアウト", "三振振り逃げアウト", "振り逃げ一塁アウト"], { fielder: "2", result: "K", outScore: "Ⅰ", fieldSequence: ["2", "3"], modifiers: { droppedThirdStrike: true }, note: "初期マスタ: 振り逃げ一塁アウト" });
             addRule(["四球", "フォアボール"], { result: "B", note: "初期マスタ: 四球" });
@@ -19072,11 +19132,11 @@
                 "走塁妨害": "OB",
                 "犠飛": "SF",
                 "本塁打": "HR",
-                "暴投": "WP",
-                "捕逸": "PB",
-                "ボーク": "BK",
+                "暴投": "W",
+                "捕逸": "P",
+                "ボーク": "bk",
                 "失策": "E",
-                "野選": "FC"
+                "野選": "Fc"
             };
             return map[text] || text;
         }
@@ -19097,10 +19157,13 @@
         function getKeioCompactOutLabel(event) {
             const label = String(event?.label || "").trim();
             const routeLabel = getKeioRunnerOutRouteLabel(label);
+            const outType = event?.outType || getRunnerOutTypeFromLabel(label);
+            if (outType === "caughtStealing") {
+                return routeLabel ? "cs " + routeLabel : "cs";
+            }
             if (routeLabel) {
                 return routeLabel;
             }
-            const outType = event?.outType || getRunnerOutTypeFromLabel(label);
             if (outType === "force") {
                 return "封";
             }
@@ -19122,9 +19185,6 @@
             if (outType === "appeal") {
                 return "AP";
             }
-            if (outType === "caughtStealing") {
-                return "CS";
-            }
             return label || "O";
         }
 
@@ -19142,7 +19202,7 @@
                 return "";
             }
             if (text.includes("盗塁")) {
-                return "CS";
+                return "cs";
             }
             if (text.includes("牽制")) {
                 return "PO";
@@ -19178,10 +19238,10 @@
             }
             const upper = text.toUpperCase();
             if (upper.includes("PH") || text.includes("代打")) {
-                return "PH";
+                return "H";
             }
             if (upper.includes("PR") || text.includes("代走")) {
-                return "PR";
+                return "R";
             }
             if (upper.includes("IF") || text.includes("インフィールド")) {
                 return "IF";
@@ -21037,6 +21097,13 @@
                     return "3BT";
                 }
                 if (snapshot.modifiers?.droppedThirdStrike) {
+                    const cause = snapshot.modifiers?.droppedThirdStrikeCause || "";
+                    if (!romanToOutCount(snapshot.outScore) && cause === "wildPitch") {
+                        return "KW";
+                    }
+                    if (!romanToOutCount(snapshot.outScore) && cause === "passedBall") {
+                        return "KP";
+                    }
                     return "K";
                 }
                 return "SO";
@@ -21056,11 +21123,23 @@
             if (snapshot.selectedHitType === "BH") {
                 return "BH";
             }
-            if (result === "B" || result === "B'") {
+            if (result === "B") {
                 return "BB";
             }
-            if (result === "DB") {
+            if (result === "B'" || result === "IB") {
+                return "B*";
+            }
+            if (result === "DB" || result === "HP") {
                 return "D";
+            }
+            if (result === "BK") {
+                return "bk";
+            }
+            if (result === "S") {
+                return "O";
+            }
+            if (result === "CS") {
+                return "cs";
             }
             if (snapshot.modifiers?.safetyBuntFailed) {
                 return "BH";
@@ -21078,7 +21157,16 @@
                 return sequence || "DP";
             }
             if (result === "Fc") {
-                return sequence ? sequence + " Fc" : "Fc";
+                const fcSequence = fieldSequence
+                    .map((item) => String(item || "").trim())
+                    .filter(Boolean);
+                if (fcSequence.length >= 2) {
+                    return fcSequence.join("Fc");
+                }
+                if (fcSequence.length === 1 && fcSequence[0] !== "Fc") {
+                    return fcSequence[0] + "Fc";
+                }
+                return sequence && sequence !== "Fc" ? sequence + "Fc" : "Fc";
             }
             if (snapshot.selectedBallType === "fly") {
                 const fielder = snapshot.selectedFielder || result || "";
@@ -21114,17 +21202,20 @@
             if (hitType === "1B" || hitType === "G" || hitType === "BH" || result === "H") {
                 return "^";
             }
-            if (result === "B" || result === "B'") {
+            if (result === "B") {
                 return "BB";
             }
-            if (result === "DB") {
+            if (result === "B'" || result === "IB") {
+                return "B*";
+            }
+            if (result === "DB" || result === "HP") {
                 return "D";
             }
             if (result === "Fc") {
-                return "Fc";
+                return getKeioResultLabel(snapshot);
             }
             if (result === "K" && snapshot?.modifiers?.droppedThirdStrike) {
-                return "K";
+                return getKeioResultLabel(snapshot);
             }
             return "";
         }
@@ -21529,7 +21620,7 @@
             }
             const label = "P." + match.change.name;
             if (state.scorebookStyle === "keio") {
-                return '<div class="pitcher-change-marker is-keio" aria-label="投手交代 ' + escapeHtml(label) + '">P:' + escapeHtml(match.change.name) + '</div>';
+                return '<div class="pitcher-change-marker is-keio" aria-label="投手交代 ' + escapeHtml(label) + '">P・' + escapeHtml(match.change.name) + '</div>';
             }
             return [
                 '<div class="pitcher-change-marker" aria-label="投手交代 ' + escapeHtml(label) + '">',
@@ -26656,7 +26747,7 @@
 
         function buildNikkanSportsPrompt(rawText) {
             return [
-                "以下の日刊スポーツの野球打者成績表コピーを、早稲田式スコアブックアプリへ貼り付けやすい形に整形してください。",
+                "以下のスポーツ紙・Web速報の野球打者成績表コピーを、早稲田式スコアブックアプリへ貼り付けやすい形に整形してください。",
                 "",
                 "最重要:",
                 "出力は「整形後テキスト」だけにしてください。説明、質問、補足、前置き、後書きは絶対に書かないでください。",
@@ -26680,7 +26771,7 @@
                 "```",
                 "",
                 "変換対象:",
-                rawText || "（ここに日刊スポーツの打者成績表コピーを貼り付け）"
+                rawText || "（ここにスポーツ紙・Web速報の打者成績表コピーを貼り付け）"
             ].join("\n");
         }
 
@@ -27107,13 +27198,13 @@
             }
             const titleMap = {
                 "one-pa": "1打席AI変換",
-                nikkan: "日刊スポーツAI変換",
+                nikkan: "Web速報AI変換",
                 "scoreboard-photo": "写真スタメンAI判定",
                 twitter: "1イニングAI変換"
             };
             const resultHelpMap = {
                 "one-pa": "AIの回答をここへ貼ると、1打席入力へ反映して閉じます。",
-                nikkan: "AIの回答をここへ貼ると、日刊スポーツ取り込み欄へ反映して閉じます。",
+                nikkan: "AIの回答をここへ貼ると、Web速報取り込み欄へ反映して閉じます。",
                 "scoreboard-photo": "AIの回答をここへ貼ると、スタメン確認画面へ進みます。",
                 twitter: "AIの回答をここへ貼ると、X / Twitter取り込みとして反映して閉じます。"
             };
@@ -30760,6 +30851,20 @@
                 const sequence = extractFieldSequenceFromText(normalizedText) || ["2", "3"];
                 return { fielder: sequence[0] || "2", result: "K", outScore: "Ⅰ", fieldSequence: sequence, modifiers: { droppedThirdStrike: true }, runnerContext: detectRunnerContext(normalizedText), note: normalizedText, confidence: 0.95, source: "shorthand" };
             }
+            if (normalizedText.includes("振り逃げ") && (normalizedText.includes("暴投") || normalizedText.includes("捕逸"))) {
+                const isWildPitch = normalizedText.includes("暴投");
+                const cause = isWildPitch ? "wildPitch" : "passedBall";
+                const reason = isWildPitch ? "暴投" : "捕逸";
+                return {
+                    result: "K",
+                    outScore: "",
+                    modifiers: { droppedThirdStrike: true, droppedThirdStrikeCause: cause },
+                    runnerContext: { advances: ["打者走者一塁セーフ:" + reason] },
+                    note: normalizedText,
+                    confidence: 0.95,
+                    source: "shorthand"
+                };
+            }
             if (normalizedText.includes("振り逃げ")) {
                 return { result: "K", outScore: "", modifiers: { droppedThirdStrike: true }, runnerContext: detectRunnerContext(normalizedText), note: normalizedText, confidence: 0.95, source: "shorthand" };
             }
@@ -31449,6 +31554,7 @@
                 state.modifiers.threeBuntStrikeout = Boolean(parsed.modifiers.threeBuntStrikeout);
                 state.modifiers.swingStrikeout = Boolean(parsed.modifiers.swingStrikeout);
                 state.modifiers.droppedThirdStrike = Boolean(parsed.modifiers.droppedThirdStrike);
+                state.modifiers.droppedThirdStrikeCause = parsed.modifiers.droppedThirdStrikeCause || "";
             }
 
             if (parsed.errorMode) {
@@ -31677,6 +31783,7 @@
             state.modifiers.threeBuntStrikeout = false;
             state.modifiers.swingStrikeout = false;
             state.modifiers.droppedThirdStrike = false;
+            state.modifiers.droppedThirdStrikeCause = "";
         }
 
         function toggleModifier(modifier) {

@@ -1,3 +1,23 @@
+## v0.4.13 [2026-09-08] 慶応式記号と実況インポート画面を改善
+
+**変更ファイル:**
+- docs/KEIO_SCOREBOOK_NOTES.md
+- docs/RELEASE_POSTS.md
+- docs/VERSION
+- index.html
+- tests/scorebook-regression.test.js
+
+**X投稿文:**
+
+> スコアブック by CuViuをv0.4.13に更新しました。
+> 
+> 慶応式の敬遠・死球・野選・振り逃げ・盗塁・交代記号をNPB公式表記に近づけ、実況/インポート画面も省スペース化しました。
+> 
+> https://cuviu.jp/apps/scorebook/
+> #CuViu #野球スコア
+
+---
+
 ## v0.4.12 [2026-08-27] 実況入力で1球ごとの投球を記録可能に
 
 **変更ファイル:**
