@@ -166,6 +166,8 @@ test("header prioritizes standard input and keeps live import in the menu", () =
     assert.match(html, /id="gameSettingsDetails"[^>]+data-header-menu-section/);
     assert.match(html, /id="gameInfoShareEveryInning"[^>]+onchange="setInningShareEveryInning\(this\.checked\)"/);
     assert.match(html, /function openOnePlateAppearanceImport\(\)[\s\S]*showOptionPanel\("x", \{ onePlateDirect: true \}\);/);
+    assert.match(html, /function setOnePlateAppearanceDirectMode\(isActive\)[\s\S]*document\.body\.classList\.toggle\("one-pa-direct-input-active", active\);/);
+    assert.match(html, /function closeImportOptions\(\)[\s\S]*setOnePlateAppearanceDirectMode\(false\);/);
 });
 
 test("import menu uses generic compact tabs and keeps direct live controls above the fold", () => {
@@ -178,6 +180,8 @@ test("import menu uses generic compact tabs and keeps direct live controls above
     assert.match(html, /\.options-nav \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
     assert.match(html, /\.options-menu\.one-pa-direct-mode #optionPanelX \.one-pa-textarea \{[\s\S]*?height: 64px;/);
     assert.match(html, /\.options-menu\.one-pa-direct-mode #optionPanelX \.ai-import-actions \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+    assert.match(html, /body\.one-pa-direct-input-active \.top-workspace \{[\s\S]*?height: 156px;/);
+    assert.match(html, /body\.one-pa-direct-input-active \.pitch-input-panel,[\s\S]*?body\.one-pa-direct-input-active \.play-builder,[\s\S]*?display: none !important;/);
 });
 
 test("Keio renderer uses the official NPB result and substitution symbols", () => {
