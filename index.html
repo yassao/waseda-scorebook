@@ -7667,7 +7667,7 @@
                                         <div class="ai-import-title">1球・1打席入力（音声・自然文）</div>
                                         <textarea id="naturalLanguageInput" class="nl-input import-textarea one-pa-textarea" placeholder="例: ボール / 見逃しストライク / 空振りストライク / センター前ヒット"></textarea>
                                         <div class="ai-import-actions">
-                                            <button id="onePlateAppearanceApplyButton" onclick="finishOnePlateAppearanceInput()" disabled>実況を入力</button>
+                                            <button id="onePlateAppearanceApplyButton" onclick="finishOnePlateAppearanceInput()">実況を入力</button>
                                             <button onclick="generateOnePlateAppearancePrompt()">AI変換</button>
                                             <button onclick="clearOnePlateAppearanceInput()">クリア</button>
                                         </div>
@@ -7714,7 +7714,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.15";
+        const APP_VERSION = "0.4.16";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -27117,13 +27117,17 @@
                 return;
             }
             button.textContent = "実況を入力";
-            button.disabled = true;
+            button.disabled = false;
         }
 
         function applyOnePlateAppearanceText() {
             const input = document.getElementById("naturalLanguageInput");
             const preview = document.getElementById("twitterImportPreview");
             const text = (input?.value || "").trim();
+            if (naturalLanguageParseTimer) {
+                clearTimeout(naturalLanguageParseTimer);
+                naturalLanguageParseTimer = null;
+            }
             if (!text) {
                 if (preview) {
                     preview.textContent = "実況入力欄が空です。1球または1打席の内容を入れてください。";

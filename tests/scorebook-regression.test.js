@@ -304,9 +304,14 @@ test("direct live input accepts individual pitch calls without advancing the bat
     const api = loadScorebookTestApi();
     const html = fs.readFileSync(INDEX_PATH, "utf8");
     const parserSource = html.match(/function parseOnePitchNaturalLanguage\(text\) \{[\s\S]*?\n        \}/)?.[0] || "";
+    const syncButtonSource = html.match(/function syncOnePlateAppearanceActionButton\(text = null\) \{[\s\S]*?\n        \}/)?.[0] || "";
+    const applySource = html.match(/function applyOnePlateAppearanceText\(\) \{[\s\S]*?\n        \}/)?.[0] || "";
     const finishSource = html.match(/function finishOnePlateAppearanceInput\(\) \{[\s\S]*?\n        \}/)?.[0] || "";
 
     assert.match(html, /id="onePlateAppearanceApplyButton"/);
+    assert.doesNotMatch(html, /id="onePlateAppearanceApplyButton"[^>]*\sdisabled(?:\s|>|=)/);
+    assert.doesNotMatch(syncButtonSource, /button\.disabled = true/);
+    assert.match(applySource, /clearTimeout\(naturalLanguageParseTimer\)/);
     assert.match(parserSource, /calledStrike/);
     assert.match(parserSource, /swingStrike/);
     assert.match(parserSource, /ball/);
