@@ -540,7 +540,6 @@
 
         .history-btn,
         .header-home-btn,
-        .header-live-import-btn,
         .header-menu-btn,
         .workspace-toggle-btn,
         .input-layout-toggle-btn,
@@ -560,20 +559,8 @@
             box-shadow: 0 8px 18px rgba(65, 111, 169, 0.14);
         }
 
-        .header-live-import-btn {
-            width: auto;
-            min-width: 82px;
-            margin-left: auto;
-            padding: 0 12px;
-            border-radius: 999px;
-            border-color: #0f766e;
-            background: #0f766e;
-            color: #ffffff;
-            font-size: 12px;
-            white-space: nowrap;
-        }
-
         .header-menu-btn {
+            margin-left: auto;
             flex-shrink: 0;
             font-size: 20px;
         }
@@ -6833,13 +6820,6 @@
                 font-size: 16px;
             }
 
-            .header-live-import-btn {
-                min-width: 74px;
-                min-height: 30px;
-                padding: 0 9px;
-                font-size: 11px;
-            }
-
             .header-sheet-change-btn {
                 width: auto;
                 min-width: 42px;
@@ -7179,7 +7159,6 @@
                 </span>
                 <button id="undoHistoryBtn" class="history-btn" onclick="undoGameAction()" aria-label="元に戻す">↶</button>
                 <button id="redoHistoryBtn" class="history-btn" onclick="redoGameAction()" aria-label="やり直す">↷</button>
-                <button type="button" class="header-live-import-btn" onclick="openOnePlateAppearanceImport()" aria-label="1球・1打席の実況入力を開く">実況入力</button>
                 <button id="headerMenuBtn" type="button" class="header-menu-btn" onclick="toggleHeaderMenu()" aria-label="メニューを開く" aria-controls="headerMenuPanel" aria-expanded="false">☰</button>
                 <button id="headerMenuBackdrop" type="button" class="header-menu-backdrop" onclick="closeHeaderMenu()" aria-label="メニューを閉じる" tabindex="-1"></button>
                 <nav id="headerMenuPanel" class="header-menu-panel" aria-label="アプリメニュー" aria-hidden="true">
@@ -7192,6 +7171,9 @@
                     </button>
                     <button id="inputLayoutToggleBtn" type="button" class="input-layout-toggle-btn header-menu-action" onclick="closeHeaderMenu(); toggleInputLayout()" aria-label="右手入力と左手入力を切替">
                         <span class="header-menu-action-label">入力レイアウト</span><span>右手</span>
+                    </button>
+                    <button type="button" class="header-menu-action" onclick="closeHeaderMenu(); openOnePlateAppearanceImport()" aria-label="1球・1打席の実況入力を開く">
+                        <span class="header-menu-action-label">入力補助</span><span>実況入力</span>
                     </button>
                     <button type="button" class="header-menu-action" onclick="openHeaderMenuDetails('playerRosterDetails')" aria-label="チームと選手の登録を開く">
                         <span class="header-menu-action-label">登録</span><span>チーム・選手</span>
@@ -7667,7 +7649,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.13";
+        const APP_VERSION = "0.4.14";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";

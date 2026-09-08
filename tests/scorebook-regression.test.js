@@ -153,10 +153,11 @@ test("release ledger version matches the application version", () => {
     assert.match(releasePosts, new RegExp(`^${datedHeadingPattern}`, "m"));
 });
 
-test("header exposes direct live import and keeps secondary actions in one menu", () => {
+test("header prioritizes standard input and keeps live import in the menu", () => {
     const html = fs.readFileSync(INDEX_PATH, "utf8");
-    assert.match(html, /class="header-live-import-btn"[^>]+onclick="openOnePlateAppearanceImport\(\)"[^>]*>実況入力<\/button>/);
+    assert.doesNotMatch(html, /class="header-live-import-btn"/);
     assert.match(html, /id="headerMenuPanel"[^>]+aria-hidden="true"/);
+    assert.match(html, /class="header-menu-action"[^>]+onclick="closeHeaderMenu\(\); openOnePlateAppearanceImport\(\)"[^>]*>[\s\S]*?入力補助[\s\S]*?実況入力<\/span>/);
     assert.match(html, /id="workspaceToggleBtn"[^>]+class="workspace-toggle-btn header-menu-action"/);
     assert.match(html, /id="inputLayoutToggleBtn"[^>]+class="input-layout-toggle-btn header-menu-action"/);
     assert.match(html, /onclick="openHeaderMenuDetails\('playerRosterDetails'\)"[^>]*>[\s\S]*?チーム・選手<\/span>/);

@@ -1,3 +1,22 @@
+## v0.4.14 [2026-09-08] 実況入力をハンバーガーメニューへ移動
+
+**変更ファイル:**
+- docs/RELEASE_POSTS.md
+- docs/VERSION
+- index.html
+- tests/scorebook-regression.test.js
+
+**X投稿文:**
+
+> スコアブック by CuViuをv0.4.14に更新しました。
+> 
+> 通常入力をメインに戻し、実況入力はハンバーガーメニュー内の「入力補助」へ移動しました。機能はそのまま利用できます。
+> 
+> https://cuviu.jp/apps/scorebook/
+> #CuViu #野球スコア
+
+---
+
 ## v0.4.13 [2026-09-08] 慶応式記号と実況インポート画面を改善
 
 **変更ファイル:**
