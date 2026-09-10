@@ -170,6 +170,14 @@ test("header prioritizes standard input and keeps live import in the menu", () =
     assert.match(html, /function closeImportOptions\(\)[\s\S]*setOnePlateAppearanceDirectMode\(false\);/);
 });
 
+test("supporter gate allows the Japanese keyboard required by its passphrases", () => {
+    const html = fs.readFileSync(INDEX_PATH, "utf8");
+
+    assert.match(html, /id="supporterGateCodeInput" type="text"[^>]+inputmode="text"/);
+    assert.doesNotMatch(html, /id="supporterGateCodeInput" type="password"/);
+    assert.doesNotMatch(html, /15回タップ後の検証用/);
+});
+
 test("import menu uses generic compact tabs and keeps direct live controls above the fold", () => {
     const html = fs.readFileSync(INDEX_PATH, "utf8");
 

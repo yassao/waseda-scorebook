@@ -7714,7 +7714,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.16";
+        const APP_VERSION = "0.4.17";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8925,7 +8925,7 @@
                 '<label class="qa-debug-toggle"><span>PDFフッター編集</span><input id="qaDebugSupporterFooter" type="checkbox" onchange="setSupporterDebugFeatureState(\'footer\', this.checked)"' + (settings.enabled ? ' checked' : '') + '></label>',
                 '<label class="qa-debug-toggle"><span>保存上限解除</span><input id="qaDebugSupporterSaveLimit" type="checkbox" onchange="setSupporterDebugFeatureState(\'save-limit\', this.checked)"' + (settings.saveLimitUnlocked ? ' checked' : '') + '></label>',
                 '<label class="qa-debug-toggle"><span>チームメンバー共有</span><input id="qaDebugSupporterTeamShare" type="checkbox" onchange="setSupporterDebugFeatureState(\'team-share\', this.checked)"' + (settings.teamRosterSharingUnlocked ? ' checked' : '') + '></label>',
-                '<small>15回タップ後の検証用です。合言葉なしで、この端末の支援者状態を直接ON/OFFできます。</small>',
+                '<small>検証メニュー専用です。この画面では合言葉なしで、この端末の支援者状態を直接ON/OFFできます。</small>',
                 '</div>'
             ].join("");
         }
@@ -8983,7 +8983,7 @@
                 '<div class="comment-popup-title">支援者確認</div>',
                 '<div class="comment-popup-body">案内された合言葉を入力してください。</div>',
                 '<div class="qa-supporter-panel">',
-                '<input id="supporterGateCodeInput" type="password" autocomplete="off" inputmode="text" placeholder="合言葉" onkeydown="if(event.key===\'Enter\'){submitSupporterGateCode()}">',
+                '<input id="supporterGateCodeInput" type="text" lang="ja" autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="text" placeholder="合言葉" onkeydown="if(event.key===\'Enter\'){submitSupporterGateCode()}">',
                 '<small id="supporterGateStatus">支援者向け機能の入口です。</small>',
                 '</div>',
                 '<div class="comment-popup-actions">',

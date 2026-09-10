@@ -1,3 +1,22 @@
+## v0.4.17 [2026-09-10] 合言葉入力で日本語キーボードを利用可能に
+
+**変更ファイル:**
+- docs/RELEASE_POSTS.md
+- docs/VERSION
+- index.html
+- tests/scorebook-regression.test.js
+
+**X投稿文:**
+
+> スコアブック by CuViuをv0.4.17に更新しました。
+> 
+> 支援者・検証メニューの合言葉入力で、iPhoneの日本語キーボードへ切り替えられない問題を修正しました。
+> 
+> https://cuviu.jp/apps/scorebook/
+> #CuViu #野球スコアブック
+
+---
+
 ## v0.4.16 [2026-09-08] 実況入力の音声による1球入力を修正
 
 **変更ファイル:**
