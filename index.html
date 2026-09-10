@@ -5923,6 +5923,81 @@
             padding-right: 4px;
         }
 
+        .sheet-change-after-fields {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 54px;
+            gap: 5px;
+            width: 100%;
+        }
+
+        .sheet-change-after-fields .sheet-change-number {
+            text-align: center;
+        }
+
+        .sheet-change-status-panel {
+            display: grid;
+            grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+            gap: 10px;
+            padding: 9px 10px;
+            border: 1px solid #d7e1ea;
+            border-radius: 12px;
+            background: #f8fafc;
+        }
+
+        .sheet-change-status-panel label {
+            display: grid;
+            gap: 4px;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .sheet-change-status-panel input,
+        .sheet-change-status-panel select {
+            min-height: 38px;
+            width: 100%;
+            border: 2px solid #d7e1ea;
+            border-radius: 10px;
+            padding: 6px 9px;
+            background: #fff;
+            color: #172331;
+            font-size: 14px;
+            font-weight: 850;
+        }
+
+        .sheet-change-pitcher-box {
+            display: grid;
+            gap: 7px;
+        }
+
+        .sheet-change-pitcher-toggle {
+            display: flex !important;
+            grid-template-columns: none !important;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sheet-change-pitcher-toggle input {
+            min-height: 22px;
+            width: 22px;
+        }
+
+        .sheet-change-current-pitcher {
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 850;
+        }
+
+        .sheet-change-pitcher-fields {
+            display: none;
+            grid-template-columns: minmax(0, 1fr) 58px 72px;
+            gap: 6px;
+        }
+
+        .sheet-change-pitcher-fields.is-open {
+            display: grid;
+        }
+
         .sheet-change-after input.is-changed,
         .sheet-change-after select.is-changed {
             border-color: #ef4444;
@@ -5978,7 +6053,12 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
-            padding-top: 8px;
+            position: sticky;
+            bottom: -14px;
+            z-index: 3;
+            margin: 0 -4px;
+            padding: 8px 4px 14px;
+            background: rgba(255, 255, 255, 0.96);
         }
 
         .sheet-change-actions button {
@@ -6022,6 +6102,14 @@
 
             .sheet-change-before small {
                 font-size: 9px;
+            }
+
+            .sheet-change-after-fields {
+                grid-template-columns: minmax(0, 1fr) 46px;
+            }
+
+            .sheet-change-status-panel {
+                grid-template-columns: 1fr;
             }
 
             .roster-import-meta {
@@ -7575,7 +7663,7 @@
                                         <div id="pitcherChangeList" class="pitcher-change-list"></div>
                                     </div>
                                     <div class="pitcher-change-panel">
-                                        <div class="pitcher-change-title">守備変更</div>
+                                        <div class="pitcher-change-title">守備変更・選手交代</div>
                                         <div class="pitcher-change-form">
                                             <label>チーム<select id="fieldingChangeTeam"><option value="top">先攻</option><option value="bottom">後攻</option></select></label>
                                             <label>変更回<input id="fieldingChangeInning" type="number" min="1" max="18" inputmode="numeric"></label>
@@ -7584,7 +7672,7 @@
                                             <label>選手名<input id="fieldingChangePlayerName" type="text" placeholder="例: 山田"></label>
                                             <label>変更<input id="fieldingChangePosition" type="text" placeholder="例: 9→1 / 投→一、一→投"></label>
                                             <label class="span-2">メモ<input id="fieldingChangeNote" type="text" placeholder="例: ライトから再登板、代打が左翼へ"></label>
-                                            <button class="sheet-change-open-button" type="button" onclick="openSheetChangeDialog()">シート変更</button>
+                                            <button class="sheet-change-open-button" type="button" onclick="openSheetChangeDialog()">まとめて変更</button>
                                             <button type="button" onclick="addFieldingChangeFromForm()">守備変更を記録</button>
                                         </div>
                                         <div id="fieldingChangeList" class="pitcher-change-list"></div>
@@ -7714,7 +7802,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.17";
+        const APP_VERSION = "0.4.18";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8155,6 +8243,10 @@
                     top: [],
                     bottom: []
                 },
+                lineupChangeSets: {
+                    top: [],
+                    bottom: []
+                },
                 benches: {
                     firstBaseSideTeamId: "team_top",
                     thirdBaseSideTeamId: "team_bottom"
@@ -8376,6 +8468,7 @@
         let pitcherBookPressTimer = null;
         let pendingRosterImport = null;
         let pendingSheetChangeConfirm = null;
+        let sheetChangeDialogContext = null;
         const FIELDING_DRAG_LONG_PRESS_MS = 420;
         const FIELDING_DRAG_CANCEL_DISTANCE = 10;
         const fieldingDragState = {
@@ -9674,13 +9767,15 @@
                     name: state.teamNames[half] || (half === "top" ? "先攻" : "後攻"),
                     lineup: Array.from({ length: 9 }, (_, index) => {
                         const battingOrder = index + 1;
+                        const nameSlots = splitRosterNameSlots(names[index]);
+                        const activeSlotIndex = nameSlots.reduce((last, name, slotIndex) => name ? slotIndex : last, 0);
                         return {
                             battingOrder,
-                            slots: splitRosterNameSlots(names[index]).map((name, slotIndex) => ({
+                            slots: nameSlots.map((name, slotIndex) => ({
                                 playerId: getPlayerId(half, battingOrder, slotIndex),
                                 name,
-                                number: slotIndex === 0 ? (numbers[index] || "") : "",
-                                position: slotIndex === 0 ? (positions[index] || "") : "",
+                                number: slotIndex === activeSlotIndex ? (numbers[index] || "") : "",
+                                position: slotIndex === activeSlotIndex ? (positions[index] || "") : "",
                                 hand: "",
                                 fromInning: 1,
                                 toInning: null
@@ -9732,6 +9827,7 @@
                 },
                 pitcherChanges: deepClone(info.pitcherChanges),
                 fieldingChanges: deepClone(info.fieldingChanges),
+                lineupChangeSets: deepClone(info.lineupChangeSets),
                 benches: {
                     firstBaseSideTeamId: info.benches.firstBaseSideTeamId || "team_top",
                     thirdBaseSideTeamId: info.benches.thirdBaseSideTeamId || "team_bottom"
@@ -13803,7 +13899,8 @@
                 note: change.note || "",
                 previousPosition: String(change.previousPosition || "").trim(),
                 reentry: Boolean(change.reentry),
-                fieldingNote: String(change.fieldingNote || "").trim()
+                fieldingNote: String(change.fieldingNote || "").trim(),
+                changeSetId: String(change.changeSetId || "").trim()
             };
         }
 
@@ -13830,7 +13927,8 @@
                 playerName: String(change.playerName || "").trim(),
                 fromPosition: normalizeFieldingPositionValue(change.fromPosition),
                 toPosition: normalizeFieldingPositionValue(change.toPosition),
-                note: String(change.note || "").trim()
+                note: String(change.note || "").trim(),
+                changeSetId: String(change.changeSetId || "").trim()
             };
         }
 
@@ -13845,6 +13943,72 @@
             return {
                 top: (source.top || []).map(normalizeFieldingChange),
                 bottom: (source.bottom || []).map(normalizeFieldingChange)
+            };
+        }
+
+        function normalizeLineupChangeRow(row = {}, index = 0) {
+            return {
+                index,
+                battingOrder: index + 1,
+                name: String(row.name || "").trim(),
+                number: String(row.number || "").trim(),
+                position: normalizeFieldingPositionValue(row.position || "")
+            };
+        }
+
+        function normalizeLineupChangePitcher(pitcher = {}) {
+            return {
+                name: String(pitcher.name || "").trim(),
+                number: String(pitcher.number || "").trim(),
+                throws: pitcher.throws === "left" || pitcher.throws === "right" ? pitcher.throws : "",
+                previousPosition: normalizeFieldingPositionValue(pitcher.previousPosition || ""),
+                reentry: Boolean(pitcher.reentry)
+            };
+        }
+
+        function inferLineupDhState(lineup = []) {
+            return lineup.some((row) => normalizeFieldingPositionValue(row?.position) === "DH") ? "active" : "none";
+        }
+
+        function normalizeLineupChangeSet(changeSet = {}) {
+            const beforeLineup = Array.from({ length: 9 }, (_, index) => normalizeLineupChangeRow(changeSet.beforeLineup?.[index], index));
+            const afterLineup = Array.from({ length: 9 }, (_, index) => normalizeLineupChangeRow(changeSet.afterLineup?.[index], index));
+            const dhBefore = ["active", "none"].includes(changeSet.dhBefore)
+                ? changeSet.dhBefore
+                : inferLineupDhState(beforeLineup);
+            const inferredDhAfter = inferLineupDhState(afterLineup);
+            const dhAfter = ["active", "eliminated", "none"].includes(changeSet.dhAfter)
+                ? changeSet.dhAfter
+                : (dhBefore === "active" && inferredDhAfter === "none" ? "eliminated" : inferredDhAfter);
+            return {
+                id: String(changeSet.id || "lcs_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7)),
+                inning: parseOptionalInteger(changeSet.inning) || "",
+                half: changeSet.half === "bottom" ? "bottom" : "top",
+                battingOrder: parseOptionalInteger(changeSet.battingOrder) || "",
+                entryCol: Number.isInteger(parseOptionalInteger(changeSet.entryCol)) ? parseOptionalInteger(changeSet.entryCol) : "",
+                note: String(changeSet.note || "").trim(),
+                createdAt: String(changeSet.createdAt || new Date().toISOString()),
+                beforeLineup,
+                afterLineup,
+                beforePitcher: normalizeLineupChangePitcher(changeSet.beforePitcher),
+                afterPitcher: normalizeLineupChangePitcher(changeSet.afterPitcher),
+                pitcherChanged: Boolean(changeSet.pitcherChanged),
+                dhBefore,
+                dhAfter
+            };
+        }
+
+        function normalizeLineupChangeSets(changeSets) {
+            const source = changeSets || {};
+            if (Array.isArray(source)) {
+                return {
+                    top: source.filter((item) => item?.teamHalf !== "bottom").map(normalizeLineupChangeSet),
+                    bottom: source.filter((item) => item?.teamHalf === "bottom").map(normalizeLineupChangeSet)
+                };
+            }
+            return {
+                top: (source.top || []).map(normalizeLineupChangeSet),
+                bottom: (source.bottom || []).map(normalizeLineupChangeSet)
             };
         }
 
@@ -13870,6 +14034,7 @@
                 },
                 pitcherChanges: normalizePitcherChanges(gameInfo?.pitcherChanges || defaults.pitcherChanges),
                 fieldingChanges: normalizeFieldingChanges(gameInfo?.fieldingChanges || defaults.fieldingChanges),
+                lineupChangeSets: normalizeLineupChangeSets(gameInfo?.lineupChangeSets || defaults.lineupChangeSets),
                 benches: {
                     ...defaults.benches,
                     ...(gameInfo?.benches || {})
@@ -14484,7 +14649,9 @@
             }
             const info = normalizeGameInfo(state.gameInfo);
             const rows = ["top", "bottom"].flatMap((teamHalf) => (
-                (info.pitcherChanges[teamHalf] || []).map((change, index) => ({ teamHalf, change, index }))
+                (info.pitcherChanges[teamHalf] || [])
+                    .map((change, index) => ({ teamHalf, change, index }))
+                    .filter(({ change }) => !change.changeSetId)
             ));
             if (!rows.length) {
                 list.innerHTML = '<div class="pitcher-change-empty">投手交代はまだ記録されていません。</div>';
@@ -14706,6 +14873,7 @@
             const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
             const assignments = getCurrentFieldingAssignments(normalizedTeamHalf);
             const names = state.playerNames?.[normalizedTeamHalf] || [];
+            const numbers = state.playerNumbers?.[normalizedTeamHalf] || [];
             const positions = state.playerPositions?.[normalizedTeamHalf] || [];
             return Array.from({ length: 9 }, (_, index) => {
                 const name = getActiveRosterName(names[index] || "");
@@ -14714,6 +14882,7 @@
                     index,
                     battingOrder: index + 1,
                     name,
+                    number: String(numbers[index] || "").trim(),
                     position: assignedPosition || normalizeFieldingPositionValue(positions[index] || "")
                 };
             });
@@ -14739,9 +14908,13 @@
             if (!state.playerPositions[normalizedTeamHalf]) {
                 state.playerPositions[normalizedTeamHalf] = Array.from({ length: 9 }, () => "");
             }
+            if (!state.playerNumbers[normalizedTeamHalf]) {
+                state.playerNumbers[normalizedTeamHalf] = Array.from({ length: 9 }, () => "");
+            }
             (afterLineup || []).forEach((afterRow, index) => {
                 const beforeRow = beforeLineup?.[index] || {};
                 const afterName = String(afterRow?.name || "").trim();
+                const afterNumber = String(afterRow?.number || "").trim();
                 const afterPosition = normalizeFieldingPositionValue(afterRow?.position || "");
                 if (afterName !== String(beforeRow.name || "").trim()) {
                     state.playerNames[normalizedTeamHalf][index] = setActiveRosterName(state.playerNames[normalizedTeamHalf][index], afterName);
@@ -14749,10 +14922,89 @@
                 if (afterPosition !== normalizeFieldingPositionValue(beforeRow.position || "")) {
                     state.playerPositions[normalizedTeamHalf][index] = afterPosition;
                 }
+                if (afterNumber !== String(beforeRow.number || "").trim()) {
+                    state.playerNumbers[normalizedTeamHalf][index] = afterNumber;
+                }
             });
             updateRegisteredPlayerNameOptions();
             renderPlayerRosterEditor();
             renderCurrentBatterCard();
+        }
+
+        function restoreSheetChangeLineup(teamHalf, targetLineup, currentLineup) {
+            const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
+            ["playerNames", "playerNumbers", "playerPositions"].forEach((key) => {
+                if (!state[key][normalizedTeamHalf]) {
+                    state[key][normalizedTeamHalf] = Array.from({ length: 9 }, () => "");
+                }
+            });
+            (targetLineup || []).forEach((targetRow, index) => {
+                const targetName = String(targetRow?.name || "").trim();
+                const currentName = String(currentLineup?.[index]?.name || "").trim();
+                const history = String(state.playerNames[normalizedTeamHalf][index] || "")
+                    .split("/")
+                    .map((name) => name.trim())
+                    .filter(Boolean);
+                if (targetName !== currentName) {
+                    const targetIndex = history.lastIndexOf(targetName);
+                    state.playerNames[normalizedTeamHalf][index] = targetIndex >= 0
+                        ? history.slice(0, targetIndex + 1).join("/")
+                        : targetName;
+                }
+                state.playerNumbers[normalizedTeamHalf][index] = String(targetRow?.number || "").trim();
+                state.playerPositions[normalizedTeamHalf][index] = normalizeFieldingPositionValue(targetRow?.position || "");
+            });
+            updateRegisteredPlayerNameOptions();
+            renderPlayerRosterEditor();
+            renderCurrentBatterCard();
+        }
+
+        function areLineupSnapshotsEqual(left = [], right = []) {
+            return Array.from({ length: 9 }, (_, index) => {
+                const a = normalizeLineupChangeRow(left[index], index);
+                const b = normalizeLineupChangeRow(right[index], index);
+                return a.name === b.name && a.number === b.number && a.position === b.position;
+            }).every(Boolean);
+        }
+
+        function arePitcherSnapshotsEqual(left = {}, right = {}) {
+            const a = normalizeLineupChangePitcher(left);
+            const b = normalizeLineupChangePitcher(right);
+            return a.name === b.name && a.number === b.number;
+        }
+
+        function validateLineupChangeDraft(lineup = [], dhState = "none") {
+            const rows = Array.from({ length: 9 }, (_, index) => normalizeLineupChangeRow(lineup[index], index));
+            const temporaryRole = rows.find((row) => row.name && ["PH", "PR"].includes(row.position));
+            if (temporaryRole) {
+                return temporaryRole.battingOrder + "番 " + temporaryRole.name + "の守備位置を選んでください。";
+            }
+            const occupiedPositions = rows
+                .map((row) => row.position)
+                .filter((position) => FIELDING_POSITION_ORDER.includes(position));
+            const duplicatePosition = occupiedPositions.find((position, index) => occupiedPositions.indexOf(position) !== index);
+            if (duplicatePosition) {
+                return formatFieldingPositionValue(duplicatePosition) + "が重複しています。";
+            }
+            const dhCount = rows.filter((row) => row.position === "DH").length;
+            if (dhCount > 1) {
+                return "DHが複数います。";
+            }
+            if (dhState === "active" && dhCount !== 1) {
+                return "DH継続では、打順内の1人をDHにしてください。";
+            }
+            if (dhState !== "active" && dhCount) {
+                return "DHなし・DH消滅では、守備欄のDHを別の守備位置へ変更してください。";
+            }
+            const namedRows = rows.filter((row) => row.name);
+            if (namedRows.length === 9) {
+                const required = dhState === "active" ? ["2", "3", "4", "5", "6", "7", "8", "9"] : FIELDING_POSITION_ORDER;
+                const missing = required.find((position) => !occupiedPositions.includes(position));
+                if (missing) {
+                    return formatFieldingPositionValue(missing) + "の選手がいません。";
+                }
+            }
+            return "";
         }
 
         function buildSheetChangeNote(baseNote, detail) {
@@ -14905,7 +15157,7 @@
                 '<div class="fielding-drag-header">',
                 '<span>' + escapeHtml(getTeamDisplayName(defenseHalf)) + ' 守備位置</span>',
                 '<div class="fielding-drag-header-actions">',
-                '<button type="button" onclick="openSheetChangeDialogForCurrentDefense()">シート変更</button>',
+                '<button type="button" onclick="openSheetChangeDialogForCurrentDefense()">守備変更・選手交代</button>',
                 '<button type="button" onclick="hideFieldingDragBoard()">閉じる</button>',
                 '</div>',
                 '</div>'
@@ -14916,7 +15168,7 @@
                     headerHtml,
                     '<div class="fielding-drag-empty">',
                     '<div>守備位置が未登録です。選手名と守備位置を入れると、ここで指ドラッグ入替が使えます。</div>',
-                    '<button type="button" onclick="openSheetChangeDialogForCurrentDefense()">シート変更を開く</button>',
+                    '<button type="button" onclick="openSheetChangeDialogForCurrentDefense()">守備変更・選手交代を開く</button>',
                     '</div>'
                 ].join("");
                 return;
@@ -15164,6 +15416,12 @@
                 teamHalf: normalizedTeamHalf,
                 beforeLineup,
                 afterLineup,
+                beforePitcher: getCurrentSheetChangePitcher(normalizedTeamHalf),
+                afterPitcher: getCurrentSheetChangePitcher(normalizedTeamHalf),
+                pitcherChanged: false,
+                dhBefore: inferLineupDhState(beforeLineup),
+                dhAfter: inferLineupDhState(afterLineup),
+                rowChanges: beforeLineup.filter((row, index) => isSheetChangeLineupRowChanged(row, afterLineup[index])),
                 changes,
                 base,
                 source: "fielding-drag"
@@ -15396,36 +15654,69 @@
             };
         }
 
-        function renderSheetChangeLineupRows(beforeLineup) {
+        function renderSheetChangeLineupRows(beforeLineup, draftLineup = beforeLineup) {
             return (beforeLineup || []).map((row) => {
+                const draftRow = draftLineup?.[row.index] || row;
                 const positionText = row.position ? formatFieldingPositionValue(row.position) : "守備なし";
                 return [
                     '<div class="sheet-change-cell sheet-change-order" data-sheet-change-row="' + row.index + '">' + escapeHtml(row.battingOrder + "番") + '</div>',
-                    '<div class="sheet-change-cell sheet-change-before" data-sheet-change-row="' + row.index + '"><strong>' + escapeHtml(row.name || "未登録") + '</strong><small>' + escapeHtml(positionText) + '</small></div>',
+                    '<div class="sheet-change-cell sheet-change-before" data-sheet-change-row="' + row.index + '"><strong>' + escapeHtml(row.name || "未登録") + '</strong><small>' + escapeHtml((row.number ? "#" + row.number + " / " : "") + positionText) + '</small></div>',
                     '<div class="sheet-change-cell sheet-change-after" data-sheet-change-row="' + row.index + '">',
-                    '<input id="sheetChangeAfterName_' + row.index + '" list="registeredPlayerNameOptions" value="' + escapeHtml(row.name) + '" aria-label="' + escapeHtml(row.battingOrder + '番 変更後選手名') + '" oninput="updateSheetChangeDraft()">',
+                    '<div class="sheet-change-after-fields">',
+                    '<input id="sheetChangeAfterName_' + row.index + '" list="registeredPlayerNameOptions" value="' + escapeHtml(draftRow.name) + '" aria-label="' + escapeHtml(row.battingOrder + '番 変更後選手名') + '" oninput="updateSheetChangeDraft()">',
+                    '<input id="sheetChangeAfterNumber_' + row.index + '" class="sheet-change-number" inputmode="numeric" value="' + escapeHtml(draftRow.number || "") + '" placeholder="背" aria-label="' + escapeHtml(row.battingOrder + '番 変更後背番号') + '" oninput="updateSheetChangeDraft()">',
+                    '</div>',
                     '</div>',
                     '<div class="sheet-change-cell sheet-change-after" data-sheet-change-row="' + row.index + '">',
-                    '<select id="sheetChangeAfterPosition_' + row.index + '" aria-label="' + escapeHtml(row.battingOrder + '番 変更後守備') + '" onchange="updateSheetChangeDraft()">' + getRosterPositionOptions(row.position) + '</select>',
+                    '<select id="sheetChangeAfterPosition_' + row.index + '" aria-label="' + escapeHtml(row.battingOrder + '番 変更後守備') + '" onchange="updateSheetChangeDraft()">' + getRosterPositionOptions(draftRow.position) + '</select>',
                     '</div>'
                 ].join("");
             }).join("");
         }
 
-        function openSheetChangeDialog(teamHalf = null, baseChange = null) {
+        function getCurrentSheetChangePitcher(teamHalf) {
+            const normalizedTeamHalf = teamHalf === "bottom" ? "bottom" : "top";
+            const info = normalizeGameInfo(state.gameInfo);
+            const latest = (info.pitcherChanges?.[normalizedTeamHalf] || []).at(-1);
+            return normalizeLineupChangePitcher(latest || {
+                name: info.pitchers?.[normalizedTeamHalf] || "",
+                number: info.pitcherNumbers?.[normalizedTeamHalf] || ""
+            });
+        }
+
+        function formatSheetChangePitcher(pitcher = {}) {
+            const normalized = normalizeLineupChangePitcher(pitcher);
+            return formatPitcherDisplayName(normalized.name || "未登録", normalized.number);
+        }
+
+        function openSheetChangeDialog(teamHalf = null, baseChange = null, editSet = null) {
             state.gameInfo = normalizeGameInfo(state.gameInfo);
             state.fieldingDragBoardVisible = false;
             renderFieldingDragBoard();
             updateRegisteredPlayerNameOptions();
             const base = getSheetChangeFallbackBaseChange(teamHalf, baseChange);
-            const beforeLineup = getCurrentSheetChangeLineup(base.teamHalf);
+            const normalizedEditSet = editSet ? normalizeLineupChangeSet(editSet) : null;
+            const beforeLineup = normalizedEditSet?.beforeLineup || getCurrentSheetChangeLineup(base.teamHalf);
+            const draftLineup = normalizedEditSet?.afterLineup || beforeLineup;
+            const beforePitcher = normalizedEditSet?.beforePitcher || getCurrentSheetChangePitcher(base.teamHalf);
+            const afterPitcher = normalizedEditSet?.afterPitcher || beforePitcher;
+            const dhBefore = normalizedEditSet?.dhBefore || inferLineupDhState(beforeLineup);
+            const dhAfter = normalizedEditSet?.dhAfter || dhBefore;
+            sheetChangeDialogContext = {
+                teamHalf: base.teamHalf,
+                beforeLineup: deepClone(beforeLineup),
+                beforePitcher: deepClone(beforePitcher),
+                editSetId: normalizedEditSet?.id || "",
+                createdAt: normalizedEditSet?.createdAt || ""
+            };
             const { backdrop, popup } = ensureSheetChangeDialog();
             const teamOptions = ["top", "bottom"].map((half) => (
                 '<option value="' + half + '"' + (base.teamHalf === half ? " selected" : "") + '>' + escapeHtml(getTeamDisplayName(half)) + '</option>'
             )).join("");
             popup.innerHTML = [
-                '<div class="comment-popup-title">シート変更: ' + escapeHtml(getTeamDisplayName(base.teamHalf)) + '</div>',
+                '<div class="comment-popup-title">' + (normalizedEditSet ? "守備変更・選手交代を編集: " : "守備変更・選手交代: ") + escapeHtml(getTeamDisplayName(base.teamHalf)) + '</div>',
                 '<form class="sheet-change-dialog-form" onsubmit="confirmSheetChangeDialog(event)">',
+                '<input type="hidden" id="sheetChangeEditSetId" value="' + escapeHtml(normalizedEditSet?.id || "") + '">',
                 '<div class="sheet-change-meta-grid">',
                 '<label>チーム<select id="sheetChangeTeam" onchange="rerenderSheetChangeDialogForTeam(this.value)">' + teamOptions + '</select></label>',
                 '<label>回<input id="sheetChangeInning" type="number" min="1" max="18" inputmode="numeric" value="' + escapeHtml(base.inning) + '" oninput="updateSheetChangePreview()"></label>',
@@ -15433,6 +15724,22 @@
                 '<label>何番から<input id="sheetChangeBattingOrder" type="number" min="1" max="9" inputmode="numeric" value="' + escapeHtml(base.battingOrder) + '" oninput="updateSheetChangePreview()"></label>',
                 '</div>',
                 '<label class="sheet-change-note-field">メモ<input id="sheetChangeNote" type="text" value="' + escapeHtml(base.note) + '" placeholder="例: 代打から守備" oninput="updateSheetChangePreview()"></label>',
+                '<div class="sheet-change-status-panel">',
+                    '<label>DH状態<select id="sheetChangeDhState" onchange="updateSheetChangeDraft()">',
+                        '<option value="none"' + (dhAfter === "none" ? " selected" : "") + '>DHなし</option>',
+                        '<option value="active"' + (dhAfter === "active" ? " selected" : "") + '>DH継続</option>',
+                        '<option value="eliminated"' + (dhAfter === "eliminated" ? " selected" : "") + '>DH消滅</option>',
+                    '</select><small>変更前: ' + escapeHtml(dhBefore === "active" ? "DHあり" : "DHなし") + '</small></label>',
+                    '<div class="sheet-change-pitcher-box">',
+                        '<label class="sheet-change-pitcher-toggle"><input id="sheetChangePitcherChanged" type="checkbox"' + (normalizedEditSet?.pitcherChanged ? " checked" : "") + ' onchange="toggleSheetChangePitcherFields(); updateSheetChangeDraft()">投手も交代</label>',
+                        '<div class="sheet-change-current-pitcher">変更前: ' + escapeHtml(formatSheetChangePitcher(beforePitcher)) + '</div>',
+                        '<div id="sheetChangePitcherFields" class="sheet-change-pitcher-fields' + (normalizedEditSet?.pitcherChanged ? " is-open" : "") + '">',
+                            '<input id="sheetChangePitcherName" list="registeredPlayerNameOptions" value="' + escapeHtml(afterPitcher.name) + '" placeholder="投手名" aria-label="変更後投手名" oninput="updateSheetChangeDraft()">',
+                            '<input id="sheetChangePitcherNumber" inputmode="numeric" value="' + escapeHtml(afterPitcher.number) + '" placeholder="背" aria-label="変更後投手背番号" oninput="updateSheetChangeDraft()">',
+                            '<select id="sheetChangePitcherThrows" aria-label="投げ方" onchange="updateSheetChangeDraft()"><option value="">投方</option><option value="right"' + (afterPitcher.throws === "right" ? " selected" : "") + '>右</option><option value="left"' + (afterPitcher.throws === "left" ? " selected" : "") + '>左</option></select>',
+                        '</div>',
+                    '</div>',
+                '</div>',
                 '<div class="sheet-change-layout">',
                 '<div class="sheet-change-drag-panel">',
                 '<div id="sheetChangeDragBoard" class="sheet-change-drag-board" aria-label="守備位置"></div>',
@@ -15444,7 +15751,7 @@
                     '<div class="sheet-change-cell sheet-change-header">変更前</div>',
                     '<div class="sheet-change-cell sheet-change-header">変更後</div>',
                     '<div class="sheet-change-cell sheet-change-header">守備</div>',
-                    renderSheetChangeLineupRows(beforeLineup),
+                    renderSheetChangeLineupRows(beforeLineup, draftLineup),
                 '</div>',
                 '</div>',
                 '</div>',
@@ -15501,7 +15808,7 @@
                 '<div class="comment-popup-body">' + escapeHtml(context.inning + '回' + getHalfLabel(context.battingHalf) + '・' + battingName + '攻撃 ' + context.battingOrder + '番から') + '</div>',
                 '<div class="defense-change-menu-actions">',
                     '<button type="button" class="primary" onclick="openPitcherChangeDialogForCurrentDefense()">投手交代</button>',
-                    '<button type="button" onclick="openSheetChangeDialogForCurrentDefense()">シート変更</button>',
+                    '<button type="button" onclick="openSheetChangeDialogForCurrentDefense()">守備変更・選手交代</button>',
                     '<button type="button" onclick="closeDefenseChangeMenu()">キャンセル</button>',
                 '</div>'
             ].join("");
@@ -15552,6 +15859,12 @@
             popup?.classList.remove("is-open");
             popup?.setAttribute("aria-hidden", "true");
             backdrop?.classList.remove("is-open");
+            sheetChangeDialogContext = null;
+        }
+
+        function toggleSheetChangePitcherFields() {
+            const checked = Boolean(document.getElementById("sheetChangePitcherChanged")?.checked);
+            document.getElementById("sheetChangePitcherFields")?.classList.toggle("is-open", checked);
         }
 
         function readSheetChangeAfterLineup() {
@@ -15561,6 +15874,7 @@
                     index,
                     battingOrder: index + 1,
                     name: document.getElementById("sheetChangeAfterName_" + index)?.value.trim() || "",
+                    number: document.getElementById("sheetChangeAfterNumber_" + index)?.value.trim() || "",
                     position: normalizeFieldingPositionValue(positionValue)
                 };
             });
@@ -15570,6 +15884,7 @@
             (lineup || []).forEach((row, index) => {
                 const rowIndex = Number.isInteger(row?.index) ? row.index : index;
                 setElementValue("sheetChangeAfterName_" + rowIndex, row?.name || "");
+                setElementValue("sheetChangeAfterNumber_" + rowIndex, row?.number || "");
                 setElementValue("sheetChangeAfterPosition_" + rowIndex, normalizeFieldingPositionValue(row?.position || ""));
             });
         }
@@ -15578,7 +15893,9 @@
             const teamHalf = document.getElementById("sheetChangeTeam")?.value === "bottom" ? "bottom" : "top";
             return {
                 teamHalf,
-                beforeLineup: getCurrentSheetChangeLineup(teamHalf),
+                beforeLineup: sheetChangeDialogContext?.teamHalf === teamHalf
+                    ? deepClone(sheetChangeDialogContext.beforeLineup)
+                    : getCurrentSheetChangeLineup(teamHalf),
                 afterLineup: readSheetChangeAfterLineup()
             };
         }
@@ -15586,9 +15903,11 @@
         function isSheetChangeLineupRowChanged(beforeRow, afterRow) {
             const beforeName = String(beforeRow?.name || "").trim();
             const afterName = String(afterRow?.name || "").trim();
+            const beforeNumber = String(beforeRow?.number || "").trim();
+            const afterNumber = String(afterRow?.number || "").trim();
             const beforePosition = normalizeFieldingPositionValue(beforeRow?.position || "");
             const afterPosition = normalizeFieldingPositionValue(afterRow?.position || "");
-            return beforeName !== afterName || beforePosition !== afterPosition;
+            return beforeName !== afterName || beforeNumber !== afterNumber || beforePosition !== afterPosition;
         }
 
         function getSheetChangeChangedPositions(beforeLineup, afterLineup) {
@@ -15625,11 +15944,13 @@
                 const beforeRow = beforeLineup[index] || {};
                 const afterRow = afterLineup[index] || {};
                 const nameChanged = String(beforeRow.name || "").trim() !== String(afterRow.name || "").trim();
+                const numberChanged = String(beforeRow.number || "").trim() !== String(afterRow.number || "").trim();
                 const positionChanged = normalizeFieldingPositionValue(beforeRow.position || "") !== normalizeFieldingPositionValue(afterRow.position || "");
-                const rowChanged = nameChanged || positionChanged;
+                const rowChanged = nameChanged || numberChanged || positionChanged;
                 document.querySelectorAll('[data-sheet-change-row="' + index + '"]')
                     .forEach((cell) => cell.classList.toggle("is-changed", rowChanged));
                 document.getElementById("sheetChangeAfterName_" + index)?.classList.toggle("is-changed", nameChanged);
+                document.getElementById("sheetChangeAfterNumber_" + index)?.classList.toggle("is-changed", numberChanged);
                 document.getElementById("sheetChangeAfterPosition_" + index)?.classList.toggle("is-changed", positionChanged);
             });
         }
@@ -15665,7 +15986,35 @@
             ].join("");
         }
 
+        function getSheetChangePitcherDraft() {
+            return normalizeLineupChangePitcher({
+                name: document.getElementById("sheetChangePitcherName")?.value || "",
+                number: document.getElementById("sheetChangePitcherNumber")?.value || "",
+                throws: document.getElementById("sheetChangePitcherThrows")?.value || ""
+            });
+        }
+
+        function syncSheetChangePitcherFromLineup() {
+            const dhState = document.getElementById("sheetChangeDhState")?.value || "none";
+            if (dhState === "active") {
+                return;
+            }
+            const pitcherRow = readSheetChangeAfterLineup().find((row) => row.position === "1" && row.name);
+            const beforePitcher = normalizeLineupChangePitcher(sheetChangeDialogContext?.beforePitcher);
+            if (!pitcherRow || pitcherRow.name === beforePitcher.name) {
+                return;
+            }
+            const toggle = document.getElementById("sheetChangePitcherChanged");
+            if (toggle) {
+                toggle.checked = true;
+            }
+            setElementValue("sheetChangePitcherName", pitcherRow.name);
+            setElementValue("sheetChangePitcherNumber", pitcherRow.number || "");
+            toggleSheetChangePitcherFields();
+        }
+
         function updateSheetChangeDraft() {
+            syncSheetChangePitcherFromLineup();
             renderSheetChangeDialogDragBoard();
             updateSheetChangePreview();
             updateSheetChangeTableHighlights();
@@ -15710,12 +16059,28 @@
         function getSheetChangeDialogDiffs() {
             const base = getSheetChangeDialogBaseChange();
             const normalizedBase = getSheetChangeFallbackBaseChange(base.teamHalf, base);
-            const beforeLineup = getCurrentSheetChangeLineup(normalizedBase.teamHalf);
+            const beforeLineup = sheetChangeDialogContext?.teamHalf === normalizedBase.teamHalf
+                ? deepClone(sheetChangeDialogContext.beforeLineup)
+                : getCurrentSheetChangeLineup(normalizedBase.teamHalf);
             const afterLineup = readSheetChangeAfterLineup();
+            const beforePitcher = normalizeLineupChangePitcher(
+                sheetChangeDialogContext?.beforePitcher || getCurrentSheetChangePitcher(normalizedBase.teamHalf)
+            );
+            const pitcherChanged = Boolean(document.getElementById("sheetChangePitcherChanged")?.checked);
+            const afterPitcher = pitcherChanged ? getSheetChangePitcherDraft() : beforePitcher;
+            const dhBefore = inferLineupDhState(beforeLineup);
+            const dhAfter = document.getElementById("sheetChangeDhState")?.value || dhBefore;
+            const rowChanges = beforeLineup.filter((row, index) => isSheetChangeLineupRowChanged(row, afterLineup[index]));
             return {
                 teamHalf: normalizedBase.teamHalf,
                 beforeLineup,
                 afterLineup,
+                beforePitcher,
+                afterPitcher,
+                pitcherChanged,
+                dhBefore,
+                dhAfter,
+                rowChanges,
                 changes: buildSheetChangeDiffsFromAssignments(
                     buildFieldingAssignmentsFromLineup(beforeLineup),
                     buildFieldingAssignmentsFromLineup(afterLineup),
@@ -15736,13 +16101,25 @@
             if (!preview) {
                 return;
             }
-            const { changes } = getSheetChangeDialogDiffs();
-            if (!changes.length) {
+            const { changes, rowChanges, pitcherChanged, beforePitcher, afterPitcher, dhBefore, dhAfter } = getSheetChangeDialogDiffs();
+            if (!rowChanges.length && !pitcherChanged && dhBefore === dhAfter) {
                 preview.innerHTML = "差分なし";
                 return;
             }
-            preview.innerHTML = '<strong>登録予定 ' + changes.length + '件</strong>'
-                + changes.map((change) => '<span class="sheet-change-preview-change">' + formatSheetChangePreviewText(change) + '</span>').join("");
+            const details = changes.map((change) => '<span class="sheet-change-preview-change">' + formatSheetChangePreviewText(change) + '</span>');
+            rowChanges.forEach((beforeRow) => {
+                const afterRow = readSheetChangeAfterLineup()[beforeRow.index] || {};
+                if (String(beforeRow.number || "") !== String(afterRow.number || "") && String(beforeRow.name || "") === String(afterRow.name || "")) {
+                    details.push('<span class="sheet-change-preview-change">' + escapeHtml((afterRow.name || (afterRow.battingOrder + "番")) + " 背番号 #" + (beforeRow.number || "-") + "→#" + (afterRow.number || "-")) + '</span>');
+                }
+            });
+            if (pitcherChanged) {
+                details.push('<span class="sheet-change-preview-change">' + escapeHtml("投手 " + formatSheetChangePitcher(beforePitcher) + "→" + formatSheetChangePitcher(afterPitcher)) + '</span>');
+            }
+            if (dhBefore !== dhAfter) {
+                details.push('<span class="sheet-change-preview-change">' + escapeHtml("DH " + (dhBefore === "active" ? "あり" : "なし") + "→" + (dhAfter === "active" ? "継続" : dhAfter === "eliminated" ? "消滅" : "なし")) + '</span>');
+            }
+            preview.innerHTML = '<strong>変更内容</strong>' + details.join("");
         }
 
         function ensureSheetChangeConfirmDialog() {
@@ -15776,7 +16153,8 @@
 
         function formatSheetChangeLineupCompareCell(row) {
             const positionText = row?.position ? formatFieldingPositionValue(row.position) : "守備なし";
-            return '<strong>' + escapeHtml(row?.name || "未登録") + '</strong><small>' + escapeHtml(positionText) + '</small>';
+            const detailText = [row?.number ? "#" + row.number : "", positionText].filter(Boolean).join(" / ");
+            return '<strong>' + escapeHtml(row?.name || "未登録") + '</strong><small>' + escapeHtml(detailText) + '</small>';
         }
 
         function renderSheetChangeConfirmRows(beforeLineup, afterLineup) {
@@ -15801,11 +16179,18 @@
             const { backdrop, popup } = ensureSheetChangeConfirmDialog();
             const teamName = getTeamDisplayName(data.teamHalf);
             const cancelLabel = data.source === "fielding-drag" ? "キャンセル" : "戻って修正";
+            const summaryItems = data.changes.map((change) => '<span class="sheet-change-preview-change">' + formatSheetChangePreviewText(change) + '</span>');
+            if (data.pitcherChanged) {
+                summaryItems.push('<span class="sheet-change-preview-change">' + escapeHtml("投手 " + formatSheetChangePitcher(data.beforePitcher) + "→" + formatSheetChangePitcher(data.afterPitcher)) + '</span>');
+            }
+            if (data.dhBefore !== data.dhAfter) {
+                summaryItems.push('<span class="sheet-change-preview-change">' + escapeHtml("DH状態を変更") + '</span>');
+            }
             popup.innerHTML = [
-                '<div class="comment-popup-title">シート変更の確認: ' + escapeHtml(teamName) + '</div>',
+                '<div class="comment-popup-title">守備変更・選手交代の確認: ' + escapeHtml(teamName) + '</div>',
                 '<div class="sheet-change-confirm-summary">',
-                '<strong>登録予定 ' + data.changes.length + '件</strong>',
-                data.changes.map((change) => '<span class="sheet-change-preview-change">' + formatSheetChangePreviewText(change) + '</span>').join(""),
+                '<strong>1件の変更として登録</strong>',
+                summaryItems.join(""),
                 '</div>',
                 '<div class="sheet-change-table">',
                 '<div class="sheet-change-cell sheet-change-header">打順</div>',
@@ -15826,16 +16211,32 @@
 
         function confirmSheetChangeDialog(event) {
             event?.preventDefault();
-            const { teamHalf, beforeLineup, afterLineup, changes } = getSheetChangeDialogDiffs();
-            if (!changes.length) {
+            const data = getSheetChangeDialogDiffs();
+            const validationError = validateLineupChangeDraft(data.afterLineup, data.dhAfter);
+            if (validationError) {
+                alert(validationError);
+                return;
+            }
+            if (data.dhBefore !== "active" && ["active", "eliminated"].includes(data.dhAfter)) {
+                alert(data.dhAfter === "active"
+                    ? "試合途中からDHを追加することはできません。"
+                    : "DHがない状態ではDH消滅を選べません。");
+                return;
+            }
+            if (data.dhBefore === "active" && data.dhAfter === "none") {
+                alert("DHを終了するときは「DH消滅」を選んでください。");
+                return;
+            }
+            if (data.pitcherChanged && !data.afterPitcher.name) {
+                alert("変更後の投手名を入力してください。");
+                return;
+            }
+            if (!data.rowChanges.length && !data.pitcherChanged && data.dhBefore === data.dhAfter) {
                 alert("変更がありません。");
                 return;
             }
             openSheetChangeConfirmDialog({
-                teamHalf,
-                beforeLineup,
-                afterLineup,
-                changes,
+                ...data,
                 base: getSheetChangeDialogBaseChange()
             });
         }
@@ -15848,23 +16249,156 @@
             if (!pendingSheetChangeConfirm) {
                 return;
             }
-            const { teamHalf, beforeLineup, afterLineup, changes, base } = pendingSheetChangeConfirm;
+            const data = pendingSheetChangeConfirm;
+            const { teamHalf, beforeLineup, afterLineup, beforePitcher, afterPitcher, pitcherChanged, dhBefore, dhAfter, base } = data;
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            const editSetId = sheetChangeDialogContext?.editSetId || "";
+            const changeSetId = editSetId || "lcs_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
+            const existingSetIndex = editSetId
+                ? state.gameInfo.lineupChangeSets[teamHalf].findIndex((item) => item.id === editSetId)
+                : -1;
+            const currentLineup = getCurrentSheetChangeLineup(teamHalf);
+            if (existingSetIndex >= 0 && !areLineupSnapshotsEqual(currentLineup, state.gameInfo.lineupChangeSets[teamHalf][existingSetIndex].afterLineup)) {
+                alert("この変更後に選手情報が更新されています。最新の状態を確認してからやり直してください。");
+                return;
+            }
+            pushGameHistory();
+            if (existingSetIndex >= 0) {
+                restoreSheetChangeLineup(teamHalf, beforeLineup, currentLineup);
+                state.gameInfo.fieldingChanges[teamHalf] = state.gameInfo.fieldingChanges[teamHalf].filter((change) => change.changeSetId !== changeSetId);
+                state.gameInfo.pitcherChanges[teamHalf] = state.gameInfo.pitcherChanges[teamHalf].filter((change) => change.changeSetId !== changeSetId);
+            }
             setElementValue("fieldingChangeTeam", teamHalf);
             setElementValue("fieldingChangeInning", base.inning);
             setElementValue("fieldingChangeHalf", base.half);
             setElementValue("fieldingChangeBattingOrder", base.battingOrder);
             setElementValue("fieldingChangeNote", base.note);
             applySheetChangeLineup(teamHalf, beforeLineup, afterLineup);
-            saveFieldingChanges(teamHalf, changes);
+            const taggedChanges = data.changes.map((change) => ({ ...change, changeSetId }));
+            saveFieldingChanges(teamHalf, taggedChanges, { render: false });
+            if (pitcherChanged) {
+                const previousPosition = beforeLineup.find((row) => row.name && row.name === afterPitcher.name)?.position || "";
+                const pitcherHistoryNames = [
+                    state.gameInfo.pitchers?.[teamHalf] || "",
+                    ...(state.gameInfo.pitcherChanges?.[teamHalf] || []).map((change) => change.name || "")
+                ];
+                state.gameInfo.pitcherChanges[teamHalf].push(normalizePitcherChange({
+                    ...afterPitcher,
+                    inning: base.inning,
+                    half: base.half,
+                    battingOrder: base.battingOrder,
+                    entryCol: state.selectedSheetCol,
+                    previousPosition,
+                    reentry: afterPitcher.name !== beforePitcher.name && pitcherHistoryNames.includes(afterPitcher.name),
+                    note: base.note,
+                    fieldingNote: taggedChanges.map(formatFieldingPositionText).filter(Boolean).join("、"),
+                    changeSetId
+                }));
+            }
+            const changeSet = normalizeLineupChangeSet({
+                id: changeSetId,
+                inning: base.inning,
+                half: base.half,
+                battingOrder: base.battingOrder,
+                entryCol: state.selectedSheetCol,
+                note: base.note,
+                createdAt: sheetChangeDialogContext?.createdAt || new Date().toISOString(),
+                beforeLineup,
+                afterLineup,
+                beforePitcher,
+                afterPitcher,
+                pitcherChanged,
+                dhBefore,
+                dhAfter
+            });
+            if (existingSetIndex >= 0) {
+                state.gameInfo.lineupChangeSets[teamHalf][existingSetIndex] = changeSet;
+            } else {
+                state.gameInfo.lineupChangeSets[teamHalf].push(changeSet);
+            }
             state.fieldingDragBoardVisible = false;
+            renderFieldingChangeList();
+            renderPitcherChangeList();
+            renderCurrentBatterCard();
+            renderScoreSheet();
+            renderPrintablePitcherExtraPage();
             renderFieldingDragBoard();
+            scheduleGameAutoSave();
             closeSheetChangeConfirmDialog();
             closeSheetChangeDialog();
+        }
+
+        function openLineupChangeSetEdit(teamHalf, index) {
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            const sets = state.gameInfo.lineupChangeSets[teamHalf] || [];
+            const changeSet = sets[index];
+            if (!changeSet) {
+                return;
+            }
+            if (index !== sets.length - 1) {
+                alert("後続の変更への影響を防ぐため、最新の変更から順に編集してください。");
+                return;
+            }
+            if (!areLineupSnapshotsEqual(getCurrentSheetChangeLineup(teamHalf), changeSet.afterLineup)) {
+                alert("選手情報が変更後の状態と一致しません。現在の状態を確認してください。");
+                return;
+            }
+            if (changeSet.pitcherChanged && !arePitcherSnapshotsEqual(getCurrentSheetChangePitcher(teamHalf), changeSet.afterPitcher)) {
+                alert("この後に別の投手交代が記録されています。新しい投手交代から順に修正してください。");
+                return;
+            }
+            openSheetChangeDialog(teamHalf, {
+                teamHalf,
+                inning: changeSet.inning,
+                half: changeSet.half,
+                battingOrder: changeSet.battingOrder,
+                note: changeSet.note
+            }, changeSet);
+        }
+
+        function deleteLineupChangeSet(teamHalf, index) {
+            state.gameInfo = normalizeGameInfo(state.gameInfo);
+            const sets = state.gameInfo.lineupChangeSets[teamHalf] || [];
+            const changeSet = sets[index];
+            if (!changeSet) {
+                return;
+            }
+            if (index !== sets.length - 1) {
+                alert("後続の変更への影響を防ぐため、最新の変更から順に取り消してください。");
+                return;
+            }
+            const currentLineup = getCurrentSheetChangeLineup(teamHalf);
+            if (!areLineupSnapshotsEqual(currentLineup, changeSet.afterLineup)) {
+                alert("現在の選手情報が変更後の状態と一致しないため、取り消せません。");
+                return;
+            }
+            if (changeSet.pitcherChanged && !arePitcherSnapshotsEqual(getCurrentSheetChangePitcher(teamHalf), changeSet.afterPitcher)) {
+                alert("この後に別の投手交代が記録されているため、取り消せません。");
+                return;
+            }
+            if (!confirm("この守備変更・選手交代を取り消しますか？")) {
+                return;
+            }
+            pushGameHistory();
+            restoreSheetChangeLineup(teamHalf, changeSet.beforeLineup, currentLineup);
+            state.gameInfo.fieldingChanges[teamHalf] = state.gameInfo.fieldingChanges[teamHalf].filter((change) => change.changeSetId !== changeSet.id);
+            state.gameInfo.pitcherChanges[teamHalf] = state.gameInfo.pitcherChanges[teamHalf].filter((change) => change.changeSetId !== changeSet.id);
+            sets.splice(index, 1);
+            renderFieldingChangeList();
+            renderPitcherChangeList();
+            renderCurrentBatterCard();
+            renderScoreSheet();
+            renderPrintablePitcherExtraPage();
+            scheduleGameAutoSave();
         }
 
         function deleteFieldingChange(teamHalf, index) {
             state.gameInfo = normalizeGameInfo(state.gameInfo);
             if (!state.gameInfo.fieldingChanges[teamHalf]?.[index]) {
+                return;
+            }
+            if (state.gameInfo.fieldingChanges[teamHalf][index].changeSetId) {
+                alert("この記録は守備変更・選手交代のまとまりから編集または取消してください。");
                 return;
             }
             state.gameInfo.fieldingChanges[teamHalf].splice(index, 1);
@@ -15880,14 +16414,57 @@
                 return;
             }
             const info = normalizeGameInfo(state.gameInfo);
-            const rows = ["top", "bottom"].flatMap((teamHalf) => (
-                (info.fieldingChanges[teamHalf] || []).map((change, index) => ({ teamHalf, change, index }))
+            const groupedRows = ["top", "bottom"].flatMap((teamHalf) => (
+                (info.lineupChangeSets[teamHalf] || []).map((changeSet, index) => ({ teamHalf, changeSet, index }))
             ));
-            if (!rows.length) {
+            const rows = ["top", "bottom"].flatMap((teamHalf) => (
+                (info.fieldingChanges[teamHalf] || [])
+                    .map((change, index) => ({ teamHalf, change, index }))
+                    .filter(({ change }) => !change.changeSetId)
+            ));
+            if (!groupedRows.length && !rows.length) {
                 list.innerHTML = '<div class="pitcher-change-empty">守備変更はまだ記録されていません。</div>';
                 return;
             }
-            list.innerHTML = rows.map(({ teamHalf, change, index }) => {
+            const groupedHtml = groupedRows.map(({ teamHalf, changeSet, index }) => {
+                const teamName = state.teamNames[teamHalf] || (teamHalf === "top" ? "先攻" : "後攻");
+                const inningText = (changeSet.inning || "?") + "回" + getHalfLabel(changeSet.half);
+                const orderText = changeSet.battingOrder ? changeSet.battingOrder + "番から" : "打順未指定";
+                const detailParts = [];
+                changeSet.beforeLineup.forEach((beforeRow, rowIndex) => {
+                    const afterRow = changeSet.afterLineup[rowIndex];
+                    if (!isSheetChangeLineupRowChanged(beforeRow, afterRow)) {
+                        return;
+                    }
+                    if (beforeRow.name !== afterRow.name) {
+                        detailParts.push(afterRow.battingOrder + "番 " + (beforeRow.name || "未登録") + "→" + (afterRow.name || "未登録"));
+                    } else if (beforeRow.position !== afterRow.position) {
+                        detailParts.push((afterRow.name || afterRow.battingOrder + "番") + " " + (formatFieldingPositionValue(beforeRow.position) || "守備なし") + "→" + (formatFieldingPositionValue(afterRow.position) || "守備なし"));
+                    } else if (beforeRow.number !== afterRow.number) {
+                        detailParts.push((afterRow.name || afterRow.battingOrder + "番") + " #" + (beforeRow.number || "-") + "→#" + (afterRow.number || "-"));
+                    }
+                });
+                if (changeSet.pitcherChanged) {
+                    detailParts.push("投手 " + formatSheetChangePitcher(changeSet.beforePitcher) + "→" + formatSheetChangePitcher(changeSet.afterPitcher));
+                }
+                if (changeSet.dhBefore !== changeSet.dhAfter) {
+                    detailParts.push(changeSet.dhAfter === "eliminated" ? "DH消滅" : changeSet.dhAfter === "active" ? "DH継続" : "DHなし");
+                }
+                const isLatest = index === (info.lineupChangeSets[teamHalf] || []).length - 1;
+                return (
+                    '<div class="pitcher-change-item">' +
+                        '<div>' +
+                            escapeHtml(teamName + " 守備変更・選手交代") +
+                            '<small>' + escapeHtml(inningText + " " + orderText + (detailParts.length ? " / " + detailParts.join(" / ") : "") + (changeSet.note ? " / " + changeSet.note : "")) + '</small>' +
+                        '</div>' +
+                        '<div class="pitcher-change-actions">' +
+                            '<button type="button"' + (isLatest ? "" : " disabled") + ' onclick="openLineupChangeSetEdit(\'' + teamHalf + '\',' + index + ')">編集</button>' +
+                            '<button type="button" class="pitcher-change-delete"' + (isLatest ? "" : " disabled") + ' onclick="deleteLineupChangeSet(\'' + teamHalf + '\',' + index + ')">取消</button>' +
+                        '</div>' +
+                    '</div>'
+                );
+            }).join("");
+            const legacyHtml = rows.map(({ teamHalf, change, index }) => {
                 const teamName = state.teamNames[teamHalf] || (teamHalf === "top" ? "先攻" : "後攻");
                 const inningText = (change.inning || "?") + "回" + getHalfLabel(change.half);
                 const orderText = change.battingOrder ? change.battingOrder + "番から" : "打順未指定";
@@ -15904,6 +16481,7 @@
                     '</div>'
                 );
             }).join("");
+            list.innerHTML = groupedHtml + legacyHtml;
         }
 
         function rememberRetiredRunnerPreview(runnerRef, baseIndex, label, outScore) {
@@ -17974,6 +18552,7 @@
             const hasChanges = ["top", "bottom"].some((half) => (
                 (info.pitcherChanges?.[half] || []).length > 0
                 || (info.fieldingChanges?.[half] || []).length > 0
+                || (info.lineupChangeSets?.[half] || []).length > 0
             ));
             return Boolean(
                 hasSnapshot
@@ -18036,6 +18615,7 @@
             source.gameInfo.pitcherNumbers = swapTeamIndexedValue(source.gameInfo.pitcherNumbers);
             source.gameInfo.pitcherChanges = swapTeamIndexedValue(source.gameInfo.pitcherChanges);
             source.gameInfo.fieldingChanges = swapTeamIndexedValue(source.gameInfo.fieldingChanges);
+            source.gameInfo.lineupChangeSets = swapTeamIndexedValue(source.gameInfo.lineupChangeSets);
             source.gameInfo.benches = {
                 ...source.gameInfo.benches,
                 firstBaseSideTeamId: getSwappedBenchTeamId(source.gameInfo.benches.firstBaseSideTeamId),

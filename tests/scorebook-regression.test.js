@@ -110,6 +110,12 @@ function loadScorebookTestApi() {
             + "state,"
             + "createEmptyScoreSheet,"
             + "normalizeGameInfo,"
+            + "normalizeLineupChangeSet,"
+            + "validateLineupChangeDraft,"
+            + "areLineupSnapshotsEqual,"
+            + "buildFieldingAssignmentsFromLineup,"
+            + "buildSheetChangeDiffsFromAssignments,"
+            + "buildTeamsSaveModel,"
             + "getSnapshotPitchCount,"
             + "calculatePitcherStatsForTeam,"
             + "saveGameToLocalStorage,"
@@ -483,6 +489,107 @@ test("registered teams can be swapped together before the first play", () => {
     assert.equal(api.state.gameInfo.benches.firstBaseSideTeamId, "team_bottom");
     assert.equal(api.state.gameInfo.benches.thirdBaseSideTeamId, "team_top");
     assert.equal(api.state.activeHalf, "top");
+});
+
+test("team swap also keeps grouped lineup changes with their team", () => {
+    const api = loadScorebookTestApi();
+    api.state.gameInfo = api.normalizeGameInfo({
+        lineupChangeSets: {
+            top: [{ id: "top-set", beforeLineup: [], afterLineup: [] }],
+            bottom: [{ id: "bottom-set", beforeLineup: [], afterLineup: [] }]
+        }
+    });
+
+    api.swapRegisteredTeamStateBeforeGame();
+
+    assert.equal(api.state.gameInfo.lineupChangeSets.top[0].id, "bottom-set");
+    assert.equal(api.state.gameInfo.lineupChangeSets.bottom[0].id, "top-set");
+});
+
+test("grouped lineup changes retain fixed batting slots, numbers, pitcher and DH state", () => {
+    const api = loadScorebookTestApi();
+    const before = Array.from({ length: 9 }, (_, index) => ({
+        battingOrder: index + 1,
+        name: "選手" + (index + 1),
+        number: String(index + 1),
+        position: index === 8 ? "DH" : String(index + 2)
+    }));
+    const after = before.map((row) => ({ ...row }));
+    after[5] = { ...after[5], name: "新投手", number: "18", position: "1" };
+    after[8] = { ...after[8], name: "新左翼", number: "17", position: "7" };
+    const changeSet = api.normalizeLineupChangeSet({
+        id: "double-switch",
+        inning: 7,
+        half: "top",
+        battingOrder: 6,
+        beforeLineup: before,
+        afterLineup: after,
+        beforePitcher: { name: "旧投手", number: "1" },
+        afterPitcher: { name: "新投手", number: "18", throws: "right" },
+        pitcherChanged: true,
+        dhBefore: "active",
+        dhAfter: "eliminated"
+    });
+
+    assert.equal(changeSet.afterLineup[5].battingOrder, 6);
+    assert.equal(changeSet.afterLineup[5].number, "18");
+    assert.equal(changeSet.afterLineup[8].battingOrder, 9);
+    assert.equal(changeSet.afterPitcher.name, "新投手");
+    assert.equal(changeSet.dhAfter, "eliminated");
+    assert.equal(api.validateLineupChangeDraft(changeSet.afterLineup, "eliminated"), "");
+});
+
+test("saved team model assigns the current number and position to the active replacement", () => {
+    const api = loadScorebookTestApi();
+    api.state.playerNames.top[0] = "先発選手/途中出場";
+    api.state.playerNumbers.top[0] = "17";
+    api.state.playerPositions.top[0] = "7";
+
+    const team = JSON.parse(JSON.stringify(api.buildTeamsSaveModel()[0]));
+
+    assert.equal(team.lineup[0].slots[0].name, "先発選手");
+    assert.equal(team.lineup[0].slots[0].number, "");
+    assert.equal(team.lineup[0].slots[1].name, "途中出場");
+    assert.equal(team.lineup[0].slots[1].number, "17");
+    assert.equal(team.lineup[0].slots[1].position, "7");
+});
+
+test("lineup validation catches duplicate fielders and an unresolved pinch runner", () => {
+    const api = loadScorebookTestApi();
+    const duplicate = Array.from({ length: 9 }, (_, index) => ({
+        name: "選手" + index,
+        position: index < 2 ? "6" : ""
+    }));
+    assert.match(api.validateLineupChangeDraft(duplicate, "none"), /重複/);
+
+    duplicate[0].position = "PR";
+    duplicate[1].position = "4";
+    assert.match(api.validateLineupChangeDraft(duplicate, "none"), /守備位置を選んで/);
+});
+
+test("three-player position rotation is saved as one set of fielding diffs", () => {
+    const api = loadScorebookTestApi();
+    const beforeLineup = [
+        { name: "遊撃", position: "6" },
+        { name: "二塁", position: "4" },
+        { name: "三塁", position: "5" }
+    ];
+    const afterLineup = [
+        { name: "遊撃", position: "4" },
+        { name: "二塁", position: "5" },
+        { name: "三塁", position: "6" }
+    ];
+    const changes = api.buildSheetChangeDiffsFromAssignments(
+        api.buildFieldingAssignmentsFromLineup(beforeLineup),
+        api.buildFieldingAssignmentsFromLineup(afterLineup),
+        { inning: 8, half: "bottom", battingOrder: 1 }
+    );
+
+    assert.equal(changes.length, 3);
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(changes.map((change) => change.fromPosition + "-" + change.toPosition).sort())),
+        ["4-5", "5-6", "6-4"]
+    );
 });
 
 test("registered team swapping is blocked after scoring input starts", () => {
