@@ -3301,6 +3301,18 @@
             line-height: 1.4;
         }
 
+        .team-roster-memory-recall {
+            width: fit-content;
+            min-height: 30px;
+            padding: 5px 9px;
+            border: 1px solid #0f766e;
+            border-radius: 7px;
+            background: #fff;
+            color: #0f766e;
+            font-size: 11px;
+            font-weight: 850;
+        }
+
         .roster-import-remember {
             display: flex;
             align-items: center;
@@ -7578,7 +7590,6 @@
                                     <input id="bottomTeamName" class="team-name-input" list="registeredTeamNameOptions" value="後攻" aria-label="後攻チーム名" onchange="updateTeamName('bottom', this.value)" onblur="updateTeamName('bottom', this.value)">
                                 </div>
                                 <datalist id="registeredTeamNameOptions"></datalist>
-                                <datalist id="registeredPlayerNameOptions"></datalist>
                                 <div id="playerRosterEditor" class="player-roster-editor"></div>
                                 <div class="roster-ocr-panel">
                                     <textarea id="starterPostInput" placeholder="X投稿のスタメン文を貼り付け 例: 先攻・横浜、後攻・桐蔭学園。&#10;横浜スタメン：3小野、4田島、6池田、5川上、7安食、DH大山、9植村、2脇山　投手・織田"></textarea>
@@ -7802,7 +7813,7 @@
     <div id="printTextSummaryPage" class="print-extra-page print-text-summary-page" aria-hidden="true"></div>
 
     <script>
-        const APP_VERSION = "0.4.18";
+        const APP_VERSION = "0.4.19";
         const DATA_SCHEMA_VERSION = 1;
         const GAME_STORAGE_KEY = "cuviu_scorebook_current_game_v1";
         const SAVED_GAMES_STORAGE_KEY = "cuviu_scorebook_saved_games_v1";
@@ -8502,6 +8513,10 @@
         let genericShareRangeState = null;
         let pendingScorebookJpgFiles = [];
         const teamRosterMemoryLinks = {
+            top: "",
+            bottom: ""
+        };
+        const teamRosterRecallKeys = {
             top: "",
             bottom: ""
         };
@@ -15663,7 +15678,7 @@
                     '<div class="sheet-change-cell sheet-change-before" data-sheet-change-row="' + row.index + '"><strong>' + escapeHtml(row.name || "未登録") + '</strong><small>' + escapeHtml((row.number ? "#" + row.number + " / " : "") + positionText) + '</small></div>',
                     '<div class="sheet-change-cell sheet-change-after" data-sheet-change-row="' + row.index + '">',
                     '<div class="sheet-change-after-fields">',
-                    '<input id="sheetChangeAfterName_' + row.index + '" list="registeredPlayerNameOptions" value="' + escapeHtml(draftRow.name) + '" aria-label="' + escapeHtml(row.battingOrder + '番 変更後選手名') + '" oninput="updateSheetChangeDraft()">',
+                    '<input id="sheetChangeAfterName_' + row.index + '" autocomplete="off" value="' + escapeHtml(draftRow.name) + '" aria-label="' + escapeHtml(row.battingOrder + '番 変更後選手名') + '" oninput="updateSheetChangeDraft()">',
                     '<input id="sheetChangeAfterNumber_' + row.index + '" class="sheet-change-number" inputmode="numeric" value="' + escapeHtml(draftRow.number || "") + '" placeholder="背" aria-label="' + escapeHtml(row.battingOrder + '番 変更後背番号') + '" oninput="updateSheetChangeDraft()">',
                     '</div>',
                     '</div>',
@@ -15734,7 +15749,7 @@
                         '<label class="sheet-change-pitcher-toggle"><input id="sheetChangePitcherChanged" type="checkbox"' + (normalizedEditSet?.pitcherChanged ? " checked" : "") + ' onchange="toggleSheetChangePitcherFields(); updateSheetChangeDraft()">投手も交代</label>',
                         '<div class="sheet-change-current-pitcher">変更前: ' + escapeHtml(formatSheetChangePitcher(beforePitcher)) + '</div>',
                         '<div id="sheetChangePitcherFields" class="sheet-change-pitcher-fields' + (normalizedEditSet?.pitcherChanged ? " is-open" : "") + '">',
-                            '<input id="sheetChangePitcherName" list="registeredPlayerNameOptions" value="' + escapeHtml(afterPitcher.name) + '" placeholder="投手名" aria-label="変更後投手名" oninput="updateSheetChangeDraft()">',
+                            '<input id="sheetChangePitcherName" autocomplete="off" value="' + escapeHtml(afterPitcher.name) + '" placeholder="投手名" aria-label="変更後投手名" oninput="updateSheetChangeDraft()">',
                             '<input id="sheetChangePitcherNumber" inputmode="numeric" value="' + escapeHtml(afterPitcher.number) + '" placeholder="背" aria-label="変更後投手背番号" oninput="updateSheetChangeDraft()">',
                             '<select id="sheetChangePitcherThrows" aria-label="投げ方" onchange="updateSheetChangeDraft()"><option value="">投方</option><option value="right"' + (afterPitcher.throws === "right" ? " selected" : "") + '>右</option><option value="left"' + (afterPitcher.throws === "left" ? " selected" : "") + '>左</option></select>',
                         '</div>',
@@ -16921,14 +16936,20 @@
                 return;
             }
             const nextName = value.trim() || (half === "top" ? "先攻" : "後攻");
-            if (normalizeTeamRosterMemoryKey(state.teamNames?.[half] || "") !== normalizeTeamRosterMemoryKey(nextName)) {
+            const previousKey = normalizeTeamRosterMemoryKey(state.teamNames?.[half] || "");
+            const nextKey = normalizeTeamRosterMemoryKey(nextName);
+            const teamNameChanged = previousKey !== nextKey;
+            if (teamNameChanged) {
                 clearTeamRosterMemoryLink(half);
+                teamRosterRecallKeys[half] = "";
             }
             state.teamNames[half] = nextName;
             updateGameFlowDisplay();
             renderLineScoreBoard();
             renderPlayerRosterEditor();
-            maybeApplyRememberedTeamRoster(half, state.teamNames[half]);
+            if (teamNameChanged) {
+                maybeApplyRememberedTeamRoster(half, state.teamNames[half]);
+            }
             scheduleGameAutoSave();
         }
 
@@ -16937,15 +16958,19 @@
                 return;
             }
             const nextName = String(value || "").trim() || (half === "top" ? "先攻" : "後攻");
-            if (normalizeTeamRosterMemoryKey(state.teamNames?.[half] || "") !== normalizeTeamRosterMemoryKey(nextName)) {
+            const previousKey = normalizeTeamRosterMemoryKey(state.teamNames?.[half] || "");
+            const nextKey = normalizeTeamRosterMemoryKey(nextName);
+            const teamNameChanged = previousKey !== nextKey;
+            if (teamNameChanged) {
                 clearTeamRosterMemoryLink(half);
+                teamRosterRecallKeys[half] = "";
             }
             state.teamNames[half] = nextName;
             updateGameFlowDisplay();
             renderLineScoreBoard();
             updateCommentTargetLabel();
             updateRegisteredTeamNameOptions();
-            if (isRosterHalfEmpty(half)) {
+            if (teamNameChanged && isRosterHalfEmpty(half)) {
                 maybeApplyRememberedTeamRoster(half, nextName);
             }
             scheduleGameAutoSave();
@@ -17243,23 +17268,37 @@
 
         function maybeApplyRememberedTeamRoster(half, teamName) {
             if (!["top", "bottom"].includes(half) || !isRememberableTeamName(teamName)) {
-                return;
+                return false;
             }
             const template = getTeamRosterTemplate(teamName);
-            if (!template || !hasTeamRosterTemplateContent(template) || isCurrentRosterSameAsTemplate(half, template)) {
-                return;
+            if (!template || !hasTeamRosterTemplateContent(template) || isCurrentRosterSameAsTemplate(half, template) || !isRosterHalfEmpty(half)) {
+                return false;
             }
-            const data = buildSingleTeamRosterImportData(half, template);
-            if (isRosterHalfEmpty(half)) {
-                setTeamRosterMemoryLink(half, teamName);
-                applyRosterImportData(data, {
-                    halves: [half],
-                    replaceLineup: true
-                });
-                setTeamRosterMemoryStatus(half, "登録済みメンバーを自動入力しました。");
-                return;
+            const teamKey = normalizeTeamRosterMemoryKey(teamName);
+            if (teamRosterRecallKeys[half] === teamKey) {
+                return false;
             }
-            openRosterImportConfirmDialog(data, {
+            teamRosterRecallKeys[half] = teamKey;
+            return openRosterImportConfirmDialog(buildSingleTeamRosterImportData(half, template), {
+                source: "teamMemory",
+                halves: [half],
+                replaceLineup: true,
+                rememberTeamsDefault: true
+            });
+        }
+
+        function openRememberedTeamRosterEditor(half) {
+            if (!["top", "bottom"].includes(half)) {
+                return false;
+            }
+            const teamName = state.teamNames?.[half] || "";
+            const template = getTeamRosterTemplate(teamName);
+            if (!template || !hasTeamRosterTemplateContent(template)) {
+                setTeamRosterMemoryStatus(half, "このチーム名の登録済みメンバーはありません。", true);
+                return false;
+            }
+            teamRosterRecallKeys[half] = normalizeTeamRosterMemoryKey(teamName);
+            return openRosterImportConfirmDialog(buildSingleTeamRosterImportData(half, template), {
                 source: "teamMemory",
                 halves: [half],
                 replaceLineup: true,
@@ -18190,7 +18229,7 @@
             const teamLabel = team.teamName || state.teamNames[half] || halfLabel;
             const rows = (team.entries || createEmptyRosterImportEntries()).map((entry, index) => [
                 '<div class="roster-import-order">' + (index + 1) + '番</div>',
-                '<input id="rosterImportName_' + half + '_' + index + '" list="registeredPlayerNameOptions" value="' + escapeHtml(entry.name || "") + '" aria-label="' + escapeHtml(teamLabel + " " + (index + 1) + "番 名前") + '">',
+                '<input id="rosterImportName_' + half + '_' + index + '" autocomplete="off" value="' + escapeHtml(entry.name || "") + '" aria-label="' + escapeHtml(teamLabel + " " + (index + 1) + "番 名前") + '">',
                 '<input id="rosterImportNumber_' + half + '_' + index + '" value="' + escapeHtml(entry.number || "") + '" inputmode="numeric" aria-label="' + escapeHtml(teamLabel + " " + (index + 1) + "番 背番号") + '">',
                 '<select id="rosterImportPosition_' + half + '_' + index + '" aria-label="' + escapeHtml(teamLabel + " " + (index + 1) + "番 守備") + '">' + getRosterPositionOptions(entry.position || "") + '</select>'
             ].join("")).join("");
@@ -18199,7 +18238,7 @@
                 '<div class="roster-import-team-title">' + escapeHtml(halfLabel + "・" + teamLabel) + '</div>',
                 '<div class="roster-import-meta">',
                 '<label>チーム名<input id="rosterImportTeamName_' + half + '" value="' + escapeHtml(team.teamName || "") + '" placeholder="' + escapeHtml(halfLabel) + '"></label>',
-                '<label>投手<input id="rosterImportPitcher_' + half + '" list="registeredPlayerNameOptions" value="' + escapeHtml(team.pitcher || "") + '" placeholder="投手名"></label>',
+                '<label>投手<input id="rosterImportPitcher_' + half + '" autocomplete="off" value="' + escapeHtml(team.pitcher || "") + '" placeholder="投手名"></label>',
                 '<label>投手背<input id="rosterImportPitcherNumber_' + half + '" value="' + escapeHtml(team.pitcherNumber || "") + '" inputmode="numeric" placeholder="背番号"></label>',
                 '</div>',
                 '<div class="roster-import-grid">',
@@ -18687,13 +18726,14 @@
                     '<div class="team-roster-memory">',
                     '<label><input id="teamRosterMemory_' + half + '" type="checkbox"' + (isRememberedTeam ? " checked" : "") + (canRememberTeam ? "" : " disabled") + ' onchange="toggleRememberTeamRoster(\'' + half + '\', this.checked)">次回もこのメンバーを使う</label>',
                     '<div id="teamRosterMemoryStatus_' + half + '" class="team-roster-memory-status">' + escapeHtml(memoryStatus) + '</div>',
+                    hasRememberedTeam ? '<button type="button" class="team-roster-memory-recall" onclick="openRememberedTeamRosterEditor(\'' + half + '\')">前回メンバーを確認</button>' : '',
                     '</div>'
                 ].join("");
                 const inputs = names.map((name, index) => {
                     const order = index + 1;
                     return [
                         `<div class="player-roster-order">${order}番</div>`,
-                        `<input id="playerName_${half}_${index}" class="player-name-field" list="registeredPlayerNameOptions" value="${escapeHtml(name)}" placeholder="名前" aria-label="${escapeHtml(teamLabel)} ${order}番選手名" oninput="updatePlayerNameFromInput('${half}', ${index}, this)">`,
+                        `<input id="playerName_${half}_${index}" class="player-name-field" autocomplete="off" value="${escapeHtml(name)}" placeholder="名前" aria-label="${escapeHtml(teamLabel)} ${order}番選手名" oninput="updatePlayerNameFromInput('${half}', ${index}, this)">`,
                         `<input id="playerNumber_${half}_${index}" class="player-name-field" value="${escapeHtml(numbers[index] || "")}" placeholder="背" inputmode="numeric" aria-label="${escapeHtml(teamLabel)} ${order}番背番号" oninput="updatePlayerNumber('${half}', ${index}, this.value)">`,
                         `<select id="playerPosition_${half}_${index}" class="player-name-field" aria-label="${escapeHtml(teamLabel)} ${order}番守備位置" oninput="updatePlayerPosition('${half}', ${index}, this.value)" onchange="updatePlayerPosition('${half}', ${index}, this.value)">${getRosterPositionOptions(positions[index])}</select>`
                     ].join("");
@@ -18702,7 +18742,7 @@
                     '<div class="player-roster-team' + (half === state.activeHalf ? ' is-active' : '') + '">',
                     '<div class="player-roster-team-title">' + escapeHtml(teamLabel) + (half === state.activeHalf ? ' 入力中' : '') + '</div>',
                     memoryControl,
-                    '<label class="player-roster-pitcher"><span>投手</span><input class="player-name-field" list="registeredPlayerNameOptions" value="' + escapeHtml(pitcherName) + '" placeholder="投手名" aria-label="' + escapeHtml(teamLabel) + ' 投手名" oninput="updateTeamPitcherFromRoster(\'' + half + '\', this.value)"><input class="player-name-field pitcher-number-field" value="' + escapeHtml(pitcherNumber) + '" placeholder="背" inputmode="numeric" aria-label="' + escapeHtml(teamLabel) + ' 投手背番号" oninput="updateTeamPitcherNumberFromRoster(\'' + half + '\', this.value)"></label>',
+                    '<label class="player-roster-pitcher"><span>投手</span><input class="player-name-field" autocomplete="off" value="' + escapeHtml(pitcherName) + '" placeholder="投手名" aria-label="' + escapeHtml(teamLabel) + ' 投手名" oninput="updateTeamPitcherFromRoster(\'' + half + '\', this.value)"><input class="player-name-field pitcher-number-field" value="' + escapeHtml(pitcherNumber) + '" placeholder="背" inputmode="numeric" aria-label="' + escapeHtml(teamLabel) + ' 投手背番号" oninput="updateTeamPitcherNumberFromRoster(\'' + half + '\', this.value)"></label>',
                     '<div class="player-roster-grid">',
                     inputs,
                     '</div>',
